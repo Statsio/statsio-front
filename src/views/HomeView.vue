@@ -6,6 +6,7 @@ import HomeHero from '../components/home/HomeHero.vue'
 import HomeHighlights from '../components/home/HomeHighlights.vue'
 import HomeNav from '../components/home/HomeNav.vue'
 import HomePolls from '../components/home/HomePolls.vue'
+import HomePromoBanner from '../components/home/HomePromoBanner.vue'
 import HomeStatsData from '../components/home/HomeStatsData.vue'
 import HomeStatsStrip from '../components/home/HomeStatsStrip.vue'
 
@@ -128,18 +129,50 @@ const polls = [
     ],
   },
 ]
+
+const promoItems = [
+  {
+    type: 'NOUVEAU',
+    title: 'Municipales 2026',
+    meta: 'Cartes, dynamiques locales et rapports de force commune par commune',
+    cta: 'Découvrir le dossier',
+    variant: 'special',
+  },
+  {
+    type: 'Article',
+    title: 'Présidentielle 2027 : cartographie des indécis',
+    meta: 'Lecture en hausse de 12% cette semaine',
+    cta: 'Lire l analyse',
+  },
+  {
+    type: 'StatsData',
+    title: 'Inflation par ville en France',
+    meta: '23 villes suivies et 7 indicateurs croisés',
+    cta: 'Explorer la base',
+  },
+  {
+    type: 'En directe - Municipales 2026',
+    title: 'Réforme des retraites : opinion consolidée',
+    meta: '12k reponses et segmentation live',
+    cta: 'Voir le barometre',
+  },
+] satisfies {
+  type: string
+  title: string
+  meta: string
+  cta: string
+  variant?: 'default' | 'special' | 'live'
+}[]
 </script>
 
 <template>
   <div class="min-h-screen text-slate-900">
+    <HomePromoBanner :items="promoItems" />
     <HomeNav />
-    <main class="pb-24">
-      <HomeHero
-        headline="Le média statistique nouvelle génération."
+    <main class="pb-24 pt-32">
+      <HomeHero headline="Le média statistique nouvelle génération."
         subtitle="Statsio centralise les analyses, les sources et les signaux en temps réel pour créer des articles, des StatsData et des sondages à fort impact."
-        :bullets="heroBullets"
-        :kpis="heroKpis"
-      />
+        :bullets="heroBullets" :kpis="heroKpis" />
       <HomeStatsStrip :stats="statsStrip" />
       <HomeHighlights :items="highlights" />
       <HomeArticles :items="articles" />

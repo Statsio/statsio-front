@@ -1,0 +1,13 @@
+@theme {
+  --color-primary: #8b5cf6;
+  --color-secondary: #dccaf8;
+  --color-accent: #3b82f6;
+  --font-sans: 'Manrope', system-ui, sans-serif;
+  --font-mono:
+    'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+  --font-manrope: 'Manrope', system-ui, sans-serif;
+  --font-jetbrains:
+    'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+}
