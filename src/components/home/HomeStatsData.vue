@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import AppButton from '@/components/ui/AppButton.vue'
+
 defineProps<{
   items: {
     title: string
@@ -17,21 +19,19 @@ defineProps<{
           <p class="eyebrow">StatsData</p>
           <h2 class="text-3xl font-semibold text-slate-900">Pages vivantes connectées aux APIs</h2>
         </div>
-        <button class="btn-secondary">Créer une StatsData</button>
+        <AppButton variant="secondary">Créer une StatsData</AppButton>
       </div>
 
       <div class="mt-8 grid gap-6 lg:grid-cols-2">
-        <article
-          v-for="item in items"
-          :key="item.title"
-          class="panel rounded-3xl p-6"
-        >
+        <article v-for="item in items" :key="item.title" class="panel rounded-3xl p-6">
           <div class="flex items-start justify-between gap-4">
             <div>
               <p class="eyebrow">{{ item.scope }}</p>
               <h3 class="mt-2 text-xl font-semibold text-slate-900">{{ item.title }}</h3>
             </div>
-            <span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
+            <span
+              class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700"
+            >
               {{ item.updated }}
             </span>
           </div>

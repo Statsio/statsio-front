@@ -1,3 +1,7 @@
+<script setup lang="ts">
+import AppButton from '@/components/ui/AppButton.vue'
+</script>
+
 <template>
   <section class="section">
     <div class="container">
@@ -9,11 +13,7 @@
         <div class="relative grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
           <div>
             <div class="flex items-center gap-3">
-              <img
-                src="@/assets/brand/statsio-white.svg"
-                alt="Statsio"
-                class="h-8 w-8"
-              />
+              <img src="@/assets/brand/statsio-white.svg" alt="Statsio" class="h-8 w-8" />
               <p class="eyebrow text-white/60">Passer en mode pro</p>
             </div>
             <h2 class="mt-3 text-3xl font-semibold">Transformez vos chiffres en audience</h2>
@@ -22,14 +22,8 @@
             </p>
           </div>
           <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-            <button class="rounded-full bg-white px-6 py-3 text-sm font-semibold text-slate-900">
-              Demander une démo
-            </button>
-            <button
-              class="rounded-full border border-white/30 px-6 py-3 text-sm font-semibold text-white"
-            >
-              Voir les offres
-            </button>
+            <AppButton variant="light" size="lg">Demander une démo</AppButton>
+            <AppButton variant="light-outline" size="lg">Voir les offres</AppButton>
           </div>
         </div>
       </div>

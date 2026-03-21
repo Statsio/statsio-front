@@ -53,26 +53,17 @@
 *,
 *::before,
 *::after {
-  box-sizing: border-box;
-  margin: 0;
-  font-weight: normal;
+  @apply box-border m-0 font-normal;
 }
 
 body {
-  min-height: 100vh;
-  color: var(--color-text);
   background: var(--color-background);
+  color: var(--color-text);
   transition:
     color 0.5s,
     background-color 0.5s;
-  line-height: 1.6;
-  font-family:
-    'Manrope',
-    'JetBrains Mono',
-    system-ui,
-    sans-serif;
-  font-size: 15px;
+  @apply min-h-screen font-sans text-[15px] leading-relaxed antialiased;
+  font-family: var(--font-sans);
   text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

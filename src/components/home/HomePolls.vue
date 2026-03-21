@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import AppButton from '@/components/ui/AppButton.vue'
+
 defineProps<{
   items: {
     title: string
@@ -18,15 +20,11 @@ defineProps<{
             Intentions de vote et baromètres interactifs
           </h2>
         </div>
-        <button class="btn-primary">Lancer un sondage</button>
+        <AppButton variant="primary">Lancer un sondage</AppButton>
       </div>
 
       <div class="mt-8 grid gap-6 lg:grid-cols-3">
-        <article
-          v-for="item in items"
-          :key="item.title"
-          class="panel rounded-3xl p-6"
-        >
+        <article v-for="item in items" :key="item.title" class="panel rounded-3xl p-6">
           <div class="flex items-center justify-between">
             <div>
               <p class="eyebrow">{{ item.window }}</p>

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import AppButton from '@/components/ui/AppButton.vue'
+
 defineProps<{
   items: { title: string; description: string; tag: string; icon: string }[]
 }>()
@@ -12,7 +14,7 @@ defineProps<{
           <p class="eyebrow">Pourquoi Statsio</p>
           <h2 class="text-3xl font-semibold text-slate-900">Une newsroom data-ready</h2>
         </div>
-        <button class="btn-secondary">Voir la démo</button>
+        <AppButton variant="secondary">Voir la démo</AppButton>
       </div>
       <div class="mt-8 grid gap-6 lg:grid-cols-3">
         <article

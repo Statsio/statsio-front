@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import AppButton from '@/components/ui/AppButton.vue'
+
 defineProps<{
   headline: string
   subtitle: string
@@ -29,8 +31,8 @@ defineProps<{
           </div>
         </div>
         <div class="flex flex-wrap items-center gap-4">
-          <button class="btn-primary">Lancer ma première analyse</button>
-          <button class="btn-secondary">Explorer les tendances</button>
+          <AppButton variant="primary" size="lg">Lancer ma première analyse</AppButton>
+          <AppButton variant="secondary" size="lg">Explorer les tendances</AppButton>
         </div>
         <div class="flex flex-wrap gap-8 pt-4">
           <div v-for="kpi in kpis" :key="kpi.label">
@@ -47,7 +49,8 @@ defineProps<{
               <p class="eyebrow">Desk live</p>
               <p class="text-2xl font-semibold text-slate-900">Indice de confiance</p>
             </div>
-            <span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700"
+            <span
+              class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700"
               >+8.4%</span
             >
           </div>

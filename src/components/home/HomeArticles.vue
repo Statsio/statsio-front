@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import AppButton from '@/components/ui/AppButton.vue'
+
 defineProps<{
   items: {
     category: string
@@ -18,14 +20,10 @@ defineProps<{
           <p class="eyebrow">Presse & analyses</p>
           <h2 class="text-3xl font-semibold text-slate-900">Articles enrichis par la data</h2>
         </div>
-        <button class="btn-primary">Publier</button>
+        <AppButton variant="primary">Publier</AppButton>
       </div>
       <div class="mt-8 grid gap-6 lg:grid-cols-3">
-        <article
-          v-for="item in items"
-          :key="item.title"
-          class="panel rounded-3xl p-6"
-        >
+        <article v-for="item in items" :key="item.title" class="panel rounded-3xl p-6">
           <div class="flex items-center justify-between text-xs font-semibold text-slate-500">
             <span class="badge mono">{{ item.category }}</span>
             <span class="text-emerald-600">{{ item.trend }}</span>
