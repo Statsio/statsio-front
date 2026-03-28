@@ -1,0 +1,72 @@
+<script setup lang="ts">
+withDefaults(
+  defineProps<{
+    kind: 'articles' | 'stats' | 'polls' | 'channels'
+    class?: string
+  }>(),
+  {
+    class: 'h-[22px] w-[22px]',
+  },
+)
+</script>
+
+<template>
+  <svg
+    v-if="kind === 'articles'"
+    viewBox="0 0 24 24"
+    :class="class"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M5 6.5C5 5.67 5.67 5 6.5 5H14L19 10V17.5C19 18.33 18.33 19 17.5 19H6.5C5.67 19 5 18.33 5 17.5V6.5Z"
+      class="fill-secondary"
+    />
+    <path d="M14 5L19 10H15.5C14.67 10 14 9.33 14 8.5V5Z" class="fill-primary" />
+    <path d="M8 11.25H15.25M8 14.25H13" class="stroke-accent" stroke-width="1.7" stroke-linecap="round" />
+  </svg>
+
+  <svg
+    v-else-if="kind === 'stats'"
+    viewBox="0 0 24 24"
+    :class="class"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <rect x="4.5" y="12" width="3.5" height="7" rx="1" class="fill-accent" transform="rotate(-18 4.5 12)" />
+    <rect
+      x="10.25"
+      y="8.75"
+      width="3.5"
+      height="10.25"
+      rx="1"
+      class="fill-primary"
+      transform="rotate(-18 10.25 8.75)"
+    />
+    <rect x="16" y="5.5" width="3.5" height="13.5" rx="1" class="fill-accent" transform="rotate(-18 16 5.5)" />
+  </svg>
+
+  <svg
+    v-else-if="kind === 'polls'"
+    viewBox="0 0 24 24"
+    :class="class"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path d="M12 12L12 4C7.58 4 4 7.58 4 12H12Z" class="fill-primary" />
+    <path d="M12 12L4 12C4 16.42 7.58 20 12 20V12Z" class="fill-secondary" />
+    <path d="M12 12L17.66 6.34C16.21 4.89 14.21 4 12 4V12Z" class="fill-accent" />
+  </svg>
+
+  <svg v-else viewBox="0 0 24 24" :class="class" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="7" cy="8" r="2.5" class="fill-accent" />
+    <circle cx="17" cy="6.5" r="2" class="fill-primary" />
+    <circle cx="15.5" cy="16.5" r="2.5" class="fill-secondary" />
+    <path
+      d="M8.9 8.4L15.1 6.9M8.5 9.8L14.1 15M16.7 8.3L16 14"
+      class="stroke-primary"
+      stroke-width="1.6"
+      stroke-linecap="round"
+    />
+  </svg>
+</template>

@@ -1,14 +1,8 @@
 $panel-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
 $page-grid-size: 56px;
-$badge-border: rgba(139, 92, 246, 0.3);
-$badge-surface: rgba(139, 92, 246, 0.08);
-$badge-text: #4c1d95;
 
 body {
-  background:
-    linear-gradient(90deg, rgba(15, 23, 42, 0.04) 1px, transparent 1px),
-    linear-gradient(180deg, rgba(15, 23, 42, 0.04) 1px, transparent 1px),
-    radial-gradient(900px 480px at 15% -10%, rgba(139, 92, 246, 0.12), transparent 70%), #f8fafc;
+  background: var(--app-body-background);
   background-size:
     $page-grid-size $page-grid-size,
     $page-grid-size $page-grid-size,
@@ -23,14 +17,14 @@ body {
 }
 
 .panel {
-  border: 1px solid var(--color-slate-200);
-  background: white;
+  border: 1px solid var(--app-border);
+  background: var(--app-surface);
   box-shadow: $panel-shadow;
 }
 
 .panel-muted {
-  border: 1px solid var(--color-slate-200);
-  background: var(--color-slate-50);
+  border: 1px solid var(--app-border);
+  background: var(--app-surface-muted);
 }
 
 .badge {
@@ -39,9 +33,9 @@ body {
   gap: 0.5rem;
   padding: 0.375rem 0.875rem;
   border-radius: 999px;
-  border: 1px solid $badge-border;
-  background: $badge-surface;
-  color: $badge-text;
+  border: 1px solid var(--app-badge-border);
+  background: var(--app-badge-surface);
+  color: var(--app-badge-text);
   font-size: 0.75rem;
   font-weight: 600;
 }

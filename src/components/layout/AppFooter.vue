@@ -1,3 +1,7 @@
+<script setup lang="ts">
+import { RouterLink } from 'vue-router'
+</script>
+
 <template>
   <footer class="border-t border-slate-200 bg-white/70">
     <div class="container grid gap-8 py-12 md:grid-cols-[1.2fr_1fr_1fr_1fr]">
@@ -12,13 +16,13 @@
       </div>
       <div class="space-y-2 text-sm text-slate-500">
         <p class="eyebrow text-slate-400">Produits</p>
-        <a class="block hover:text-slate-700" href="#">Articles</a>
-        <a class="block hover:text-slate-700" href="#">StatsData</a>
+        <RouterLink class="block hover:text-slate-700" to="/articles">Articles</RouterLink>
+        <RouterLink class="block hover:text-slate-700" to="/statsdata">StatsData</RouterLink>
         <a class="block hover:text-slate-700" href="#">Sondages</a>
       </div>
       <div class="space-y-2 text-sm text-slate-500">
         <p class="eyebrow text-slate-400">Éditeurs</p>
-        <a class="block hover:text-slate-700" href="#">Chaînes pro</a>
+        <RouterLink class="block hover:text-slate-700" to="/chaines">Chaînes pro</RouterLink>
         <a class="block hover:text-slate-700" href="#">Studio data</a>
         <a class="block hover:text-slate-700" href="#">API partenaires</a>
       </div>

@@ -50,10 +50,12 @@
   }
 }
 
-*,
-*::before,
-*::after {
-  @apply box-border m-0 font-normal;
+@layer base {
+  *,
+  *::before,
+  *::after {
+    @apply box-border;
+  }
 }
 
 body {
@@ -64,6 +66,7 @@ body {
     background-color 0.5s;
   @apply min-h-screen font-sans text-[15px] leading-relaxed antialiased;
   font-family: var(--font-sans);
+  font-weight: var(--font-weight-normal);
   text-rendering: optimizeLegibility;
   -moz-osx-font-smoothing: grayscale;
 }

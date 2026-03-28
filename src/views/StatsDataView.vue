@@ -1,0 +1,328 @@
+<script setup lang="ts">
+import { RouterLink } from 'vue-router'
+import { sharedPromoItems } from '@/data/promo-items'
+import AppFooter from '@/components/layout/AppFooter.vue'
+import AppHeader from '@/components/layout/AppHeader.vue'
+import AppPromoBanner from '@/components/layout/AppPromoBanner.vue'
+import AppButton from '@/components/ui/AppButton.vue'
+
+const heroStats = [
+  { label: 'Séries suivies', value: '2.4k' },
+  { label: 'APIs connectées', value: '18' },
+  { label: 'Mises à jour', value: 'Temps réel' },
+]
+
+const filters = ['Tous', 'Économie', 'Santé', 'Territoires', 'Élections', 'Audience']
+
+const datasets = [
+  {
+    slug: 'inflation-par-ville-en-france',
+    title: 'Inflation par ville en France',
+    scope: 'Économie locale',
+    updated: 'Live',
+    progress: '72%',
+    metrics: ['IPC', 'Logement', 'Énergie', 'Alimentation', 'Revenus'],
+    summary:
+      'Une lecture ville par ville pour suivre les écarts de prix, l’exposition des ménages et les points de tension durables.',
+  },
+  {
+    slug: 'sante-mentale-des-18-25-ans',
+    title: 'Santé mentale des 18-25 ans',
+    scope: 'Santé publique',
+    updated: 'Actualisé 2 h',
+    progress: '64%',
+    metrics: ['Stress', 'Sommeil', 'Accès soins', 'Isolement', 'Prévention'],
+    summary:
+      'Croisez les perceptions, les indicateurs de suivi et les contrastes régionaux sur une base continuellement enrichie.',
+  },
+  {
+    slug: 'intentions-de-vote-par-bassin',
+    title: 'Intentions de vote par bassin',
+    scope: 'Politique',
+    updated: 'Nouvelle vague',
+    progress: '81%',
+    metrics: ['Intentions', 'Reports', 'Abstention', 'Âges', 'Territoires'],
+    summary:
+      'Des segments comparables, des historiques propres et des variations lisibles pour détecter les bascules utiles.',
+  },
+  {
+    slug: 'pouvoir-dachat-et-arbitrages',
+    title: 'Pouvoir d’achat et arbitrages',
+    scope: 'Société',
+    updated: 'Actualisé hier',
+    progress: '58%',
+    metrics: ['Budgets', 'Courses', 'Énergie', 'Transport', 'Loisirs'],
+    summary:
+      'Visualisez les renoncements, arbitrages et reprises par profils de consommation et intensité de contrainte.',
+  },
+]
+
+const featurePanels = [
+  {
+    title: 'Comparaisons rapides',
+    detail: 'Basculez entre territoires, périodes et segments sans casser la lecture.',
+  },
+  {
+    title: 'Blocs réutilisables',
+    detail: 'Tableaux, badges de statut, mini-graphiques et exports dans un même flux.',
+  },
+  {
+    title: 'Connexion éditoriale',
+    detail: 'Chaque StatsData peut alimenter un article, une note interne ou un baromètre public.',
+  },
+]
+
+const quickSignals = [
+  {
+    label: 'À surveiller',
+    title: 'Inflation alimentaire',
+    detail: 'Sujet le plus consulté sur les 72 dernières heures.',
+  },
+  {
+    label: 'En hausse',
+    title: 'Participation locale',
+    detail: 'Forte progression des comparaisons par commune cette semaine.',
+  },
+  {
+    label: 'Focus',
+    title: 'Santé mentale',
+    detail: 'Nouvelles données croisées avec âge, région et niveau d’études.',
+  },
+]
+</script>
+
+<template>
+  <div class="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#ffffff_20%,#eef6ff_100%)] text-slate-900">
+    <AppPromoBanner :items="sharedPromoItems" />
+    <AppHeader />
+
+    <main class="pb-24 pt-32">
+      <section class="section pb-10">
+        <div class="container grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_320px] lg:items-start">
+          <div class="flex flex-col gap-8">
+            <div class="flex flex-col gap-5">
+              <p class="eyebrow text-accent">StatsData & exploration</p>
+              <div class="flex max-w-4xl flex-col gap-4">
+                <h1 class="text-4xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-5xl lg:text-6xl">
+                  Une page StatsData faite pour explorer, comparer et publier sans friction.
+                </h1>
+                <p class="max-w-3xl text-lg leading-8 text-slate-600">
+                  Des pages vivantes branchées à vos APIs, avec des signaux lisibles, des comparaisons rapides et des blocs exploitables directement dans vos formats éditoriaux.
+                </p>
+              </div>
+            </div>
+
+            <div class="grid gap-4 sm:grid-cols-3">
+              <div
+                v-for="stat in heroStats"
+                :key="stat.label"
+                class="rounded-[1.75rem] border border-slate-200 bg-white/85 px-5 py-4 shadow-[0_20px_60px_-42px_rgba(15,23,42,0.35)]"
+              >
+                <div class="flex flex-col gap-3">
+                  <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">{{ stat.label }}</p>
+                  <p class="text-2xl font-semibold text-slate-950">{{ stat.value }}</p>
+                </div>
+              </div>
+            </div>
+
+            <article
+              class="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_40px_110px_-58px_rgba(59,130,246,0.45)]"
+            >
+              <div class="grid gap-0 lg:grid-cols-[minmax(0,1fr)_300px]">
+                <div class="flex flex-col gap-6 p-7 sm:p-9">
+                  <span class="inline-flex w-fit rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-accent">
+                    Économie locale
+                  </span>
+                  <div class="flex flex-col gap-4">
+                    <h2 class="max-w-3xl text-3xl font-semibold leading-tight tracking-[-0.03em] text-slate-950">
+                      Inflation par ville en France
+                    </h2>
+                    <p class="max-w-2xl text-base leading-7 text-slate-600">
+                      Un cockpit de lecture pour suivre les écarts de prix, repérer les zones sous tension et comparer les signaux sans sortir du contexte.
+                    </p>
+                  </div>
+
+                  <div class="grid gap-3 sm:grid-cols-3">
+                    <div class="rounded-[1.5rem] bg-slate-50 px-4 py-4">
+                      <div class="flex flex-col gap-2">
+                        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Couverture</p>
+                        <p class="text-lg font-semibold text-slate-950">23 villes</p>
+                      </div>
+                    </div>
+                    <div class="rounded-[1.5rem] bg-slate-50 px-4 py-4">
+                      <div class="flex flex-col gap-2">
+                        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Actualisation</p>
+                        <p class="text-lg font-semibold text-slate-950">Continue</p>
+                      </div>
+                    </div>
+                    <div class="rounded-[1.5rem] bg-slate-50 px-4 py-4">
+                      <div class="flex flex-col gap-2">
+                        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Exports</p>
+                        <p class="text-lg font-semibold text-slate-950">CSV, PNG</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="flex flex-wrap gap-3">
+                    <AppButton as="router-link" to="/login" variant="primary" size="md">
+                      Ouvrir la base
+                    </AppButton>
+                    <AppButton variant="secondary" size="md">Partager la vue</AppButton>
+                  </div>
+                </div>
+
+                <div class="bg-slate-950 p-7 text-white sm:p-9">
+                  <div class="flex flex-col gap-6">
+                    <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Vue synthétique</p>
+                    <div class="rounded-[1.75rem] bg-white/8 p-5">
+                      <div class="flex flex-col gap-4">
+                        <div class="flex items-end gap-3">
+                          <div class="h-12 w-4 rounded-full bg-white/20"></div>
+                          <div class="h-20 w-4 rounded-full bg-accent"></div>
+                          <div class="h-32 w-4 rounded-full bg-white"></div>
+                          <div class="h-24 w-4 rounded-full bg-primary"></div>
+                          <div class="h-16 w-4 rounded-full bg-secondary"></div>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2 text-xs uppercase tracking-[0.18em] text-slate-400">
+                          <span>Paris</span>
+                          <span>Lyon</span>
+                          <span>Lille</span>
+                        </div>
+                      </div>
+                    </div>
+                    <p class="text-sm leading-6 text-slate-300">
+                      Une interface dense, mais lisible: les signaux utiles remontent vite, les détails restent accessibles sans surcharger la page.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <aside class="flex flex-col gap-4">
+            <div class="rounded-[2rem] border border-slate-200 bg-slate-950 p-6 text-white">
+              <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Pourquoi ça marche</p>
+              <div class="mt-5 flex flex-col gap-5">
+                <div v-for="panel in featurePanels" :key="panel.title" class="rounded-[1.5rem] bg-white/8 p-4">
+                  <div class="flex flex-col gap-2">
+                    <p class="text-sm font-semibold text-white">{{ panel.title }}</p>
+                    <p class="text-sm leading-6 text-slate-300">{{ panel.detail }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="rounded-[2rem] border border-slate-200 bg-white p-6">
+              <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">En ce moment</p>
+              <div class="mt-5 flex flex-col gap-4">
+                <div v-for="item in quickSignals" :key="item.title" class="rounded-[1.5rem] bg-slate-50 p-4">
+                  <div class="flex flex-col gap-2">
+                    <p class="text-xs font-semibold uppercase tracking-[0.22em] text-primary">{{ item.label }}</p>
+                    <p class="text-base font-semibold text-slate-950">{{ item.title }}</p>
+                    <p class="text-sm leading-6 text-slate-500">{{ item.detail }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="section pt-8">
+        <div class="container flex flex-col gap-8">
+          <div class="flex flex-wrap items-center justify-between gap-5">
+            <div class="flex flex-col gap-2">
+              <p class="eyebrow">Catalogue</p>
+              <h2 class="text-3xl font-semibold text-slate-950">Les StatsData les plus consultées</h2>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <span
+                v-for="filter in filters"
+                :key="filter"
+                class="inline-flex rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600"
+              >
+                {{ filter }}
+              </span>
+            </div>
+          </div>
+
+          <div class="grid gap-6 lg:grid-cols-2">
+            <RouterLink
+              v-for="item in datasets"
+              :key="item.slug"
+              :to="`/statsdata/${item.slug}`"
+              class="flex h-full flex-col gap-6 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_26px_80px_-54px_rgba(15,23,42,0.45)]"
+            >
+              <div class="flex items-start justify-between gap-4">
+                <div class="flex flex-col gap-2">
+                  <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">{{ item.scope }}</p>
+                  <h3 class="text-2xl font-semibold leading-tight tracking-[-0.03em] text-slate-950">
+                    {{ item.title }}
+                  </h3>
+                </div>
+                <span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
+                  {{ item.updated }}
+                </span>
+              </div>
+
+              <p class="text-sm leading-7 text-slate-600">
+                {{ item.summary }}
+              </p>
+
+              <div class="flex flex-col gap-3">
+                <div class="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                  <span>Complétude</span>
+                  <span>{{ item.progress }}</span>
+                </div>
+                <div class="h-2 w-full rounded-full bg-slate-100">
+                  <div
+                    class="h-2 rounded-full bg-[var(--color-accent)]"
+                    :style="{ width: item.progress }"
+                  ></div>
+                </div>
+              </div>
+
+              <div class="flex flex-wrap gap-2">
+                <span
+                  v-for="metric in item.metrics"
+                  :key="metric"
+                  class="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600"
+                >
+                  {{ metric }}
+                </span>
+              </div>
+            </RouterLink>
+          </div>
+        </div>
+      </section>
+
+      <section class="section pt-4">
+        <div class="container">
+          <div class="rounded-[2.5rem] border border-slate-200 bg-white px-6 py-8 shadow-[0_40px_120px_-66px_rgba(15,23,42,0.4)] sm:px-8 lg:px-10">
+            <div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+              <div class="flex flex-col gap-4">
+                <p class="eyebrow text-accent">Brancher vos données</p>
+                <h2 class="text-3xl font-semibold text-slate-950">
+                  Vos datasets peuvent devenir des pages lisibles, comparables et directement publiables.
+                </h2>
+                <p class="max-w-2xl text-base leading-7 text-slate-600">
+                  Connectez vos sources, structurez vos métriques et servez des vues plus utiles que de simples tableaux bruts.
+                </p>
+              </div>
+              <div class="flex flex-wrap gap-3">
+                <AppButton as="router-link" to="/register" variant="primary" size="md">
+                  Créer une StatsData
+                </AppButton>
+                <AppButton as="router-link" to="/login" variant="outline" size="md">
+                  Voir la démo
+                </AppButton>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <AppFooter />
+  </div>
+</template>

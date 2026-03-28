@@ -70,7 +70,8 @@ const hasDefaultSlot = computed(() => Boolean(slots.default))
 const hasIconSlot = computed(() => Boolean(slots.icon))
 
 const forwardedAttrs = computed(() => {
-  const { class: _class, ...rest } = attrs
+  const rest = { ...attrs }
+  delete rest.class
 
   return rest
 })
