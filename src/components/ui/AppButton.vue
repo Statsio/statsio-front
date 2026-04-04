@@ -41,7 +41,7 @@ const slots = useSlots()
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    'bg-[var(--color-primary)] text-white shadow-[0_12px_20px_rgba(139,92,246,0.24)] hover:brightness-105 focus-visible:outline-[var(--color-primary)]',
+    'bg-[var(--color-primary)] text-white shadow-[0_12px_20px_color-mix(in_srgb,var(--color-primary)_24%,transparent)] hover:brightness-105 focus-visible:outline-[var(--color-primary)]',
   secondary:
     'border border-slate-200 bg-white text-slate-900 hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-slate-300',
   outline:

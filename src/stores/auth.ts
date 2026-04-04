@@ -1,40 +1,28 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { clearStoredToken, getStoredToken, storeToken } from '@/lib/auth-storage'
+import { clearStoredToken, getStoredToken, storeSession, storeUser } from '@/lib/auth-storage'
 import { isUnauthorizedError } from '@/lib/http-errors'
 import { googleAuthRequest, loginRequest, logoutRequest, meRequest, registerRequest } from '@/services/auth'
 import type {
   AuthSession,
   AuthUser,
-  AuthUserPayload,
   LoginPayload,
   PersistMode,
   RegisterPayload,
 } from '@/types/auth'
 
 const DEFAULT_PERSIST_MODE: PersistMode = 'local'
-const EMPTY_PROFILE = {
-  first_name: '',
-  last_name: '',
-  birthday: '',
-}
-
-const normalizeUser = (user: AuthUserPayload): AuthUser => ({
-  id: user.id,
-  email: user.email,
-  profile: {
-    first_name: user.profile?.first_name ?? user.first_name ?? EMPTY_PROFILE.first_name,
-    last_name: user.profile?.last_name ?? user.last_name ?? EMPTY_PROFILE.last_name,
-    birthday: user.profile?.birthday ?? user.birthday ?? EMPTY_PROFILE.birthday,
-  },
-})
+const isValidUser = (user: Partial<AuthUser> | null | undefined): user is AuthUser =>
+  typeof user?.id === 'number' && typeof user.email === 'string' && user.email.trim().length > 0
 
 export const useAuthStore = defineStore('auth', () => {
   const storedToken = getStoredToken()
 
   const token = ref(storedToken?.token ?? null)
+  const refreshToken = ref(storedToken?.refreshToken ?? null)
   const tokenType = ref(storedToken?.type ?? null)
-  const user = ref<AuthUser | null>(null)
+  const expiresIn = ref(storedToken?.expiresIn ?? null)
+  const user = ref<AuthUser | null>(storedToken?.user ?? null)
   const persistMode = ref<PersistMode>(storedToken?.mode ?? DEFAULT_PERSIST_MODE)
   const isBootstrapping = ref(false)
   const isAuthenticating = ref(false)
@@ -43,8 +31,8 @@ export const useAuthStore = defineStore('auth', () => {
   const hasSession = computed(() => Boolean(token.value))
   const isAuthenticated = computed(() => Boolean(token.value && user.value))
   const displayName = computed(() => {
-    const firstName = user.value?.profile.first_name?.trim()
-    const lastName = user.value?.profile.last_name?.trim()
+    const firstName = user.value?.profile?.first_name?.trim()
+    const lastName = user.value?.profile?.last_name?.trim()
 
     if (firstName || lastName) {
       return [firstName, lastName].filter(Boolean).join(' ')
@@ -55,15 +43,19 @@ export const useAuthStore = defineStore('auth', () => {
 
   const applySession = (session: AuthSession, mode: PersistMode) => {
     token.value = session.token
+    refreshToken.value = session.refreshToken ?? null
     tokenType.value = session.type
-    user.value = normalizeUser(session.user)
+    expiresIn.value = session.expiresIn ?? null
+    user.value = session.user
     persistMode.value = mode
-    storeToken(session.token, session.type, mode)
+    storeSession(session, mode)
   }
 
   const clearSession = () => {
     token.value = null
+    refreshToken.value = null
     tokenType.value = null
+    expiresIn.value = null
     user.value = null
     persistMode.value = DEFAULT_PERSIST_MODE
     clearStoredToken()
@@ -77,14 +69,19 @@ export const useAuthStore = defineStore('auth', () => {
     isBootstrapping.value = true
 
     try {
-      user.value = normalizeUser(await meRequest())
+      const refreshedUser = await meRequest()
+
+      if (!isValidUser(refreshedUser)) {
+        return
+      }
+
+      user.value = refreshedUser
+      storeUser(refreshedUser, persistMode.value)
     } catch (error) {
       if (isUnauthorizedError(error)) {
         clearSession()
         return
       }
-
-      throw error
     } finally {
       isBootstrapping.value = false
     }
@@ -131,7 +128,14 @@ export const useAuthStore = defineStore('auth', () => {
       return null
     }
 
-    user.value = normalizeUser(await meRequest())
+    const refreshedUser = await meRequest()
+
+    if (!isValidUser(refreshedUser)) {
+      return user.value
+    }
+
+    user.value = refreshedUser
+    storeUser(refreshedUser, persistMode.value)
 
     return user.value
   }
@@ -160,7 +164,9 @@ export const useAuthStore = defineStore('auth', () => {
 
   return {
     token,
+    refreshToken,
     tokenType,
+    expiresIn,
     user,
     persistMode,
     hasSession,

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 withDefaults(
   defineProps<{
-    kind: 'articles' | 'stats' | 'polls' | 'channels'
+    kind: 'articles' | 'stats' | 'polls' | 'channels' | 'remote'
     class?: string
   }>(),
   {
@@ -56,6 +56,21 @@ withDefaults(
     <path d="M12 12L12 4C7.58 4 4 7.58 4 12H12Z" class="fill-primary" />
     <path d="M12 12L4 12C4 16.42 7.58 20 12 20V12Z" class="fill-secondary" />
     <path d="M12 12L17.66 6.34C16.21 4.89 14.21 4 12 4V12Z" class="fill-accent" />
+  </svg>
+
+  <svg
+    v-else-if="kind === 'remote'"
+    viewBox="0 0 24 24"
+    :class="class"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <rect x="8" y="3" width="8" height="18" rx="3" class="fill-secondary" />
+    <circle cx="12" cy="7" r="1.5" class="fill-primary" />
+    <rect x="10" y="10" width="4" height="4" rx="1.2" class="fill-primary" />
+    <circle cx="10.25" cy="16.75" r="1" class="fill-accent" />
+    <circle cx="13.75" cy="16.75" r="1" class="fill-accent" />
+    <path d="M10.2 12H13.8M12 10.2V13.8" class="stroke-secondary" stroke-width="1.2" stroke-linecap="round" />
   </svg>
 
   <svg v-else viewBox="0 0 24 24" :class="class" fill="none" xmlns="http://www.w3.org/2000/svg">

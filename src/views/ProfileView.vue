@@ -106,9 +106,9 @@ const creatorActions = computed(() => [
 ])
 
 const completionBlocks = computed(() => [
-  { label: 'Identité', done: Boolean(authStore.user?.profile.first_name && authStore.user?.profile.last_name) },
+  { label: 'Identité', done: Boolean(authStore.user?.profile?.first_name && authStore.user?.profile?.last_name) },
   { label: 'Contact', done: Boolean(authStore.user?.email) },
-  { label: 'Naissance', done: Boolean(authStore.user?.profile.birthday) },
+  { label: 'Naissance', done: Boolean(authStore.user?.profile?.birthday) },
   { label: 'Création', done: false },
 ])
 
@@ -124,8 +124,8 @@ const dashboardBadges = computed(() => [
 ])
 
 const userInitials = computed(() => {
-  const firstName = authStore.user?.profile.first_name?.[0] ?? ''
-  const lastName = authStore.user?.profile.last_name?.[0] ?? ''
+  const firstName = authStore.user?.profile?.first_name?.[0] ?? ''
+  const lastName = authStore.user?.profile?.last_name?.[0] ?? ''
   const initials = `${firstName}${lastName}`.trim()
 
   return initials || 'ST'
@@ -182,7 +182,7 @@ onMounted(async () => {
             <template #sidebar>
               <UserDashboardSidebarProfileCard :initials="userInitials" :display-name="authStore.displayName"
                 :email="authStore.user?.email" :user-id="authStore.user?.id"
-                :birthday="authStore.user?.profile.birthday" :badges="dashboardBadges" />
+                :birthday="authStore.user?.profile?.birthday ?? undefined" :badges="dashboardBadges" />
               <UserDashboardSidebarNav :items="sidebarLinks" :active-tab-id="activeTabId" @select="activeTabId = $event" />
               <UserDashboardSidebarCompletion :completion="profileCompletion" :items="completionBlocks" />
             </template>

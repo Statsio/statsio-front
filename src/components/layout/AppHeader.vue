@@ -1,75 +1,17 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import AppAccessibilityPanel from '@/components/layout/AppAccessibilityPanel.vue'
-import AppNavIcon from '@/components/layout/AppNavIcon.vue'
+import type { HeaderNavItem } from '@/components/layout/brands/header-nav.types'
+import StatsioAppHeaderNav from '@/components/layout/brands/statsio/AppHeaderNav.vue'
+import TvstatsAppHeaderNav from '@/components/layout/brands/tvstats/AppHeaderNav.vue'
+import AppDropdownMenu from '@/components/layout/AppDropdownMenu.vue'
+import AppDropdownMenuItem from '@/components/layout/AppDropdownMenuItem.vue'
 import AppAvatar from '@/components/ui/AppAvatar.vue'
 import AppButton from '@/components/ui/AppButton.vue'
+import { getBrandFromPath } from '@/data/brands'
 import { getErrorMessage } from '@/lib/http-errors'
 import { useAuthStore } from '@/stores/auth'
-
-const navItems = [
-  {
-    label: 'Articles',
-    href: '/articles',
-    icon: 'articles',
-    eyebrow: 'Analyses & formats',
-    title: 'Des formats éditoriaux enrichis par vos signaux data.',
-    description:
-      'Explorez des dossiers, décryptages et chroniques construites autour des tendances qui montent vraiment.',
-    featured: {
-      title: 'A la une',
-      value: '24 analyses',
-      detail: 'Nouveaux formats publiés cette semaine',
-    },
-    links: ['Décryptages', 'Tribunes', 'Fact-checking', 'Formats longs'],
-  },
-  {
-    label: 'StatsData',
-    href: '/statsdata',
-    icon: 'stats',
-    eyebrow: 'Base de données',
-    title: 'Un cockpit pour suivre les signaux, métriques et séries temporelles.',
-    description:
-      'Croisez les volumes, tendances et historiques sur une interface pensée pour l’exploration rapide.',
-    featured: {
-      title: 'Signal live',
-      value: '+18.4%',
-      detail: 'Croissance hebdomadaire des requêtes suivies',
-    },
-    links: ['Tableaux de bord', 'API datasets', 'Comparateurs', 'Exports'],
-  },
-  {
-    label: 'Sondages',
-    href: '#',
-    icon: 'polls',
-    eyebrow: 'Intentions & opinions',
-    title: 'Pilotez vos baromètres et suivez les écarts en temps réel.',
-    description:
-      'Accédez à des synthèses claires, des intentions de vote et des dynamiques par période ou segment.',
-    featured: {
-      title: 'Baromètre actif',
-      value: '12k réponses',
-      detail: 'Dernière vague consolidée',
-    },
-    links: ['Intentions de vote', 'Baromètres', 'Segments', 'Historique'],
-  },
-  {
-    label: 'Chaînes',
-    href: '/chaines',
-    icon: 'channels',
-    eyebrow: 'Distribution',
-    title: 'Centralisez vos canaux de diffusion et leurs performances.',
-    description:
-      'Connectez newsletters, réseaux et flux éditoriaux pour comparer la portée et l’engagement.',
-    featured: {
-      title: 'Canaux suivis',
-      value: '08 sources',
-      detail: 'Newsletters, social, flux et partenaires',
-    },
-    links: ['Newsletters', 'Réseaux sociaux', 'Partenaires', 'Automatisations'],
-  },
-] as const
 
 const notifications = [
   {
@@ -113,29 +55,38 @@ const notificationToneClasses = {
   slate: 'bg-slate-900 text-white',
 } as const
 
-const activeMenu = ref<(typeof navItems)[number]['label'] | null>(null)
+const activeMenu = ref<HeaderNavItem | null>(null)
 const logoutError = ref('')
+const isBrandMenuOpen = ref(false)
+const brandMenuRef = ref<HTMLElement | null>(null)
 const isNotificationsOpen = ref(false)
 const notificationsRef = ref<HTMLElement | null>(null)
 const isUserMenuOpen = ref(false)
 const userMenuRef = ref<HTMLElement | null>(null)
 
+const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 
+const currentBrand = computed(() => getBrandFromPath(route.path))
+const brandMenuItems = computed(() => currentBrand.value.switchMenu)
+const brandNavComponentById = {
+  statsio: StatsioAppHeaderNav,
+  tvstats: TvstatsAppHeaderNav,
+} as const
+const currentBrandNavComponent = computed(() => brandNavComponentById[currentBrand.value.id])
+
 const userInitials = () => {
-  const firstName = authStore.user?.profile.first_name?.[0] ?? ''
-  const lastName = authStore.user?.profile.last_name?.[0] ?? ''
+  const firstName = authStore.user?.profile?.first_name?.[0] ?? ''
+  const lastName = authStore.user?.profile?.last_name?.[0] ?? ''
   const initials = `${firstName}${lastName}`.trim()
 
   return initials || 'ST'
 }
 
-const getItemByLabel = (label: (typeof navItems)[number]['label'] | null) =>
-  navItems.find((item) => item.label === label) ?? null
-
 const handleLogout = async () => {
   logoutError.value = ''
+  isBrandMenuOpen.value = false
   isNotificationsOpen.value = false
   isUserMenuOpen.value = false
 
@@ -147,10 +98,24 @@ const handleLogout = async () => {
   }
 }
 
+const toggleBrandMenu = () => {
+  isBrandMenuOpen.value = !isBrandMenuOpen.value
+
+  if (isBrandMenuOpen.value) {
+    isNotificationsOpen.value = false
+    isUserMenuOpen.value = false
+  }
+}
+
+const closeBrandMenu = () => {
+  isBrandMenuOpen.value = false
+}
+
 const toggleNotifications = () => {
   isNotificationsOpen.value = !isNotificationsOpen.value
 
   if (isNotificationsOpen.value) {
+    isBrandMenuOpen.value = false
     isUserMenuOpen.value = false
   }
 }
@@ -163,6 +128,7 @@ const toggleUserMenu = () => {
   isUserMenuOpen.value = !isUserMenuOpen.value
 
   if (isUserMenuOpen.value) {
+    isBrandMenuOpen.value = false
     isNotificationsOpen.value = false
   }
 }
@@ -175,9 +141,14 @@ const handleDocumentClick = (event: MouseEvent) => {
   const target = event.target
 
   if (!(target instanceof Node)) {
+    closeBrandMenu()
     closeNotifications()
     closeUserMenu()
     return
+  }
+
+  if (!brandMenuRef.value?.contains(target)) {
+    closeBrandMenu()
   }
 
   if (!notificationsRef.value?.contains(target)) {
@@ -202,27 +173,59 @@ onBeforeUnmount(() => {
   <header class="fixed inset-x-0 top-14 z-40 border-b border-slate-200 bg-white/80 backdrop-blur"
     @mouseleave="activeMenu = null">
     <div class="container flex items-center justify-between py-1">
-      <RouterLink to="/"
-        class="flex items-center gap-4 rounded-full transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35">
-        <img src="@/assets/brand/statsio-logo.svg" alt="Statsio" class="h-10 w-10 rounded-xl bg-white" />
-        <p class="text-primary text-xl font-bold uppercase font-mono">Stats<span class="text-accent">io</span></p>
-      </RouterLink>
+      <div ref="brandMenuRef" class="relative flex items-center gap-2">
+        <RouterLink :to="currentBrand.to"
+          class="flex items-center gap-4 rounded-full transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35">
+          <img :src="currentBrand.logo" :alt="currentBrand.logoAlt" class="h-10 w-10 rounded-xl bg-white p-1" />
+          <p :class="[currentBrand.wordmarkClass, 'text-xl font-bold uppercase font-mono']">
+            {{ currentBrand.prefix }}<span :class="currentBrand.suffixClass">{{ currentBrand.suffix }}</span>
+          </p>
+        </RouterLink>
 
-      <nav class="hidden items-center gap-3 text-sm font-semibold text-slate-500 lg:flex">
-        <div v-for="item in navItems" :key="item.label">
-          <component :is="item.href.startsWith('/') ? RouterLink : 'a'"
-            :to="item.href.startsWith('/') ? item.href : undefined"
-            :href="item.href.startsWith('/') ? undefined : item.href"
-            class="inline-flex items-center gap-2 rounded-full border border-transparent px-3 py-2 transition hover:border-slate-200 hover:bg-white hover:text-slate-900"
-            @mouseenter="activeMenu = item.label">
-            <span class="flex items-center justify-center text-slate-700">
-              <AppNavIcon :kind="item.icon" />
+        <button
+          type="button"
+          class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+          :aria-expanded="isBrandMenuOpen"
+          aria-haspopup="menu"
+          aria-label="Changer de marque"
+          @click="toggleBrandMenu"
+        >
+          <svg
+            viewBox="0 0 20 20"
+            class="h-4 w-4 shrink-0 transition"
+            :class="isBrandMenuOpen ? 'rotate-180' : ''"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M5 7.5L10 12.5L15 7.5"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+
+        <AppDropdownMenu v-if="isBrandMenuOpen" label="Menu des marques" align="left" width-class="min-w-[240px]">
+          <AppDropdownMenuItem
+            v-for="brandItem in brandMenuItems"
+            :key="brandItem.id"
+            :to="brandItem.to"
+            @click="closeBrandMenu"
+          >
+            <template #leading>
+              <img :src="brandItem.logo" alt="" class="h-10 w-10 rounded-xl border border-slate-200 bg-white p-1.5" />
+            </template>
+            <span class="block text-left">
+              <span class="block text-sm font-semibold text-slate-900">{{ brandItem.name }}</span>
+              <span class="block text-xs font-medium uppercase tracking-[0.18em] text-slate-400">{{ brandItem.eyebrow }}</span>
             </span>
+          </AppDropdownMenuItem>
+        </AppDropdownMenu>
+      </div>
 
-            <span>{{ item.label }}</span>
-          </component>
-        </div>
-      </nav>
+      <component :is="currentBrandNavComponent" v-model="activeMenu" />
 
       <div class="flex items-center gap-3">
         <AppAccessibilityPanel />
@@ -297,44 +300,33 @@ onBeforeUnmount(() => {
               </svg>
             </button>
 
-            <div v-if="isUserMenuOpen"
-              class="absolute right-0 top-[calc(100%+0.75rem)] z-50 min-w-[220px] rounded-[1.5rem] border border-slate-200 bg-white p-2 shadow-[0_24px_70px_-40px_rgba(15,23,42,0.35)]"
-              role="menu" aria-label="Menu utilisateur">
-              <RouterLink to="/profile"
-                class="flex w-full items-center justify-between rounded-[1rem] px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
-                role="menuitem" @click="closeUserMenu">
+            <AppDropdownMenu v-if="isUserMenuOpen" label="Menu utilisateur">
+              <AppDropdownMenuItem to="/profile" @click="closeUserMenu">
                 Mon profil
-                <span aria-hidden="true" class="text-slate-400">→</span>
-              </RouterLink>
+              </AppDropdownMenuItem>
 
-              <RouterLink to="/fil-actus"
-                class="flex w-full items-center justify-between rounded-[1rem] px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
-                role="menuitem" @click="closeUserMenu">
+              <AppDropdownMenuItem to="/fil-actus" @click="closeUserMenu">
                 Fil d’actus
-                <span aria-hidden="true" class="text-slate-400">→</span>
-              </RouterLink>
+              </AppDropdownMenuItem>
 
-              <RouterLink to="/dashboard"
-                class="flex w-full items-center justify-between rounded-[1rem] px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
-                role="menuitem" @click="closeUserMenu">
+              <AppDropdownMenuItem to="/dashboard" @click="closeUserMenu">
                 Tableau de bord
-                <span aria-hidden="true" class="text-slate-400">→</span>
-              </RouterLink>
+              </AppDropdownMenuItem>
 
-              <RouterLink to="/contenus"
-                class="flex w-full items-center justify-between rounded-[1rem] px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
-                role="menuitem" @click="closeUserMenu">
+              <AppDropdownMenuItem to="/contenus" @click="closeUserMenu">
                 Mes contenus
-                <span aria-hidden="true" class="text-slate-400">→</span>
-              </RouterLink>
+              </AppDropdownMenuItem>
 
-              <button type="button"
-                class="flex w-full items-center justify-between rounded-[1rem] px-4 py-3 text-sm font-semibold text-rose-600 transition hover:bg-rose-50"
-                role="menuitem" :disabled="authStore.isLoggingOut" @click="handleLogout">
+              <AppDropdownMenuItem
+                as="button"
+                danger
+                :disabled="authStore.isLoggingOut"
+                @click="handleLogout"
+              >
                 {{ authStore.isLoggingOut ? 'Déconnexion...' : 'Se déconnecter' }}
-                <span aria-hidden="true" class="text-rose-300">↗</span>
-              </button>
-            </div>
+                <template #trailing>↗</template>
+              </AppDropdownMenuItem>
+            </AppDropdownMenu>
           </div>
         </template>
         <template v-else>
@@ -371,25 +363,25 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <div v-if="getItemByLabel(activeMenu)"
+    <div v-if="activeMenu"
       class="absolute left-0 top-full z-30 w-full border-y border-slate-200 bg-white/95 shadow-[0_24px_70px_-40px_rgba(15,23,42,0.45)] backdrop-blur"
       @mouseenter="activeMenu = activeMenu">
       <div class="container grid grid-cols-[minmax(0,1.35fr)_minmax(260px,0.75fr)] gap-12 py-10">
         <div class="space-y-5">
           <p class="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
-            {{ getItemByLabel(activeMenu)?.eyebrow }}
+            {{ activeMenu.eyebrow }}
           </p>
           <div class="max-w-2xl space-y-3">
             <h3 class="text-3xl font-semibold leading-tight text-slate-950">
-              {{ getItemByLabel(activeMenu)?.title }}
+              {{ activeMenu.title }}
             </h3>
             <p class="text-base leading-7 font-medium text-slate-500">
-              {{ getItemByLabel(activeMenu)?.description }}
+              {{ activeMenu.description }}
             </p>
           </div>
 
           <div class="grid max-w-3xl grid-cols-2 gap-4">
-            <a v-for="link in getItemByLabel(activeMenu)?.links" :key="link" href="#"
+            <a v-for="link in activeMenu.links" :key="link" href="#"
               class="rounded-3xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm font-semibold text-slate-700 transition hover:border-primary/30 hover:bg-white hover:text-slate-950">
               {{ link }}
             </a>
@@ -398,11 +390,11 @@ onBeforeUnmount(() => {
 
         <aside class="rounded-[2rem] border border-slate-200 bg-slate-950 p-6 text-white">
           <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
-            {{ getItemByLabel(activeMenu)?.featured.title }}
+            {{ activeMenu.featured.title }}
           </p>
-          <p class="mt-4 text-4xl font-semibold">{{ getItemByLabel(activeMenu)?.featured.value }}</p>
+          <p class="mt-4 text-4xl font-semibold">{{ activeMenu.featured.value }}</p>
           <p class="mt-3 max-w-xs text-sm leading-6 text-slate-300">
-            {{ getItemByLabel(activeMenu)?.featured.detail }}
+            {{ activeMenu.featured.detail }}
           </p>
 
           <div class="mt-8 rounded-3xl bg-white/10 p-4">

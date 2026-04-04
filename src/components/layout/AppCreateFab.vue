@@ -3,12 +3,15 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import AppButton from '@/components/ui/AppButton.vue'
 import AppNavIcon from '@/components/layout/AppNavIcon.vue'
+import { getBrandFromPath } from '@/data/brands'
 import { useAuthStore } from '@/stores/auth'
 
 const authStore = useAuthStore()
 const route = useRoute()
 const isOpen = ref(false)
 const fabRef = ref<HTMLElement | null>(null)
+const currentBrand = computed(() => getBrandFromPath(route.path))
+const isTvstatsBrand = computed(() => currentBrand.value.id === 'tvstats')
 
 const createItems = computed(() => [
   {
@@ -34,6 +37,22 @@ const createItems = computed(() => [
     comingSoon: true,
   },
 ])
+
+const createPanelItemClass = computed(() =>
+  isTvstatsBrand.value
+    ? 'hover:border-tvstats-primary/30 focus-visible:ring-tvstats-primary/35'
+    : 'hover:border-primary/30 focus-visible:ring-primary/35',
+)
+
+const createActionClass = computed(() =>
+  isTvstatsBrand.value ? 'text-tvstats-primary' : 'text-primary',
+)
+
+const createButtonClass = computed(() =>
+  isTvstatsBrand.value
+    ? 'bg-tvstats-primary text-white shadow-[0_24px_55px_-28px_rgba(22,101,52,0.55)] hover:bg-tvstats-dark focus-visible:outline-tvstats-primary'
+    : 'shadow-[0_24px_55px_-28px_rgba(139,92,246,0.55)]',
+)
 
 const closeMenu = () => {
   isOpen.value = false
@@ -89,8 +108,8 @@ onBeforeUnmount(() => {
           <div class="mt-3 grid gap-3">
             <component :is="item.comingSoon ? 'button' : RouterLink" v-for="item in createItems" :key="item.label"
               :to="item.comingSoon ? undefined : item.to" type="button"
-              class="group flex w-full items-center gap-4 rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-4 text-left transition hover:-translate-y-0.5 hover:border-primary/30 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
-              :class="item.comingSoon ? 'cursor-default' : ''" @click="item.comingSoon ? undefined : closeMenu()">
+              class="group flex w-full items-center gap-4 rounded-[1.5rem] border border-slate-200 bg-slate-50 px-4 py-4 text-left transition hover:-translate-y-0.5 hover:bg-white focus-visible:outline-none focus-visible:ring-2"
+              :class="[createPanelItemClass, item.comingSoon ? 'cursor-default' : '']" @click="item.comingSoon ? undefined : closeMenu()">
               <span
                 class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white shadow-[0_16px_30px_-22px_rgba(15,23,42,0.3)]">
                 <AppNavIcon :kind="item.icon" class="h-7 w-7" />
@@ -107,7 +126,7 @@ onBeforeUnmount(() => {
                 <span class="mt-1 block text-sm leading-6 text-slate-500">{{ item.description }}</span>
               </span>
 
-              <span class="text-sm font-semibold text-primary transition group-hover:translate-x-0.5">
+              <span class="text-sm font-semibold transition group-hover:translate-x-0.5" :class="createActionClass">
                 {{ item.action }}
               </span>
             </component>
@@ -116,7 +135,7 @@ onBeforeUnmount(() => {
       </transition>
 
       <AppButton variant="primary" size="lg"
-        class="min-h-14 gap-3 px-4 pr-5 shadow-[0_24px_55px_-28px_rgba(139,92,246,0.55)]" :aria-expanded="isOpen"
+        :class="['min-h-14 gap-3 px-4 pr-5', createButtonClass]" :aria-expanded="isOpen"
         aria-haspopup="dialog" aria-label="Ouvrir les options de création" @click="toggleMenu">
         <template #icon>
           <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" xmlns="http://www.w3.org/2000/svg">

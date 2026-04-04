@@ -83,7 +83,7 @@ defineProps<{
           </div>
         </div>
         <div
-          class="absolute -right-6 -top-8 hidden rounded-2xl border border-violet-200 bg-white px-4 py-3 text-xs font-semibold text-slate-600 shadow-lg lg:block"
+          class="absolute -right-6 -top-8 hidden rounded-2xl border border-primary/20 bg-white px-4 py-3 text-xs font-semibold text-slate-600 shadow-lg lg:block"
         >
           +120 sources connectées
         </div>

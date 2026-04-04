@@ -11,6 +11,8 @@ import ProfileView from '../views/ProfileView.vue'
 import RegisterView from '../views/RegisterView.vue'
 import StatsDataDetailView from '../views/StatsDataDetailView.vue'
 import StatsDataView from '../views/StatsDataView.vue'
+import TvProgrammeView from '../views/TvProgrammeView.vue'
+import TvstatsView from '../views/TvstatsView.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const router = createRouter({
@@ -50,6 +52,16 @@ const router = createRouter({
       path: '/chaines/:slug',
       name: 'channel-detail',
       component: ChannelDetailView,
+    },
+    {
+      path: '/tvstats',
+      name: 'tvstats',
+      component: TvstatsView,
+    },
+    {
+      path: '/tvstats/programme-tv',
+      name: 'tvstats-programme-tv',
+      component: TvProgrammeView,
     },
     {
       path: '/about',

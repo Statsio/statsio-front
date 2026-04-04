@@ -5,6 +5,7 @@ import { articles, heroBullets, heroKpis, highlights, polls, statsData, statsStr
 
 <template>
   <HomePageFrame
+    variant="tvstats"
     :hero-bullets="heroBullets"
     :hero-kpis="heroKpis"
     :stats-strip="statsStrip"
