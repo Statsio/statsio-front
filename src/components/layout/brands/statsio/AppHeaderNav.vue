@@ -44,7 +44,7 @@ const items: HeaderNavItem[] = [
   },
   {
     label: 'Sondages',
-    href: '#',
+    href: '/sondages',
     icon: 'polls',
     eyebrow: 'Intentions & opinions',
     title: 'Pilotez vos baromètres et suivez les écarts en temps réel.',

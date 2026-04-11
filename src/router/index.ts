@@ -7,8 +7,12 @@ import ForgotPasswordView from '../views/ForgotPasswordView.vue'
 import HomeView from '../views/HomeView.vue'
 import LoginView from '../views/LoginView.vue'
 import NewsFeedView from '../views/NewsFeedView.vue'
+import PollDetailView from '../views/PollDetailView.vue'
+import PollsView from '../views/PollsView.vue'
+import UserContentsView from '../views/UserContentsView.vue'
 import ProfileView from '../views/ProfileView.vue'
 import RegisterView from '../views/RegisterView.vue'
+import ContentStudioView from '../views/ContentStudioView.vue'
 import StatsDataDetailView from '../views/StatsDataDetailView.vue'
 import StatsDataView from '../views/StatsDataView.vue'
 import TvProgrammeView from '../views/TvProgrammeView.vue'
@@ -34,6 +38,16 @@ const router = createRouter({
       component: ArticleDetailView,
     },
     {
+      path: '/sondages',
+      name: 'polls',
+      component: PollsView,
+    },
+    {
+      path: '/sondages/:slug',
+      name: 'poll-detail',
+      component: PollDetailView,
+    },
+    {
       path: '/statsdata',
       name: 'statsdata',
       component: StatsDataView,
@@ -42,6 +56,26 @@ const router = createRouter({
       path: '/statsdata/:slug',
       name: 'statsdata-detail',
       component: StatsDataDetailView,
+    },
+    {
+      path: '/studio/statsdata/nouveau',
+      name: 'studio-statsdata-create',
+      component: ContentStudioView,
+      meta: {
+        requiresAuth: true,
+        studio: true,
+        studioDocumentKind: 'statsdata' as const,
+      },
+    },
+    {
+      path: '/studio/statsdata/:id',
+      name: 'studio-statsdata-edit',
+      component: ContentStudioView,
+      meta: {
+        requiresAuth: true,
+        studio: true,
+        studioDocumentKind: 'statsdata' as const,
+      },
     },
     {
       path: '/chaines',
@@ -88,6 +122,14 @@ const router = createRouter({
       path: '/profile',
       name: 'profile',
       component: ProfileView,
+      meta: {
+        requiresAuth: true,
+      },
+    },
+    {
+      path: '/contenus',
+      name: 'user-contents',
+      component: UserContentsView,
       meta: {
         requiresAuth: true,
       },

@@ -78,7 +78,10 @@ let isInitialized = false
 let activeUtterance: SpeechSynthesisUtterance | null = null
 
 const speechSupported = computed(
-  () => typeof window !== 'undefined' && 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window,
+  () =>
+    typeof window !== 'undefined' &&
+    'speechSynthesis' in window &&
+    'SpeechSynthesisUtterance' in window,
 )
 
 const clampFontScale = (value: number) => Math.min(Math.max(Math.round(value), 100), 140)
@@ -105,16 +108,19 @@ const applyPreferences = () => {
   const root = document.documentElement
   const activeThemeVariables = THEME_VARIABLES[theme.value]
 
+  // Appliquer d'abord les datasets pour les sélecteurs CSS
   root.dataset.theme = theme.value
   root.dataset.motion = reducedMotion.value ? 'reduced' : 'full'
   root.dataset.contrast = highContrast.value ? 'high' : 'default'
   root.dataset.font = dyslexicFont.value ? 'dyslexic' : 'default'
   root.style.colorScheme = theme.value
 
+  // Appliquer les variables de thème
   Object.entries(activeThemeVariables).forEach(([property, value]) => {
     root.style.setProperty(property, value)
   })
 
+  // Appliquer les variables d'accessibilité en dernier pour priorité
   root.style.setProperty('--app-font-scale', String(fontScale.value / 100))
   root.style.setProperty('--app-line-height', String(lineHeight.value))
 }
@@ -215,10 +221,14 @@ const initialize = () => {
   isInitialized = true
   loadPreferences()
 
-  watch([theme, fontScale, lineHeight, dyslexicFont, reducedMotion, highContrast], () => {
-    applyPreferences()
-    savePreferences()
-  }, { immediate: true })
+  watch(
+    [theme, fontScale, lineHeight, dyslexicFont, reducedMotion, highContrast],
+    () => {
+      applyPreferences()
+      savePreferences()
+    },
+    { immediate: true },
+  )
 }
 
 export const useAccessibilityPreferences = () => {

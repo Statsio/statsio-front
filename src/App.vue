@@ -1,8 +1,12 @@
 <script setup lang="ts">
-import { RouterView } from 'vue-router'
+import { computed } from 'vue'
+import { RouterView, useRoute } from 'vue-router'
 import AppBootstrapError from '@/components/layout/AppBootstrapError.vue'
 import AppCreateFab from '@/components/layout/AppCreateFab.vue'
 import { bootstrapError } from '@/lib/app-bootstrap'
+
+const route = useRoute()
+const showCreateFab = computed(() => !route.meta.studio)
 
 const retry = () => {
   window.location.reload()
@@ -13,6 +17,6 @@ const retry = () => {
   <AppBootstrapError v-if="bootstrapError" :error="bootstrapError" @retry="retry" />
   <template v-else>
     <RouterView />
-    <AppCreateFab />
+    <AppCreateFab v-if="showCreateFab" />
   </template>
 </template>

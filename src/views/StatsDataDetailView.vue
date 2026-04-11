@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { sharedPromoItems } from '@/data/promo-items'
+import StatsDataInflationDashboard from '@/components/statsdata/StatsDataInflationDashboard.vue'
 import AppFooter from '@/components/layout/AppFooter.vue'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import AppPromoBanner from '@/components/layout/AppPromoBanner.vue'
@@ -17,7 +18,7 @@ const statsDataEntries = {
       'Une vue conçue pour suivre les écarts de prix, repérer les zones de tension et croiser rapidement les signaux de consommation à l’échelle locale.',
     updated: 'Mis à jour il y a 12 min',
     stats: [
-      { label: 'Villes suivies', value: '23' },
+      { label: 'Villes suivies', value: '24' },
       { label: 'Indicateurs', value: '7' },
       { label: 'Historique', value: '36 mois' },
     ],
@@ -60,10 +61,12 @@ const statsDataEntries = {
 
 const fallbackSlug = 'inflation-par-ville-en-france'
 
-const dataset = computed(() => {
-  const slug = String(route.params.slug ?? fallbackSlug)
+const slug = computed(() => String(route.params.slug ?? fallbackSlug))
+const isInflationDataset = computed(() => slug.value === 'inflation-par-ville-en-france')
 
-  return statsDataEntries[slug as keyof typeof statsDataEntries] ?? statsDataEntries[fallbackSlug]
+const dataset = computed(() => {
+  const key = slug.value as keyof typeof statsDataEntries
+  return statsDataEntries[key] ?? statsDataEntries[fallbackSlug]
 })
 
 const relatedDatasets = [
@@ -104,9 +107,15 @@ const relatedDatasets = [
             </div>
           </div>
 
-          <div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+          <div
+            class="grid gap-8"
+            :class="isInflationDataset ? 'lg:grid-cols-1' : 'lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start'"
+          >
             <div class="flex flex-col gap-8">
-              <article class="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_40px_110px_-58px_rgba(59,130,246,0.45)]">
+              <article
+                v-if="!isInflationDataset"
+                class="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_40px_110px_-58px_rgba(59,130,246,0.45)]"
+              >
                 <div class="grid gap-0 lg:grid-cols-[minmax(0,1fr)_280px]">
                   <div class="flex flex-col gap-6 p-7 sm:p-9">
                     <div class="grid gap-4 sm:grid-cols-3">
@@ -172,7 +181,62 @@ const relatedDatasets = [
                 </div>
               </article>
 
-              <div class="rounded-[2rem] border border-slate-200 bg-white p-7 shadow-[0_24px_80px_-56px_rgba(15,23,42,0.35)] sm:p-9">
+              <template v-if="isInflationDataset">
+                <div class="grid gap-4 sm:grid-cols-3">
+                  <div
+                    v-for="stat in dataset.stats"
+                    :key="stat.label"
+                    class="rounded-[1.5rem] border border-slate-200 bg-white px-4 py-4 shadow-sm"
+                  >
+                    <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{{ stat.label }}</p>
+                    <p class="mt-2 text-xl font-semibold text-slate-950">{{ stat.value }}</p>
+                  </div>
+                </div>
+
+                <div class="flex flex-wrap gap-2">
+                  <span
+                    v-for="metric in dataset.metrics"
+                    :key="metric"
+                    class="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600"
+                  >
+                    {{ metric }}
+                  </span>
+                </div>
+
+                <StatsDataInflationDashboard />
+
+                <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)]">
+                  <div class="rounded-[2rem] border border-slate-200 bg-white p-7 shadow-[0_24px_80px_-56px_rgba(15,23,42,0.35)] sm:p-9">
+                    <div class="flex flex-col gap-6">
+                      <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Lecture</p>
+                      <p
+                        v-for="paragraph in dataset.narrative"
+                        :key="paragraph"
+                        class="text-base leading-8 text-slate-700"
+                      >
+                        {{ paragraph }}
+                      </p>
+                    </div>
+                  </div>
+                  <div class="rounded-[2rem] bg-slate-950 p-7 text-white sm:p-8">
+                    <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Points clés</p>
+                    <div class="mt-5 flex flex-col gap-4">
+                      <div v-for="point in dataset.highlights" :key="point" class="rounded-[1.5rem] bg-white/8 p-4">
+                        <p class="text-sm leading-6 text-slate-200">{{ point }}</p>
+                      </div>
+                    </div>
+                    <div class="mt-8 flex flex-wrap gap-3">
+                      <AppButton as="router-link" to="/login" variant="primary" size="md">Ouvrir dans le studio</AppButton>
+                      <AppButton variant="secondary" size="md">Exporter la vue</AppButton>
+                    </div>
+                  </div>
+                </div>
+              </template>
+
+              <div
+                v-else
+                class="rounded-[2rem] border border-slate-200 bg-white p-7 shadow-[0_24px_80px_-56px_rgba(15,23,42,0.35)] sm:p-9"
+              >
                 <div class="flex flex-col gap-6">
                   <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Lecture</p>
                   <p
@@ -186,7 +250,7 @@ const relatedDatasets = [
               </div>
             </div>
 
-            <aside class="flex flex-col gap-5">
+            <aside v-if="!isInflationDataset" class="flex flex-col gap-5">
               <div class="rounded-[2rem] border border-slate-200 bg-white p-6">
                 <div class="flex flex-col gap-4">
                   <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Utilisation</p>

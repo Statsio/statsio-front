@@ -1,5 +1,19 @@
 /// <reference types="vite/client" />
 
+declare module 'vue-router' {
+  interface RouteMeta {
+    requiresAuth?: boolean
+    guestOnly?: boolean
+    studio?: boolean
+    studioDocumentKind?: 'statsdata' | 'article'
+  }
+}
+
+declare module 'vuedraggable' {
+  const Draggable: import('vue').DefineComponent<Record<string, unknown>, Record<string, unknown>, unknown>
+  export default Draggable
+}
+
 interface ImportMetaEnv {
   readonly VITE_AUTH_API_BASE_URL?: string
   readonly VITE_GOOGLE_CLIENT_ID?: string
