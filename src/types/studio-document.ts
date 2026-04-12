@@ -1,3 +1,6 @@
+import type { StudioBlockDataBinding } from '@/types/studio-data-source'
+import { defaultStudioBlockDataBinding } from '@/types/studio-data-source'
+
 export type StudioDocumentKind = 'statsdata' | 'article'
 
 export type StudioBlockType = 'text_heading' | 'text_paragraph' | 'chart' | 'table' | 'image'
@@ -6,8 +9,8 @@ export type StudioBlockType = 'text_heading' | 'text_paragraph' | 'chart' | 'tab
 export type StudioBlockPayload =
   | { type: 'text_heading'; text: string }
   | { type: 'text_paragraph'; text: string }
-  | { type: 'chart'; caption: string }
-  | { type: 'table'; caption: string }
+  | { type: 'chart'; caption: string; dataBinding: StudioBlockDataBinding }
+  | { type: 'table'; caption: string; dataBinding: StudioBlockDataBinding }
   | { type: 'image'; alt: string }
 
 export type StudioBlock = { id: string } & StudioBlockPayload
@@ -38,9 +41,9 @@ export function blockToPayload(block: StudioBlock): StudioBlockPayload {
     case 'text_paragraph':
       return { type: 'text_paragraph', text: block.text }
     case 'chart':
-      return { type: 'chart', caption: block.caption }
+      return { type: 'chart', caption: block.caption, dataBinding: { ...block.dataBinding } }
     case 'table':
-      return { type: 'table', caption: block.caption }
+      return { type: 'table', caption: block.caption, dataBinding: { ...block.dataBinding } }
     case 'image':
       return { type: 'image', alt: block.alt }
   }
@@ -53,9 +56,19 @@ export function mergeBlockWithPayload(id: string, payload: StudioBlockPayload): 
     case 'text_paragraph':
       return { id, type: 'text_paragraph', text: payload.text }
     case 'chart':
-      return { id, type: 'chart', caption: payload.caption }
+      return {
+        id,
+        type: 'chart',
+        caption: payload.caption,
+        dataBinding: { ...payload.dataBinding },
+      }
     case 'table':
-      return { id, type: 'table', caption: payload.caption }
+      return {
+        id,
+        type: 'table',
+        caption: payload.caption,
+        dataBinding: { ...payload.dataBinding },
+      }
     case 'image':
       return { id, type: 'image', alt: payload.alt }
   }
@@ -68,15 +81,16 @@ export function blocksToApiPayloads(blocks: StudioBlock[]): StudioBlockPayload[]
 
 export function createEmptyBlock(type: StudioBlockType): StudioBlock {
   const id = newStudioBlockId()
+  const binding = defaultStudioBlockDataBinding()
   switch (type) {
     case 'text_heading':
       return { id, type: 'text_heading', text: 'Titre' }
     case 'text_paragraph':
       return { id, type: 'text_paragraph', text: 'Votre texte…' }
     case 'chart':
-      return { id, type: 'chart', caption: 'Graphique' }
+      return { id, type: 'chart', caption: 'Graphique', dataBinding: binding }
     case 'table':
-      return { id, type: 'table', caption: 'Tableau' }
+      return { id, type: 'table', caption: 'Tableau', dataBinding: binding }
     case 'image':
       return { id, type: 'image', alt: 'Légende' }
   }

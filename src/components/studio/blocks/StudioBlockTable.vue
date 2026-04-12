@@ -1,5 +1,10 @@
 <script setup lang="ts">
-type Payload = { type: 'table'; caption: string }
+import { computed, inject, ref } from 'vue'
+import { studioDataSourcesKey } from '@/lib/studio-inject-keys'
+import type { StudioBlockDataBinding } from '@/types/studio-data-source'
+import { resolveTableFromBinding } from '@/types/studio-data-source'
+
+type Payload = { type: 'table'; caption: string; dataBinding: StudioBlockDataBinding }
 
 const props = withDefaults(
   defineProps<{
@@ -14,12 +19,13 @@ const emit = defineEmits<{
   'update:payload': [Payload]
 }>()
 
+const sources = inject(studioDataSourcesKey, ref([]))
+
 const emitCaption = (caption: string) => {
-  emit('update:payload', { type: 'table', caption })
+  emit('update:payload', { type: 'table', caption, dataBinding: { ...props.payload.dataBinding } })
 }
 
-const cols = ['Col 1', 'Col 2', 'Col 3', 'Col 4']
-const placeholderRows = 3
+const table = computed(() => resolveTableFromBinding(props.payload.dataBinding, sources.value))
 </script>
 
 <template>
@@ -37,20 +43,30 @@ const placeholderRows = 3
       <span v-else class="text-base font-semibold tracking-tight text-slate-900">{{ payload.caption }}</span>
     </figcaption>
     <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <table class="w-full border-collapse text-left text-sm text-slate-700">
+      <table v-if="table.headers.length" class="w-full border-collapse text-left text-sm text-slate-700">
         <thead>
           <tr class="border-b border-slate-200 bg-slate-50">
-            <th v-for="c in cols" :key="c" scope="col" class="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-              {{ c }}
+            <th
+              v-for="h in table.headers"
+              :key="h"
+              scope="col"
+              class="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500"
+            >
+              {{ h }}
             </th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="r in placeholderRows" :key="r" class="border-b border-slate-100 last:border-0">
-            <td v-for="(_, ci) in cols" :key="`${r}-${ci}`" class="px-4 py-3 text-slate-500">—</td>
+          <tr v-for="(row, ri) in table.rows" :key="ri" class="border-b border-slate-100 last:border-0">
+            <td v-for="(cell, ci) in row" :key="ci" class="px-4 py-3 text-slate-700">
+              {{ cell }}
+            </td>
           </tr>
         </tbody>
       </table>
+      <div v-else class="px-4 py-10 text-center text-sm text-slate-500">
+        Sélectionnez une source et les colonnes à afficher dans le panneau de droite.
+      </div>
     </div>
   </figure>
 </template>

@@ -30,6 +30,10 @@ export const studioPaletteViz: StudioPaletteItem[] = [
   },
 ]
 
+export const studioPaletteCharts: StudioPaletteItem[] = [studioPaletteViz[0]!]
+
+export const studioPaletteTables: StudioPaletteItem[] = [studioPaletteViz[1]!]
+
 export const studioPaletteMedia: StudioPaletteItem[] = [
   {
     paletteId: 'pm-image',
