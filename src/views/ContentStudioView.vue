@@ -10,7 +10,12 @@ import AppButton from '@/components/ui/AppButton.vue'
 import type { StudioLeftTabId } from '@/components/studio/studio-left-dock.types'
 import { useStudioDocument } from '@/composables/useStudioDocument'
 import { getErrorMessage } from '@/lib/http-errors'
-import { studioDataSourcesKey } from '@/lib/studio-inject-keys'
+import {
+  studioDataSourcesKey,
+  studioSelectBlockKey,
+  studioSelectedBlockIdKey,
+  studioStatsDataWidgetKey,
+} from '@/lib/studio-inject-keys'
 import type { StudioBlock, StudioBlockType, StudioDocumentKind, StudioDocumentSettings } from '@/types/studio-document'
 import type { StudioDataSource } from '@/types/studio-data-source'
 
@@ -51,6 +56,9 @@ const {
   probeApiSource,
   uploadDataSourceFile,
   dismissSourcesFeedback,
+  executeStatsDataDocumentQuery,
+  refreshNormalizedSource,
+  persistSourceNormalizationMapping,
 } = useStudioDocument(route, documentKind)
 
 const remoteStudioSources = computed(() => isStatsDataRemote.value && studioBodyReady.value)
@@ -91,24 +99,68 @@ const onDeleteDocument = async () => {
 
 provide(studioDataSourcesKey, dataSources)
 
+const statsDataWidgetContext = computed(() => ({
+  enabled: remoteStudioSources.value,
+  documentId: statsDataDocumentId.value,
+  executeQuery: executeStatsDataDocumentQuery,
+}))
+provide(studioStatsDataWidgetKey, statsDataWidgetContext)
+
 const leftOpen = ref(false)
 const leftTab = ref<StudioLeftTabId | null>(null)
 
 const selectedBlockId = ref<string | null>(null)
 
-const selectedBlock = computed(() => blocks.value.find((b) => b.id === selectedBlockId.value) ?? null)
+provide(studioSelectedBlockIdKey, selectedBlockId)
+provide(studioSelectBlockKey, (id: string | null) => {
+  selectedBlockId.value = id
+})
+
+const dockWidth = computed(() => {
+  // Rail always visible (4.5rem). Panel adds 20.5rem when open.
+  // Use a plain length (rem) to avoid nested calc() edge cases in inline styles.
+  const rail = 4.5
+  const panel = leftOpen.value && leftTab.value ? 20.5 : 0
+  return `${rail + panel}rem`
+})
+
+const findBlockById = (list: StudioBlock[], id: string): StudioBlock | null => {
+  for (const b of list) {
+    if (b.id === id) return b
+    if ((b.type === 'layout_2col' || b.type === 'layout_3col') && Array.isArray(b.columns)) {
+      for (const col of b.columns) {
+        const found = findBlockById(col, id)
+        if (found) return found
+      }
+    }
+  }
+  return null
+}
+
+const selectedBlock = computed(() => {
+  const id = selectedBlockId.value
+  if (!id) return null
+  return findBlockById(blocks.value, id)
+})
 
 watch(selectedBlockId, (id) => {
   if (id) {
     leftTab.value = 'inspector'
     leftOpen.value = true
+  } else {
+    // If the inspector was opened implicitly by a selection,
+    // close it when nothing is selected to avoid showing the empty-state message.
+    if (leftTab.value === 'inspector') {
+      leftOpen.value = false
+      leftTab.value = null
+    }
   }
 })
 
 watch(
   blocks,
   (next) => {
-    if (selectedBlockId.value && !next.some((b) => b.id === selectedBlockId.value)) {
+    if (selectedBlockId.value && !findBlockById(next, selectedBlockId.value)) {
       selectedBlockId.value = null
     }
   },
@@ -202,9 +254,22 @@ const headerActionsDisabled = computed(
       {{ apiError || autoSaveError }}
     </div>
 
-    <StudioSelectionContextBar v-if="selectedBlock && studioBodyReady" :block="selectedBlock" @open-tab="openLeftTab" />
+    <div
+      v-if="selectedBlock && studioBodyReady"
+      :style="{ paddingLeft: dockWidth }"
+    >
+      <StudioSelectionContextBar
+        :block="selectedBlock"
+        @update-block="updateBlock"
+      />
+    </div>
 
-    <div class="flex min-h-0 min-h-[calc(100vh-4.5rem)] flex-1 flex-col lg:flex-row">
+    <div
+      class="flex h-[calc(100vh-4.5rem)] min-h-0 flex-1 flex-col lg:flex-row"
+      :style="{
+        paddingLeft: dockWidth,
+      }"
+    >
       <template v-if="studioBodyReady">
       <StudioLeftDock
         v-model:open="leftOpen"
@@ -216,8 +281,10 @@ const headerActionsDisabled = computed(
         :settings="settings"
         :stats-data-document-id="statsDataDocumentId"
         :remote-studio-sources="remoteStudioSources"
+        :stats-data-query-mode="remoteStudioSources"
         :sources-feedback="sourcesFeedback"
         :sources-busy="sourcesBusy"
+        :persist-source-normalization="persistSourceNormalizationMapping"
         @update:blocks="syncBlocks"
         @update:settings="applySettings"
         @select-block="selectedBlockId = $event"
@@ -232,6 +299,7 @@ const headerActionsDisabled = computed(
         @probe-api-source="probeApiSource"
         @upload-data-source-file="uploadDataSourceFile"
         @dismiss-sources-feedback="dismissSourcesFeedback"
+        @refresh-normalized-source="refreshNormalizedSource($event)"
       />
 
       <main class="relative min-h-0 flex-1 overflow-y-auto" aria-label="Aperçu page publique">
@@ -245,6 +313,8 @@ const headerActionsDisabled = computed(
               :selected-block-id="selectedBlockId"
               @select-block="selectedBlockId = $event"
               @update="updateBlock"
+              @duplicate-block="duplicateBlock"
+              @remove-block="onRemoveBlock"
             />
           </div>
         </div>

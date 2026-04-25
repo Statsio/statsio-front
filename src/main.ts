@@ -5,6 +5,21 @@ import './assets/accessibility.css'
 import axios from 'axios'
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
+import { library } from '@fortawesome/fontawesome-svg-core'
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
+import {
+  faItalic,
+  faUnderline,
+  faStrikethrough,
+  faAlignLeft,
+  faAlignCenter,
+  faAlignRight,
+  faAlignJustify,
+  faHighlighter,
+  faPalette,
+  faFont,
+  faBold,
+} from '@fortawesome/free-solid-svg-icons'
 
 import App from './App.vue'
 import router from './router'
@@ -14,6 +29,20 @@ import { useAuthStore } from './stores/auth'
 const app = createApp(App)
 const pinia = createPinia()
 const authStore = useAuthStore(pinia)
+
+library.add(
+  faItalic,
+  faUnderline,
+  faStrikethrough,
+  faAlignLeft,
+  faAlignCenter,
+  faAlignRight,
+  faAlignJustify,
+  faHighlighter,
+  faPalette,
+  faFont,
+  faBold,
+)
 
 try {
   await authStore.initialize()
@@ -31,5 +60,6 @@ try {
 
 app.use(pinia)
 app.use(router)
+app.component('FontAwesomeIcon', FontAwesomeIcon)
 
 app.mount('#app')

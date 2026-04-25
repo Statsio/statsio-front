@@ -1,6 +1,12 @@
 import { apiHttp } from '@/lib/http'
 import { STATSIO_API } from '@/api/statsio-endpoints'
 import { unwrapStatsioResponseData } from '@/lib/api-envelope'
+import type {
+  StatsDataNormalizationMapping,
+  StatsDataAnyQueryRequest,
+  StatsDataRefreshResult,
+} from '@/types/statsdata-query'
+import type { StatsDataNormalizationMappingSuggestions } from '@/types/statsdata-mapping-suggestions'
 
 /** Postman : « Probe StatsData API » — corps `{ url, apiKey }`. */
 export type StatsDataSourceProbePayload = {
@@ -38,7 +44,35 @@ export type StatsDataUpdateSourcePayload = {
   api_url?: string
   apiKey?: string | null
   api_key?: string | null
+  apiLimit?: number | null
+  apiSearchTemplate?: string | null
   verify?: boolean
+  normalizationMapping?: StatsDataNormalizationMapping | null
+  /** Laravel / requêtes JSON souvent en snake_case */
+  normalization_mapping?: StatsDataNormalizationMapping | Record<string, unknown> | null
+}
+
+function toSnakeNormalizationMapping(m: StatsDataNormalizationMapping): Record<string, unknown> {
+  return {
+    row_path: m.rowPath ?? null,
+    key_fields: m.keyFields.map((f) => ({ name: f.name, from: f.from ?? null })),
+    value_fields: m.valueFields.map((f) => ({ name: f.name, from: f.from ?? null })),
+    ...(m.staticKeys && Object.keys(m.staticKeys).length ? { static_keys: m.staticKeys } : {}),
+  }
+}
+
+/** Corps PATCH pour `normalizationMapping` (camelCase + snake_case alignés OpenAPI / Laravel). */
+export function normalizationMappingPatchPayload(
+  mapping: StatsDataNormalizationMapping | null | undefined,
+): Partial<StatsDataUpdateSourcePayload> {
+  if (mapping === undefined) return {}
+  if (mapping === null) {
+    return { normalizationMapping: null, normalization_mapping: null }
+  }
+  return {
+    normalizationMapping: mapping,
+    normalization_mapping: toSnakeNormalizationMapping(mapping),
+  }
 }
 
 /** Corps JSON pour enregistrer une source API (camelCase + snake_case). */
@@ -46,6 +80,8 @@ export function buildStatsDataApiSourceWriteBody(source: {
   name: string
   url: string
   apiKeyPreview: string
+  apiLimit?: number | null
+  apiSearchTemplate?: string | null
 }): StatsDataUpdateSourcePayload {
   const url = source.url.trim()
   const keyTrim = source.apiKeyPreview.trim()
@@ -55,6 +91,8 @@ export function buildStatsDataApiSourceWriteBody(source: {
     api_url: url,
     apiKey: keyTrim.length > 0 ? keyTrim : null,
     api_key: keyTrim.length > 0 ? keyTrim : null,
+    apiLimit: typeof source.apiLimit === 'number' && Number.isFinite(source.apiLimit) ? source.apiLimit : null,
+    apiSearchTemplate: source.apiSearchTemplate?.trim() ? source.apiSearchTemplate.trim() : null,
     verify: true,
   }
 }
@@ -128,4 +166,72 @@ export async function uploadStatsDataSourceFile(
   fd.append('file', file)
   const res = await apiHttp.post(STATSIO_API.statsData.sources(documentId), fd)
   return unwrapStatsioResponseData(res)
+}
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
+function normalizeRefreshPayload(data: unknown): StatsDataRefreshResult {
+  if (!isRecord(data)) {
+    return { status: 'failed', errorMessage: 'Réponse refresh invalide' }
+  }
+  const status = data.status === 'failed' ? 'failed' : 'ok'
+  return {
+    status,
+    rowCount: typeof data.rowCount === 'number' ? data.rowCount : undefined,
+    schemaVersion: typeof data.schemaVersion === 'number' ? data.schemaVersion : undefined,
+    refreshedAt: typeof data.refreshedAt === 'string' ? data.refreshedAt : undefined,
+    id: typeof data.id === 'string' ? data.id : undefined,
+    errorMessage: data.errorMessage == null ? null : String(data.errorMessage),
+  }
+}
+
+/** Ingestion + normalisation → nouveau snapshot (`POST .../sources/{id}/refresh`). */
+export async function refreshStatsDataSourceDataset(
+  documentId: string,
+  sourceId: string,
+): Promise<StatsDataRefreshResult> {
+  const res = await apiHttp.post(STATSIO_API.statsData.sourceRefresh(documentId, sourceId), {})
+  const data = unwrapStatsioResponseData<unknown>(res)
+  return normalizeRefreshPayload(data)
+}
+
+/** Suggestions de mapping (auto + champs détectés) — `GET .../sources/{id}/mapping-suggestions`. */
+export async function suggestStatsDataSourceNormalizationMapping(
+  documentId: string,
+  sourceId: string,
+): Promise<StatsDataNormalizationMappingSuggestions> {
+  const res = await apiHttp.get(STATSIO_API.statsData.sourceMappingSuggestions(documentId, sourceId))
+  const data = unwrapStatsioResponseData<unknown>(res)
+  return data as StatsDataNormalizationMappingSuggestions
+}
+
+/** Projection sur les snapshots (`POST .../query`). */
+export async function executeStatsDataQuery(
+  documentId: string,
+  body: StatsDataAnyQueryRequest,
+): Promise<Record<string, unknown>[]> {
+  const res = await apiHttp.post(STATSIO_API.statsData.query(documentId), body)
+  const data = unwrapStatsioResponseData<unknown>(res)
+  if (isRecord(data) && Array.isArray(data.rows)) {
+    return data.rows as Record<string, unknown>[]
+  }
+  if (isRecord(data) && isRecord(data.data) && Array.isArray(data.data.rows)) {
+    return data.data.rows as Record<string, unknown>[]
+  }
+  return []
+}
+
+export async function searchStatsDataSourceExternal(
+  documentId: string,
+  sourceId: string,
+  body: { q: string; f?: string | null; limit?: number; offset?: number; columns?: { label: string; from: string }[] },
+): Promise<{ rows: Record<string, unknown>[]; hasMore: boolean }> {
+  const res = await apiHttp.post(STATSIO_API.statsData.sourceSearchExternal(documentId, sourceId), body)
+  const data = unwrapStatsioResponseData<unknown>(res)
+  if (isRecord(data) && Array.isArray(data.rows)) {
+    return { rows: data.rows as Record<string, unknown>[], hasMore: data.hasMore === true }
+  }
+  return { rows: [], hasMore: false }
 }

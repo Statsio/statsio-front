@@ -1,8 +1,5 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import AppFooter from '@/components/layout/AppFooter.vue'
-import AppHeader from '@/components/layout/AppHeader.vue'
-import AppPromoBanner from '@/components/layout/AppPromoBanner.vue'
 import TvProgrammeCardIcon from '@/components/tv/TvProgrammeCardIcon.vue'
 import AppButton from '@/components/ui/AppButton.vue'
 import adBreakIcon from '@/assets/icons/tv/ad-break.svg'
@@ -70,11 +67,7 @@ const handleDateInput = (value: string) => {
 </script>
 
 <template>
-  <div class="brand-theme-tvstats min-h-screen text-slate-900">
-    <AppPromoBanner :items="promoItems" />
-    <AppHeader />
-
-    <main class="pb-24 pt-28">
+  <main class="pb-24 pt-28">
       <section class="section pt-4">
         <div class="container flex flex-col gap-6">
           <div class="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)] sm:p-6">
@@ -228,10 +221,7 @@ const handleDateInput = (value: string) => {
           </div>
         </div>
       </section>
-    </main>
-
-    <AppFooter />
-  </div>
+  </main>
 </template>
 
 <style scoped>

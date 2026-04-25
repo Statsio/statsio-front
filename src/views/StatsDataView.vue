@@ -1,10 +1,8 @@
 <script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { sharedPromoItems } from '@/data/promo-items'
-import AppFooter from '@/components/layout/AppFooter.vue'
-import AppHeader from '@/components/layout/AppHeader.vue'
-import AppPromoBanner from '@/components/layout/AppPromoBanner.vue'
 import AppButton from '@/components/ui/AppButton.vue'
+import { fetchPublicStatsDataDocuments, type StatsDataPublicListItemDto } from '@/api/statsdata-documents'
 
 const heroStats = [
   { label: 'Séries suivies', value: '2.4k' },
@@ -14,48 +12,31 @@ const heroStats = [
 
 const filters = ['Tous', 'Économie', 'Santé', 'Territoires', 'Élections', 'Audience']
 
-const datasets = [
-  {
-    slug: 'inflation-par-ville-en-france',
-    title: 'Inflation par ville en France',
-    scope: 'Économie locale',
-    updated: 'Live',
-    progress: '72%',
-    metrics: ['IPC', 'Logement', 'Énergie', 'Alimentation', 'Revenus'],
-    summary:
-      'Une lecture ville par ville pour suivre les écarts de prix, l’exposition des ménages et les points de tension durables.',
-  },
-  {
-    slug: 'sante-mentale-des-18-25-ans',
-    title: 'Santé mentale des 18-25 ans',
-    scope: 'Santé publique',
-    updated: 'Actualisé 2 h',
-    progress: '64%',
-    metrics: ['Stress', 'Sommeil', 'Accès soins', 'Isolement', 'Prévention'],
-    summary:
-      'Croisez les perceptions, les indicateurs de suivi et les contrastes régionaux sur une base continuellement enrichie.',
-  },
-  {
-    slug: 'intentions-de-vote-par-bassin',
-    title: 'Intentions de vote par bassin',
-    scope: 'Politique',
-    updated: 'Nouvelle vague',
-    progress: '81%',
-    metrics: ['Intentions', 'Reports', 'Abstention', 'Âges', 'Territoires'],
-    summary:
-      'Des segments comparables, des historiques propres et des variations lisibles pour détecter les bascules utiles.',
-  },
-  {
-    slug: 'pouvoir-dachat-et-arbitrages',
-    title: 'Pouvoir d’achat et arbitrages',
-    scope: 'Société',
-    updated: 'Actualisé hier',
-    progress: '58%',
-    metrics: ['Budgets', 'Courses', 'Énergie', 'Transport', 'Loisirs'],
-    summary:
-      'Visualisez les renoncements, arbitrages et reprises par profils de consommation et intensité de contrainte.',
-  },
-]
+const isLoading = ref(true)
+const loadError = ref<string | null>(null)
+const datasets = ref<StatsDataPublicListItemDto[]>([])
+
+const visibleDatasets = computed(() => datasets.value.filter((d) => d.slug && d.title))
+
+function formatUpdated(iso: string): string {
+  if (!iso) return '—'
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return '—'
+  return new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' }).format(date)
+}
+
+onMounted(async () => {
+  isLoading.value = true
+  loadError.value = null
+  try {
+    datasets.value = await fetchPublicStatsDataDocuments()
+  } catch (e) {
+    loadError.value = e instanceof Error ? e.message : 'Erreur lors du chargement'
+    datasets.value = []
+  } finally {
+    isLoading.value = false
+  }
+})
 
 const featurePanels = [
   {
@@ -92,11 +73,7 @@ const quickSignals = [
 </script>
 
 <template>
-  <div class="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#ffffff_20%,#eef6ff_100%)] text-slate-900">
-    <AppPromoBanner :items="sharedPromoItems" />
-    <AppHeader />
-
-    <main class="pb-24 pt-32">
+  <main class="pb-24 pt-32">
       <section class="section pb-10">
         <div class="container grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_320px] lg:items-start">
           <div class="flex flex-col gap-8">
@@ -246,49 +223,62 @@ const quickSignals = [
             </div>
           </div>
 
-          <div class="grid gap-6 lg:grid-cols-2">
+          <div
+            v-if="isLoading"
+            class="rounded-[2rem] border border-slate-200 bg-white px-6 py-12 text-center shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)]"
+          >
+            <p class="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">Chargement</p>
+            <h3 class="mt-3 text-2xl font-semibold text-slate-950">On récupère les StatsData publiques.</h3>
+          </div>
+
+          <div
+            v-else-if="loadError"
+            class="rounded-[2rem] border border-rose-200 bg-rose-50 px-6 py-12 text-center shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)]"
+          >
+            <p class="text-sm font-semibold uppercase tracking-[0.24em] text-rose-700">Erreur</p>
+            <h3 class="mt-3 text-2xl font-semibold text-slate-950">Impossible de charger le catalogue.</h3>
+            <p class="mx-auto mt-3 max-w-2xl text-sm leading-7 text-rose-900/80">{{ loadError }}</p>
+          </div>
+
+          <div
+            v-else-if="visibleDatasets.length === 0"
+            class="rounded-[2rem] border border-dashed border-slate-300 bg-white px-6 py-12 text-center shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)]"
+          >
+            <p class="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">Aucune StatsData</p>
+            <h3 class="mt-3 text-2xl font-semibold text-slate-950">Le catalogue public est vide pour l’instant.</h3>
+          </div>
+
+          <div v-else class="grid gap-6 lg:grid-cols-2">
             <RouterLink
-              v-for="item in datasets"
-              :key="item.slug"
+              v-for="item in visibleDatasets"
+              :key="item.id"
               :to="`/statsdata/${item.slug}`"
               class="flex h-full flex-col gap-6 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_26px_80px_-54px_rgba(15,23,42,0.45)]"
             >
               <div class="flex items-start justify-between gap-4">
                 <div class="flex flex-col gap-2">
-                  <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">{{ item.scope }}</p>
+                  <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
+                    {{ item.author ?? 'Statsio' }}
+                  </p>
                   <h3 class="text-2xl font-semibold leading-tight tracking-[-0.03em] text-slate-950">
                     {{ item.title }}
                   </h3>
                 </div>
                 <span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-                  {{ item.updated }}
+                  {{ formatUpdated(item.updated_at) }}
                 </span>
               </div>
 
               <p class="text-sm leading-7 text-slate-600">
-                {{ item.summary }}
+                {{ item.subtitle ?? '—' }}
               </p>
 
-              <div class="flex flex-col gap-3">
-                <div class="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                  <span>Complétude</span>
-                  <span>{{ item.progress }}</span>
-                </div>
-                <div class="h-2 w-full rounded-full bg-slate-100">
-                  <div
-                    class="h-2 rounded-full bg-[var(--color-accent)]"
-                    :style="{ width: item.progress }"
-                  ></div>
-                </div>
-              </div>
-
               <div class="flex flex-wrap gap-2">
-                <span
-                  v-for="metric in item.metrics"
-                  :key="metric"
-                  class="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600"
-                >
-                  {{ metric }}
+                <span class="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600">
+                  Public
+                </span>
+                <span class="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600">
+                  Créée le {{ formatUpdated(item.created_at) }}
                 </span>
               </div>
             </RouterLink>
@@ -321,8 +311,5 @@ const quickSignals = [
           </div>
         </div>
       </section>
-    </main>
-
-    <AppFooter />
-  </div>
+  </main>
 </template>

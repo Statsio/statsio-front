@@ -1,13 +1,19 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import {
   createEmptyManualSource,
   createMockApiSource,
 } from '@/data/studio-mock-data-sources'
 import AppButton from '@/components/ui/AppButton.vue'
+import {
+  normalizationMappingJsonLooksPopulatedButUnparsed,
+  parseStatsDataNormalizationMapping,
+} from '@/lib/statsdata-source-mapper'
 import type { StudioDataSource, StudioDataSourceApi, StudioDataSourceManual } from '@/types/studio-data-source'
+import type { StatsDataNormalizationMapping } from '@/types/statsdata-query'
 import type { SourcesFeedback } from '@/composables/useStudioDocument'
 import StudioManualSourceGrid from '@/components/studio/StudioManualSourceGrid.vue'
+import StudioNormalizationMappingEditor from '@/components/studio/StudioNormalizationMappingEditor.vue'
 
 const props = defineProps<{
   dataSources: StudioDataSource[]
@@ -17,6 +23,11 @@ const props = defineProps<{
   remoteEnabled: boolean
   sourcesBusy?: boolean
   feedback: SourcesFeedback | null
+  /** PATCH minimal `normalizationMapping` (StatsData). Si absent en mode distant, « Enregistrer le mapping » retombe sur `sync-source`. */
+  persistSourceNormalization?: (
+    sourceId: string,
+    mapping: StatsDataNormalizationMapping | null,
+  ) => Promise<void>
 }>()
 
 const emit = defineEmits<{
@@ -27,10 +38,69 @@ const emit = defineEmits<{
   'probe-api': [StudioDataSourceApi]
   'upload-file': [file: File]
   'dismiss-feedback': []
+  'refresh-normalized': [sourceId: string]
 }>()
 
 const expandedId = ref<string | null>(null)
+const mappingOpenId = ref<string | null>(null)
+const mappingDraft = ref('')
+const mappingJsonError = ref<string | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
+
+watch(mappingOpenId, (id) => {
+  mappingJsonError.value = null
+  if (!id) return
+  const s = props.dataSources.find((x) => x.id === id)
+  mappingDraft.value = JSON.stringify(
+    s?.normalizationMapping ?? { keyFields: [], valueFields: [] },
+    null,
+    2,
+  )
+})
+
+const applyMappingJson = async (src: StudioDataSource) => {
+  mappingJsonError.value = null
+  let parsed: StatsDataNormalizationMapping | null
+  let raw: unknown
+  try {
+    raw = JSON.parse(mappingDraft.value) as unknown
+    parsed = parseStatsDataNormalizationMapping(raw)
+  } catch {
+    mappingJsonError.value = 'JSON invalide ou mapping non conforme (keyFields / valueFields).'
+    return
+  }
+  if (parsed === null && normalizationMappingJsonLooksPopulatedButUnparsed(raw)) {
+    mappingJsonError.value =
+      'Aucun champ valide : chaque entrée doit être une chaîne (ex. "TIME_PERIOD") ou un objet { "name": "...", "from": "..." } (from optionnel).'
+    return
+  }
+  const next = { ...src, normalizationMapping: parsed }
+  emit('update-source', next)
+  if (props.remoteEnabled && props.documentId) {
+    if (props.persistSourceNormalization) {
+      try {
+        await props.persistSourceNormalization(src.id, parsed)
+      } catch {
+        return
+      }
+    } else {
+      emit('sync-source', next)
+    }
+  }
+  mappingOpenId.value = null
+}
+
+const applyMapping = async (src: StudioDataSource, mapping: StatsDataNormalizationMapping | null) => {
+  const next = { ...src, normalizationMapping: mapping }
+  emit('update-source', next)
+  if (props.remoteEnabled && props.documentId) {
+    if (props.persistSourceNormalization) {
+      await props.persistSourceNormalization(src.id, mapping)
+    } else {
+      emit('sync-source', next)
+    }
+  }
+}
 
 const kindLabel: Record<StudioDataSource['kind'], string> = {
   manual: 'Manuel',
@@ -98,9 +168,15 @@ const onSourceNameCommit = (src: StudioDataSource, el: HTMLInputElement) => {
     <p v-if="remoteEnabled && !documentId" class="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
       Enregistrez le document une première fois pour activer les sources sur le serveur.
     </p>
-    <p v-else-if="remoteEnabled" class="mb-4 text-xs leading-relaxed text-slate-500">
-      Les sources sont synchronisées avec l’API (création, mise à jour, suppression). La grille manuelle s’enregistre automatiquement après une courte pause.
-    </p>
+    <div v-else-if="remoteEnabled" class="mb-4 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
+      <p class="font-semibold text-slate-800">Étapes conseillées</p>
+      <ol class="mt-1 list-decimal space-y-0.5 pl-4">
+        <li>Ajoute une source (grille, fichier, API)</li>
+        <li>Définis le mapping de normalisation</li>
+        <li>Clique sur « Actualiser les données » (snapshot)</li>
+        <li>Construit tes blocs (tableaux / graphiques)</li>
+      </ol>
+    </div>
     <p v-else class="mb-4 text-xs leading-relaxed text-slate-500">Sources locales (hors StatsData API).</p>
 
     <div class="mb-3 flex flex-wrap gap-2">
@@ -126,7 +202,7 @@ const onSourceNameCommit = (src: StudioDataSource, el: HTMLInputElement) => {
         ref="fileInputRef"
         type="file"
         class="sr-only"
-        accept=".csv,.txt,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        accept=".csv,.txt,text/csv"
         @change="onFileSelected"
       />
       <AppButton
@@ -147,7 +223,7 @@ const onSourceNameCommit = (src: StudioDataSource, el: HTMLInputElement) => {
         class="rounded-2xl border border-slate-200 bg-slate-50/60 p-3"
       >
         <div class="flex flex-wrap items-start justify-between gap-2">
-          <div class="min-w-0 flex-1">
+          <div class="w-full">
             <label class="sr-only" :for="`src-name-${src.id}`">Nom de la source</label>
             <input
               :id="`src-name-${src.id}`"
@@ -159,6 +235,57 @@ const onSourceNameCommit = (src: StudioDataSource, el: HTMLInputElement) => {
             <p class="mt-0.5 text-[11px] font-medium uppercase tracking-wider text-slate-400">{{ kindLabel[src.kind] }}</p>
             <p v-if="src.kind === 'file'" class="mt-1 truncate text-xs text-slate-500">{{ src.fileName }} · {{ src.format }}</p>
             <p v-if="src.kind === 'api'" class="mt-1 truncate text-xs text-slate-500">{{ src.url }}</p>
+            <div
+              v-if="remoteEnabled && documentId"
+              class="mt-2 rounded-xl border border-slate-200/90 bg-white/70 px-2.5 py-2 text-[11px] leading-snug text-slate-600"
+            >
+              <template v-if="src.lastSnapshot">
+                <span
+                  class="font-semibold"
+                  :class="src.lastSnapshot.status === 'ok' ? 'text-emerald-700' : 'text-rose-700'"
+                >
+                  {{ src.lastSnapshot.status === 'ok' ? 'Snapshot OK' : 'Snapshot en échec' }}
+                </span>
+                <span v-if="typeof src.lastSnapshot.rowCount === 'number'"> · {{ src.lastSnapshot.rowCount }} ligne(s)</span>
+                <span v-if="src.lastSnapshot.refreshedAt" class="text-slate-500"> · {{ src.lastSnapshot.refreshedAt }}</span>
+                <p v-if="src.lastSnapshot.status === 'failed' && src.lastSnapshot.errorMessage" class="mt-1 text-rose-800">
+                  {{ src.lastSnapshot.errorMessage }}
+                </p>
+              </template>
+              <p v-else class="text-slate-500">Aucun snapshot — définissez un mapping puis actualisez.</p>
+              <div class="mt-2 flex flex-wrap gap-2">
+                <AppButton
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  :disabled="sourcesBusy"
+                  @click="emit('refresh-normalized', src.id)"
+                >
+                  Actualiser les données
+                </AppButton>
+                <AppButton
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  class="text-slate-700"
+                  @click="mappingOpenId = mappingOpenId === src.id ? null : src.id"
+                >
+                  {{ mappingOpenId === src.id ? 'Fermer le mapping' : 'Configurer le mapping' }}
+                </AppButton>
+              </div>
+            </div>
+            <div
+              v-if="remoteEnabled && documentId && mappingOpenId === src.id"
+              class="mt-2 space-y-2"
+            >
+              <StudioNormalizationMappingEditor
+                :source="src"
+                :document-id="documentId"
+                :busy="sourcesBusy"
+                @apply="applyMapping(src, $event)"
+              />
+              <p v-if="mappingJsonError" class="text-[11px] text-rose-700">{{ mappingJsonError }}</p>
+            </div>
           </div>
           <div class="flex shrink-0 flex-wrap gap-1">
             <AppButton
@@ -223,6 +350,51 @@ const onSourceNameCommit = (src: StudioDataSource, el: HTMLInputElement) => {
               "
               @input="patchApiField(src, { apiKeyPreview: ($event.target as HTMLInputElement).value })"
             />
+          </div>
+          <div>
+            <label class="mb-1 block text-xs font-semibold text-slate-600" :for="`api-limit-${src.id}`"
+              >Limit (optionnel)</label
+            >
+            <input
+              :id="`api-limit-${src.id}`"
+              :value="src.apiLimit ?? ''"
+              type="number"
+              min="1"
+              placeholder="ex. 100"
+              class="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/15"
+              @input="
+                patchApiField(src, {
+                  apiLimit: (() => {
+                    const raw = ($event.target as HTMLInputElement).value.trim()
+                    if (!raw) return null
+                    const n = Number(raw)
+                    return Number.isFinite(n) && n > 0 ? Math.floor(n) : null
+                  })(),
+                })
+              "
+            />
+            <p class="mt-1 text-[11px] leading-snug text-slate-500">
+              Si l’URL ne contient pas déjà <code class="rounded bg-slate-100 px-0.5">limit=</code>, cette valeur sera ajoutée automatiquement côté serveur.
+            </p>
+          </div>
+          <div>
+            <label class="mb-1 block text-xs font-semibold text-slate-600" :for="`api-search-tpl-${src.id}`"
+              >Recherche (template URL)</label
+            >
+            <input
+              :id="`api-search-tpl-${src.id}`"
+              :value="src.apiSearchTemplate ?? ''"
+              type="text"
+              autocomplete="off"
+              placeholder="ex. https://geo.api.gouv.fr/communes?codePostal={q}"
+              class="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/15"
+              @input="patchApiField(src, { apiSearchTemplate: ($event.target as HTMLInputElement).value })"
+            />
+            <p class="mt-1 text-[11px] leading-snug text-slate-500">
+              Utilise <code class="rounded bg-slate-100 px-0.5">{q}</code> et <code class="rounded bg-slate-100 px-0.5">{f}</code>. Exemples :
+              <code class="rounded bg-slate-100 px-0.5">...?codePostal={q}</code> ou
+              <code class="rounded bg-slate-100 px-0.5">...?where={f}%3D{q}</code>.
+            </p>
           </div>
           <div class="flex flex-wrap gap-2">
             <AppButton variant="secondary" size="sm" type="button" :disabled="sourcesBusy" @click="emit('probe-api', src)">

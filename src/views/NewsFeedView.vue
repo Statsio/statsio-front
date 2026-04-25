@@ -2,10 +2,6 @@
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { articleDetails, articleSummaries } from '@/data/articles'
-import { sharedPromoItems } from '@/data/promo-items'
-import AppFooter from '@/components/layout/AppFooter.vue'
-import AppHeader from '@/components/layout/AppHeader.vue'
-import AppPromoBanner from '@/components/layout/AppPromoBanner.vue'
 import AppAvatar from '@/components/ui/AppAvatar.vue'
 import AppButton from '@/components/ui/AppButton.vue'
 
@@ -43,11 +39,7 @@ const spotlightItems = [
 </script>
 
 <template>
-  <div class="min-h-screen bg-[radial-gradient(circle_at_top,#eef4ff_0%,#f8fafc_32%,#ffffff_100%)] text-slate-900">
-    <AppPromoBanner :items="sharedPromoItems" />
-    <AppHeader />
-
-    <main class="pb-24 pt-32">
+  <main class="pb-24 pt-32">
       <section class="section pb-8">
         <div class="container grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
           <div class="flex flex-col gap-6">
@@ -168,8 +160,5 @@ const spotlightItems = [
           </aside>
         </div>
       </section>
-    </main>
-
-    <AppFooter />
-  </div>
+  </main>
 </template>

@@ -28,7 +28,14 @@ const group = { name: 'studio-blocks', pull: 'clone', put: false }
 </script>
 
 <template>
-  <draggable v-model="rows" item-key="paletteId" :group="group" :sort="false" :clone="clonePaletteItem" class="flex flex-col gap-2">
+  <draggable
+    v-model="rows"
+    item-key="paletteId"
+    :group="group"
+    :sort="false"
+    :clone="clonePaletteItem"
+    class="grid grid-cols-1 gap-3 sm:grid-cols-2"
+  >
     <template #item="{ element }">
       <StudioPaletteRow :item="element" @add="emit('add', element.blockType)" />
     </template>

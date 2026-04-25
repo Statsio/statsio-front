@@ -12,6 +12,28 @@ const REFRESH_ENDPOINT = '/refresh'
 const AUTHLESS_ENDPOINTS = new Set(['/login', '/register', '/google', REFRESH_ENDPOINT])
 
 let refreshSessionPromise: Promise<AuthSession | null> | null = null
+let didRedirectToLogin = false
+const REDIRECT_KEY = 'statsio.auth.redirectAfterLogin'
+
+const redirectToLogin = () => {
+  if (typeof window === 'undefined') return
+  if (didRedirectToLogin) return
+  const path = window.location.pathname || '/'
+  if (path.startsWith('/login')) return
+  didRedirectToLogin = true
+  const redirect = `${window.location.pathname}${window.location.search}${window.location.hash}`
+  try {
+    window.sessionStorage.setItem(REDIRECT_KEY, redirect)
+  } catch {
+    // ignore storage failures
+  }
+  try {
+    window.localStorage.setItem(REDIRECT_KEY, redirect)
+  } catch {
+    // ignore storage failures
+  }
+  window.location.assign('/login')
+}
 
 const toAuthSession = (payload: ApiAuthResponse['data']): AuthSession => ({
   token: payload.access_token ?? payload.token ?? '',
@@ -80,6 +102,7 @@ function createAuthenticatedClient(baseURL: string): AxiosInstance {
       if (originalRequest._retry || isRefreshRequest || isAuthlessEndpoint) {
         if (isRefreshRequest) {
           clearStoredToken()
+          redirectToLogin()
         }
 
         return Promise.reject(error)
@@ -93,6 +116,8 @@ function createAuthenticatedClient(baseURL: string): AxiosInstance {
         const refreshedSession = await refreshSessionPromise
 
         if (!refreshedSession) {
+          clearStoredToken()
+          redirectToLogin()
           return Promise.reject(error)
         }
 
@@ -103,6 +128,7 @@ function createAuthenticatedClient(baseURL: string): AxiosInstance {
         return client(originalRequest)
       } catch (refreshError) {
         clearStoredToken()
+        redirectToLogin()
         return Promise.reject(refreshError)
       }
     },

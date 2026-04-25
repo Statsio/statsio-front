@@ -1,13 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import AppFooter from '@/components/layout/AppFooter.vue'
-import AppHeader from '@/components/layout/AppHeader.vue'
-import AppPromoBanner from '@/components/layout/AppPromoBanner.vue'
 import PollQuestionBlock from '@/components/polls/PollQuestionBlock.vue'
 import AppButton from '@/components/ui/AppButton.vue'
 import { pollDetails, type PollDetail, pollSummaries } from '@/data/polls'
-import { sharedPromoItems } from '@/data/promo-items'
 
 const route = useRoute()
 
@@ -61,11 +57,7 @@ watch(
 </script>
 
 <template>
-  <div class="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#ffffff_22%,#eef4ff_100%)] text-slate-900">
-    <AppPromoBanner :items="sharedPromoItems" />
-    <AppHeader />
-
-    <main class="pb-24 pt-32">
+  <main class="pb-24 pt-32">
       <section class="section pb-10">
         <div class="container flex flex-col gap-10">
           <div class="flex flex-col gap-5">
@@ -217,8 +209,5 @@ watch(
           </div>
         </div>
       </section>
-    </main>
-
-    <AppFooter />
-  </div>
+  </main>
 </template>

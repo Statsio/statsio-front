@@ -1,12 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import AppFooter from '@/components/layout/AppFooter.vue'
-import AppHeader from '@/components/layout/AppHeader.vue'
-import AppPromoBanner from '@/components/layout/AppPromoBanner.vue'
 import PollCard from '@/components/polls/PollCard.vue'
 import AppButton from '@/components/ui/AppButton.vue'
 import { pollFilterLabels, pollSummaries } from '@/data/polls'
-import { sharedPromoItems } from '@/data/promo-items'
 
 const activeFilter = ref<(typeof pollFilterLabels)[number]>('Tous')
 
@@ -49,25 +45,21 @@ const editorialPoints = [
 </script>
 
 <template>
-  <div class="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#ffffff_18%,#eef4ff_100%)] text-slate-900">
-    <AppPromoBanner :items="sharedPromoItems" />
-    <AppHeader />
-
-    <main class="pb-24 pt-32">
-      <section class="section pb-8">
-        <div class="container grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_320px] lg:items-start">
-          <div class="flex flex-col gap-8">
-            <div class="flex flex-col gap-5">
-              <p class="eyebrow text-primary">Sondages & baromètres</p>
-              <div class="flex max-w-4xl flex-col gap-4">
-                <h1 class="text-4xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-5xl lg:text-6xl">
-                  Une page sondages pensée pour comparer les vagues et répondre au bon niveau.
-                </h1>
-                <p class="max-w-3xl text-lg leading-8 text-slate-600">
-                  Parcourez les consultations ouvertes ou archivées, identifiez les dates limites, puis ouvrez le détail pour répondre question par question.
-                </p>
-              </div>
+  <main class="pb-24 pt-32">
+    <section class="section pb-8">
+      <div class="container grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_320px] lg:items-start">
+        <div class="flex flex-col gap-8">
+          <div class="flex flex-col gap-5">
+            <p class="eyebrow text-primary">Sondages & baromètres</p>
+            <div class="flex max-w-4xl flex-col gap-4">
+              <h1 class="text-4xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-5xl lg:text-6xl">
+                Une page sondages pensée pour comparer les vagues et répondre au bon niveau.
+              </h1>
+              <p class="max-w-3xl text-lg leading-8 text-slate-600">
+                Parcourez les consultations ouvertes ou archivées, identifiez les dates limites, puis ouvrez le détail pour répondre question par question.
+              </p>
             </div>
+          </div>
 
             <div class="grid gap-4 sm:grid-cols-3">
               <div class="rounded-[1.75rem] border border-slate-200 bg-white/85 px-5 py-4 shadow-[0_20px_60px_-42px_rgba(15,23,42,0.35)]">
@@ -131,28 +123,25 @@ const editorialPoints = [
               </div>
             </div>
           </aside>
-        </div>
-      </section>
+      </div>
+    </section>
 
-      <section class="section pt-6">
-        <div class="container">
-          <div class="mb-6 flex items-center justify-between gap-4">
-            <div>
-              <p class="eyebrow">Catalogue</p>
-              <h2 class="text-3xl font-semibold text-slate-950">Tous les sondages disponibles</h2>
-            </div>
-            <p class="text-sm text-slate-500">
-              {{ filteredPolls.length }} sondage<span v-if="filteredPolls.length > 1">s</span>
-            </p>
+    <section class="section pt-6">
+      <div class="container">
+        <div class="mb-6 flex items-center justify-between gap-4">
+          <div>
+            <p class="eyebrow">Catalogue</p>
+            <h2 class="text-3xl font-semibold text-slate-950">Tous les sondages disponibles</h2>
           </div>
-
-          <div class="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
-            <PollCard v-for="poll in filteredPolls" :key="poll.slug" :poll="poll" />
-          </div>
+          <p class="text-sm text-slate-500">
+            {{ filteredPolls.length }} sondage<span v-if="filteredPolls.length > 1">s</span>
+          </p>
         </div>
-      </section>
-    </main>
 
-    <AppFooter />
-  </div>
+        <div class="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
+          <PollCard v-for="poll in filteredPolls" :key="poll.slug" :poll="poll" />
+        </div>
+      </div>
+    </section>
+  </main>
 </template>

@@ -1,17 +1,18 @@
 <script setup lang="ts">
-import { withDefaults } from 'vue'
 import type { StudioBlock, StudioBlockType, StudioDocumentSettings } from '@/types/studio-document'
 import type { StudioDataSource, StudioDataSourceApi } from '@/types/studio-data-source'
+import type { StatsDataNormalizationMapping } from '@/types/statsdata-query'
 import type { SourcesFeedback } from '@/composables/useStudioDocument'
 import type { StudioLeftTabId } from '@/components/studio/studio-left-dock.types'
+import AppSelect from '@/components/ui/AppSelect.vue'
 import {
   studioPaletteCharts,
+  studioPaletteLayouts,
   studioPaletteMedia,
   studioPaletteTables,
   studioPaletteText,
 } from '@/data/studio-palette'
 import StudioBlockPalette from '@/components/studio/StudioBlockPalette.vue'
-import StudioBlocksOutlinePanel from '@/components/studio/StudioBlocksOutlinePanel.vue'
 import StudioBlockInspectorFields from '@/components/studio/StudioBlockInspectorFields.vue'
 import StudioDataSourcesSection from '@/components/studio/StudioDataSourcesSection.vue'
 
@@ -27,10 +28,16 @@ const props = withDefaults(
     settings: StudioDocumentSettings
     statsDataDocumentId: string | null
     remoteStudioSources: boolean
+    /** Tableaux / graphiques : requêtes `POST .../query` + spec inline dans les blocs. */
+    statsDataQueryMode: boolean
     sourcesFeedback: SourcesFeedback | null
     sourcesBusy?: boolean
+    persistSourceNormalization?: (
+      sourceId: string,
+      mapping: StatsDataNormalizationMapping | null,
+    ) => Promise<void>
   }>(),
-  { sourcesBusy: false },
+  { sourcesBusy: false, statsDataQueryMode: false },
 )
 
 const emit = defineEmits<{
@@ -48,19 +55,26 @@ const emit = defineEmits<{
   'probe-api-source': [StudioDataSourceApi]
   'upload-data-source-file': [File]
   'dismiss-sources-feedback': []
+  'refresh-normalized-source': [sourceId: string]
 }>()
 
 const patchSettings = (patch: Partial<StudioDocumentSettings>) => {
   emit('update:settings', { ...props.settings, ...patch })
 }
 
+const visibilitySelectOptions = [
+  { value: 'private', label: 'Privé' },
+  { value: 'team', label: 'Équipe' },
+  { value: 'public', label: 'Public' },
+]
+
 const railItems: { id: StudioLeftTabId; label: string; short: string }[] = [
   { id: 'text', label: 'Texte', short: 'Aa' },
+  { id: 'layouts', label: 'Layouts', short: '▤' },
   { id: 'tables', label: 'Tableaux', short: '▦' },
   { id: 'charts', label: 'Graphiques', short: '▧' },
   { id: 'data', label: 'Sources', short: '◧' },
   { id: 'import', label: 'Import', short: '↑' },
-  { id: 'blocks', label: 'Blocs', short: '≡' },
   { id: 'settings', label: 'Paramètres', short: '⚙' },
 ]
 
@@ -77,20 +91,23 @@ function closeDrawer() {
   open.value = false
 }
 
-const panelTitles: Record<StudioLeftTabId, string> = {
+const panelTitles: Partial<Record<StudioLeftTabId, string>> = {
   text: 'Texte',
+  layouts: 'Layouts',
   tables: 'Tableaux',
   charts: 'Graphiques',
   data: 'Sources de données',
   import: 'Importations',
-  blocks: 'Plan de page',
   inspector: 'Propriétés du bloc',
   settings: 'Paramètres',
 }
 </script>
 
 <template>
-  <div class="flex min-h-0 shrink-0 border-r border-slate-200 bg-slate-900 text-white">
+  <div
+    class="fixed left-0 top-[4.5rem] z-30 flex h-[calc(100vh-4.5rem)] shrink-0 border-r border-slate-200 bg-slate-900 text-white"
+    aria-label="Sidebar Studio"
+  >
     <nav class="flex w-[4.5rem] shrink-0 flex-col items-stretch gap-0.5 py-2" aria-label="Outils du studio">
       <button
         v-for="item in railItems"
@@ -115,10 +132,10 @@ const panelTitles: Record<StudioLeftTabId, string> = {
     >
       <div
         v-if="open && tab"
-        class="flex h-full max-h-[calc(100vh-4.5rem)] w-[min(20.5rem,calc(100vw-4.5rem))] flex-col"
+        class="flex h-full w-[min(20.5rem,calc(100vw-4.5rem))] flex-col"
       >
         <div class="flex items-center justify-between gap-2 border-b border-slate-100 px-3 py-2.5">
-          <h2 class="text-sm font-semibold text-slate-900">{{ panelTitles[tab] }}</h2>
+          <h2 class="text-sm font-semibold text-slate-900">{{ panelTitles[tab] ?? '' }}</h2>
           <button
             type="button"
             class="rounded-xl p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
@@ -135,6 +152,13 @@ const panelTitles: Record<StudioLeftTabId, string> = {
             <template v-if="tab === 'text'">
               <p class="mb-3 text-xs text-slate-500">Glissez ou ajoutez un bloc texte sur la page.</p>
               <StudioBlockPalette :items="studioPaletteText" @add="emit('add-block', $event)" />
+            </template>
+
+            <template v-else-if="tab === 'layouts'">
+              <p class="mb-3 text-xs text-slate-500">
+                Conteneurs en colonnes pour placer plusieurs blocs côte à côte sur desktop.
+              </p>
+              <StudioBlockPalette :items="studioPaletteLayouts" @add="emit('add-block', $event)" />
             </template>
 
             <template v-else-if="tab === 'tables'">
@@ -154,6 +178,7 @@ const panelTitles: Record<StudioLeftTabId, string> = {
                 :remote-enabled="remoteStudioSources"
                 :sources-busy="sourcesBusy"
                 :feedback="sourcesFeedback"
+                :persist-source-normalization="persistSourceNormalization"
                 @update-source="emit('update-data-source', $event)"
                 @add-source="emit('add-data-source', $event)"
                 @remove-source="emit('remove-data-source', $event)"
@@ -161,12 +186,13 @@ const panelTitles: Record<StudioLeftTabId, string> = {
                 @probe-api="emit('probe-api-source', $event)"
                 @upload-file="emit('upload-data-source-file', $event)"
                 @dismiss-feedback="emit('dismiss-sources-feedback')"
+                @refresh-normalized="emit('refresh-normalized-source', $event)"
               />
             </template>
 
             <template v-else-if="tab === 'import'">
               <p class="mb-3 text-xs text-slate-500">
-                Fichiers CSV / Excel : import réel via l’API à brancher. Ici : image et placeholders.
+                Import de fichiers : privilégiez CSV pour l’instant.
               </p>
               <div class="mb-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-xs text-slate-500">
                 Déposez un fichier (bientôt)
@@ -175,20 +201,13 @@ const panelTitles: Record<StudioLeftTabId, string> = {
               <StudioBlockPalette :items="studioPaletteMedia" @add="emit('add-block', $event)" />
             </template>
 
-            <template v-else-if="tab === 'blocks'">
-              <StudioBlocksOutlinePanel
-                :model-value="blocks"
-                :selected-id="selectedId"
-                @update:model-value="emit('update:blocks', $event)"
-                @select="emit('select-block', $event)"
-              />
-            </template>
-
             <template v-else-if="tab === 'inspector'">
               <StudioBlockInspectorFields
                 v-if="selectedBlock"
+                :key="selectedBlock.id"
                 id-prefix="dock-inspector"
                 embedded
+                :stats-data-query-mode="statsDataQueryMode"
                 :selected-block="selectedBlock"
                 :data-sources="dataSources"
                 @update-block="emit('update-block', $event)"
@@ -220,20 +239,14 @@ const panelTitles: Record<StudioLeftTabId, string> = {
                   </div>
                   <div>
                     <label class="mb-1 block text-xs font-semibold text-slate-600" for="dock-vis">Visibilité</label>
-                    <select
+                    <AppSelect
                       id="dock-vis"
-                      :value="settings.visibility"
-                      class="w-full rounded-2xl border border-slate-200 bg-slate-50/80 px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-primary/40 focus:bg-white focus:ring-2 focus:ring-primary/20 motion-reduce:transition-none"
-                      @change="
-                        patchSettings({
-                          visibility: ($event.target as HTMLSelectElement).value as StudioDocumentSettings['visibility'],
-                        })
-                      "
-                    >
-                      <option value="private">Privé</option>
-                      <option value="team">Équipe</option>
-                      <option value="public">Public</option>
-                    </select>
+                      :model-value="settings.visibility"
+                      :options="visibilitySelectOptions"
+                      aria-label="Visibilité"
+                      button-class="rounded-2xl bg-slate-50/80 px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20"
+                      @change="(v) => patchSettings({ visibility: String(v) as StudioDocumentSettings['visibility'] })"
+                    />
                   </div>
                 </div>
               </section>

@@ -17,9 +17,52 @@ const authStore = useAuthStore()
 
 const isFormValid = computed(() => email.value.trim().length > 0 && password.value.trim().length > 0)
 
+const REDIRECT_KEY = 'statsio.auth.redirectAfterLogin'
+
+function normalizeRedirectTarget(raw: unknown): string | null {
+  const target = typeof raw === 'string' ? raw : ''
+  if (!target) return null
+  // Prevent open redirects: only allow app-internal paths.
+  if (!target.startsWith('/')) return null
+  if (target.startsWith('//')) return null
+  return target
+}
+
+const redirectTarget = computed(() => {
+  try {
+    const fromSession = normalizeRedirectTarget(window.sessionStorage.getItem(REDIRECT_KEY))
+    if (fromSession) return fromSession
+  } catch {
+    // ignore
+  }
+  try {
+    return normalizeRedirectTarget(window.localStorage.getItem(REDIRECT_KEY))
+  } catch {
+    return null
+  }
+})
+
+const clearStoredRedirect = () => {
+  try {
+    window.sessionStorage.removeItem(REDIRECT_KEY)
+  } catch {
+    // ignore
+  }
+  try {
+    window.localStorage.removeItem(REDIRECT_KEY)
+  } catch {
+    // ignore
+  }
+}
+
 const handleGoogleSuccess = async () => {
   submitError.value = ''
-  await router.push({ name: 'home' })
+  const to = redirectTarget.value
+  if (to) {
+    clearStoredRedirect()
+    await router.replace(to)
+  }
+  else await router.push({ name: 'home' })
 }
 
 const handleSubmit = async () => {
@@ -39,7 +82,12 @@ const handleSubmit = async () => {
       keepSignedIn.value ? 'local' : 'session',
     )
 
-    await router.push({ name: 'home' })
+    const to = redirectTarget.value
+    if (to) {
+      clearStoredRedirect()
+      await router.replace(to)
+    }
+    else await router.push({ name: 'home' })
   } catch (error) {
     fieldErrors.value = getValidationErrors(error)
 

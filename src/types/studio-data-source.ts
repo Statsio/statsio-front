@@ -1,4 +1,12 @@
+import type { StatsDataNormalizationMapping, StatsDataSourceLastSnapshot } from '@/types/statsdata-query'
+
 export type StudioDataSourceKind = 'manual' | 'file' | 'api'
+
+/** Champs optionnels renvoyés par l’API StatsData (liste / détail source). */
+export type StudioDataSourceRemoteFields = {
+  normalizationMapping?: StatsDataNormalizationMapping | null
+  lastSnapshot?: StatsDataSourceLastSnapshot | null
+}
 
 /** Grille saisie à la main (ligne 0 = en-têtes). */
 export type StudioDataSourceManual = {
@@ -6,7 +14,7 @@ export type StudioDataSourceManual = {
   kind: 'manual'
   name: string
   rows: string[][]
-}
+} & StudioDataSourceRemoteFields
 
 /** Fichier importé — preview local jusqu’à l’API. */
 export type StudioDataSourceFile = {
@@ -16,7 +24,7 @@ export type StudioDataSourceFile = {
   fileName: string
   format: 'csv' | 'xlsx'
   previewRows: string[][]
-}
+} & StudioDataSourceRemoteFields
 
 /** API externe — aperçu JSON fictif jusqu’à l’implémentation réelle. */
 export type StudioDataSourceApi = {
@@ -27,10 +35,14 @@ export type StudioDataSourceApi = {
   /** Ex. Authorization, X-Api-Key — stockage réel côté API plus tard */
   authHeaderName: string
   apiKeyPreview: string
+  /** Limite par page (ajouté automatiquement à l’URL si aucun `limit=` n’est présent). */
+  apiLimit?: number | null
+  /** Template URL de recherche externe. Utilise `{q}` (ex: `...?codePostal={q}` ou `...?where=dep_code%3D{q}`). */
+  apiSearchTemplate?: string | null
   previewRecords: Record<string, string | number | boolean | null>[]
   /** Liste Statsio : `api.hasApiKey` — la clé n’est pas renvoyée, seul le booléen l’est. */
   hasStoredApiKey?: boolean
-}
+} & StudioDataSourceRemoteFields
 
 export type StudioDataSource = StudioDataSourceManual | StudioDataSourceFile | StudioDataSourceApi
 

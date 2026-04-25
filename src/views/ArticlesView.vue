@@ -1,10 +1,6 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
 import { articleSummaries } from '@/data/articles'
-import { sharedPromoItems } from '@/data/promo-items'
-import AppFooter from '@/components/layout/AppFooter.vue'
-import AppHeader from '@/components/layout/AppHeader.vue'
-import AppPromoBanner from '@/components/layout/AppPromoBanner.vue'
 import AppButton from '@/components/ui/AppButton.vue'
 
 const featuredArticle = {
@@ -58,26 +54,22 @@ const sidebarItems = [
 </script>
 
 <template>
-  <div class="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#ffffff_18%,#eef4ff_100%)] text-slate-900">
-    <AppPromoBanner :items="sharedPromoItems" />
-    <AppHeader />
-
-    <main class="pb-24 pt-32">
-      <section class="section pb-10">
-        <div class="container grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_320px] lg:items-start">
-          <div class="flex flex-col gap-8">
-            <div class="flex flex-col gap-5">
-              <p class="eyebrow text-primary">Rédaction & insights</p>
-              <div class="flex max-w-4xl flex-col gap-4">
-                <h1 class="text-4xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-5xl lg:text-6xl">
-                  Une page articles pensée pour lire les signaux avant tout le monde.
-                </h1>
-                <p class="max-w-3xl text-lg leading-8 text-slate-600">
-                  Décryptages, formats longs et analyses enrichies par les données. Chaque sujet combine angle
-                  éditorial clair, preuves consultables et mise à jour continue.
-                </p>
-              </div>
+  <main class="pb-24 pt-32">
+    <section class="section pb-10">
+      <div class="container grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_320px] lg:items-start">
+        <div class="flex flex-col gap-8">
+          <div class="flex flex-col gap-5">
+            <p class="eyebrow text-primary">Rédaction & insights</p>
+            <div class="flex max-w-4xl flex-col gap-4">
+              <h1 class="text-4xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-5xl lg:text-6xl">
+                Une page articles pensée pour lire les signaux avant tout le monde.
+              </h1>
+              <p class="max-w-3xl text-lg leading-8 text-slate-600">
+                Décryptages, formats longs et analyses enrichies par les données. Chaque sujet combine angle
+                éditorial clair, preuves consultables et mise à jour continue.
+              </p>
             </div>
+          </div>
 
             <div class="grid gap-4 sm:grid-cols-3">
               <div
@@ -251,8 +243,5 @@ const sidebarItems = [
           </div>
         </div>
       </section>
-    </main>
-
-    <AppFooter />
-  </div>
+  </main>
 </template>

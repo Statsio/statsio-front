@@ -15,140 +15,203 @@ import RegisterView from '../views/RegisterView.vue'
 import ContentStudioView from '../views/ContentStudioView.vue'
 import StatsDataDetailView from '../views/StatsDataDetailView.vue'
 import StatsDataView from '../views/StatsDataView.vue'
+import StatsDataSettingsView from '../views/StatsDataSettingsView.vue'
 import TvProgrammeView from '../views/TvProgrammeView.vue'
 import TvstatsView from '../views/TvstatsView.vue'
 import { useAuthStore } from '@/stores/auth'
+import DefaultLayout from '@/layouts/DefaultLayout.vue'
+import BareLayout from '@/layouts/BareLayout.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
       path: '/',
-      name: 'home',
-      component: HomeView,
+      component: DefaultLayout,
+      children: [
+        {
+          path: '',
+          name: 'home',
+          component: HomeView,
+          meta: {
+            title: 'Accueil',
+            description:
+              'Statsio centralise les analyses, les sources et les signaux en temps réel pour créer des articles, des StatsData et des sondages à fort impact.',
+          },
+        },
+        {
+          path: 'articles',
+          name: 'articles',
+          component: ArticlesView,
+          meta: {
+            title: 'Articles',
+            description: 'Décryptages et analyses enrichies par les données. Parcourez les sujets et signaux du moment.',
+          },
+        },
+        {
+          path: 'articles/:slug',
+          name: 'article-detail',
+          component: ArticleDetailView,
+        },
+        {
+          path: 'sondages',
+          name: 'polls',
+          component: PollsView,
+          meta: {
+            title: 'Sondages',
+            description:
+              'Parcourez les sondages, comparez les vagues et accédez au détail pour répondre question par question.',
+          },
+        },
+        {
+          path: 'sondages/:slug',
+          name: 'poll-detail',
+          component: PollDetailView,
+        },
+        {
+          path: 'statsdata',
+          name: 'statsdata',
+          component: StatsDataView,
+          meta: {
+            title: 'StatsData',
+            description: 'Explorez des datasets, comparez des indicateurs et suivez les mises à jour.',
+          },
+        },
+        {
+          path: 'integrations/statsdata',
+          name: 'integrations-statsdata',
+          component: StatsDataView,
+          meta: {
+            title: 'Intégration StatsData',
+            description: 'Présentation de l’intégration StatsData et catalogue public.',
+          },
+        },
+        {
+          path: 'statsdata/:slug',
+          name: 'statsdata-detail',
+          component: StatsDataDetailView,
+        },
+        {
+          path: 'statsdata/:id/proprietes',
+          name: 'statsdata-settings',
+          component: StatsDataSettingsView,
+          meta: {
+            requiresAuth: true,
+          },
+        },
+        {
+          path: 'chaines',
+          name: 'channels',
+          component: ChannelsView,
+          meta: {
+            title: 'Chaînes',
+            description: 'Recherchez, filtrez et suivez des chaînes éditoriales et thématiques.',
+          },
+        },
+        {
+          path: 'chaines/:slug',
+          name: 'channel-detail',
+          component: ChannelDetailView,
+        },
+        {
+          path: 'tvstats',
+          name: 'tvstats',
+          component: TvstatsView,
+          meta: {
+            title: 'TVStats',
+            description: 'Tableaux de bord et vues TV enrichies par les signaux d’audience.',
+          },
+        },
+        {
+          path: 'tvstats/programme-tv',
+          name: 'tvstats-programme-tv',
+          component: TvProgrammeView,
+        },
+        {
+          path: 'about',
+          name: 'about',
+          component: () => import('../views/AboutView.vue'),
+        },
+        {
+          path: 'profile',
+          name: 'profile',
+          component: ProfileView,
+          meta: {
+            requiresAuth: true,
+          },
+        },
+        {
+          path: 'contenus',
+          name: 'user-contents',
+          component: UserContentsView,
+          meta: {
+            requiresAuth: true,
+            title: 'Mes contenus',
+            description: 'Retrouvez et gérez vos contenus StatsData.',
+          },
+        },
+        {
+          path: 'fil-actus',
+          name: 'news-feed',
+          component: NewsFeedView,
+          meta: {
+            requiresAuth: true,
+          },
+        },
+      ],
     },
     {
-      path: '/articles',
-      name: 'articles',
-      component: ArticlesView,
+      path: '/studio',
+      component: BareLayout,
+      children: [
+        {
+          path: 'statsdata/nouveau',
+          name: 'studio-statsdata-create',
+          component: ContentStudioView,
+          meta: {
+            requiresAuth: true,
+            studio: true,
+            studioDocumentKind: 'statsdata' as const,
+          },
+        },
+        {
+          path: 'statsdata/:id',
+          name: 'studio-statsdata-edit',
+          component: ContentStudioView,
+          meta: {
+            requiresAuth: true,
+            studio: true,
+            studioDocumentKind: 'statsdata' as const,
+          },
+        },
+      ],
     },
     {
-      path: '/articles/:slug',
-      name: 'article-detail',
-      component: ArticleDetailView,
-    },
-    {
-      path: '/sondages',
-      name: 'polls',
-      component: PollsView,
-    },
-    {
-      path: '/sondages/:slug',
-      name: 'poll-detail',
-      component: PollDetailView,
-    },
-    {
-      path: '/statsdata',
-      name: 'statsdata',
-      component: StatsDataView,
-    },
-    {
-      path: '/statsdata/:slug',
-      name: 'statsdata-detail',
-      component: StatsDataDetailView,
-    },
-    {
-      path: '/studio/statsdata/nouveau',
-      name: 'studio-statsdata-create',
-      component: ContentStudioView,
-      meta: {
-        requiresAuth: true,
-        studio: true,
-        studioDocumentKind: 'statsdata' as const,
-      },
-    },
-    {
-      path: '/studio/statsdata/:id',
-      name: 'studio-statsdata-edit',
-      component: ContentStudioView,
-      meta: {
-        requiresAuth: true,
-        studio: true,
-        studioDocumentKind: 'statsdata' as const,
-      },
-    },
-    {
-      path: '/chaines',
-      name: 'channels',
-      component: ChannelsView,
-    },
-    {
-      path: '/chaines/:slug',
-      name: 'channel-detail',
-      component: ChannelDetailView,
-    },
-    {
-      path: '/tvstats',
-      name: 'tvstats',
-      component: TvstatsView,
-    },
-    {
-      path: '/tvstats/programme-tv',
-      name: 'tvstats-programme-tv',
-      component: TvProgrammeView,
-    },
-    {
-      path: '/about',
-      name: 'about',
-      // route level code-splitting
-      // this generates a separate chunk (About.[hash].js) for this route
-      // which is lazy-loaded when the route is visited.
-      component: () => import('../views/AboutView.vue'),
-    },
-    {
-      path: '/login',
-      name: 'login',
-      component: LoginView,
-      meta: {
-        guestOnly: true,
-      },
-    },
-    {
-      path: '/forgot-password',
-      name: 'forgot-password',
-      component: ForgotPasswordView,
-    },
-    {
-      path: '/profile',
-      name: 'profile',
-      component: ProfileView,
-      meta: {
-        requiresAuth: true,
-      },
-    },
-    {
-      path: '/contenus',
-      name: 'user-contents',
-      component: UserContentsView,
-      meta: {
-        requiresAuth: true,
-      },
-    },
-    {
-      path: '/fil-actus',
-      name: 'news-feed',
-      component: NewsFeedView,
-      meta: {
-        requiresAuth: true,
-      },
-    },
-    {
-      path: '/register',
-      name: 'register',
-      component: RegisterView,
-      meta: {
-        guestOnly: true,
-      },
+      path: '/',
+      component: BareLayout,
+      children: [
+        {
+          path: 'login',
+          name: 'login',
+          component: LoginView,
+          meta: {
+            guestOnly: true,
+          },
+        },
+        {
+          path: 'register',
+          name: 'register',
+          component: RegisterView,
+          meta: {
+            guestOnly: true,
+          },
+        },
+        {
+          path: 'forgot-password',
+          name: 'forgot-password',
+          component: ForgotPasswordView,
+        },
+      ],
     },
   ],
 })
@@ -157,6 +220,20 @@ router.beforeEach((to) => {
   const authStore = useAuthStore()
 
   if (to.meta.requiresAuth && !authStore.hasSession) {
+    // Remember where the user wanted to go, so login can send them back.
+    if (typeof window !== 'undefined' && to.fullPath && !to.fullPath.startsWith('/login')) {
+      const key = 'statsio.auth.redirectAfterLogin'
+      try {
+        window.sessionStorage.setItem(key, to.fullPath)
+      } catch {
+        // ignore
+      }
+      try {
+        window.localStorage.setItem(key, to.fullPath)
+      } catch {
+        // ignore
+      }
+    }
     return { name: 'login' }
   }
 

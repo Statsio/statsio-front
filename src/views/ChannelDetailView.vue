@@ -1,12 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import AppFooter from '@/components/layout/AppFooter.vue'
-import AppHeader from '@/components/layout/AppHeader.vue'
-import AppPromoBanner from '@/components/layout/AppPromoBanner.vue'
 import AppButton from '@/components/ui/AppButton.vue'
 import { channels, channelToneClasses, type ChannelEntry } from '@/data/channels'
-import { sharedPromoItems } from '@/data/promo-items'
 
 const route = useRoute()
 
@@ -22,11 +18,7 @@ const formatCompactNumber = (value: number) =>
 </script>
 
 <template>
-  <div class="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#ffffff_18%,#eef4ff_100%)] text-slate-900">
-    <AppPromoBanner :items="sharedPromoItems" />
-    <AppHeader />
-
-    <main class="pb-24 pt-32">
+  <main class="pb-24 pt-32">
       <section class="section pb-10">
         <div class="container flex flex-col gap-8">
           <div class="flex flex-col gap-6 rounded-[2.5rem] border border-slate-200 bg-white p-7 shadow-[0_30px_90px_-58px_rgba(15,23,42,0.35)] sm:p-9">
@@ -169,8 +161,5 @@ const formatCompactNumber = (value: number) =>
           </aside>
         </div>
       </section>
-    </main>
-
-    <AppFooter />
-  </div>
+  </main>
 </template>

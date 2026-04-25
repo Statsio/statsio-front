@@ -13,6 +13,8 @@ const emit = defineEmits<{
   'update:modelValue': [value: StudioBlock[]]
   'select-block': [id: string]
   update: [block: StudioBlock]
+  'duplicate-block': [id: string]
+  'remove-block': [id: string]
 }>()
 
 const list = computed({
@@ -28,7 +30,9 @@ const group = { name: 'studio-blocks', pull: true, put: true }
     v-model="list"
     item-key="id"
     :group="group"
-    handle=".studio-drag-handle"
+    handle=".studio-canvas-drag-handle"
+    :filter="'input, textarea, select, button, a, [contenteditable]'"
+    :prevent-on-filter="false"
     class="studio-canvas flex min-h-[280px] flex-col gap-10 lg:gap-12"
     ghost-class="studio-dnd-ghost"
     chosen-class="studio-dnd-chosen"
@@ -40,6 +44,8 @@ const group = { name: 'studio-blocks', pull: true, put: true }
         :selected="element.id === selectedBlockId"
         @select="emit('select-block', element.id)"
         @update="emit('update', $event)"
+        @duplicate="emit('duplicate-block', $event)"
+        @remove="emit('remove-block', $event)"
       />
     </template>
     <template #footer>

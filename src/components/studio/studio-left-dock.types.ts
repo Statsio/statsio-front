@@ -1,5 +1,6 @@
 export type StudioLeftTabId =
   | 'text'
+  | 'layouts'
   | 'tables'
   | 'charts'
   | 'data'

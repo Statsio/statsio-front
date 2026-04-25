@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import AppFooter from '@/components/layout/AppFooter.vue'
-import AppHeader from '@/components/layout/AppHeader.vue'
-import AppPromoBanner from '@/components/layout/AppPromoBanner.vue'
 import AppButton from '@/components/ui/AppButton.vue'
+import AppSelect from '@/components/ui/AppSelect.vue'
 import { channelThemeFilters, channels, channelToneClasses } from '@/data/channels'
-import { sharedPromoItems } from '@/data/promo-items'
 
 const searchQuery = ref('')
 const activeFilter = ref<(typeof channelThemeFilters)[number]>('Tous')
 const activeSort = ref<'popular' | 'subscriptions' | 'name'>('popular')
+
+const sortOptions = [
+  { value: 'popular', label: 'Les plus suivies' },
+  { value: 'subscriptions', label: 'Le plus d’abonnements payants' },
+  { value: 'name', label: 'Ordre alphabétique' },
+]
 
 const formatCompactNumber = (value: number) =>
   new Intl.NumberFormat('fr-FR', { notation: 'compact', maximumFractionDigits: 1 }).format(value)
@@ -53,11 +56,7 @@ const filteredChannels = computed(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#ffffff_18%,#eef4ff_100%)] text-slate-900">
-    <AppPromoBanner :items="sharedPromoItems" />
-    <AppHeader />
-
-    <main class="pb-24 pt-28">
+  <main class="pb-24 pt-28">
       <section class="section pt-4">
         <div class="container flex flex-col gap-6">
           <div class="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)] sm:p-6">
@@ -84,14 +83,7 @@ const filteredChannels = computed(() => {
 
                 <label class="flex flex-col gap-2">
                   <span class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Tri</span>
-                  <select
-                    v-model="activeSort"
-                    class="min-h-12 rounded-[1.25rem] border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition focus:border-primary/40 focus:bg-white focus:ring-4 focus:ring-primary/10"
-                  >
-                    <option value="popular">Les plus suivies</option>
-                    <option value="subscriptions">Le plus d’abonnements payants</option>
-                    <option value="name">Ordre alphabétique</option>
-                  </select>
+                  <AppSelect v-model="activeSort" :options="sortOptions" aria-label="Tri" />
                 </label>
               </div>
 
@@ -221,8 +213,5 @@ const filteredChannels = computed(() => {
           </div>
         </div>
       </section>
-    </main>
-
-    <AppFooter />
-  </div>
+  </main>
 </template>

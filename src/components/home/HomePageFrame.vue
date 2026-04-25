@@ -2,9 +2,6 @@
 import { computed } from 'vue'
 import { promoItems as statsioPromoItems } from '@/data/brands/statsio/promo-items'
 import { promoItems as tvstatsPromoItems } from '@/data/brands/tvstats/promo-items'
-import AppFooter from '@/components/layout/AppFooter.vue'
-import AppHeader from '@/components/layout/AppHeader.vue'
-import AppPromoBanner from '@/components/layout/AppPromoBanner.vue'
 import HomeArticles from '@/components/home/HomeArticles.vue'
 import HomeCTA from '@/components/home/HomeCTA.vue'
 import HomeHero from '@/components/home/HomeHero.vue'
@@ -34,10 +31,8 @@ const promoItems = computed(() => (props.variant === 'tvstats' ? tvstatsPromoIte
 </script>
 
 <template>
-  <div :class="['min-h-screen text-slate-900', pageClass]">
+  <div :class="pageClass">
     <a href="#main-content" class="sr-skip-link">Passer au contenu principal</a>
-    <AppPromoBanner :items="promoItems" />
-    <AppHeader />
     <main id="main-content" tabindex="-1" class="pb-24 pt-32">
       <HomeHero
         headline="Le média statistique nouvelle génération."
@@ -52,7 +47,6 @@ const promoItems = computed(() => (props.variant === 'tvstats' ? tvstatsPromoIte
       <HomePolls :items="polls" />
       <HomeCTA />
     </main>
-    <AppFooter />
   </div>
 </template>
 

@@ -75,7 +75,7 @@ const isReading = ref(false)
 const speechError = ref('')
 
 let isInitialized = false
-let activeUtterance: SpeechSynthesisUtterance | null = null
+let _activeUtterance: SpeechSynthesisUtterance | null = null
 
 const speechSupported = computed(
   () =>
@@ -154,7 +154,7 @@ const stopReading = () => {
 
   window.speechSynthesis.cancel()
   isReading.value = false
-  activeUtterance = null
+  _activeUtterance = null
 }
 
 const toggleReading = (targetId = 'main-content') => {
@@ -186,15 +186,15 @@ const toggleReading = (targetId = 'main-content') => {
   utterance.pitch = 1
   utterance.onend = () => {
     isReading.value = false
-    activeUtterance = null
+    _activeUtterance = null
   }
   utterance.onerror = () => {
     speechError.value = 'La lecture vocale a rencontré un problème.'
     isReading.value = false
-    activeUtterance = null
+    _activeUtterance = null
   }
 
-  activeUtterance = utterance
+  _activeUtterance = utterance
   isReading.value = true
   window.speechSynthesis.speak(utterance)
 }

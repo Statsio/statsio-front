@@ -21,8 +21,16 @@ const list = computed({
 const typeLabel: Record<StudioBlock['type'], string> = {
   text_heading: 'Titre',
   text_paragraph: 'Paragraphe',
+  layout_2col: 'Layout (2 colonnes)',
+  layout_3col: 'Layout (3 colonnes)',
   chart: 'Graphique',
+  chart_line: 'Graphique (ligne)',
+  chart_pie: 'Graphique (camembert)',
+  chart_donut: 'Graphique (donut)',
   table: 'Tableau',
+  kpi: 'KPI',
+  callout: 'Encadré',
+  divider: 'Séparateur',
   image: 'Image',
 }
 
@@ -32,10 +40,22 @@ const preview = (b: StudioBlock) => {
       return b.text
     case 'text_paragraph':
       return b.text.slice(0, 48) + (b.text.length > 48 ? '…' : '')
+    case 'layout_2col':
+    case 'layout_3col':
+      return `${b.columns?.reduce((s, c) => s + (Array.isArray(c) ? c.length : 0), 0) ?? 0} blocs`
     case 'chart':
+    case 'chart_line':
+    case 'chart_pie':
+    case 'chart_donut':
       return b.caption
     case 'table':
       return b.caption
+    case 'kpi':
+      return `${b.label}: ${b.value}`.trim()
+    case 'callout':
+      return b.title
+    case 'divider':
+      return '—'
     case 'image':
       return b.alt
   }
@@ -83,7 +103,9 @@ const preview = (b: StudioBlock) => {
             </svg>
           </button>
           <div class="min-w-0 flex-1">
-            <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{{ typeLabel[element.type] }}</p>
+            <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              {{ typeLabel[element.type as keyof typeof typeLabel] }}
+            </p>
             <p class="truncate text-sm text-slate-800">{{ preview(element) }}</p>
           </div>
         </div>

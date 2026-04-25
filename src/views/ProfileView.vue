@@ -8,10 +8,6 @@ import UserDashboardSidebarNav from '@/components/dashboard/UserDashboardSidebar
 import UserDashboardSidebarProfileCard from '@/components/dashboard/UserDashboardSidebarProfileCard.vue'
 import UserDashboardSubscriptionsSection from '@/components/dashboard/UserDashboardSubscriptionsSection.vue'
 import UserDashboardUsageCard from '@/components/dashboard/UserDashboardUsageCard.vue'
-import { sharedPromoItems } from '@/data/promo-items'
-import AppFooter from '@/components/layout/AppFooter.vue'
-import AppHeader from '@/components/layout/AppHeader.vue'
-import AppPromoBanner from '@/components/layout/AppPromoBanner.vue'
 import AppButton from '@/components/ui/AppButton.vue'
 import { getErrorMessage } from '@/lib/http-errors'
 import { useAuthStore } from '@/stores/auth'
@@ -152,11 +148,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#ffffff_12%,#eef4ff_100%)] text-slate-900">
-    <AppPromoBanner :items="sharedPromoItems" />
-    <AppHeader />
-
-    <main class="pb-24 pt-32">
+  <main class="pb-24 pt-32">
       <section class="section pb-10">
         <div class="container flex flex-col gap-8">
           <div class="flex flex-col gap-4">
@@ -264,8 +256,5 @@ onMounted(async () => {
           </UserDashboardLayout>
         </div>
       </section>
-    </main>
-
-    <AppFooter />
-  </div>
+  </main>
 </template>

@@ -2,10 +2,6 @@
 import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { articleDetails, type ArticleDetail } from '@/data/articles'
-import { sharedPromoItems } from '@/data/promo-items'
-import AppFooter from '@/components/layout/AppFooter.vue'
-import AppHeader from '@/components/layout/AppHeader.vue'
-import AppPromoBanner from '@/components/layout/AppPromoBanner.vue'
 import AppButton from '@/components/ui/AppButton.vue'
 
 const route = useRoute()
@@ -40,11 +36,7 @@ const sources = [
 </script>
 
 <template>
-  <div class="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#ffffff_22%,#eef4ff_100%)] text-slate-900">
-    <AppPromoBanner :items="sharedPromoItems" />
-    <AppHeader />
-
-    <main class="pb-24 pt-32">
+  <main class="pb-24 pt-32">
       <section class="section pb-10">
         <div class="container flex flex-col gap-10">
           <div class="flex flex-col gap-5">
@@ -168,8 +160,5 @@ const sources = [
           </div>
         </div>
       </section>
-    </main>
-
-    <AppFooter />
-  </div>
+  </main>
 </template>
