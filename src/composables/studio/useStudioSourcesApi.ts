@@ -16,7 +16,7 @@ import { formatApiErrorDetail } from '@/lib/http-errors'
 import { studioDataSourceFromApi, studioDataSourcesFromApiList } from '@/lib/statsdata-source-mapper'
 import type { StatsDataNormalizationMapping } from '@/types/statsdata-query'
 import type { StatsDataAnyQueryRequest } from '@/types/statsdata-query'
-import type { StudioBlock } from '@/types/studio-document'
+import type { StudioBlock, StudioPage } from '@/types/studio-document'
 import type { StudioDataSource, StudioDataSourceApi } from '@/types/studio-data-source'
 
 export type SourcesFeedback = { kind: 'success' | 'error'; text: string }
@@ -31,7 +31,7 @@ type StudioState = {
   isStatsDataRemote: Ref<boolean>
   statsDataDocumentId: Ref<string | null>
   loadState: Ref<'idle' | 'loading' | 'ready' | 'error'>
-  blocks: Ref<StudioBlock[]>
+  pages: Ref<StudioPage[]>
   dataSources: Ref<StudioDataSource[]>
   suppressDataSourcesDirty: Ref<number>
   sourcesBusy: Ref<boolean>
@@ -276,12 +276,16 @@ export function useStudioSourcesApi(args: {
     }
     clearDataSourceSyncTimer(id)
     state.dataSources.value = state.dataSources.value.filter((s) => s.id !== id)
-    state.blocks.value = state.blocks.value.map((b) => {
-      if ((b.type === 'chart' || b.type === 'table') && b.dataBinding.sourceId === id) {
-        return { ...b, dataBinding: { ...b.dataBinding, sourceId: '' } }
-      }
-      return b
-    })
+    // Nettoyer les références à cette source dans tous les blocs de toutes les pages
+    state.pages.value = state.pages.value.map((page) => ({
+      ...page,
+      blocks: page.blocks.map((b) => {
+        if ((b.type === 'chart' || b.type === 'table') && b.dataBinding.sourceId === id) {
+          return { ...b, dataBinding: { ...b.dataBinding, sourceId: '' } }
+        }
+        return b
+      })
+    }))
   }
 
   const dismissSourcesFeedback = () => {

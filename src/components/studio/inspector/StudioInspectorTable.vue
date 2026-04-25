@@ -29,6 +29,23 @@ const caption = computed({
       ...(b.query ? { query: b.query } : {}),
       ...(b.search ? { search: b.search } : {}),
       ...(b.filters ? { filters: b.filters } : {}),
+      ...(b.rowsPerPage ? { rowsPerPage: b.rowsPerPage } : {}),
+    })
+  },
+})
+
+const rowsPerPage = computed({
+  get: () => props.block.rowsPerPage ?? 500,
+  set: (v) => {
+    const b = props.block
+    emit('push-payload', {
+      type: 'table',
+      caption: b.caption,
+      dataBinding: { ...b.dataBinding },
+      ...(b.query ? { query: b.query } : {}),
+      ...(b.search ? { search: b.search } : {}),
+      ...(b.filters ? { filters: b.filters } : {}),
+      rowsPerPage: v,
     })
   },
 })
@@ -153,6 +170,7 @@ const tableSearchEnabled = computed({
         dataBinding: { ...b.dataBinding },
         ...(b.query ? { query: b.query } : {}),
         ...(b.filters ? { filters: b.filters } : {}),
+        ...(b.rowsPerPage ? { rowsPerPage: b.rowsPerPage } : {}),
       })
       return
     }
@@ -164,6 +182,7 @@ const tableSearchEnabled = computed({
       ...(b.query ? { query: b.query } : {}),
       search: { enabled: true, columnLabels: prev, mode: b.search?.mode ?? 'page' },
       ...(b.filters ? { filters: b.filters } : {}),
+      ...(b.rowsPerPage ? { rowsPerPage: b.rowsPerPage } : {}),
     })
   },
 })
@@ -195,6 +214,7 @@ const toggleSearchColumn = (label: string, checked: boolean) => {
     ...(b.query ? { query: b.query } : {}),
     search: nextSearch,
     ...(b.filters ? { filters: b.filters } : {}),
+    ...(b.rowsPerPage ? { rowsPerPage: b.rowsPerPage } : {}),
   })
 }
 
@@ -209,6 +229,7 @@ const tableFiltersEnabled = computed({
         dataBinding: { ...b.dataBinding },
         ...(b.query ? { query: b.query } : {}),
         ...(b.search ? { search: b.search } : {}),
+        ...(b.rowsPerPage ? { rowsPerPage: b.rowsPerPage } : {}),
       })
       return
     }
@@ -221,6 +242,7 @@ const tableFiltersEnabled = computed({
       ...(b.query ? { query: b.query } : {}),
       ...(b.search ? { search: b.search } : {}),
       filters: nextFilters,
+      ...(b.rowsPerPage ? { rowsPerPage: b.rowsPerPage } : {}),
     })
   },
 })
@@ -269,166 +291,165 @@ const toggleFilterColumn = (label: string, checked: boolean) => {
     ...(b.query ? { query: (maybeNextQuery ?? b.query) as any } : {}),
     ...(b.search ? { search: b.search } : {}),
     filters: nextFilters,
+    ...(b.rowsPerPage ? { rowsPerPage: b.rowsPerPage } : {}),
   })
 }
 </script>
 
 <template>
-  <details class="group rounded-2xl border border-slate-200/80 bg-white/70 px-3 py-3">
-    <summary class="flex cursor-pointer list-none select-none items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">
-      <span>Options du panneau</span>
-      <svg viewBox="0 0 20 20" fill="currentColor" class="ml-auto h-4 w-4 text-slate-400 transition group-open:rotate-180" aria-hidden="true">
-        <path
-          fill-rule="evenodd"
-          d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 10.94l3.71-3.71a.75.75 0 1 1 1.06 1.06l-4.24 4.24a.75.75 0 0 1-1.06 0L5.21 8.29a.75.75 0 0 1 .02-1.08Z"
-          clip-rule="evenodd"
-        />
-      </svg>
-    </summary>
-    <div class="mt-3">
-      <label class="mb-1 block text-xs font-semibold text-slate-600" :for="`${idPrefix}-tbl-cap`">Titre</label>
-      <input
-        :id="`${idPrefix}-tbl-cap`"
-        v-model="caption"
-        type="text"
-        class="w-full rounded-2xl border border-slate-200 bg-slate-50/80 px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-primary/40 focus:bg-white focus:ring-2 focus:ring-primary/20 motion-reduce:transition-none"
-        autocomplete="off"
-      />
-    </div>
-  </details>
-
-  <details v-if="block.dataBinding.sourceId && tableSearchSelectableLabels.length" class="group rounded-2xl border border-slate-200/80 bg-white/70 px-3 py-3">
-    <summary class="flex cursor-pointer list-none select-none items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">
-      <span>Recherche</span>
-      <svg viewBox="0 0 20 20" fill="currentColor" class="ml-auto h-4 w-4 text-slate-400 transition group-open:rotate-180" aria-hidden="true">
-        <path
-          fill-rule="evenodd"
-          d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 10.94l3.71-3.71a.75.75 0 1 1 1.06 1.06l-4.24 4.24a.75.75 0 0 1-1.06 0L5.21 8.29a.75.75 0 0 1 .02-1.08Z"
-          clip-rule="evenodd"
-        />
-      </svg>
-    </summary>
-    <div class="mt-3 space-y-2">
-      <label class="flex cursor-pointer items-center gap-2 text-sm text-slate-800">
-        <input
-          type="checkbox"
-          class="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/30"
-          :checked="tableSearchEnabled"
-          @change="tableSearchEnabled = ($event.target as HTMLInputElement).checked"
-        />
-        Afficher la barre de recherche
-      </label>
-      <template v-if="tableSearchEnabled">
-        <p class="text-[11px] font-medium text-slate-600">Champs interrogés</p>
-        <ul class="flex max-h-40 flex-col gap-1.5 overflow-y-auto">
-          <li v-for="lab in tableSearchSelectableLabels" :key="`${idPrefix}-search-${lab}`" class="flex items-center gap-2">
-            <input
-              :id="`${idPrefix}-search-col-${lab}`"
-              type="checkbox"
-              class="h-4 w-4 shrink-0 rounded border-slate-300 text-primary focus:ring-primary/30"
-              :checked="isSearchColumnChecked(lab)"
-              @change="toggleSearchColumn(lab, ($event.target as HTMLInputElement).checked)"
-            />
-            <label :for="`${idPrefix}-search-col-${lab}`" class="text-sm text-slate-800">{{ lab }}</label>
-          </li>
-        </ul>
-      </template>
-    </div>
-  </details>
-
-  <details v-if="block.dataBinding.sourceId && tableSearchSelectableLabels.length" class="group rounded-2xl border border-slate-200/80 bg-white/70 px-3 py-3">
-    <summary class="flex cursor-pointer list-none select-none items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">
-      <span>Filtres</span>
-      <svg viewBox="0 0 20 20" fill="currentColor" class="ml-auto h-4 w-4 text-slate-400 transition group-open:rotate-180" aria-hidden="true">
-        <path
-          fill-rule="evenodd"
-          d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 10.94l3.71-3.71a.75.75 0 1 1 1.06 1.06l-4.24 4.24a.75.75 0 0 1-1.06 0L5.21 8.29a.75.75 0 0 1 .02-1.08Z"
-          clip-rule="evenodd"
-        />
-      </svg>
-    </summary>
-    <div class="mt-3 space-y-2">
-      <label class="flex cursor-pointer items-center gap-2 text-sm text-slate-800">
-        <input
-          type="checkbox"
-          class="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/30"
-          :checked="tableFiltersEnabled"
-          @change="tableFiltersEnabled = ($event.target as HTMLInputElement).checked"
-        />
-        Afficher les filtres
-      </label>
-      <template v-if="tableFiltersEnabled">
-        <p class="text-[11px] font-medium text-slate-600">Colonnes filtrables</p>
-        <ul class="flex max-h-40 flex-col gap-1.5 overflow-y-auto">
-          <li v-for="lab in tableSearchSelectableLabels" :key="`${idPrefix}-filter-${lab}`" class="flex items-center gap-2">
-            <input
-              :id="`${idPrefix}-filter-col-${lab}`"
-              type="checkbox"
-              class="h-4 w-4 shrink-0 rounded border-slate-300 text-primary focus:ring-primary/30"
-              :checked="isFilterColumnChecked(lab)"
-              @change="toggleFilterColumn(lab, ($event.target as HTMLInputElement).checked)"
-            />
-            <label :for="`${idPrefix}-filter-col-${lab}`" class="text-sm text-slate-800">{{ lab }}</label>
-          </li>
-        </ul>
-      </template>
-    </div>
-  </details>
-
-  <StudioInspectorStatsDataQuery
-    v-if="statsDataQueryMode"
-    :id-prefix="idPrefix"
-    :data-sources="dataSources"
-    :block="{ type: 'table', caption: block.caption, dataBinding: block.dataBinding, ...(block.query ? { query: block.query } : {}), ...(block.search ? { search: block.search } : {}), ...(block.filters ? { filters: block.filters } : {}) }"
-    @push-payload="emit('push-payload', $event)"
-  />
-
-  <details v-if="statsDataQueryMode && querySelectLabels.length" class="group rounded-2xl border border-slate-200/80 bg-white/70 px-3 py-3">
-    <summary class="flex cursor-pointer list-none select-none items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">
-      <span>Colonnes visibles</span>
-      <svg viewBox="0 0 20 20" fill="currentColor" class="ml-auto h-4 w-4 text-slate-400 transition group-open:rotate-180" aria-hidden="true">
-        <path
-          fill-rule="evenodd"
-          d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 10.94l3.71-3.71a.75.75 0 1 1 1.06 1.06l-4.24 4.24a.75.75 0 0 1-1.06 0L5.21 8.29a.75.75 0 0 1 .02-1.08Z"
-          clip-rule="evenodd"
-        />
-      </svg>
-    </summary>
-    <div class="mt-3">
-      <p class="mb-2 text-[11px] font-medium text-slate-600">Décoche une colonne “cachée” (utile pour filtrer sans afficher).</p>
-      <ul class="flex max-h-52 flex-col gap-1.5 overflow-y-auto">
-        <li v-for="lab in querySelectLabels" :key="`${idPrefix}-qvis-${lab}`" class="flex items-center gap-2">
+  <div class="space-y-8">
+    <!-- Section Contenu -->
+    <section class="space-y-4">
+      <div class="flex flex-col gap-1">
+        <label class="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+          Contenu du tableau
+        </label>
+        <div class="h-px bg-slate-100 mb-2" />
+        
+        <div>
+          <label class="mb-1.5 block text-xs font-semibold text-slate-600" :for="`${idPrefix}-tbl-cap`">
+            Titre du tableau
+          </label>
           <input
-            :id="`${idPrefix}-qvis-col-${lab}`"
-            type="checkbox"
-            class="h-4 w-4 shrink-0 rounded border-slate-300 text-primary focus:ring-primary/30"
-            :checked="isQueryColumnVisible(lab)"
-            @change="toggleQueryColumnVisible(lab, ($event.target as HTMLInputElement).checked)"
+            :id="`${idPrefix}-tbl-cap`"
+            v-model="caption"
+            type="text"
+            class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-primary/40 focus:bg-white focus:ring-2 focus:ring-primary/20"
+            placeholder="Ex: Résultats annuels 2024"
+            autocomplete="off"
           />
-          <label :for="`${idPrefix}-qvis-col-${lab}`" class="text-sm text-slate-800">{{ lab }}</label>
-        </li>
-      </ul>
-    </div>
-  </details>
+        </div>
+      </div>
+    </section>
 
-  <div v-else-if="bindingSourceHeaders.length">
-    <p class="mb-2 text-xs font-semibold text-slate-600">Colonnes visibles</p>
-    <p class="mb-2 text-[11px] leading-snug text-slate-500">Tout cocher = toutes les colonnes.</p>
-    <ul class="flex flex-col gap-2">
-      <li v-for="h in bindingSourceHeaders" :key="h" class="flex items-center gap-2">
-        <input
-          :id="`${idPrefix}-col-${h}`"
-          type="checkbox"
-          class="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/30"
-          :checked="isTableColumnVisible(h)"
-          @change="toggleTableColumn(h, ($event.target as HTMLInputElement).checked)"
+    <!-- Section Affichage -->
+    <section class="space-y-4">
+      <div class="flex flex-col gap-1">
+        <label class="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+          Affichage du tableau
+        </label>
+        <div class="h-px bg-slate-100 mb-2" />
+        
+        <div>
+          <label class="mb-1.5 block text-xs font-semibold text-slate-600" :for="`${idPrefix}-rows-per-page`">
+            Nombre de lignes par page
+          </label>
+          <input
+            :id="`${idPrefix}-rows-per-page`"
+            v-model.number="rowsPerPage"
+            type="number"
+            min="10"
+            max="10000"
+            step="10"
+            class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-primary/40 focus:bg-white focus:ring-2 focus:ring-primary/20"
+            placeholder="500"
+          />
+          <p class="mt-1.5 text-[10px] text-slate-500">
+            Nombre de lignes à afficher à chaque page (min: 10, max: 10 000)
+          </p>
+        </div>
+      </div>
+    </section>
+    <section v-if="block.dataBinding.sourceId || statsDataQueryMode" class="space-y-4">
+      <div class="flex flex-col gap-1">
+        <label class="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+          Colonnes visibles
+        </label>
+        <div class="h-px bg-slate-100 mb-2" />
+        
+        <div class="rounded-xl border border-slate-100 bg-slate-50/30 p-3">
+          <ul v-if="statsDataQueryMode" class="flex flex-col gap-2">
+            <li v-for="lab in querySelectLabels" :key="`${idPrefix}-col-${lab}`" class="flex items-center gap-3">
+              <input
+                :id="`${idPrefix}-col-${lab}`"
+                type="checkbox"
+                class="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/30"
+                :checked="isQueryColumnVisible(lab)"
+                @change="toggleQueryColumnVisible(lab, ($event.target as HTMLInputElement).checked)"
+              />
+              <label :for="`${idPrefix}-col-${lab}`" class="text-sm font-medium text-slate-700 cursor-pointer select-none">
+                {{ lab }}
+              </label>
+            </li>
+          </ul>
+          <ul v-else class="flex flex-col gap-2">
+            <li v-for="header in bindingSourceHeaders" :key="`${idPrefix}-col-${header}`" class="flex items-center gap-3">
+              <input
+                :id="`${idPrefix}-col-${header}`"
+                type="checkbox"
+                class="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/30"
+                :checked="isTableColumnVisible(header)"
+                @change="toggleTableColumn(header, ($event.target as HTMLInputElement).checked)"
+              />
+              <label :for="`${idPrefix}-col-${header}`" class="text-sm font-medium text-slate-700 cursor-pointer select-none">
+                {{ header }}
+              </label>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section Recherche & Filtres -->
+    <section v-if="block.dataBinding.sourceId && tableSearchSelectableLabels.length" class="space-y-6">
+      <!-- Recherche -->
+      <div class="flex flex-col gap-1">
+        <label class="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+          Recherche & Filtres
+        </label>
+        <div class="h-px bg-slate-100 mb-3" />
+        
+        <div class="space-y-4">
+          <label class="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/50 p-3 transition-colors hover:bg-slate-50">
+            <input
+              type="checkbox"
+              class="h-5 w-5 rounded-lg border-slate-300 text-primary focus:ring-primary/30"
+              :checked="tableSearchEnabled"
+              @change="tableSearchEnabled = ($event.target as HTMLInputElement).checked"
+            />
+            <div class="flex flex-col">
+              <span class="text-sm font-bold text-slate-900">Activer la recherche</span>
+              <span class="text-[10px] text-slate-500">Permet aux lecteurs de filtrer les lignes</span>
+            </div>
+          </label>
+
+          <div v-if="tableSearchEnabled" class="pl-2 space-y-2">
+            <p class="text-[11px] font-bold text-slate-400 uppercase tracking-tight">Champs indexés</p>
+            <ul class="flex max-h-40 flex-col gap-1.5 overflow-y-auto pr-2 custom-scrollbar">
+              <li v-for="lab in tableSearchSelectableLabels" :key="`${idPrefix}-search-${lab}`" class="flex items-center gap-2.5 p-1 hover:bg-slate-50 rounded-lg">
+                <input
+                  :id="`${idPrefix}-search-col-${lab}`"
+                  type="checkbox"
+                  class="h-4 w-4 shrink-0 rounded border-slate-300 text-primary focus:ring-primary/30"
+                  :checked="isSearchColumnChecked(lab)"
+                  @change="toggleSearchColumn(lab, ($event.target as HTMLInputElement).checked)"
+                />
+                <label :for="`${idPrefix}-search-col-${lab}`" class="text-xs font-medium text-slate-700 cursor-pointer select-none">
+                  {{ lab }}
+                </label>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Requête avancée -->
+    <section v-if="statsDataQueryMode" class="space-y-3">
+      <div class="flex flex-col gap-1">
+        <label class="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+          Requête de données
+        </label>
+        <div class="h-px bg-slate-100 mb-2" />
+        
+        <StudioInspectorStatsDataQuery
+          :id-prefix="idPrefix"
+          :data-sources="dataSources"
+          :block="{ type: 'table', caption: block.caption, dataBinding: block.dataBinding, ...(block.query ? { query: block.query } : {}), ...(block.search ? { search: block.search } : {}), ...(block.filters ? { filters: block.filters } : {}) }"
+          @push-payload="emit('push-payload', $event)"
         />
-        <label :for="`${idPrefix}-col-${h}`" class="text-sm text-slate-800">{{ h }}</label>
-      </li>
-    </ul>
+      </div>
+    </section>
   </div>
-  <p v-else-if="block.dataBinding.sourceId" class="text-xs text-amber-700">
-    Cette source ne contient pas encore de colonnes.
-  </p>
-</template>
 
+</template>

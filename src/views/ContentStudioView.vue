@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed, provide, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useEventListener } from '@vueuse/core'
 import AppStudioDocumentHeader from '@/components/layout/AppStudioDocumentHeader.vue'
 import StudioLeftDock from '@/components/studio/StudioLeftDock.vue'
 import StudioSelectionContextBar from '@/components/studio/StudioSelectionContextBar.vue'
 import StudioBlockCanvas from '@/components/studio/StudioBlockCanvas.vue'
+import AppStudioLoading from '@/components/studio/AppStudioLoading.vue'
 import AppButton from '@/components/ui/AppButton.vue'
+import StudioPageTabs from '@/components/studio/StudioPageTabs.vue'
 import type { StudioLeftTabId } from '@/components/studio/studio-left-dock.types'
 import { useStudioDocument } from '@/composables/useStudioDocument'
 import { getErrorMessage } from '@/lib/http-errors'
@@ -15,11 +17,13 @@ import {
   studioSelectBlockKey,
   studioSelectedBlockIdKey,
   studioStatsDataWidgetKey,
+  studioPageFiltersKey,
 } from '@/lib/studio-inject-keys'
-import type { StudioBlock, StudioBlockType, StudioDocumentKind, StudioDocumentSettings } from '@/types/studio-document'
+import type { StudioBlock, StudioBlockType, StudioDocumentKind, StudioDocumentSettings, StudioBlockAction } from '@/types/studio-document'
 import type { StudioDataSource } from '@/types/studio-data-source'
 
 const route = useRoute()
+const router = useRouter()
 
 const documentKind = computed<StudioDocumentKind>(() =>
   route.meta.studioDocumentKind === 'article' ? 'article' : 'statsdata',
@@ -29,6 +33,8 @@ const {
   isCreate,
   isStatsDataRemote,
   title,
+  pages,
+  currentPageId,
   blocks,
   dataSources,
   settings,
@@ -59,6 +65,11 @@ const {
   executeStatsDataDocumentQuery,
   refreshNormalizedSource,
   persistSourceNormalizationMapping,
+  addPage,
+  removePage,
+  renamePage,
+  setCurrentPage,
+  updatePageSettings,
 } = useStudioDocument(route, documentKind)
 
 const remoteStudioSources = computed(() => isStatsDataRemote.value && studioBodyReady.value)
@@ -99,6 +110,9 @@ const onDeleteDocument = async () => {
 
 provide(studioDataSourcesKey, dataSources)
 
+const pageFilters = ref<Record<string, string>>({})
+provide(studioPageFiltersKey, pageFilters)
+
 const statsDataWidgetContext = computed(() => ({
   enabled: remoteStudioSources.value,
   documentId: statsDataDocumentId.value,
@@ -117,10 +131,10 @@ provide(studioSelectBlockKey, (id: string | null) => {
 })
 
 const dockWidth = computed(() => {
-  // Rail always visible (4.5rem). Panel adds 20.5rem when open.
+  // Rail always visible (4.5rem). Panel adds 26rem when open.
   // Use a plain length (rem) to avoid nested calc() edge cases in inline styles.
   const rail = 4.5
-  const panel = leftOpen.value && leftTab.value ? 20.5 : 0
+  const panel = leftOpen.value && leftTab.value ? 26 : 0
   return `${rail + panel}rem`
 })
 
@@ -213,6 +227,40 @@ const mode = computed<'create' | 'edit'>(() => (isCreate.value ? 'create' : 'edi
 const headerActionsDisabled = computed(
   () => isStatsDataRemote.value && loadState.value === 'loading',
 )
+
+const canPreview = computed(() => !!statsDataDocumentId.value)
+
+const onPreview = () => {
+  if (!statsDataDocumentId.value) return
+  void router.push({ name: 'studio-statsdata-preview', params: { id: statsDataDocumentId.value } })
+}
+
+const onBlockAction = (action: StudioBlockAction, context: Record<string, unknown>) => {
+  console.log('onBlockAction called', { action, context })
+  if (action.type === 'navigate_to_page') {
+    const targetPage = pages.value.find((p) => p.id === action.targetPageId)
+    if (targetPage) {
+      setCurrentPage(action.targetPageId)
+      // Appliquer les filtres passés via action.passColumns et context
+      if (action.passColumns && Array.isArray(action.passColumns)) {
+        const newFilters: Record<string, string> = {}
+        action.passColumns.forEach((col: string) => {
+          if (context[col] !== undefined) {
+            newFilters[col] = String(context[col])
+          }
+        })
+        console.log('Setting page filters:', newFilters)
+        pageFilters.value = newFilters
+      }
+    }
+  } else if (action.type === 'set_filters') {
+    // Appliquer les filtres aux blocs de la page courante
+    if (action.filters) {
+      console.log('Setting filters:', action.filters)
+      pageFilters.value = { ...pageFilters.value, ...action.filters }
+    }
+  }
+}
 </script>
 
 <template>
@@ -230,21 +278,28 @@ const headerActionsDisabled = computed(
       :deleting="deleting"
       :show-delete-document="isStatsDataRemote && !isCreate"
       :primary-action-label="isStatsDataRemote ? 'Enregistrer' : 'Publier plus tard'"
+      :can-preview="canPreview"
       @save-draft="onSaveDraft"
       @delete-document="onDeleteDocument"
+      @preview="onPreview"
+      @update:title="title = $event"
+    />
+
+    <Transition
+      enter-active-class="transition duration-300 ease-out"
+      enter-from-class="opacity-0"
+      enter-to-class="opacity-100"
+      leave-active-class="transition duration-200 ease-in"
+      leave-from-class="opacity-100"
+      leave-to-class="opacity-0"
     >
-      <template #title>
-        <label class="sr-only" for="studio-doc-title">Titre du document</label>
-        <input
-          id="studio-doc-title"
-          v-model="title"
-          type="text"
-          class="w-full max-w-xl truncate rounded-2xl border border-transparent bg-transparent px-2 py-1 text-lg font-semibold tracking-tight text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-slate-200 focus:bg-white focus:ring-2 focus:ring-primary/15 sm:text-xl motion-reduce:transition-none"
-          placeholder="Sans titre"
-          autocomplete="off"
-        />
-      </template>
-    </AppStudioDocumentHeader>
+      <AppStudioLoading
+        v-if="saving"
+        overlay
+        label="Enregistrement"
+        message="Vos modifications sont en cours de sécurisation..."
+      />
+    </Transition>
 
     <div
       v-if="apiError || autoSaveError"
@@ -265,7 +320,22 @@ const headerActionsDisabled = computed(
     </div>
 
     <div
-      class="flex h-[calc(100vh-4.5rem)] min-h-0 flex-1 flex-col lg:flex-row"
+      v-if="studioBodyReady"
+      :style="{ paddingLeft: dockWidth }"
+    >
+      <StudioPageTabs
+        :pages="pages"
+        :current-page-id="currentPageId"
+        @update:current-page-id="setCurrentPage"
+        @add-page="addPage"
+        @remove-page="removePage"
+        @rename-page="renamePage"
+        @update-page-settings="updatePageSettings"
+      />
+    </div>
+
+    <div
+      class="flex h-[calc(100vh-4.5rem-2.75rem)] min-h-0 flex-1 flex-col lg:flex-row"
       :style="{
         paddingLeft: dockWidth,
       }"
@@ -284,6 +354,7 @@ const headerActionsDisabled = computed(
         :stats-data-query-mode="remoteStudioSources"
         :sources-feedback="sourcesFeedback"
         :sources-busy="sourcesBusy"
+        :pages="pages"
         :persist-source-normalization="persistSourceNormalizationMapping"
         @update:blocks="syncBlocks"
         @update:settings="applySettings"
@@ -311,10 +382,13 @@ const headerActionsDisabled = computed(
             <StudioBlockCanvas
               v-model="blocks"
               :selected-block-id="selectedBlockId"
+              :data-sources="dataSources"
+              :pages="pages"
               @select-block="selectedBlockId = $event"
               @update="updateBlock"
               @duplicate-block="duplicateBlock"
               @remove-block="onRemoveBlock"
+              @block-action="onBlockAction"
             />
           </div>
         </div>
@@ -332,12 +406,7 @@ const headerActionsDisabled = computed(
         </div>
       </div>
 
-      <div
-        v-else
-        class="flex flex-1 items-center justify-center px-6 py-16"
-      >
-        <p class="text-sm text-slate-600">Chargement du document…</p>
-      </div>
+      <AppStudioLoading v-else />
     </div>
   </div>
 </template>

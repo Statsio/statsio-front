@@ -7,6 +7,7 @@ import {
   type StudioBlockType,
   type StudioDocumentKind,
   type StudioDocumentSettings,
+  type StudioPage,
 } from '@/types/studio-document'
 import type { StudioDataSource } from '@/types/studio-data-source'
 import type { StatsDataDocumentDto } from '@/types/statsdata-document-api'
@@ -18,9 +19,25 @@ export function useStudioDocumentState(route: RouteLocationNormalizedLoaded, doc
   const isStatsDataRemote = computed(() => documentKind.value === 'statsdata')
 
   const title = ref('Sans titre')
-  const blocks = ref<StudioBlock[]>([])
+  const pages = ref<StudioPage[]>([{ id: 'page_' + Date.now(), name: 'Page 1', blocks: [] }])
+  const currentPageId = ref<string>(pages.value[0].id)
   const dataSources = ref<StudioDataSource[]>([])
   const settings = ref<StudioDocumentSettings>({ subtitle: '', visibility: 'private' })
+
+  const currentPage = computed(() => pages.value.find(p => p.id === currentPageId.value) || pages.value[0])
+  const blocks = computed({
+    get: () => currentPage.value?.blocks || [],
+    set: (newBlocks: StudioBlock[]) => {
+      const pageIndex = pages.value.findIndex(p => p.id === currentPageId.value)
+      if (pageIndex !== -1) {
+        pages.value = [
+          ...pages.value.slice(0, pageIndex),
+          { ...pages.value[pageIndex], blocks: newBlocks },
+          ...pages.value.slice(pageIndex + 1)
+        ]
+      }
+    }
+  })
 
   const isDirty = ref(false)
   const suppressDirty = ref(false)
@@ -50,14 +67,32 @@ export function useStudioDocumentState(route: RouteLocationNormalizedLoaded, doc
   const applyFromDto = (doc: StatsDataDocumentDto, options?: { skipDataSources?: boolean }) => {
     title.value = doc.title || 'Sans titre'
     settings.value = { subtitle: doc.subtitle ?? '', visibility: doc.visibility }
-    blocks.value = Array.isArray(doc.blocks) ? [...doc.blocks] : []
+
+    // Normaliser les pages avec les valeurs par défaut pour les nouveaux champs
+    const normalizedPages = Array.isArray(doc.pages) && doc.pages.length > 0
+      ? doc.pages.map((page, index) => ({
+          ...page,
+          visible_in_tabs: page.visible_in_tabs ?? true,
+          visibility: page.visibility ?? 'inherit',
+          password: page.password ?? null,
+          order: page.order ?? index,
+        }))
+      : [{ id: 'page_' + Date.now(), name: 'Page 1', blocks: [], visible_in_tabs: true, visibility: 'inherit' as const, password: null, order: 0 }]
+
+    pages.value = normalizedPages
+
+    // Préserver la page courante si elle existe toujours, sinon prendre la première
+    const currentExists = pages.value.find(p => p.id === currentPageId.value)
+    if (!currentExists) {
+      currentPageId.value = pages.value[0].id
+    }
     if (!options?.skipDataSources) dataSources.value = Array.isArray(doc.dataSources) ? [...doc.dataSources] : []
     documentSlug.value = doc.slug
   }
 
   watch(title, touch, { flush: 'post' })
   watch(settings, touch, { deep: true, flush: 'post' })
-  watch(blocks, touch, { deep: true, flush: 'post' })
+  watch(pages, touch, { deep: true, flush: 'post' })
   watch(
     dataSources,
     () => {
@@ -140,7 +175,16 @@ export function useStudioDocumentState(route: RouteLocationNormalizedLoaded, doc
     isDirty.value = false
     if (isCreate.value) {
       title.value = documentKind.value === 'article' ? 'Nouvel article' : 'Nouvelle StatsData'
-      blocks.value = []
+      pages.value = [{
+        id: 'page_' + Date.now(),
+        name: 'Page 1',
+        blocks: [],
+        visible_in_tabs: true,
+        visibility: 'inherit',
+        password: null,
+        order: 0,
+      }]
+      currentPageId.value = pages.value[0].id
       dataSources.value = []
       settings.value = { subtitle: '', visibility: 'private' }
     } else {
@@ -148,7 +192,16 @@ export function useStudioDocumentState(route: RouteLocationNormalizedLoaded, doc
         documentKind.value === 'article'
           ? `Article ${String(route.params.id)}`
           : `StatsData ${String(route.params.id)}`
-      blocks.value = []
+      pages.value = [{
+        id: 'page_' + Date.now(),
+        name: 'Page 1',
+        blocks: [],
+        visible_in_tabs: true,
+        visibility: 'inherit',
+        password: null,
+        order: 0,
+      }]
+      currentPageId.value = pages.value[0].id
       dataSources.value = []
       settings.value = { subtitle: 'Brouillon local', visibility: 'team' }
     }
@@ -157,11 +210,64 @@ export function useStudioDocumentState(route: RouteLocationNormalizedLoaded, doc
     suppressDirty.value = false
   }
 
+  const addPage = () => {
+    const newPage: StudioPage = {
+      id: 'page_' + Date.now(),
+      name: `Page ${pages.value.length + 1}`,
+      blocks: [],
+      visible_in_tabs: true,
+      visibility: 'inherit',
+      password: null,
+      order: pages.value.length,
+    }
+    pages.value = [...pages.value, newPage]
+    currentPageId.value = newPage.id
+  }
+
+  const removePage = (pageId: string) => {
+    if (pages.value.length <= 1) return
+    const index = pages.value.findIndex(p => p.id === pageId)
+    if (index === -1) return
+    pages.value = pages.value.filter(p => p.id !== pageId)
+    if (currentPageId.value === pageId) {
+      currentPageId.value = pages.value[Math.max(0, index - 1)].id
+    }
+  }
+
+  const renamePage = (pageId: string, newName: string) => {
+    const index = pages.value.findIndex(p => p.id === pageId)
+    if (index === -1) return
+    pages.value = [
+      ...pages.value.slice(0, index),
+      { ...pages.value[index], name: newName },
+      ...pages.value.slice(index + 1)
+    ]
+  }
+
+  const setCurrentPage = (pageId: string) => {
+    if (pages.value.find(p => p.id === pageId)) {
+      currentPageId.value = pageId
+    }
+  }
+
+  const updatePageSettings = (pageId: string, settings: Partial<StudioPage>) => {
+    const index = pages.value.findIndex(p => p.id === pageId)
+    if (index === -1) return
+    pages.value = [
+      ...pages.value.slice(0, index),
+      { ...pages.value[index], ...settings },
+      ...pages.value.slice(index + 1)
+    ]
+  }
+
   return {
     isCreate,
     isStatsDataRemote,
     statsDataDocumentId,
     title,
+    pages,
+    currentPageId,
+    currentPage,
     blocks,
     dataSources,
     settings,
@@ -184,6 +290,11 @@ export function useStudioDocumentState(route: RouteLocationNormalizedLoaded, doc
     updateBlock,
     updateDataSource,
     resetLocalArticleLike,
+    addPage,
+    removePage,
+    renamePage,
+    setCurrentPage,
+    updatePageSettings,
   }
 }
 

@@ -20,3 +20,6 @@ export type StudioStatsDataWidgetContext = {
 export const studioStatsDataWidgetKey: InjectionKey<ComputedRef<StudioStatsDataWidgetContext>> = Symbol(
   'studioStatsDataWidget',
 )
+
+/** Filtres actifs passés à la page (ex: depuis la barre de recherche) */
+export const studioPageFiltersKey: InjectionKey<Ref<Record<string, string>>> = Symbol('studioPageFilters')

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { StudioBlock, StudioBlockPayload } from '@/types/studio-document'
+import type { StudioBlock, StudioBlockPayload, StudioBlockAction } from '@/types/studio-document'
+import type { StudioDataSource } from '@/types/studio-data-source'
 import { blockToPayload, mergeBlockWithPayload } from '@/types/studio-document'
 import { resolveStudioBlock } from '@/components/studio/blocks/studio-block-registry'
 
@@ -10,6 +11,8 @@ const props = withDefaults(
     selected: boolean
     /** Empêche un bloc parent (ex. layout) de capter la sélection via bubbling. */
     stopSelectBubble?: boolean
+    dataSources?: StudioDataSource[]
+    pages?: Array<{ id: string; name: string }>
   }>(),
   { stopSelectBubble: false },
 )
@@ -19,12 +22,17 @@ const emit = defineEmits<{
   update: [StudioBlock]
   duplicate: [id: string]
   remove: [id: string]
+  action: [payload: { action: StudioBlockAction; context: Record<string, unknown> }]
 }>()
 
 const inner = computed(() => resolveStudioBlock(props.block.type))
 
 const onPayload = (payload: StudioBlockPayload) => {
   emit('update', mergeBlockWithPayload(props.block.id, payload))
+}
+
+const onAction = (action: StudioBlockAction, context: Record<string, unknown>) => {
+  emit('action', { action, context })
 }
 
 const onSelectClick = (e: MouseEvent) => {
@@ -109,7 +117,10 @@ const onSelectFocusIn = (e: FocusEvent) => {
         :payload="blockToPayload(block)"
         :field-id="block.id"
         :editable="true"
+        :data-sources="dataSources"
+        :pages="pages"
         @update:payload="onPayload"
+        @action="onAction"
       />
     </div>
   </div>

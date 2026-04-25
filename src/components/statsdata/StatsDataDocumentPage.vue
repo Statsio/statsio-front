@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, provide } from 'vue'
-import { RouterLink } from 'vue-router'
+import { computed, provide, ref, watch } from 'vue'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import AppButton from '@/components/ui/AppButton.vue'
+import AppOpenStudioButton from '@/components/statsdata/AppOpenStudioButton.vue'
 import { useAuthStore } from '@/stores/auth'
-import { studioDataSourcesKey, studioStatsDataWidgetKey } from '@/lib/studio-inject-keys'
+import { studioDataSourcesKey, studioStatsDataWidgetKey, studioPageFiltersKey } from '@/lib/studio-inject-keys'
 import { resolveStudioBlock } from '@/components/studio/blocks/studio-block-registry'
 import { blockToPayload } from '@/types/studio-document'
 import type { StatsDataDocumentDto } from '@/types/statsdata-document-api'
@@ -14,11 +15,190 @@ const props = defineProps<{
   document: StatsDataDocumentDto
 }>()
 
-const heroStats = computed(() => [
-  { label: 'Blocs', value: String(props.document.blocks?.length ?? 0) },
-  { label: 'Sources', value: String(props.document.dataSources?.length ?? 0) },
-  { label: 'Mise à jour', value: formatUpdated(props.document.updated_at) },
-])
+const route = useRoute()
+const router = useRouter()
+const currentPageIndex = ref(0)
+const pageFilters = ref<Record<string, string>>({})
+
+const visiblePages = computed(() => {
+  const pages = props.document.pages || []
+  return pages
+    .map((page, index) => ({ ...page, originalIndex: index }))
+    .filter(page => page.visible_in_tabs !== false)
+    .sort((a, b) => (a.order ?? a.originalIndex) - (b.order ?? b.originalIndex))
+})
+
+const allPagesSorted = computed(() => {
+  const pages = props.document.pages || []
+  return pages
+    .map((page, index) => ({ ...page, originalIndex: index }))
+    .sort((a, b) => (a.order ?? a.originalIndex) - (b.order ?? b.originalIndex))
+})
+
+const currentPage = computed(() => {
+  // Essayer d'abord dans les pages visibles
+  const visiblePage = visiblePages.value[currentPageIndex.value]
+  if (visiblePage) return visiblePage
+
+  // Sinon, chercher dans toutes les pages (pour les pages masquées accessibles via navigation)
+  return allPagesSorted.value[currentPageIndex.value] || null
+})
+
+function selectPage(index: number) {
+  currentPageIndex.value = index
+}
+
+function normalizeQueryString(value: unknown): string | null {
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    return trimmed.length ? trimmed : null
+  }
+  if (Array.isArray(value)) {
+    const firstString = value.find((entry) => typeof entry === 'string' && entry.trim().length > 0)
+    return typeof firstString === 'string' ? firstString.trim() : null
+  }
+  return null
+}
+
+function getPageIndexFromQuery(): number {
+  const rawPage = normalizeQueryString(route.query.page)
+  const pageNumber = rawPage ? Number.parseInt(rawPage, 10) : 1
+  if (!Number.isFinite(pageNumber) || pageNumber < 1) return 0
+  const maxIndex = Math.max(allPagesSorted.value.length - 1, 0)
+  return Math.min(pageNumber - 1, maxIndex)
+}
+
+function getFiltersFromQuery(): Record<string, string> {
+  const nextFilters: Record<string, string> = {}
+  Object.entries(route.query).forEach(([key, value]) => {
+    if (key === 'page') return
+    const normalized = normalizeQueryString(value)
+    if (normalized != null) {
+      nextFilters[key] = normalized
+    }
+  })
+  return nextFilters
+}
+
+function syncStateFromRouteQuery() {
+  currentPageIndex.value = getPageIndexFromQuery()
+  pageFilters.value = getFiltersFromQuery()
+}
+
+async function syncRouteQueryFromState() {
+  const nextQuery: Record<string, string> = {}
+  const nextPage = currentPageIndex.value + 1
+
+  if (nextPage > 1) {
+    nextQuery.page = String(nextPage)
+  }
+
+  Object.entries(pageFilters.value).forEach(([key, value]) => {
+    const normalized = String(value ?? '').trim()
+    if (normalized.length) {
+      nextQuery[key] = normalized
+    }
+  })
+
+  const currentQuery = Object.fromEntries(
+    Object.entries(route.query)
+      .map(([key, value]) => [key, normalizeQueryString(value)])
+      .filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
+  )
+
+  const currentKeys = Object.keys(currentQuery).sort()
+  const nextKeys = Object.keys(nextQuery).sort()
+  const sameQuery =
+    currentKeys.length === nextKeys.length &&
+    currentKeys.every((key, index) => key === nextKeys[index] && currentQuery[key] === nextQuery[key])
+
+  if (sameQuery) return
+
+  await router.replace({
+    query: nextQuery,
+  })
+}
+
+watch(
+  () => [route.query, allPagesSorted.value.length] as const,
+  () => {
+    syncStateFromRouteQuery()
+  },
+  { immediate: true, deep: true },
+)
+
+watch(
+  () => [currentPageIndex.value, pageFilters.value] as const,
+  () => {
+    void syncRouteQueryFromState()
+  },
+  { deep: true },
+)
+
+function handleBlockAction(action: any, context: Record<string, unknown>) {
+  console.log('handleBlockAction called', { action, context })
+  if (action.type === 'navigate_to_page') {
+    const targetPageId = action.targetPageId
+    console.log('Navigating to page:', targetPageId)
+
+    // Appliquer les filtres passés via passColumns
+    if (action.passColumns && Array.isArray(action.passColumns)) {
+      const newFilters: Record<string, string> = {}
+      action.passColumns.forEach((col: string) => {
+        if (context[col] !== undefined) {
+          newFilters[col] = String(context[col])
+        }
+      })
+      pageFilters.value = newFilters
+      console.log('Applied filters:', newFilters)
+    } else {
+      // Réinitialiser les filtres si aucune colonne n'est passée
+      pageFilters.value = {}
+    }
+
+    // Chercher dans toutes les pages, pas seulement les visibles
+    const allPages = props.document.pages || []
+    const targetPageOriginalIndex = allPages.findIndex(p => p.id === targetPageId)
+
+    if (targetPageOriginalIndex !== -1) {
+      // Trouver l'index dans visiblePages si la page est visible
+      const visibleIndex = visiblePages.value.findIndex(p => p.id === targetPageId)
+
+      if (visibleIndex !== -1) {
+        // La page est visible dans les tabs, naviguer normalement
+        selectPage(visibleIndex)
+      } else {
+        // La page est masquée des tabs, l'afficher quand même temporairement
+        console.log('Page is hidden from tabs, showing it anyway')
+        // Trouver l'index dans le tableau complet trié
+        const sortedPages = allPages
+          .map((page, index) => ({ ...page, originalIndex: index }))
+          .sort((a, b) => (a.order ?? a.originalIndex) - (b.order ?? b.originalIndex))
+
+        const sortedIndex = sortedPages.findIndex(p => p.id === targetPageId)
+
+        // Afficher temporairement toutes les pages pour permettre la navigation
+        currentPageIndex.value = sortedIndex
+      }
+    } else {
+      console.warn('Page not found! Target:', targetPageId)
+    }
+  } else if (action.type === 'set_filters') {
+    // Appliquer les filtres sans changer de page
+    pageFilters.value = { ...action.filters }
+    console.log('Set filters:', action.filters)
+  }
+}
+
+const heroStats = computed(() => {
+  const totalBlocks = props.document.pages?.reduce((sum, page) => sum + (page.blocks?.length ?? 0), 0) ?? 0
+  return [
+    { label: 'Pages', value: String(props.document.pages?.length ?? 0) },
+    { label: 'Blocs', value: String(totalBlocks) },
+    { label: 'Sources', value: String(props.document.dataSources?.length ?? 0) },
+    { label: 'Mise à jour', value: formatUpdated(props.document.updated_at) },
+  ]
+})
 
 const featurePanels = [
   {
@@ -72,6 +252,8 @@ provide(
     executeQuery: async (body: StatsDataAnyQueryRequest) => executeStatsDataQuery(props.document.id, body),
   })),
 )
+
+provide(studioPageFiltersKey, pageFilters)
 
 function formatUpdated(iso: string): string {
   if (!iso) return '—'
@@ -127,15 +309,11 @@ const authorLabel = computed(() => {
             <AppButton as="router-link" to="/statsdata" variant="secondary" size="md">
               Revenir au catalogue
             </AppButton>
-            <AppButton
+            <AppOpenStudioButton
               v-if="canEdit"
-              as="router-link"
               :to="{ name: 'studio-statsdata-edit', params: { id: document.id } }"
-              variant="primary"
-              size="md"
-            >
-              Modifier dans le studio
-            </AppButton>
+              label="Modifier dans Studio"
+            />
             <AppButton
               v-if="canEdit"
               as="router-link"
@@ -155,27 +333,46 @@ const authorLabel = computed(() => {
           >
             <div class="p-7 sm:p-9">
               <div
-                v-if="!document.blocks?.length"
+                v-if="!document.pages?.length || !document.pages.some(p => p.blocks?.length)"
                 class="rounded-xl border border-dashed border-slate-200 bg-slate-50/80 px-6 py-16 text-center text-sm leading-relaxed text-slate-500"
               >
                 Cette StatsData ne contient pas encore de blocs.
-                <RouterLink
+                <AppOpenStudioButton
                   v-if="canEdit"
                   :to="{ name: 'studio-statsdata-edit', params: { id: document.id } }"
-                  class="font-semibold text-primary"
-                >
-                  Ouvrir le studio
-                </RouterLink>
-              </div>
-              <div v-else class="flex flex-col gap-10 lg:gap-12">
-                <component
-                  v-for="block in document.blocks"
-                  :key="block.id"
-                  :is="resolveStudioBlock(block.type)"
-                  :payload="blockToPayload(block)"
-                  :field-id="block.id"
-                  :editable="false"
+                  size="sm"
                 />
+              </div>
+              <div v-else class="flex flex-col gap-8">
+                <!-- Tabs navigation -->
+                <div v-if="visiblePages.length > 1" class="flex gap-2 border-b border-slate-200">
+                  <button
+                    v-for="(page, index) in visiblePages"
+                    :key="page.id"
+                    @click="selectPage(index)"
+                    :class="[
+                      'px-4 py-2 text-sm font-medium transition-colors border-b-2',
+                      currentPageIndex === index
+                        ? 'border-primary text-primary'
+                        : 'border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300'
+                    ]"
+                  >
+                    {{ page.name }}
+                  </button>
+                </div>
+
+                <!-- Current page content -->
+                <section v-if="currentPage" class="flex flex-col gap-10 lg:gap-12">
+                  <component
+                    v-for="block in currentPage.blocks"
+                    :key="block.id"
+                    :is="resolveStudioBlock(block.type)"
+                    :payload="blockToPayload(block)"
+                    :field-id="block.id"
+                    :editable="false"
+                    @action="handleBlockAction"
+                  />
+                </section>
               </div>
             </div>
           </article>
@@ -211,4 +408,3 @@ const authorLabel = computed(() => {
     </section>
   </main>
 </template>
-

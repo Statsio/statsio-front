@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { StudioBlockPayload } from '@/types/studio-document'
 import type { StudioDataSource } from '@/types/studio-data-source'
-import StudioInspectorStatsDataQueryV2 from '@/components/studio/inspector/StudioInspectorStatsDataQueryV2.vue'
+import StudioInspectorStatsDataQueryEditor from '@/components/studio/inspector/StudioInspectorStatsDataQueryEditor.vue'
 
 const props = defineProps<{
   idPrefix: string
@@ -16,7 +16,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <StudioInspectorStatsDataQueryV2
+  <StudioInspectorStatsDataQueryEditor
     :id-prefix="idPrefix"
     :data-sources="dataSources"
     :block="block"

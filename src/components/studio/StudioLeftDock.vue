@@ -11,6 +11,8 @@ import {
   studioPaletteMedia,
   studioPaletteTables,
   studioPaletteText,
+  studioPaletteActions,
+  studioPaletteLinks,
 } from '@/data/studio-palette'
 import StudioBlockPalette from '@/components/studio/StudioBlockPalette.vue'
 import StudioBlockInspectorFields from '@/components/studio/StudioBlockInspectorFields.vue'
@@ -32,12 +34,13 @@ const props = withDefaults(
     statsDataQueryMode: boolean
     sourcesFeedback: SourcesFeedback | null
     sourcesBusy?: boolean
+    pages?: Array<{ id: string; name: string }>
     persistSourceNormalization?: (
       sourceId: string,
       mapping: StatsDataNormalizationMapping | null,
     ) => Promise<void>
   }>(),
-  { sourcesBusy: false, statsDataQueryMode: false },
+  { sourcesBusy: false, statsDataQueryMode: false, pages: () => [] },
 )
 
 const emit = defineEmits<{
@@ -69,10 +72,7 @@ const visibilitySelectOptions = [
 ]
 
 const railItems: { id: StudioLeftTabId; label: string; short: string }[] = [
-  { id: 'text', label: 'Texte', short: 'Aa' },
-  { id: 'layouts', label: 'Layouts', short: '▤' },
-  { id: 'tables', label: 'Tableaux', short: '▦' },
-  { id: 'charts', label: 'Graphiques', short: '▧' },
+  { id: 'blocks', label: 'Blocs', short: '▦' },
   { id: 'data', label: 'Sources', short: '◧' },
   { id: 'import', label: 'Import', short: '↑' },
   { id: 'settings', label: 'Paramètres', short: '⚙' },
@@ -92,10 +92,7 @@ function closeDrawer() {
 }
 
 const panelTitles: Partial<Record<StudioLeftTabId, string>> = {
-  text: 'Texte',
-  layouts: 'Layouts',
-  tables: 'Tableaux',
-  charts: 'Graphiques',
+  blocks: 'Blocs',
   data: 'Sources de données',
   import: 'Importations',
   inspector: 'Propriétés du bloc',
@@ -128,11 +125,11 @@ const panelTitles: Partial<Record<StudioLeftTabId, string>> = {
 
     <div
       class="h-full min-h-0 overflow-hidden border-l border-white/10 bg-white text-slate-900 transition-[width] duration-200 ease-out motion-reduce:transition-none"
-      :class="open && tab ? 'w-[min(20.5rem,calc(100vw-4.5rem))]' : 'w-0 border-l-0'"
+      :class="open && tab ? 'w-[min(26rem,calc(100vw-4.5rem))]' : 'w-0 border-l-0'"
     >
       <div
         v-if="open && tab"
-        class="flex h-full w-[min(20.5rem,calc(100vw-4.5rem))] flex-col"
+        class="flex h-full w-[min(26rem,calc(100vw-4.5rem))] flex-col"
       >
         <div class="flex items-center justify-between gap-2 border-b border-slate-100 px-3 py-2.5">
           <h2 class="text-sm font-semibold text-slate-900">{{ panelTitles[tab] ?? '' }}</h2>
@@ -149,26 +146,42 @@ const panelTitles: Partial<Record<StudioLeftTabId, string>> = {
         </div>
 
         <div class="min-h-0 flex-1 overflow-y-auto px-3 py-4">
-            <template v-if="tab === 'text'">
-              <p class="mb-3 text-xs text-slate-500">Glissez ou ajoutez un bloc texte sur la page.</p>
-              <StudioBlockPalette :items="studioPaletteText" @add="emit('add-block', $event)" />
-            </template>
+            <template v-if="tab === 'blocks'">
+              <section class="mb-6">
+                <h3 class="mb-2 text-xs font-semibold text-slate-600">Texte</h3>
+                <p class="mb-3 text-xs text-slate-500">Glissez ou ajoutez un bloc texte sur la page.</p>
+                <StudioBlockPalette :items="studioPaletteText" @add="emit('add-block', $event)" />
+              </section>
 
-            <template v-else-if="tab === 'layouts'">
-              <p class="mb-3 text-xs text-slate-500">
-                Conteneurs en colonnes pour placer plusieurs blocs côte à côte sur desktop.
-              </p>
-              <StudioBlockPalette :items="studioPaletteLayouts" @add="emit('add-block', $event)" />
-            </template>
+              <section class="mb-6">
+                <h3 class="mb-2 text-xs font-semibold text-slate-600">Layouts</h3>
+                <p class="mb-3 text-xs text-slate-500">Conteneurs en colonnes pour placer plusieurs blocs côte à côte.</p>
+                <StudioBlockPalette :items="studioPaletteLayouts" @add="emit('add-block', $event)" />
+              </section>
 
-            <template v-else-if="tab === 'tables'">
-              <p class="mb-3 text-xs text-slate-500">Tableaux liés à une source de données.</p>
-              <StudioBlockPalette :items="studioPaletteTables" @add="emit('add-block', $event)" />
-            </template>
+              <section class="mb-6">
+                <h3 class="mb-2 text-xs font-semibold text-slate-600">Tableaux</h3>
+                <p class="mb-3 text-xs text-slate-500">Tableaux liés à une source de données.</p>
+                <StudioBlockPalette :items="studioPaletteTables" @add="emit('add-block', $event)" />
+              </section>
 
-            <template v-else-if="tab === 'charts'">
-              <p class="mb-3 text-xs text-slate-500">Graphiques alimentés par vos sources.</p>
-              <StudioBlockPalette :items="studioPaletteCharts" @add="emit('add-block', $event)" />
+              <section class="mb-6">
+                <h3 class="mb-2 text-xs font-semibold text-slate-600">Graphiques</h3>
+                <p class="mb-3 text-xs text-slate-500">Graphiques alimentés par vos sources.</p>
+                <StudioBlockPalette :items="studioPaletteCharts" @add="emit('add-block', $event)" />
+              </section>
+
+              <section class="mb-6">
+                <h3 class="mb-2 text-xs font-semibold text-slate-600">Actions</h3>
+                <p class="mb-3 text-xs text-slate-500">Blocs interactifs avec actions configurables.</p>
+                <StudioBlockPalette :items="studioPaletteActions" @add="emit('add-block', $event)" />
+              </section>
+
+              <section class="mb-6">
+                <h3 class="mb-2 text-xs font-semibold text-slate-600">Liens</h3>
+                <p class="mb-3 text-xs text-slate-500">Liens et boutons vers des URLs ou pages internes.</p>
+                <StudioBlockPalette :items="studioPaletteLinks" @add="emit('add-block', $event)" />
+              </section>
             </template>
 
             <template v-else-if="tab === 'data'">
@@ -210,6 +223,7 @@ const panelTitles: Partial<Record<StudioLeftTabId, string>> = {
                 :stats-data-query-mode="statsDataQueryMode"
                 :selected-block="selectedBlock"
                 :data-sources="dataSources"
+                :pages="pages"
                 @update-block="emit('update-block', $event)"
                 @remove-block="emit('remove-block', $event)"
                 @duplicate-block="emit('duplicate-block', $event)"

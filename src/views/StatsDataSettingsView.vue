@@ -3,11 +3,13 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppButton from '@/components/ui/AppButton.vue'
 import AppSelect from '@/components/ui/AppSelect.vue'
+import AppOpenStudioButton from '@/components/statsdata/AppOpenStudioButton.vue'
 import { useAuthStore } from '@/stores/auth'
 import { getErrorMessage } from '@/lib/http-errors'
 import {
   fetchStatsDataDocument,
   updateStatsDataDocument,
+  deleteStatsDataDocument,
   type StatsDataShareDto,
   fetchStatsDataDocumentShares,
   upsertStatsDataDocumentShare,
@@ -21,6 +23,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const docId = computed(() => String(route.params.id ?? '').trim())
+const currentTab = ref<'general' | 'users' | 'stats' | 'settings'>('general')
 
 const isLoading = ref(true)
 const loadError = ref<string | null>(null)
@@ -194,6 +197,18 @@ const onDeleteShare = async (userId: number) => {
     sharesError.value = getErrorMessage(e, 'Suppression du partage impossible.')
   }
 }
+
+const onMoveToTrash = async () => {
+  if (!docId.value) return
+  if (!confirm('Voulez-vous vraiment mettre ce document à la corbeille ?')) return
+
+  try {
+    await deleteStatsDataDocument(docId.value)
+    router.push('/contenus')
+  } catch (e) {
+    saveError.value = getErrorMessage(e, 'Suppression impossible.')
+  }
+}
 </script>
 
 <template>
@@ -211,7 +226,7 @@ const onDeleteShare = async (userId: number) => {
             </p>
           </div>
           <div class="flex flex-wrap gap-3">
-            <AppButton as="router-link" :to="studioLink" variant="secondary" size="md">Ouvrir le studio</AppButton>
+            <AppOpenStudioButton :to="studioLink" />
             <AppButton as="router-link" to="/contenus" variant="outline" size="md">Mes contenus</AppButton>
           </div>
         </div>
@@ -237,7 +252,45 @@ const onDeleteShare = async (userId: number) => {
           <p class="mx-auto mt-3 max-w-2xl text-sm leading-7 text-rose-900/80">{{ loadError }}</p>
         </div>
 
-        <div v-else class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)]">
+        <div v-else class="flex flex-col gap-6">
+          <!-- Onglets -->
+          <div class="flex gap-2 border-b border-slate-200">
+            <button
+              type="button"
+              class="border-b-2 px-4 py-3 text-sm font-semibold transition-colors"
+              :class="currentTab === 'general' ? 'border-primary text-primary' : 'border-transparent text-slate-600 hover:text-slate-900'"
+              @click="currentTab = 'general'"
+            >
+              Général
+            </button>
+            <button
+              type="button"
+              class="border-b-2 px-4 py-3 text-sm font-semibold transition-colors"
+              :class="currentTab === 'users' ? 'border-primary text-primary' : 'border-transparent text-slate-600 hover:text-slate-900'"
+              @click="currentTab = 'users'"
+            >
+              Utilisateurs
+            </button>
+            <button
+              type="button"
+              class="border-b-2 px-4 py-3 text-sm font-semibold transition-colors"
+              :class="currentTab === 'stats' ? 'border-primary text-primary' : 'border-transparent text-slate-600 hover:text-slate-900'"
+              @click="currentTab = 'stats'"
+            >
+              Statistiques
+            </button>
+            <button
+              type="button"
+              class="border-b-2 px-4 py-3 text-sm font-semibold transition-colors"
+              :class="currentTab === 'settings' ? 'border-primary text-primary' : 'border-transparent text-slate-600 hover:text-slate-900'"
+              @click="currentTab = 'settings'"
+            >
+              Paramètres
+            </button>
+          </div>
+
+          <!-- Contenu onglet Général -->
+          <div v-if="currentTab === 'general'" class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)]">
           <form
             class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_26px_80px_-54px_rgba(15,23,42,0.45)] sm:p-8"
             @submit.prevent="onSave"
@@ -372,6 +425,73 @@ const onDeleteShare = async (userId: number) => {
               </div>
             </div>
           </aside>
+          </div>
+
+          <!-- Contenu onglet Utilisateurs -->
+          <div v-if="currentTab === 'users'" class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_26px_80px_-54px_rgba(15,23,42,0.45)] sm:p-8">
+            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Partage</p>
+            <h3 class="mt-2 text-xl font-semibold text-slate-950">Collaborateurs</h3>
+
+            <div v-if="sharesError" class="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+              {{ sharesError }}
+            </div>
+
+            <div class="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_140px_auto] sm:items-end">
+              <label class="flex flex-col gap-2">
+                <span class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Email</span>
+                <input
+                  v-model="shareEmail"
+                  type="email"
+                  class="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-primary/30 focus:bg-white focus:outline-none"
+                  placeholder="collab@exemple.com"
+                />
+              </label>
+              <label class="flex flex-col gap-2">
+                <span class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Rôle</span>
+                <AppSelect v-model="shareRole" :options="shareRoleSelectOptions" aria-label="Rôle" />
+              </label>
+              <AppButton variant="primary" size="md" type="button" :disabled="sharesLoading" @click="onAddShare">Ajouter</AppButton>
+            </div>
+
+            <div v-if="sharesLoading" class="mt-4 text-sm text-slate-500">Chargement…</div>
+            <div v-else class="mt-4 flex flex-col gap-2">
+              <div v-if="shares.length === 0" class="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
+                Aucun partage.
+              </div>
+              <div
+                v-for="s in shares"
+                :key="s.user_id"
+                class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3"
+              >
+                <div class="min-w-0">
+                  <p class="truncate text-sm font-semibold text-slate-900">{{ s.email }}</p>
+                  <p class="text-xs text-slate-500">Rôle: {{ s.role === 'editor' ? 'Éditeur' : 'Lecteur' }}</p>
+                </div>
+                <AppButton variant="ghost" size="md" type="button" @click="onDeleteShare(s.user_id)">Retirer</AppButton>
+              </div>
+            </div>
+          </div>
+
+          <!-- Contenu onglet Statistiques -->
+          <div v-if="currentTab === 'stats'" class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_26px_80px_-54px_rgba(15,23,42,0.45)] sm:p-8">
+            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Statistiques</p>
+            <h3 class="mt-2 text-xl font-semibold text-slate-950">Analyse d'utilisation</h3>
+            <p class="mt-4 text-sm text-slate-600">Les statistiques d'utilisation seront disponibles prochainement.</p>
+          </div>
+
+          <!-- Contenu onglet Paramètres -->
+          <div v-if="currentTab === 'settings'" class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_26px_80px_-54px_rgba(15,23,42,0.45)] sm:p-8">
+            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Zone dangereuse</p>
+            <h3 class="mt-2 text-xl font-semibold text-slate-950">Suppression</h3>
+            <p class="mt-4 text-sm text-slate-600">
+              Mettre ce document à la corbeille. Vous pourrez le restaurer depuis la page "Mes contenus".
+            </p>
+            <div class="mt-6">
+              <AppButton variant="danger" size="md" type="button" @click="onMoveToTrash">
+                Mettre à la corbeille
+              </AppButton>
+            </div>
+          </div>
         </div>
       </div>
     </section>

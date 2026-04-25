@@ -3,8 +3,10 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import AppButton from '@/components/ui/AppButton.vue'
 import AppSelect from '@/components/ui/AppSelect.vue'
+import AppOpenStudioButton from '@/components/statsdata/AppOpenStudioButton.vue'
+import StatsDataCardDropdown from '@/components/statsdata/StatsDataCardDropdown.vue'
 import { useAuthStore } from '@/stores/auth'
-import { fetchStatsDataDocuments } from '@/api/statsdata-documents'
+import { fetchStatsDataDocuments, deleteStatsDataDocument, fetchTrashedStatsDataDocuments, restoreStatsDataDocument, forceDeleteStatsDataDocument } from '@/api/statsdata-documents'
 import type { StatsDataDocumentListItemDto } from '@/types/statsdata-document-api'
 
 type ContentType = 'StatsData'
@@ -24,6 +26,7 @@ type UserContentItem = {
   createdAtIso: string
   updatedAtIso: string
   createdByLabel: string
+  slug: string
 }
 
 const authStore = useAuthStore()
@@ -32,10 +35,12 @@ const selectedType = ref<'Tous' | ContentType>('Tous')
 const selectedStatus = ref<'Tous' | ContentStatus>('Tous')
 const selectedVisibility = ref<'Tous' | ContentVisibility>('Tous')
 const selectedSort = ref<'recent' | 'alphabetical' | 'type'>('recent')
+const viewMode = ref<'active' | 'trash'>('active')
 
 const isLoading = ref(true)
 const loadError = ref<string | null>(null)
 const contentItems = ref<UserContentItem[]>([])
+const trashedItems = ref<UserContentItem[]>([])
 
 function formatIso(iso: string): string {
   if (!iso) return '—'
@@ -73,10 +78,11 @@ function toContentItem(doc: StatsDataDocumentListItemDto): UserContentItem {
     createdAtIso: doc.created_at,
     updatedAtIso: doc.updated_at,
     createdByLabel: createdByLabel(doc),
+    slug: doc.slug,
   }
 }
 
-onMounted(async () => {
+async function loadContents() {
   isLoading.value = true
   loadError.value = null
   try {
@@ -88,7 +94,54 @@ onMounted(async () => {
   } finally {
     isLoading.value = false
   }
-})
+}
+
+async function loadTrashedContents() {
+  isLoading.value = true
+  loadError.value = null
+  try {
+    const docs = await fetchTrashedStatsDataDocuments()
+    trashedItems.value = docs.map(toContentItem)
+  } catch (e) {
+    loadError.value = e instanceof Error ? e.message : 'Erreur lors du chargement'
+    trashedItems.value = []
+  } finally {
+    isLoading.value = false
+  }
+}
+
+async function handleMoveToTrash(itemId: string) {
+  if (!confirm('Voulez-vous vraiment mettre ce contenu à la corbeille ?')) return
+
+  try {
+    await deleteStatsDataDocument(itemId)
+    await loadContents()
+  } catch (e) {
+    alert(e instanceof Error ? e.message : 'Erreur lors de la suppression')
+  }
+}
+
+async function handleRestore(itemId: string) {
+  try {
+    await restoreStatsDataDocument(itemId)
+    await loadTrashedContents()
+  } catch (e) {
+    alert(e instanceof Error ? e.message : 'Erreur lors de la restauration')
+  }
+}
+
+async function handleForceDelete(itemId: string) {
+  if (!confirm('Voulez-vous vraiment supprimer définitivement ce contenu ? Cette action est irréversible.')) return
+
+  try {
+    await forceDeleteStatsDataDocument(itemId)
+    await loadTrashedContents()
+  } catch (e) {
+    alert(e instanceof Error ? e.message : 'Erreur lors de la suppression définitive')
+  }
+}
+
+onMounted(() => void loadContents())
 
 const createActions = [
   {
@@ -121,9 +174,10 @@ const sortSelectOptions = [
 ]
 
 const filteredContentItems = computed(() => {
+  const items = viewMode.value === 'active' ? contentItems.value : trashedItems.value
   const normalizedSearch = searchQuery.value.trim().toLowerCase()
 
-  const filtered = contentItems.value.filter((item) => {
+  const filtered = items.filter((item) => {
     const matchesSearch =
       !normalizedSearch ||
       item.title.toLowerCase().includes(normalizedSearch) ||
@@ -281,6 +335,38 @@ const resetFilters = () => {
             <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div class="flex flex-wrap gap-2">
                 <button
+                  type="button"
+                  class="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition"
+                  :class="
+                    viewMode === 'active'
+                      ? 'border-primary/20 bg-primary text-white'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                  "
+                  @click="viewMode = 'active'; loadContents()"
+                >
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Contenus actifs
+                </button>
+                <button
+                  type="button"
+                  class="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition"
+                  :class="
+                    viewMode === 'trash'
+                      ? 'border-primary/20 bg-primary text-white'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                  "
+                  @click="viewMode = 'trash'; loadTrashedContents()"
+                >
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  Corbeille
+                </button>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <button
                   v-for="filter in typeFilters"
                   :key="filter"
                   type="button"
@@ -342,15 +428,28 @@ const resetFilters = () => {
                 </div>
 
                 <div class="flex items-center gap-3">
-                  <RouterLink :to="item.editTo" class="text-sm font-semibold text-slate-700 hover:text-slate-950">
-                    Modifier
-                  </RouterLink>
-                  <RouterLink :to="item.settingsTo" class="text-sm font-semibold text-slate-700 hover:text-slate-950">
-                    Propriétés
-                  </RouterLink>
-                  <RouterLink :to="item.to" class="text-sm font-semibold text-primary transition group-hover:translate-x-0.5">
-                    {{ item.actionLabel }}
-                  </RouterLink>
+                  <template v-if="viewMode === 'active'">
+                    <AppOpenStudioButton :to="item.editTo" label="Studio" size="sm" />
+                    <RouterLink :to="item.settingsTo" class="text-sm font-semibold text-slate-700 hover:text-slate-950">
+                      Propriétés
+                    </RouterLink>
+                    <RouterLink :to="item.to" class="text-sm font-semibold text-primary transition group-hover:translate-x-0.5">
+                      {{ item.actionLabel }}
+                    </RouterLink>
+                    <StatsDataCardDropdown
+                      :document-id="item.id"
+                      :document-slug="item.slug"
+                      @move-to-trash="handleMoveToTrash(item.id)"
+                    />
+                  </template>
+                  <template v-else>
+                    <AppButton variant="secondary" size="sm" @click="handleRestore(item.id)">
+                      Restaurer
+                    </AppButton>
+                    <AppButton variant="danger" size="sm" @click="handleForceDelete(item.id)">
+                      Supprimer définitivement
+                    </AppButton>
+                  </template>
                 </div>
               </div>
 

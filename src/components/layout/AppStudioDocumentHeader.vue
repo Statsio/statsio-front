@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import AppButton from '@/components/ui/AppButton.vue'
-import AppDropdownMenu from '@/components/layout/AppDropdownMenu.vue'
-import AppDropdownMenuItem from '@/components/layout/AppDropdownMenuItem.vue'
 import { getBrandFromPath } from '@/data/brands'
 import type { StudioDocumentKind } from '@/types/studio-document'
 
 const emit = defineEmits<{
   'save-draft': []
   'delete-document': []
+  preview: []
+  'update:title': [value: string]
 }>()
 
 const props = withDefaults(
@@ -27,6 +27,7 @@ const props = withDefaults(
     deleting?: boolean
     showDeleteDocument?: boolean
     primaryActionLabel?: string
+    canPreview?: boolean
   }>(),
   {
     isDirty: false,
@@ -36,6 +37,7 @@ const props = withDefaults(
     deleting: false,
     showDeleteDocument: false,
     primaryActionLabel: 'Publier plus tard',
+    canPreview: true,
   },
 )
 
@@ -62,151 +64,163 @@ const modeLabel = computed(() => {
 const statusLabel = computed(() => {
   if (props.saving) return 'Enregistrement…'
   if (props.actionsDisabled) return 'Chargement…'
-  return props.isDirty ? 'Brouillon modifié' : 'Synchronisé'
+  return props.isDirty ? 'Modifications en attente' : 'Toutes les modifications sont enregistrées'
 })
 
 const primaryBusy = computed(() => props.saving || props.actionsDisabled)
 
-const isMenuOpen = ref(false)
-const menuRef = ref<HTMLElement | null>(null)
+const isEditingTitle = ref(false)
+const editableTitle = ref(props.title)
+const titleInputRef = ref<HTMLInputElement | null>(null)
 
-const closeMenu = () => {
-  isMenuOpen.value = false
+watch(
+  () => props.title,
+  (value) => {
+    if (!isEditingTitle.value) {
+      editableTitle.value = value
+    }
+  },
+)
+
+const openTitleEditor = async () => {
+  if (props.actionsDisabled) return
+  isEditingTitle.value = true
+  editableTitle.value = props.title
+  await nextTick()
+  titleInputRef.value?.focus()
+  titleInputRef.value?.select()
 }
 
-const toggleMenu = () => {
-  isMenuOpen.value = !isMenuOpen.value
+const saveTitle = () => {
+  const nextTitle = editableTitle.value.trim()
+  emit('update:title', nextTitle || props.title)
+  isEditingTitle.value = false
 }
 
-const onDocClick = (e: MouseEvent) => {
-  const t = e.target
-  if (!(t instanceof Node)) return closeMenu()
-  if (!menuRef.value?.contains(t)) closeMenu()
+const cancelTitleEdit = () => {
+  editableTitle.value = props.title
+  isEditingTitle.value = false
 }
-
-onMounted(() => document.addEventListener('click', onDocClick))
-onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 </script>
 
 <template>
   <header
-    class="sticky top-0 z-40 border-b border-[color:var(--color-primary)]/12 bg-white/80 backdrop-blur-xl"
+    class="sticky top-0 z-40 border-b border-slate-200/60 bg-white/80 backdrop-blur-xl"
   >
-    <div class="mx-auto flex min-h-[4.5rem] max-w-[1680px] items-center gap-4 px-4 py-3 sm:px-6 lg:px-8">
-      <div class="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
+    <div class="mx-auto flex min-h-[4.5rem] max-w-[1680px] items-center gap-6 px-4 py-2 sm:px-6 lg:px-8">
+      <!-- Section Gauche : Logo & Navigation -->
+      <div class="flex items-center gap-4">
         <RouterLink
           :to="backTo"
-          class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2"
+          class="group flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 transition-all hover:bg-white hover:text-slate-900 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2"
           :class="backRingClass"
           :aria-label="backAriaLabel"
         >
-          <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path
-              d="M15 6L9 12L15 18"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
+          <svg viewBox="0 0 24 24" class="h-5 w-5 transition-transform group-hover:-translate-x-0.5" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M15 18L9 12L15 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
         </RouterLink>
 
-        <div class="min-w-0 flex-1">
-          <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">{{ modeLabel }}</p>
-          <div class="mt-0.5 flex min-w-0 items-baseline gap-3">
-            <div class="min-w-0 flex-1">
-              <slot name="title">
-                <h1 class="truncate text-lg font-semibold text-slate-950 sm:text-xl">{{ title }}</h1>
-              </slot>
-            </div>
-            <span
-              class="hidden shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] sm:inline-flex"
-              :class="
-                primaryBusy
-                  ? 'bg-slate-200 text-slate-600'
-                  : isDirty
-                    ? 'bg-amber-100 text-amber-700'
-                    : 'bg-emerald-100 text-emerald-700'
-              "
+        <div class="h-8 w-px bg-slate-200/60" />
+
+        <div class="flex items-center gap-3">
+          <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/5 text-primary shadow-inner">
+            <img src="@/assets/brand/statsio-studio.svg" alt="Statsio Studio" class="h-7 w-7" />
+          </div>
+          <div class="hidden flex-col sm:flex">
+            <span class="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/60">
+              {{ modeLabel }}
+            </span>
+            <span class="text-[11px] font-medium text-slate-400">
+              Espace Studio
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section Centre : Titre & Status -->
+      <div class="flex min-w-0 flex-1 items-center justify-center">
+        <div class="flex max-w-2xl flex-1 flex-col items-center">
+          <div class="group relative flex items-center gap-2">
+            <h1 
+              v-if="!isEditingTitle" 
+              class="cursor-pointer truncate text-center text-lg font-bold text-slate-900 transition-colors hover:text-primary sm:text-xl"
+              @click="openTitleEditor"
             >
+              {{ title }}
+            </h1>
+            <input
+              v-else
+              ref="titleInputRef"
+              v-model="editableTitle"
+              type="text"
+              class="w-full min-w-[200px] border-b-2 border-primary bg-transparent py-0.5 text-center text-lg font-bold text-slate-900 outline-none sm:text-xl"
+              placeholder="Sans titre"
+              @keydown.enter.prevent="saveTitle"
+              @keydown.esc.prevent="cancelTitleEdit"
+              @blur="saveTitle"
+            />
+            <button
+              v-if="!isEditingTitle"
+              type="button"
+              class="opacity-0 transition-opacity group-hover:opacity-100"
+              @click="openTitleEditor"
+            >
+              <svg viewBox="0 0 24 24" class="h-4 w-4 text-slate-400" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M4 20h4.5L19 9.5 14.5 5 4 15.5V20Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </button>
+          </div>
+          
+          <div class="mt-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider">
+            <span 
+              class="h-1.5 w-1.5 rounded-full animate-pulse"
+              :class="primaryBusy ? 'bg-slate-300' : isDirty ? 'bg-amber-500' : 'bg-emerald-500'"
+            />
+            <span :class="isDirty ? 'text-amber-600' : 'text-slate-400'">
               {{ statusLabel }}
             </span>
           </div>
         </div>
       </div>
 
-      <div class="flex shrink-0 items-center justify-end gap-2 sm:gap-3">
-        <div ref="menuRef" class="relative">
-          <button
-            type="button"
-            class="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-            aria-label="Plus d’actions"
-            aria-haspopup="menu"
-            :aria-expanded="isMenuOpen"
-            @click.stop="toggleMenu"
+      <!-- Section Droite : Actions -->
+      <div class="flex items-center gap-3">
+        <div class="hidden items-center -space-x-2 mr-2 lg:flex">
+          <span
+            v-for="member in ['CG', 'MN', 'AL']"
+            :key="member"
+            class="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-slate-100 text-[10px] font-bold text-slate-600 ring-1 ring-slate-200"
           >
-            <svg viewBox="0 0 24 24" class="h-5 w-5" fill="currentColor" aria-hidden="true">
-              <path
-                d="M12 7.2a1.8 1.8 0 1 0 0-3.6 1.8 1.8 0 0 0 0 3.6Zm0 6.6a1.8 1.8 0 1 0 0-3.6 1.8 1.8 0 0 0 0 3.6Zm0 6.6a1.8 1.8 0 1 0 0-3.6 1.8 1.8 0 0 0 0 3.6Z"
-              />
+            {{ member }}
+          </span>
+          <button class="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-white text-slate-400 shadow-sm transition-transform hover:scale-105">
+            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
             </svg>
           </button>
-
-          <div v-if="isMenuOpen" class="relative">
-            <AppDropdownMenu label="Actions Studio" align="right" width-class="min-w-[240px]">
-                <AppDropdownMenuItem as="router-link" :to="quitTo">
-                  <template #leading>
-                    <svg viewBox="0 0 24 24" class="h-5 w-5 text-slate-400" fill="currentColor" aria-hidden="true">
-                      <path
-                        d="M10.09 15.59 11.5 17l6-6-6-6-1.41 1.41L13.67 11H3v2h10.67l-3.58 2.59ZM19 3h2v18h-2V3Z"
-                      />
-                    </svg>
-                  </template>
-                  Quitter
-                </AppDropdownMenuItem>
-
-                <AppDropdownMenuItem as="button" :disabled="primaryBusy || deleting" @click="closeMenu">
-                  <template #leading>
-                    <svg viewBox="0 0 24 24" class="h-5 w-5 text-slate-400" fill="currentColor" aria-hidden="true">
-                      <path
-                        d="M12 5c-7 0-10 7-10 7s3 7 10 7 10-7 10-7-3-7-10-7Zm0 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10Zm0-2.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"
-                      />
-                    </svg>
-                  </template>
-                  Prévisualiser
-                </AppDropdownMenuItem>
-
-                <AppDropdownMenuItem
-                  v-if="showDeleteDocument"
-                  as="button"
-                  danger
-                  :disabled="primaryBusy || deleting"
-                  @click="
-                    closeMenu();
-                    emit('delete-document')
-                  "
-                >
-                  <template #leading>
-                    <svg viewBox="0 0 24 24" class="h-5 w-5 text-rose-300" fill="currentColor" aria-hidden="true">
-                      <path
-                        d="M6 7h12l-1 14H7L6 7Zm3-3h6l1 2H8l1-2Zm-5 2h16v2H4V6Z"
-                      />
-                    </svg>
-                  </template>
-                  {{ deleting ? 'Suppression…' : 'Supprimer' }}
-                </AppDropdownMenuItem>
-            </AppDropdownMenu>
-          </div>
         </div>
 
-        <AppButton
-          variant="primary"
-          size="md"
-          :disabled="primaryBusy || deleting"
-          @click="emit('save-draft')"
-        >
-          {{ saving ? 'Enregistrement…' : primaryActionLabel }}
-        </AppButton>
+        <div class="flex items-center gap-2 rounded-2xl bg-slate-50 p-1.5 ring-1 ring-slate-200/60">
+          <AppButton 
+            variant="ghost" 
+            size="sm" 
+            class="h-9 px-4 text-xs font-bold" 
+            :disabled="primaryBusy || deleting || !canPreview"
+            @click="emit('preview')"
+          >
+            Aperçu
+          </AppButton>
+          <AppButton
+            variant="primary"
+            size="sm"
+            class="h-9 px-5 text-xs font-bold shadow-md shadow-primary/20"
+            :disabled="primaryBusy || deleting"
+            @click="emit('save-draft')"
+          >
+            {{ saving ? '...' : 'Publier' }}
+          </AppButton>
+        </div>
       </div>
     </div>
   </header>

@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import draggable from 'vuedraggable'
 import { computed } from 'vue'
-import type { StudioBlock } from '@/types/studio-document'
+import type { StudioBlock, StudioBlockAction } from '@/types/studio-document'
+import type { StudioDataSource } from '@/types/studio-data-source'
 import StudioBlockCard from '@/components/studio/StudioBlockCard.vue'
 
 const props = defineProps<{
   modelValue: StudioBlock[]
   selectedBlockId: string | null
+  dataSources?: StudioDataSource[]
+  pages?: Array<{ id: string; name: string }>
 }>()
 
 const emit = defineEmits<{
@@ -15,6 +18,7 @@ const emit = defineEmits<{
   update: [block: StudioBlock]
   'duplicate-block': [id: string]
   'remove-block': [id: string]
+  'block-action': [action: StudioBlockAction, context: Record<string, unknown>]
 }>()
 
 const list = computed({
@@ -42,10 +46,13 @@ const group = { name: 'studio-blocks', pull: true, put: true }
       <StudioBlockCard
         :block="element"
         :selected="element.id === selectedBlockId"
+        :data-sources="dataSources"
+        :pages="pages"
         @select="emit('select-block', element.id)"
         @update="emit('update', $event)"
         @duplicate="emit('duplicate-block', $event)"
         @remove="emit('remove-block', $event)"
+        @action="(payload) => emit('block-action', payload.action, payload.context)"
       />
     </template>
     <template #footer>

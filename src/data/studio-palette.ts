@@ -98,3 +98,33 @@ export const studioPaletteLayouts: StudioPaletteItem[] = [
     description: 'Trois colonnes (utile pour KPIs, mini-sections).',
   },
 ]
+
+export const studioPaletteActions: StudioPaletteItem[] = [
+  {
+    paletteId: 'pa-search',
+    blockType: 'search_bar',
+    label: 'Barre de recherche',
+    description: 'Recherche dans une source avec actions configurables.',
+  },
+]
+
+export const studioPaletteLinks: StudioPaletteItem[] = [
+  {
+    paletteId: 'pl-link',
+    blockType: 'link',
+    label: 'Lien',
+    description: 'Lien hypertexte simple vers une URL ou une page.',
+  },
+  {
+    paletteId: 'pl-button',
+    blockType: 'link_button',
+    label: 'Bouton',
+    description: 'Bouton cliquable avec lien vers une URL ou une page.',
+  },
+  {
+    paletteId: 'pl-back',
+    blockType: 'link_back',
+    label: 'Flèche retour',
+    description: 'Lien de retour avec flèche vers une page précédente.',
+  },
+]

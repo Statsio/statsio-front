@@ -212,6 +212,7 @@ export async function executeStatsDataQuery(
   documentId: string,
   body: StatsDataAnyQueryRequest,
 ): Promise<Record<string, unknown>[]> {
+  console.log('executeStatsDataQuery: Sending to API', JSON.stringify(body, null, 2))
   const res = await apiHttp.post(STATSIO_API.statsData.query(documentId), body)
   const data = unwrapStatsioResponseData<unknown>(res)
   if (isRecord(data) && Array.isArray(data.rows)) {

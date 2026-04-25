@@ -1,6 +1,6 @@
 <?xml version="1.0" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="13 13 94 94" aria-hidden="true">
   <defs>
     <style>
       .green-dark     { fill: #166534; }
@@ -11,11 +11,11 @@
     </style>
 
     <clipPath id="clip-top-small" clipPathUnits="userSpaceOnUse">
-      <path d="M15 0 L120 0 L120 48 L15 48 Z"/>
+      <path d="M14 -1 L121 -1 L121 49 L14 49 Z"/>
     </clipPath>
 
     <clipPath id="clip-right" clipPathUnits="userSpaceOnUse">
-      <path d="M105 15 L120 15 L120 120 L15 120 L15 105 Z"/>
+      <path d="M104 14 L121 14 L121 121 L14 121 L14 106 Z"/>
     </clipPath>
   </defs>
 

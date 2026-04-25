@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import draggable from 'vuedraggable'
 import { computed, inject, ref, watch } from 'vue'
-import type { StudioBlock } from '@/types/studio-document'
+import type { StudioBlock, StudioBlockAction } from '@/types/studio-document'
+import type { StudioDataSource } from '@/types/studio-data-source'
 import { blockToPayload, cloneBlock, mergeBlockWithPayload } from '@/types/studio-document'
 import { resolveStudioBlock } from '@/components/studio/blocks/studio-block-registry'
 import StudioBlockCard from '@/components/studio/StudioBlockCard.vue'
-import AppSelect from '@/components/ui/AppSelect.vue'
 import { studioSelectBlockKey, studioSelectedBlockIdKey } from '@/lib/studio-inject-keys'
 
 type Payload = {
@@ -19,12 +19,15 @@ const props = withDefaults(
     payload: Payload
     fieldId: string
     editable?: boolean
+    dataSources?: StudioDataSource[]
+    pages?: Array<{ id: string; name: string }>
   }>(),
   { editable: true },
 )
 
 const emit = defineEmits<{
   'update:payload': [Payload]
+  action: [action: StudioBlockAction, context: Record<string, unknown>]
 }>()
 
 const selectedBlockId = inject(studioSelectedBlockIdKey, ref<string | null>(null))
@@ -75,22 +78,6 @@ const emitColumns = (next: StudioBlock[][]) => {
   })
 }
 
-type DraggableChangeEvent =
-  | { added: { element: StudioBlock; newIndex: number } }
-  | { removed: { element: StudioBlock; oldIndex: number } }
-  | { moved: { element: StudioBlock; oldIndex: number; newIndex: number } }
-  | Record<string, never>
-
-const patchGap = (gap: Payload['gap']) => {
-  emit('update:payload', { type: props.payload.type, columns: columnsState.value, gap })
-}
-
-const gapSelectOptions = [
-  { value: 'sm', label: 'Compact' },
-  { value: 'md', label: 'Normal' },
-  { value: 'lg', label: 'Large' },
-]
-
 const updateChild = (colIndex: number, nextChild: StudioBlock) => {
   const next = columnsState.value.map((c) => [...c])
   next[colIndex] = (next[colIndex] ?? []).map((b) => (b.id === nextChild.id ? nextChild : b))
@@ -98,40 +85,12 @@ const updateChild = (colIndex: number, nextChild: StudioBlock) => {
   emitColumns(next)
 }
 
-const onColumnChange = (colIndex: number, evt: DraggableChangeEvent) => {
+const onColumnChange = () => {
+  // v-model already applies Sortable changes in columnsState.
+  // Re-deriving from event payload can desync nested DnD depending on source list.
   const next = columnsState.value.map((c) => [...c])
-  const col = [...(next[colIndex] ?? [])]
-
-  if ('added' in evt && evt.added) {
-    const { element, newIndex } = evt.added
-    const without = col.filter((b) => b.id !== element.id)
-    const idx = Math.max(0, Math.min(newIndex, without.length))
-    without.splice(idx, 0, element)
-    next[colIndex] = without
-    columnsState.value = next
-    emitColumns(next)
-    return
-  }
-
-  if ('removed' in evt && evt.removed) {
-    const { element } = evt.removed
-    next[colIndex] = col.filter((b) => b.id !== element.id)
-    columnsState.value = next
-    emitColumns(next)
-    return
-  }
-
-  if ('moved' in evt && evt.moved) {
-    const { oldIndex, newIndex } = evt.moved
-    const copy = [...col]
-    const [item] = copy.splice(oldIndex, 1)
-    if (!item) return
-    const idx = Math.max(0, Math.min(newIndex, copy.length))
-    copy.splice(idx, 0, item)
-    next[colIndex] = copy
-    columnsState.value = next
-    emitColumns(next)
-  }
+  columnsState.value = next
+  emitColumns(next)
 }
 
 const removeChild = (colIndex: number, id: string) => {
@@ -154,23 +113,14 @@ const duplicateChild = (colIndex: number, id: string) => {
 const onSelectChild = (id: string) => {
   selectBlock(id)
 }
+
+const onChildAction = (payload: { action: StudioBlockAction; context: Record<string, unknown> }) => {
+  emit('action', payload.action, payload.context)
+}
 </script>
 
 <template>
   <section class="content-block content-block--layout my-2">
-    <div v-if="editable" class="mb-2 flex justify-end">
-      <label class="sr-only" :for="`${fieldId}-gap`">Espacement</label>
-      <AppSelect
-        :model-value="payload.gap ?? 'md'"
-        :options="gapSelectOptions"
-        size="sm"
-        button-class="min-h-0 border-slate-200 bg-white px-2 py-1 text-xs focus:ring-2 focus:ring-primary/20"
-        panel-class="mt-1"
-        aria-label="Espacement"
-        @change="(v) => patchGap(String(v) as Payload['gap'])"
-      />
-    </div>
-
     <!-- Studio (editable): draggable columns + block actions. -->
     <div
       v-if="editable"
@@ -187,27 +137,35 @@ const onSelectChild = (id: string) => {
           item-key="id"
           :group="group"
           :handle="handle"
-          :empty-insert-threshold="32"
-          class="flex min-h-[5.5rem] flex-col gap-3 p-3"
+          :empty-insert-threshold="48"
+          class="flex min-h-[8rem] flex-col gap-3 p-3"
           ghost-class="studio-dnd-ghost"
           chosen-class="studio-dnd-chosen"
           drag-class="studio-dnd-drag"
-          @change="onColumnChange(colIndex, $event)"
+          @change="onColumnChange"
         >
           <template #item="{ element }">
             <StudioBlockCard
               :block="element"
               :selected="element.id === selectedBlockId"
+              :data-sources="dataSources"
+              :pages="pages"
               stop-select-bubble
               @select="onSelectChild(element.id)"
               @update="updateChild(colIndex, $event)"
               @duplicate="duplicateChild(colIndex, $event)"
               @remove="removeChild(colIndex, $event)"
+              @action="onChildAction"
             />
           </template>
 
           <template #footer>
-            <div v-if="col.length === 0" class="min-h-[4.5rem]" />
+            <div
+              v-if="col.length === 0"
+              class="flex min-h-[6rem] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/60 text-[11px] font-medium uppercase tracking-wide text-slate-400"
+            >
+              Déposer ici
+            </div>
           </template>
         </draggable>
       </div>
@@ -232,6 +190,9 @@ const onSelectChild = (id: string) => {
           :payload="blockToPayload(child)"
           :field-id="child.id"
           :editable="false"
+          :data-sources="dataSources"
+          :pages="pages"
+          @action="onChildAction"
         />
       </div>
     </div>
@@ -249,4 +210,3 @@ const onSelectChild = (id: string) => {
   opacity: 1;
 }
 </style>
-

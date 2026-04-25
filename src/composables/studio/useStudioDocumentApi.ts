@@ -16,7 +16,7 @@ type StudioState = {
   isCreate: Ref<boolean>
   isStatsDataRemote: Ref<boolean>
   title: Ref<string>
-  blocks: Ref<unknown[]>
+  pages: Ref<unknown[]>
   dataSources: Ref<unknown[]>
   settings: Ref<{ subtitle: string; visibility: 'private' | 'team' | 'public' }>
   isDirty: Ref<boolean>
@@ -55,13 +55,13 @@ export function useStudioDocumentApi(args: {
 
   const buildWritePayload = (): StatsDataDocumentWritePayload => {
     // Ensure plain JSON-serializable data (avoid Vue proxies).
-    const blocksPlain = JSON.parse(JSON.stringify(state.blocks.value ?? [])) as unknown[]
+    const pagesPlain = JSON.parse(JSON.stringify(state.pages.value ?? [])) as unknown[]
     const dataSourcesPlain = JSON.parse(JSON.stringify(state.dataSources.value ?? [])) as unknown[]
     const base = {
       title: state.title.value.trim() || 'Sans titre',
       subtitle: state.settings.value.subtitle ?? '',
       visibility: state.settings.value.visibility,
-      blocks: blocksPlain as any,
+      pages: pagesPlain as any,
     }
     if (state.isStatsDataRemote.value) return { ...base, dataSources: [] }
     return { ...base, dataSources: dataSourcesPlain as any }
@@ -74,7 +74,7 @@ export function useStudioDocumentApi(args: {
     if (state.isCreate.value) {
       state.isDirty.value = false
       state.title.value = 'Nouvelle StatsData'
-      state.blocks.value = []
+      state.pages.value = [{ id: 'page_' + Date.now(), name: 'Page 1', blocks: [] }]
       state.dataSources.value = []
       state.settings.value = { subtitle: '', visibility: 'private' }
       state.documentSlug.value = ''

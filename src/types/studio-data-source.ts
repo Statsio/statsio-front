@@ -65,7 +65,9 @@ export const defaultStudioBlockDataBinding = (): StudioBlockDataBinding => ({
   chartValueKey: '',
 })
 
-export function sourceToTabular(source: StudioDataSource): { headers: string[]; rows: string[][] } {
+export function sourceToTabular(source: StudioDataSource | undefined): { headers: string[]; rows: string[][] } {
+  if (!source) return { headers: [], rows: [] }
+
   switch (source.kind) {
     case 'manual': {
       const r = source.rows
@@ -88,6 +90,8 @@ export function sourceToTabular(source: StudioDataSource): { headers: string[]; 
       const body = recs.map((row) => headers.map((h) => String(row[h] ?? '')))
       return { headers, rows: body }
     }
+    default:
+      return { headers: [], rows: [] }
   }
 }
 

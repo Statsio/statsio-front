@@ -74,7 +74,7 @@ const highlightModalOpen = ref(false)
 
 <template>
   <div
-    class="relative z-[10000] flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white/95 px-4 py-2.5 backdrop-blur-sm sm:px-6"
+    class="relative z-10 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white/95 px-4 py-2.5 backdrop-blur-sm sm:px-6"
     role="region"
     aria-label="Bloc sélectionné"
   >

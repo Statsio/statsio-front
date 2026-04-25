@@ -16,11 +16,12 @@ import ContentStudioView from '../views/ContentStudioView.vue'
 import StatsDataDetailView from '../views/StatsDataDetailView.vue'
 import StatsDataView from '../views/StatsDataView.vue'
 import StatsDataSettingsView from '../views/StatsDataSettingsView.vue'
+import StatsDataStudioPreviewView from '../views/StatsDataStudioPreviewView.vue'
 import TvProgrammeView from '../views/TvProgrammeView.vue'
 import TvstatsView from '../views/TvstatsView.vue'
 import { useAuthStore } from '@/stores/auth'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
-import BareLayout from '@/layouts/BareLayout.vue'
+import StudioLayout from '@/layouts/StudioLayout.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -162,7 +163,7 @@ const router = createRouter({
     },
     {
       path: '/studio',
-      component: BareLayout,
+      component: StudioLayout,
       children: [
         {
           path: 'statsdata/nouveau',
@@ -172,6 +173,8 @@ const router = createRouter({
             requiresAuth: true,
             studio: true,
             studioDocumentKind: 'statsdata' as const,
+            title: 'Studio - Nouveau StatsData',
+            description: 'Créez une nouvelle visualisation de données interactive avec le studio Statsio.',
           },
         },
         {
@@ -182,13 +185,27 @@ const router = createRouter({
             requiresAuth: true,
             studio: true,
             studioDocumentKind: 'statsdata' as const,
+            title: 'Studio - Édition StatsData',
+            description: 'Modifiez votre visualisation de données interactive avec le studio Statsio.',
+          },
+        },
+        {
+          path: 'statsdata/:id/previsualisation',
+          name: 'studio-statsdata-preview',
+          component: StatsDataStudioPreviewView,
+          meta: {
+            requiresAuth: true,
+            studio: true,
+            studioDocumentKind: 'statsdata' as const,
+            title: 'Studio - Prévisualisation StatsData',
+            description: 'Prévisualisez votre visualisation de données interactive avant publication.',
           },
         },
       ],
     },
     {
       path: '/',
-      component: BareLayout,
+      component: StudioLayout,
       children: [
         {
           path: 'login',

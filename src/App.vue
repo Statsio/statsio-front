@@ -5,8 +5,10 @@ import AppBootstrapError from '@/components/layout/AppBootstrapError.vue'
 import AppCreateFab from '@/components/layout/AppCreateFab.vue'
 import AppNotificationStack from '@/components/layout/AppNotificationStack.vue'
 import { bootstrapError } from '@/lib/app-bootstrap'
+import { useFavicon } from '@/composables/useFavicon'
 
 const route = useRoute()
+useFavicon()
 const showCreateFab = computed(() => !route.meta.studio)
 
 const retry = () => {

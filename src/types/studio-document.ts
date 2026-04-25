@@ -4,6 +4,16 @@ import { defaultStudioBlockDataBinding } from '@/types/studio-data-source'
 
 export type StudioDocumentKind = 'statsdata' | 'article'
 
+export type StudioPage = {
+  id: string
+  name: string
+  blocks: StudioBlock[]
+  visible_in_tabs?: boolean
+  visibility?: 'inherit' | 'public' | 'password' | 'private'
+  password?: string | null
+  order?: number
+}
+
 export type StudioBlockType =
   | 'text_heading'
   | 'text_paragraph'
@@ -18,6 +28,43 @@ export type StudioBlockType =
   | 'callout'
   | 'divider'
   | 'image'
+  | 'search_bar'
+  | 'link'
+  | 'link_button'
+  | 'link_back'
+
+export type StudioBlockAction =
+  | {
+      type: 'navigate_to_page'
+      targetPageId: string
+      /** Colonnes de la source à passer comme filtres à la page cible */
+      passColumns?: string[]
+    }
+  | {
+      type: 'set_filters'
+      /** Filtres à appliquer aux blocs de la page courante */
+      filters: Record<string, string>
+    }
+
+export type StudioSearchBarConfig = {
+  /** Source de données dans laquelle rechercher */
+  sourceId: string
+  /** Colonnes dans lesquelles effectuer la recherche */
+  searchColumns: string[]
+  /** Formules de colonnes pour l'affichage des résultats */
+  displayFormulas?: Array<{
+    label: string
+    formula: string
+  }>
+  /** Placeholder du champ de recherche */
+  placeholder?: string
+  /** Action à exécuter lors du clic sur un résultat */
+  onResultClick?: StudioBlockAction
+  /** Requête StatsData pour rechercher via l'API (mode remote) */
+  query?: StatsDataQueryRequest
+  /** @deprecated Utiliser displayFormulas à la place */
+  displayColumns?: string[]
+}
 
 /** Filtrage côté client au-dessus du tableau (non envoyé au serveur de requêtes). */
 export type StudioTableSearchConfig = {
@@ -80,8 +127,13 @@ export type StudioBlockPayload =
       query?: StatsDataQueryRequest
       search?: StudioTableSearchConfig
       filters?: StudioTableFilterConfig
+      rowsPerPage?: number
     }
   | { type: 'image'; alt: string }
+  | { type: 'search_bar'; config: StudioSearchBarConfig }
+  | { type: 'link'; label: string; url: string; targetPageId?: string; style?: StudioTextStyle }
+  | { type: 'link_button'; label: string; url: string; targetPageId?: string; style?: StudioTextStyle }
+  | { type: 'link_back'; label: string; url: string; targetPageId?: string; style?: StudioTextStyle }
 
 export type StudioBlock = { id: string } & StudioBlockPayload
 
@@ -263,10 +315,34 @@ export function blockToPayload(block: StudioBlock): StudioBlockPayload {
               },
             }
           : {}),
+        ...(typeof block.rowsPerPage === 'number' ? { rowsPerPage: block.rowsPerPage } : {}),
       }
     }
     case 'image':
       return { type: 'image', alt: block.alt }
+    case 'search_bar':
+      return {
+        type: 'search_bar',
+        config: {
+          sourceId: block.config.sourceId,
+          searchColumns: [...block.config.searchColumns],
+          ...(block.config.displayFormulas ? { displayFormulas: [...block.config.displayFormulas] } : {}),
+          ...(block.config.displayColumns ? { displayColumns: [...block.config.displayColumns] } : {}),
+          ...(block.config.placeholder ? { placeholder: block.config.placeholder } : {}),
+          ...(block.config.onResultClick ? { onResultClick: { ...block.config.onResultClick } } : {}),
+          ...(block.config.query ? { query: block.config.query } : {}),
+        },
+      }
+    case 'link':
+    case 'link_button':
+    case 'link_back':
+      return {
+        type: block.type,
+        label: block.label,
+        url: block.url,
+        ...(block.targetPageId ? { targetPageId: block.targetPageId } : {}),
+        ...(block.style ? { style: { ...block.style } } : {}),
+      }
   }
 }
 
@@ -331,9 +407,35 @@ export function mergeBlockWithPayload(id: string, payload: StudioBlockPayload): 
         ...(payload.filters
           ? { filters: { ...payload.filters, columnLabels: [...payload.filters.columnLabels] } }
           : {}),
+        ...(payload.rowsPerPage ? { rowsPerPage: payload.rowsPerPage } : {}),
       }
     case 'image':
       return { id, type: 'image', alt: payload.alt }
+    case 'search_bar':
+      return {
+        id,
+        type: 'search_bar',
+        config: {
+          sourceId: payload.config.sourceId,
+          searchColumns: [...payload.config.searchColumns],
+          ...(payload.config.displayFormulas ? { displayFormulas: [...payload.config.displayFormulas] } : {}),
+          ...(payload.config.displayColumns ? { displayColumns: [...payload.config.displayColumns] } : {}),
+          ...(payload.config.placeholder ? { placeholder: payload.config.placeholder } : {}),
+          ...(payload.config.onResultClick ? { onResultClick: { ...payload.config.onResultClick } } : {}),
+          ...(payload.config.query ? { query: payload.config.query } : {}),
+        },
+      }
+    case 'link':
+    case 'link_button':
+    case 'link_back':
+      return {
+        id,
+        type: payload.type,
+        label: payload.label,
+        url: payload.url,
+        ...(payload.targetPageId ? { targetPageId: payload.targetPageId } : {}),
+        ...(payload.style ? { style: { ...payload.style } } : {}),
+      }
   }
 }
 
@@ -372,6 +474,23 @@ export function createEmptyBlock(type: StudioBlockType): StudioBlock {
       return { id, type: 'divider' }
     case 'image':
       return { id, type: 'image', alt: 'Légende' }
+    case 'search_bar':
+      return {
+        id,
+        type: 'search_bar',
+        config: {
+          sourceId: '',
+          searchColumns: [],
+          displayFormulas: [],
+          placeholder: 'Rechercher...',
+        },
+      }
+    case 'link':
+      return { id, type: 'link', label: 'Lien', url: '', style: { color: '#2563eb', underline: true } }
+    case 'link_button':
+      return { id, type: 'link_button', label: 'Bouton', url: '', style: { color: '#ffffff', highlight: '#2563eb', fontWeight: 600 } }
+    case 'link_back':
+      return { id, type: 'link_back', label: 'Retour', url: '', style: { color: '#64748b' } }
   }
 }
 

@@ -31,10 +31,13 @@ export const STATSIO_API = {
   statsData: {
     collection: '/statsdata',
     publicCollection: '/statsdata/public',
+    trashed: '/statsdata/trashed',
     /** Public show : GET by slug (render page). */
     publicOne: (slug: string) => `/statsdata/public/${encodeURIComponent(slug)}`,
     /** Document : GET show (studio), PATCH, DELETE — Postman : Create/Update/Delete document. */
     one: (documentId: string) => `/statsdata/${encodeURIComponent(documentId)}`,
+    restore: (documentId: string) => `/statsdata/${encodeURIComponent(documentId)}/restore`,
+    forceDelete: (documentId: string) => `/statsdata/${encodeURIComponent(documentId)}/force`,
     shares: (documentId: string) => `/statsdata/${encodeURIComponent(documentId)}/shares`,
     share: (documentId: string, userId: string) => `/statsdata/${encodeURIComponent(documentId)}/shares/${encodeURIComponent(userId)}`,
     sources: (documentId: string) => `/statsdata/${encodeURIComponent(documentId)}/sources`,

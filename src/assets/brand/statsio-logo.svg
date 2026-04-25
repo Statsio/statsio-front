@@ -1,4 +1,4 @@
-<svg width="200" height="200" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+<svg width="200" height="200" viewBox="13 13 94 94" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
   <defs>
     <style>
       .blue-dark     { fill: #3B82F6; }
@@ -8,16 +8,17 @@
     </style>
 
     <clipPath id="clip-right" clipPathUnits="userSpaceOnUse">
-      <path d="M105 15 L120 15 L120 120 L15 120 L15 105 Z"/>
+      <path d="M104 14 L121 14 L121 121 L14 121 L14 106 Z"/>
     </clipPath>
 
     <clipPath id="clip-left" clipPathUnits="userSpaceOnUse">
-      <path d="M15 105 L15 0 L120 0 L105 15 Z"/>
+      <path d="M14 106 L14 -1 L121 -1 L106 14 Z"/>
     </clipPath>
   </defs>
 
   <!-- Camembert -->
   <g clip-path="url(#clip-left)">
+    <circle class="purple-medium" cx="60" cy="60" r="40"/>
     <path class="purple-medium" d="M60 60 L20 60 A40 40 0 0 1 60 20 Z"/>
     <path class="purple-light" d="M60 60 L20 60 A40 40 0 0 0 60 100 Z"/>
     <path class="blue-dark" d="M60 60 L60 20 A40 40 0 0 1 93.5 35.5 Z"/>

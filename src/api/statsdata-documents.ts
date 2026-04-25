@@ -33,7 +33,7 @@ export function normalizeStatsDataDocumentDto(raw: unknown): StatsDataDocumentDt
   const subtitle = raw.subtitle == null ? '' : String(raw.subtitle)
   const visibility = normalizeVisibility(raw.visibility)
 
-  const blocks = Array.isArray(raw.blocks) ? (raw.blocks as StudioBlock[]) : []
+  const pages = Array.isArray(raw.pages) ? (raw.pages as any[]) : []
   const dataSourcesRaw = raw.dataSources ?? raw.data_sources
   const dataSources = Array.isArray(dataSourcesRaw) ? (dataSourcesRaw as StudioDataSource[]) : []
 
@@ -60,7 +60,7 @@ export function normalizeStatsDataDocumentDto(raw: unknown): StatsDataDocumentDt
     title,
     subtitle,
     visibility,
-    blocks,
+    pages,
     dataSources,
     slug: String(raw.slug ?? ''),
     created_at: String(raw.created_at ?? ''),
@@ -180,6 +180,23 @@ export async function updateStatsDataDocument(
 
 export async function deleteStatsDataDocument(id: string): Promise<void> {
   await apiHttp.delete(STATSIO_API.statsData.one(id))
+}
+
+export async function fetchTrashedStatsDataDocuments(): Promise<StatsDataDocumentListItemDto[]> {
+  const res = await apiHttp.get(STATSIO_API.statsData.trashed)
+  const payload = unwrapStatsioResponseData<unknown>(res)
+  if (!Array.isArray(payload)) {
+    throw new Error('Réponse liste StatsData corbeille invalide')
+  }
+  return payload.map(normalizeStatsDataDocumentListItemDto)
+}
+
+export async function restoreStatsDataDocument(id: string): Promise<void> {
+  await apiHttp.post(STATSIO_API.statsData.restore(id))
+}
+
+export async function forceDeleteStatsDataDocument(id: string): Promise<void> {
+  await apiHttp.delete(STATSIO_API.statsData.forceDelete(id))
 }
 
 export type StatsDataShareRole = 'viewer' | 'editor'

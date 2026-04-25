@@ -9,6 +9,10 @@ import StudioBlockLayoutColumns from '@/components/studio/blocks/StudioBlockLayo
 import StudioBlockTable from '@/components/studio/blocks/StudioBlockTable.vue'
 import StudioBlockTextHeading from '@/components/studio/blocks/StudioBlockTextHeading.vue'
 import StudioBlockTextParagraph from '@/components/studio/blocks/StudioBlockTextParagraph.vue'
+import StudioSearchBarBlock from '@/components/studio/blocks/StudioSearchBarBlock.vue'
+import StudioBlockLink from '@/components/studio/blocks/StudioBlockLink.vue'
+import StudioBlockLinkButton from '@/components/studio/blocks/StudioBlockLinkButton.vue'
+import StudioBlockLinkBack from '@/components/studio/blocks/StudioBlockLinkBack.vue'
 
 export const studioBlockRegistry = {
   text_heading: StudioBlockTextHeading,
@@ -24,6 +28,10 @@ export const studioBlockRegistry = {
   callout: StudioBlockCallout,
   divider: StudioBlockDivider,
   image: StudioBlockImage,
+  search_bar: StudioSearchBarBlock,
+  link: StudioBlockLink,
+  link_button: StudioBlockLinkButton,
+  link_back: StudioBlockLinkBack,
 } satisfies Record<StudioBlockType, Component>
 
 export function resolveStudioBlock(type: StudioBlockType): Component {
