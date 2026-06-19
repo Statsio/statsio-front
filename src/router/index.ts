@@ -3,20 +3,24 @@ import ArticleDetailView from '../views/ArticleDetailView.vue'
 import ArticlesView from '../views/ArticlesView.vue'
 import ChannelDetailView from '../views/ChannelDetailView.vue'
 import ChannelsView from '../views/ChannelsView.vue'
+import ChannelFrontView from '../views/ChannelFrontView.vue'
 import ForgotPasswordView from '../views/ForgotPasswordView.vue'
 import HomeView from '../views/HomeView.vue'
 import LoginView from '../views/LoginView.vue'
 import NewsFeedView from '../views/NewsFeedView.vue'
 import PollDetailView from '../views/PollDetailView.vue'
 import PollsView from '../views/PollsView.vue'
-import UserContentsView from '../views/UserContentsView.vue'
+const UserContentsView = () => import('../views/UserContentsView.vue')
 import ProfileView from '../views/ProfileView.vue'
 import RegisterView from '../views/RegisterView.vue'
-import ContentStudioView from '../views/ContentStudioView.vue'
-import StatsDataDetailView from '../views/StatsDataDetailView.vue'
-import StatsDataView from '../views/StatsDataView.vue'
-import StatsDataSettingsView from '../views/StatsDataSettingsView.vue'
-import StatsDataStudioPreviewView from '../views/StatsDataStudioPreviewView.vue'
+import HistoryView from '../views/HistoryView.vue'
+import MyChannelsView from '../views/MyChannelsView.vue'
+import ChannelCreateView from '../views/ChannelCreateView.vue'
+import ChannelManageView from '../views/ChannelManageView.vue'
+const StatsDataDetailView = () => import('../views/StatsDataDetailView.vue')
+const StatsDataView = () => import('../views/StatsDataView.vue')
+const StatsDataSettingsView = () => import('../views/StatsDataSettingsView.vue')
+const StatsDataPageView = () => import('../views/StatsDataPageView.vue')
 import TvProgrammeView from '../views/TvProgrammeView.vue'
 import TvstatsView from '../views/TvstatsView.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -93,6 +97,16 @@ const router = createRouter({
           component: StatsDataDetailView,
         },
         {
+          path: 'statsdata/:slug/:pageSlug',
+          name: 'statsdata-page',
+          component: StatsDataPageView,
+        },
+        {
+          path: 'stats/:pageSlug',
+          name: 'stats-page',
+          component: StatsDataPageView,
+        },
+        {
           path: 'statsdata/:id/proprietes',
           name: 'statsdata-settings',
           component: StatsDataSettingsView,
@@ -113,6 +127,15 @@ const router = createRouter({
           path: 'chaines/:slug',
           name: 'channel-detail',
           component: ChannelDetailView,
+        },
+        {
+          path: 'channels/:handle',
+          name: 'channel-front',
+          component: ChannelFrontView,
+          meta: {
+            title: 'Chaîne',
+            description: 'Page front d\'une chaîne éditoriale Statsio.',
+          },
         },
         {
           path: 'tvstats',
@@ -152,6 +175,45 @@ const router = createRouter({
           },
         },
         {
+          path: 'mes-chaines',
+          name: 'my-channels',
+          component: MyChannelsView,
+          meta: {
+            requiresAuth: true,
+            title: 'Mes chaînes',
+            description: 'Gérez vos chaînes éditoriales et publiez vos contenus.',
+          },
+        },
+        {
+          path: 'channels/create',
+          name: 'channel-create',
+          component: ChannelCreateView,
+          meta: {
+            requiresAuth: true,
+            title: 'Créer une chaîne',
+            description: 'Créez votre chaîne éditoriale personnalisée.',
+          },
+        },
+        {
+          path: 'channels/:id/manage',
+          name: 'channel-manage',
+          component: ChannelManageView,
+          meta: {
+            requiresAuth: true,
+            title: 'Gérer la chaîne',
+          },
+        },
+        {
+          path: 'historique',
+          name: 'history',
+          component: HistoryView,
+          meta: {
+            requiresAuth: true,
+            title: 'Historique',
+            description: 'Retrouvez tous les contenus que vous avez consultés.',
+          },
+        },
+        {
           path: 'fil-actus',
           name: 'news-feed',
           component: NewsFeedView,
@@ -162,51 +224,30 @@ const router = createRouter({
       ],
     },
     {
-      path: '/studio',
-      component: StudioLayout,
-      children: [
-        {
-          path: 'statsdata/nouveau',
-          name: 'studio-statsdata-create',
-          component: ContentStudioView,
-          meta: {
-            requiresAuth: true,
-            studio: true,
-            studioDocumentKind: 'statsdata' as const,
-            title: 'Studio - Nouveau StatsData',
-            description: 'Créez une nouvelle visualisation de données interactive avec le studio Statsio.',
-          },
-        },
-        {
-          path: 'statsdata/:id',
-          name: 'studio-statsdata-edit',
-          component: ContentStudioView,
-          meta: {
-            requiresAuth: true,
-            studio: true,
-            studioDocumentKind: 'statsdata' as const,
-            title: 'Studio - Édition StatsData',
-            description: 'Modifiez votre visualisation de données interactive avec le studio Statsio.',
-          },
-        },
-        {
-          path: 'statsdata/:id/previsualisation',
-          name: 'studio-statsdata-preview',
-          component: StatsDataStudioPreviewView,
-          meta: {
-            requiresAuth: true,
-            studio: true,
-            studioDocumentKind: 'statsdata' as const,
-            title: 'Studio - Prévisualisation StatsData',
-            description: 'Prévisualisez votre visualisation de données interactive avant publication.',
-          },
-        },
-      ],
-    },
-    {
       path: '/',
       component: StudioLayout,
       children: [
+        {
+          path: 'studio',
+          name: 'studio',
+          component: () => import('../views/StudioView.vue'),
+          meta: {
+            requiresAuth: true,
+            studio: true,
+            title: 'Studio',
+            description: 'Créez et éditez vos contenus StatsData avec l\'interface Studio.',
+          },
+        },
+        {
+          path: 'studio/:id',
+          name: 'studio-edit',
+          component: () => import('../views/StudioView.vue'),
+          meta: {
+            requiresAuth: true,
+            studio: true,
+            title: 'Studio — Édition',
+          },
+        },
         {
           path: 'login',
           name: 'login',

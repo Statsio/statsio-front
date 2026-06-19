@@ -17,4 +17,11 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url))
     },
   },
+  server: {
+    watch: {
+      // WSL2 + Docker bind mounts don't propagate inotify events reliably
+      usePolling: true,
+      interval: 300,
+    },
+  },
 })

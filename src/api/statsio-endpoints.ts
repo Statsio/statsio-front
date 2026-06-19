@@ -28,6 +28,32 @@ export const STATSIO_API = {
   sourceApi: {
     probeConnection: '/source-api/probe-connection',
   },
+  apiSources: {
+    collection: '/api-sources',
+    one: (id: string) => `/api-sources/${encodeURIComponent(id)}`,
+    test: (id: string) => `/api-sources/${encodeURIComponent(id)}/test`,
+    preview: (id: string) => `/api-sources/${encodeURIComponent(id)}/preview`,
+  },
+  datasets: {
+    collection: '/datasets',
+    one: (id: string) => `/datasets/${encodeURIComponent(id)}`,
+    query: (id: string) => `/datasets/${encodeURIComponent(id)}/query`,
+    preview: (id: string) => `/datasets/${encodeURIComponent(id)}/preview`,
+    invalidateCache: (id: string) => `/datasets/${encodeURIComponent(id)}/invalidate-cache`,
+    pages: (datasetId: string) => `/datasets/${encodeURIComponent(datasetId)}/pages`,
+    page: (datasetId: string, pageIdOrSlug: string) =>
+      `/datasets/${encodeURIComponent(datasetId)}/pages/${encodeURIComponent(pageIdOrSlug)}`,
+  },
+  studioContent: {
+    collection: '/studio/content',
+    one: (id: string) => `/studio/content/${encodeURIComponent(id)}`,
+  },
+  pages: {
+    blocks: (pageId: string) => `/pages/${encodeURIComponent(pageId)}/blocks`,
+    block: (pageId: string, blockId: string) =>
+      `/pages/${encodeURIComponent(pageId)}/blocks/${encodeURIComponent(blockId)}`,
+    reorderBlocks: (pageId: string) => `/pages/${encodeURIComponent(pageId)}/blocks/reorder`,
+  },
   statsData: {
     collection: '/statsdata',
     publicCollection: '/statsdata/public',
@@ -51,5 +77,8 @@ export const STATSIO_API = {
     sourceRefresh: (documentId: string, sourceId: string) =>
       `/statsdata/${encodeURIComponent(documentId)}/sources/${encodeURIComponent(sourceId)}/refresh`,
     query: (documentId: string) => `/statsdata/${encodeURIComponent(documentId)}/query`,
+    media: (documentId: string) => `/statsdata/${encodeURIComponent(documentId)}/media`,
+    mediaOne: (documentId: string, mediaId: string) =>
+      `/statsdata/${encodeURIComponent(documentId)}/media/${encodeURIComponent(mediaId)}`,
   },
 } as const

@@ -24,7 +24,10 @@ import {
 import App from './App.vue'
 import router from './router'
 import { setBootstrapError } from './lib/app-bootstrap'
+import { API_ORIGIN } from './lib/http'
 import { useAuthStore } from './stores/auth'
+
+axios.defaults.baseURL = API_ORIGIN
 
 const app = createApp(App)
 const pinia = createPinia()
@@ -53,7 +56,7 @@ try {
     title: 'Connexion au serveur impossible',
     message: isNetworkError
       ? 'Statsio a rencontré une erreur de connexion. Vérifiez votre connexion internet et réessayez.'
-      : 'Statsio n’a pas pu terminer son initialisation. Réessayez dans un instant.',
+      : 'Statsio n\'a pas pu terminer son initialisation. Réessayez dans un instant.',
     details: `Code erreur: ERR_NETWORK_API`,
   })
 }

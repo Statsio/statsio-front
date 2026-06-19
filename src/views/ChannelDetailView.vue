@@ -19,8 +19,11 @@ const formatCompactNumber = (value: number) =>
 
 <template>
   <main class="pb-24 pt-32">
-      <section class="section pb-10">
-        <div class="container flex flex-col gap-8">
+    <section class="section">
+      <div class="container grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
+        <!-- Colonne principale 2/3 -->
+        <div class="flex flex-col gap-6">
+          <!-- Bannière et informations de la chaîne -->
           <div class="flex flex-col gap-6 rounded-[2.5rem] border border-slate-200 bg-white p-7 shadow-[0_30px_90px_-58px_rgba(15,23,42,0.35)] sm:p-9">
             <div class="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
               <div class="flex min-w-0 items-start gap-5">
@@ -53,7 +56,7 @@ const formatCompactNumber = (value: number) =>
                   Suivre
                 </AppButton>
                 <AppButton v-if="channel.hasPaidSubscription" variant="outline" size="md">
-                  S’abonner<span v-if="channel.subscriptionPrice"> · {{ channel.subscriptionPrice }}</span>
+                  S'abonner<span v-if="channel.subscriptionPrice"> · {{ channel.subscriptionPrice }}</span>
                 </AppButton>
                 <AppButton as="router-link" to="/chaines" variant="secondary" size="md">
                   Retour au catalogue
@@ -62,13 +65,19 @@ const formatCompactNumber = (value: number) =>
             </div>
 
             <div class="rounded-[1.5rem] border border-slate-200 bg-slate-50 px-5 py-4">
-              <p class="text-sm font-semibold text-slate-950">Suivre permet d’être alerté à chaque nouveau contenu et d’accéder aux contenus gratuits.</p>
+              <p class="text-sm font-semibold text-slate-950">Suivre permet d'être alerté à chaque nouveau contenu et d'accéder aux contenus gratuits.</p>
               <p class="mt-1 text-sm leading-6 text-slate-500">
                 <span v-if="channel.hasPaidSubscription">
-                  L’abonnement payant débloque les contenus réservés
+                  L'abonnement payant débloque les contenus réservés
                   <span v-if="channel.subscriptionPrice">pour {{ channel.subscriptionPrice }}</span>.
                 </span>
                 <span v-else>Cette chaîne fonctionne uniquement en suivi et en accès gratuit.</span>
+              </p>
+              <p v-if="channel.ageRestriction" class="mt-2 flex items-center gap-2 text-sm font-medium text-amber-700">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                Contenu réservé aux {{ channel.ageRestriction }}+ ans
               </p>
             </div>
 
@@ -82,7 +91,7 @@ const formatCompactNumber = (value: number) =>
               </span>
             </div>
 
-            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <div class="rounded-[1.5rem] bg-slate-950 px-5 py-5 text-white">
                 <p class="text-xs uppercase tracking-[0.18em] text-slate-400">Abonnements payants</p>
                 <p class="mt-3 text-2xl font-semibold">{{ formatCompactNumber(channel.subscriptions) }}</p>
@@ -105,61 +114,58 @@ const formatCompactNumber = (value: number) =>
               </div>
             </div>
           </div>
-        </div>
-      </section>
 
-      <section class="section pt-2">
-        <div class="container grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <div class="flex flex-col gap-6">
-            <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)]">
-              <p class="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Dernières actus</p>
-              <div class="mt-5 grid gap-4">
-                <article v-for="item in channel.articles" :key="item" class="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
-                  <p class="text-base font-semibold leading-7 text-slate-950">{{ item }}</p>
-                </article>
-              </div>
-            </div>
-
-            <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)]">
-              <p class="text-xs font-semibold uppercase tracking-[0.2em] text-accent">Dernières StatsData</p>
-              <div class="mt-5 grid gap-4">
-                <article v-for="item in channel.statsData" :key="item" class="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
-                  <p class="text-base font-semibold leading-7 text-slate-950">{{ item }}</p>
-                </article>
-              </div>
-            </div>
-
-            <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)]">
-              <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-700">Derniers sondages</p>
-              <div class="mt-5 grid gap-4">
-                <article v-for="item in channel.polls" :key="item" class="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
-                  <p class="text-base font-semibold leading-7 text-slate-950">{{ item }}</p>
-                </article>
-              </div>
+          <!-- Contenu de la chaîne -->
+          <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)]">
+            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Dernières actus</p>
+            <div class="mt-5 grid gap-4">
+              <article v-for="item in channel.articles" :key="item" class="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
+                <p class="text-base font-semibold leading-7 text-slate-950">{{ item }}</p>
+              </article>
             </div>
           </div>
 
-          <aside class="flex flex-col gap-5">
-            <div class="rounded-[2rem] border border-slate-200 bg-slate-950 p-6 text-white">
-              <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Positionnement</p>
-              <p class="mt-4 text-sm leading-7 text-slate-300">
-                Cette page détail rassemble les thématiques, les signaux et les formats d’une chaîne dans une lecture plus éditoriale que le simple catalogue.
-              </p>
+          <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)]">
+            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-accent">Dernières StatsData</p>
+            <div class="mt-5 grid gap-4">
+              <article v-for="item in channel.statsData" :key="item" class="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
+                <p class="text-base font-semibold leading-7 text-slate-950">{{ item }}</p>
+              </article>
             </div>
+          </div>
 
-            <div class="rounded-[2rem] border border-slate-200 bg-white p-6">
-              <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Navigation</p>
-              <div class="mt-4 flex flex-col gap-3">
-                <AppButton as="router-link" to="/fil-actus" variant="secondary" size="md">
-                  Voir le fil d’actus
-                </AppButton>
-                <AppButton as="router-link" to="/articles" variant="outline" size="md">
-                  Explorer les articles
-                </AppButton>
-              </div>
+          <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)]">
+            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-700">Derniers sondages</p>
+            <div class="mt-5 grid gap-4">
+              <article v-for="item in channel.polls" :key="item" class="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
+                <p class="text-base font-semibold leading-7 text-slate-950">{{ item }}</p>
+              </article>
             </div>
-          </aside>
+          </div>
         </div>
-      </section>
+
+        <!-- Aside 1/3 -->
+        <aside class="flex flex-col gap-5 lg:sticky lg:top-32">
+          <div class="rounded-[2rem] border border-slate-200 bg-slate-950 p-6 text-white">
+            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Positionnement</p>
+            <p class="mt-4 text-sm leading-7 text-slate-300">
+              Cette page détail rassemble les thématiques, les signaux et les formats d'une chaîne dans une lecture plus éditoriale que le simple catalogue.
+            </p>
+          </div>
+
+          <div class="rounded-[2rem] border border-slate-200 bg-white p-6">
+            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Navigation</p>
+            <div class="mt-4 flex flex-col gap-3">
+              <AppButton as="router-link" to="/fil-actus" variant="secondary" size="md">
+                Voir le fil d'actus
+              </AppButton>
+              <AppButton as="router-link" to="/articles" variant="outline" size="md">
+                Explorer les articles
+              </AppButton>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
   </main>
 </template>

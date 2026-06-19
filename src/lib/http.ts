@@ -8,6 +8,9 @@ export const AUTH_API_BASE_URL = import.meta.env.VITE_AUTH_API_BASE_URL ?? 'http
 export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? AUTH_API_BASE_URL.replace(/\/?auth\/?$/i, '')
 
+/** Origine Laravel sans le préfixe `/api`, pour les anciens appels axios `/api/...`. */
+export const API_ORIGIN = API_BASE_URL.replace(/\/api\/?$/i, '')
+
 const REFRESH_ENDPOINT = '/refresh'
 const AUTHLESS_ENDPOINTS = new Set(['/login', '/register', '/google', REFRESH_ENDPOINT])
 

@@ -305,12 +305,16 @@ onBeforeUnmount(() => {
                 Mon profil
               </AppDropdownMenuItem>
 
-              <AppDropdownMenuItem to="/fil-actus" @click="closeUserMenu">
-                Fil d’actus
+              <AppDropdownMenuItem to="/mes-chaines" @click="closeUserMenu">
+                Mes chaînes
               </AppDropdownMenuItem>
 
-              <AppDropdownMenuItem to="/dashboard" @click="closeUserMenu">
-                Tableau de bord
+              <AppDropdownMenuItem to="/historique" @click="closeUserMenu">
+                Historique
+              </AppDropdownMenuItem>
+
+              <AppDropdownMenuItem to="/fil-actus" @click="closeUserMenu">
+                Fil d’actus
               </AppDropdownMenuItem>
 
               <AppDropdownMenuItem to="/contenus" @click="closeUserMenu">

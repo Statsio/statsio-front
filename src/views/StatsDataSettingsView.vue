@@ -1,500 +1,223 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { ref, reactive } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppButton from '@/components/ui/AppButton.vue'
-import AppSelect from '@/components/ui/AppSelect.vue'
-import AppOpenStudioButton from '@/components/statsdata/AppOpenStudioButton.vue'
-import { useAuthStore } from '@/stores/auth'
-import { getErrorMessage } from '@/lib/http-errors'
-import {
-  fetchStatsDataDocument,
-  updateStatsDataDocument,
-  deleteStatsDataDocument,
-  type StatsDataShareDto,
-  fetchStatsDataDocumentShares,
-  upsertStatsDataDocumentShare,
-  deleteStatsDataDocumentShare,
-  uploadStatsDataCoverImage,
-} from '@/api/statsdata-documents'
-import type { StatsDataDocumentDto } from '@/types/statsdata-document-api'
 
 const route = useRoute()
 const router = useRouter()
-const authStore = useAuthStore()
 
-const docId = computed(() => String(route.params.id ?? '').trim())
-const currentTab = ref<'general' | 'users' | 'stats' | 'settings'>('general')
+const id = String(route.params.id ?? '1')
 
-const isLoading = ref(true)
-const loadError = ref<string | null>(null)
-const saving = ref(false)
-const saveError = ref<string | null>(null)
-const saveSuccess = ref<string | null>(null)
-
-const doc = ref<StatsDataDocumentDto | null>(null)
-
-const form = ref({
-  title: '',
-  visibility: 'private' as StatsDataDocumentDto['visibility'],
-  categories: [] as string[],
-  tags: [] as string[],
-  description: '',
-  cover_media_id: null as number | null,
-  cover_url: null as string | null,
+const form = reactive({
+  title: 'Inflation par ville en France',
+  description: 'Suivi mensuel de l\'inflation au niveau communal depuis 2020, croisé avec les indices INSEE et les relevés locaux.',
+  source: 'INSEE – Indices des prix à la consommation',
+  license: 'Licence Ouverte v2.0',
+  theme: 'Économie',
+  visibility: 'public' as 'public' | 'private' | 'unlisted',
 })
 
-const shareEmail = ref('')
-const shareRole = ref<'viewer' | 'editor'>('viewer')
-const sharesLoading = ref(false)
-const sharesError = ref<string | null>(null)
-const shares = ref<StatsDataShareDto[]>([])
+const isSaving = ref(false)
+const isSaved = ref(false)
 
-const isOwner = computed(() => {
-  const uid = authStore.user?.id
-  const createdById = doc.value?.created_by?.id
-  if (uid == null || !createdById) return false
-  return String(uid) === String(createdById)
-})
+const themes = ['Économie', 'Politique', 'Santé', 'Société', 'Climat', 'Démographie', 'Culture', 'Sport']
 
-const studioLink = computed(() => (docId.value ? `/studio/statsdata/${docId.value}` : '/studio/statsdata/nouveau'))
+async function save() {
+  isSaving.value = true
+  await new Promise((r) => setTimeout(r, 600))
+  isSaving.value = false
+  isSaved.value = true
+  setTimeout(() => { isSaved.value = false }, 2500)
+}
 
-const visibilitySelectOptions = [
-  { value: 'private', label: 'Privé' },
-  { value: 'team', label: 'Équipe' },
-  { value: 'public', label: 'Public' },
+const showDeleteConfirm = ref(false)
+
+function confirmDelete() {
+  showDeleteConfirm.value = false
+  router.push('/contenus')
+}
+
+const visibilityOptions = [
+  { value: 'public', label: 'Public', description: 'Visible par tous les visiteurs' },
+  { value: 'unlisted', label: 'Non répertorié', description: 'Accessible uniquement via le lien direct' },
+  { value: 'private', label: 'Privé', description: 'Visible uniquement par vous' },
 ]
-
-const shareRoleSelectOptions = [
-  { value: 'viewer', label: 'Lecteur' },
-  { value: 'editor', label: 'Éditeur' },
-]
-
-const load = async () => {
-  if (!docId.value) {
-    loadError.value = 'StatsData introuvable.'
-    isLoading.value = false
-    return
-  }
-  isLoading.value = true
-  loadError.value = null
-  try {
-    const d = await fetchStatsDataDocument(docId.value)
-    doc.value = d
-    form.value.title = d.title ?? ''
-    form.value.visibility = d.visibility
-    form.value.categories = d.categories ?? []
-    form.value.tags = d.tags ?? []
-    form.value.description = d.description ?? ''
-    form.value.cover_media_id = d.cover_media_id ?? null
-    form.value.cover_url = d.cover_url ?? null
-  } catch (e) {
-    loadError.value = getErrorMessage(e, 'Erreur lors du chargement.')
-  } finally {
-    isLoading.value = false
-  }
-}
-
-const loadShares = async () => {
-  if (!docId.value) return
-  sharesLoading.value = true
-  sharesError.value = null
-  try {
-    shares.value = await fetchStatsDataDocumentShares(docId.value)
-  } catch (e) {
-    sharesError.value = getErrorMessage(e, 'Impossible de charger les partages.')
-  } finally {
-    sharesLoading.value = false
-  }
-}
-
-onMounted(async () => {
-  await load()
-  await loadShares()
-  if (doc.value && !isOwner.value) {
-    await router.replace({ name: 'statsdata' })
-  }
-})
-
-const onSave = async () => {
-  if (!docId.value) return
-  saveError.value = null
-  saveSuccess.value = null
-  saving.value = true
-  try {
-    const updated = await updateStatsDataDocument(docId.value, {
-      title: form.value.title,
-      visibility: form.value.visibility,
-      description: form.value.description,
-      categories: form.value.categories,
-      tags: form.value.tags,
-      cover_media_id: form.value.cover_media_id,
-    })
-    doc.value = updated
-    form.value.cover_url = updated.cover_url ?? form.value.cover_url
-    saveSuccess.value = 'Propriétés enregistrées.'
-    window.setTimeout(() => (saveSuccess.value = null), 2500)
-  } catch (e) {
-    saveError.value = getErrorMessage(e, 'Enregistrement impossible.')
-  } finally {
-    saving.value = false
-  }
-}
-
-const parseCsv = (raw: string) =>
-  raw
-    .split(',')
-    .map((x) => x.trim())
-    .filter((x) => x.length > 0)
-    .slice(0, 50)
-
-const categoriesDraft = computed({
-  get: () => form.value.categories.join(', '),
-  set: (v) => (form.value.categories = parseCsv(v)),
-})
-const tagsDraft = computed({
-  get: () => form.value.tags.join(', '),
-  set: (v) => (form.value.tags = parseCsv(v)),
-})
-
-const onUploadCover = async (file: File | null) => {
-  if (!file || !docId.value) return
-  saveError.value = null
-  saveSuccess.value = null
-  saving.value = true
-  try {
-    const uploaded = await uploadStatsDataCoverImage(docId.value, file)
-    form.value.cover_media_id = uploaded.media_id
-    form.value.cover_url = uploaded.url
-    await onSave()
-  } catch (e) {
-    saveError.value = getErrorMessage(e, 'Upload image impossible.')
-  } finally {
-    saving.value = false
-  }
-}
-
-const onAddShare = async () => {
-  if (!docId.value) return
-  const email = shareEmail.value.trim()
-  if (!email) return
-  sharesError.value = null
-  try {
-    await upsertStatsDataDocumentShare(docId.value, { email, role: shareRole.value })
-    shareEmail.value = ''
-    await loadShares()
-  } catch (e) {
-    sharesError.value = getErrorMessage(e, 'Partage impossible.')
-  }
-}
-
-const onDeleteShare = async (userId: number) => {
-  if (!docId.value) return
-  sharesError.value = null
-  try {
-    await deleteStatsDataDocumentShare(docId.value, userId)
-    await loadShares()
-  } catch (e) {
-    sharesError.value = getErrorMessage(e, 'Suppression du partage impossible.')
-  }
-}
-
-const onMoveToTrash = async () => {
-  if (!docId.value) return
-  if (!confirm('Voulez-vous vraiment mettre ce document à la corbeille ?')) return
-
-  try {
-    await deleteStatsDataDocument(docId.value)
-    router.push('/contenus')
-  } catch (e) {
-    saveError.value = getErrorMessage(e, 'Suppression impossible.')
-  }
-}
 </script>
 
 <template>
   <main class="pb-24 pt-32">
-    <section class="section pb-8">
-      <div class="container flex flex-col gap-6">
-        <div class="flex flex-wrap items-start justify-between gap-4">
-          <div class="max-w-3xl">
-            <p class="eyebrow text-primary">Propriétés StatsData</p>
-            <h1 class="mt-3 text-4xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-5xl">
-              {{ doc?.title || 'Paramètres' }}
+    <section class="section pb-10">
+      <div class="container max-w-3xl flex flex-col gap-8">
+        <!-- Header -->
+        <div class="flex items-center justify-between gap-4">
+          <div class="flex flex-col gap-1">
+            <p class="eyebrow text-primary">Propriétés</p>
+            <h1 class="text-3xl font-semibold tracking-[-0.03em] text-slate-950">
+              {{ form.title }}
             </h1>
-            <p class="mt-3 text-lg leading-8 text-slate-600">
-              Gérez les métadonnées, l’image, la visibilité et les partages sans toucher à la mise en page dans le studio.
-            </p>
           </div>
-          <div class="flex flex-wrap gap-3">
-            <AppOpenStudioButton :to="studioLink" />
-            <AppButton as="router-link" to="/contenus" variant="outline" size="md">Mes contenus</AppButton>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="section pt-0">
-      <div class="container">
-        <div
-          v-if="isLoading"
-          class="rounded-[2rem] border border-slate-200 bg-white px-6 py-12 text-center shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)]"
-        >
-          <p class="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">Chargement</p>
-          <h2 class="mt-3 text-2xl font-semibold text-slate-950">On récupère les propriétés.</h2>
-        </div>
-
-        <div
-          v-else-if="loadError"
-          class="rounded-[2rem] border border-rose-200 bg-rose-50 px-6 py-12 text-center shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)]"
-        >
-          <p class="text-sm font-semibold uppercase tracking-[0.24em] text-rose-700">Erreur</p>
-          <h2 class="mt-3 text-2xl font-semibold text-slate-950">Impossible de charger.</h2>
-          <p class="mx-auto mt-3 max-w-2xl text-sm leading-7 text-rose-900/80">{{ loadError }}</p>
-        </div>
-
-        <div v-else class="flex flex-col gap-6">
-          <!-- Onglets -->
-          <div class="flex gap-2 border-b border-slate-200">
-            <button
-              type="button"
-              class="border-b-2 px-4 py-3 text-sm font-semibold transition-colors"
-              :class="currentTab === 'general' ? 'border-primary text-primary' : 'border-transparent text-slate-600 hover:text-slate-900'"
-              @click="currentTab = 'general'"
-            >
-              Général
-            </button>
-            <button
-              type="button"
-              class="border-b-2 px-4 py-3 text-sm font-semibold transition-colors"
-              :class="currentTab === 'users' ? 'border-primary text-primary' : 'border-transparent text-slate-600 hover:text-slate-900'"
-              @click="currentTab = 'users'"
-            >
-              Utilisateurs
-            </button>
-            <button
-              type="button"
-              class="border-b-2 px-4 py-3 text-sm font-semibold transition-colors"
-              :class="currentTab === 'stats' ? 'border-primary text-primary' : 'border-transparent text-slate-600 hover:text-slate-900'"
-              @click="currentTab = 'stats'"
-            >
-              Statistiques
-            </button>
-            <button
-              type="button"
-              class="border-b-2 px-4 py-3 text-sm font-semibold transition-colors"
-              :class="currentTab === 'settings' ? 'border-primary text-primary' : 'border-transparent text-slate-600 hover:text-slate-900'"
-              @click="currentTab = 'settings'"
-            >
-              Paramètres
-            </button>
-          </div>
-
-          <!-- Contenu onglet Général -->
-          <div v-if="currentTab === 'general'" class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)]">
-          <form
-            class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_26px_80px_-54px_rgba(15,23,42,0.45)] sm:p-8"
-            @submit.prevent="onSave"
+          <AppButton
+            variant="primary"
+            size="sm"
+            :disabled="isSaving"
+            @click="save"
           >
-            <div class="flex flex-col gap-6">
-              <div class="flex items-start justify-between gap-4">
-                <div>
-                  <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Métadonnées</p>
-                  <h2 class="mt-2 text-2xl font-semibold text-slate-950">Informations</h2>
-                </div>
-                <AppButton type="submit" variant="primary" size="md" :disabled="saving">
-                  {{ saving ? 'Enregistrement…' : 'Enregistrer' }}
-                </AppButton>
-              </div>
+            {{ isSaving ? 'Enregistrement…' : isSaved ? 'Enregistré ✓' : 'Enregistrer' }}
+          </AppButton>
+        </div>
 
-              <div v-if="saveError" class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-                {{ saveError }}
-              </div>
-              <div v-if="saveSuccess" class="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-                {{ saveSuccess }}
-              </div>
-
-              <label class="flex flex-col gap-2">
-                <span class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Nom</span>
-                <input
-                  v-model="form.title"
-                  type="text"
-                  class="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-primary/30 focus:bg-white focus:outline-none"
-                  placeholder="Titre public…"
-                />
-              </label>
-
-              <label class="flex flex-col gap-2">
-                <span class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Visibilité</span>
-                <AppSelect v-model="form.visibility" :options="visibilitySelectOptions" aria-label="Visibilité" />
-              </label>
-
-              <label class="flex flex-col gap-2">
-                <span class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Catégories (séparées par virgule)</span>
-                <input
-                  v-model="categoriesDraft"
-                  type="text"
-                  class="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-primary/30 focus:bg-white focus:outline-none"
-                  placeholder="Économie, Santé, Territoires…"
-                />
-              </label>
-
-              <label class="flex flex-col gap-2">
-                <span class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Tags (séparés par virgule)</span>
-                <input
-                  v-model="tagsDraft"
-                  type="text"
-                  class="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-primary/30 focus:bg-white focus:outline-none"
-                  placeholder="inflation, communes, ipc…"
-                />
-              </label>
-
-              <label class="flex flex-col gap-2">
-                <span class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Description</span>
-                <textarea
-                  v-model="form.description"
-                  rows="6"
-                  class="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-7 text-slate-900 focus:border-primary/30 focus:bg-white focus:outline-none"
-                  placeholder="Contexte, objectifs, sources, périmètre…"
-                />
-              </label>
-            </div>
-          </form>
-
-          <aside class="flex flex-col gap-6">
-            <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_26px_80px_-54px_rgba(15,23,42,0.45)]">
-              <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Image</p>
-              <h3 class="mt-2 text-xl font-semibold text-slate-950">Couverture</h3>
-              <div class="mt-4 overflow-hidden rounded-[1.5rem] border border-slate-200 bg-slate-50">
-                <img v-if="form.cover_url" :src="form.cover_url" alt="" class="h-48 w-full object-cover" />
-                <div v-else class="flex h-48 items-center justify-center text-sm text-slate-500">Aucune image</div>
-              </div>
-              <div class="mt-4">
-                <label class="block text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Uploader</label>
-                <input
-                  class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                  type="file"
-                  accept="image/*"
-                  :disabled="saving"
-                  @change="onUploadCover(($event.target as HTMLInputElement).files?.[0] ?? null)"
-                />
-                <p class="mt-2 text-xs leading-5 text-slate-500">PNG/JPG/WebP. L’image est stockée via l’API media.</p>
-              </div>
+        <!-- General settings -->
+        <div class="rounded-[2rem] border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <div class="border-b border-slate-100 px-7 py-5">
+            <h2 class="text-sm font-bold text-slate-900">Informations générales</h2>
+          </div>
+          <div class="px-7 py-6 flex flex-col gap-5">
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Titre</label>
+              <input
+                v-model="form.title"
+                type="text"
+                class="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                placeholder="Titre du StatsData"
+              />
             </div>
 
-            <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_26px_80px_-54px_rgba(15,23,42,0.45)]">
-              <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Partage</p>
-              <h3 class="mt-2 text-xl font-semibold text-slate-950">Collaborateurs</h3>
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Description</label>
+              <textarea
+                v-model="form.description"
+                rows="3"
+                class="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
+                placeholder="Description courte affichée dans les listings"
+              />
+            </div>
 
-              <div v-if="sharesError" class="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-                {{ sharesError }}
-              </div>
-
-              <div class="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_140px_auto] sm:items-end">
-                <label class="flex flex-col gap-2">
-                  <span class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Email</span>
-                  <input
-                    v-model="shareEmail"
-                    type="email"
-                    class="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-primary/30 focus:bg-white focus:outline-none"
-                    placeholder="collab@exemple.com"
-                  />
-                </label>
-                <label class="flex flex-col gap-2">
-                  <span class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Rôle</span>
-                  <AppSelect v-model="shareRole" :options="shareRoleSelectOptions" aria-label="Rôle" />
-                </label>
-                <AppButton variant="primary" size="md" type="button" :disabled="sharesLoading" @click="onAddShare">Ajouter</AppButton>
-              </div>
-
-              <div v-if="sharesLoading" class="mt-4 text-sm text-slate-500">Chargement…</div>
-              <div v-else class="mt-4 flex flex-col gap-2">
-                <div v-if="shares.length === 0" class="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
-                  Aucun partage.
-                </div>
-                <div
-                  v-for="s in shares"
-                  :key="s.user_id"
-                  class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3"
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Thème</label>
+                <select
+                  v-model="form.theme"
+                  class="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                 >
-                  <div class="min-w-0">
-                    <p class="truncate text-sm font-semibold text-slate-900">{{ s.email }}</p>
-                    <p class="text-xs text-slate-500">Rôle: {{ s.role === 'editor' ? 'Éditeur' : 'Lecteur' }}</p>
-                  </div>
-                  <AppButton variant="ghost" size="md" type="button" @click="onDeleteShare(s.user_id)">Retirer</AppButton>
-                </div>
+                  <option v-for="t in themes" :key="t" :value="t">{{ t }}</option>
+                </select>
               </div>
-            </div>
-          </aside>
-          </div>
 
-          <!-- Contenu onglet Utilisateurs -->
-          <div v-if="currentTab === 'users'" class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_26px_80px_-54px_rgba(15,23,42,0.45)] sm:p-8">
-            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Partage</p>
-            <h3 class="mt-2 text-xl font-semibold text-slate-950">Collaborateurs</h3>
-
-            <div v-if="sharesError" class="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-              {{ sharesError }}
-            </div>
-
-            <div class="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_140px_auto] sm:items-end">
-              <label class="flex flex-col gap-2">
-                <span class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Email</span>
+              <div>
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Source officielle</label>
                 <input
-                  v-model="shareEmail"
-                  type="email"
-                  class="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-primary/30 focus:bg-white focus:outline-none"
-                  placeholder="collab@exemple.com"
+                  v-model="form.source"
+                  type="text"
+                  class="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                  placeholder="Ex : INSEE, Ministère…"
                 />
-              </label>
-              <label class="flex flex-col gap-2">
-                <span class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Rôle</span>
-                <AppSelect v-model="shareRole" :options="shareRoleSelectOptions" aria-label="Rôle" />
-              </label>
-              <AppButton variant="primary" size="md" type="button" :disabled="sharesLoading" @click="onAddShare">Ajouter</AppButton>
-            </div>
-
-            <div v-if="sharesLoading" class="mt-4 text-sm text-slate-500">Chargement…</div>
-            <div v-else class="mt-4 flex flex-col gap-2">
-              <div v-if="shares.length === 0" class="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
-                Aucun partage.
-              </div>
-              <div
-                v-for="s in shares"
-                :key="s.user_id"
-                class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3"
-              >
-                <div class="min-w-0">
-                  <p class="truncate text-sm font-semibold text-slate-900">{{ s.email }}</p>
-                  <p class="text-xs text-slate-500">Rôle: {{ s.role === 'editor' ? 'Éditeur' : 'Lecteur' }}</p>
-                </div>
-                <AppButton variant="ghost" size="md" type="button" @click="onDeleteShare(s.user_id)">Retirer</AppButton>
               </div>
             </div>
-          </div>
 
-          <!-- Contenu onglet Statistiques -->
-          <div v-if="currentTab === 'stats'" class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_26px_80px_-54px_rgba(15,23,42,0.45)] sm:p-8">
-            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Statistiques</p>
-            <h3 class="mt-2 text-xl font-semibold text-slate-950">Analyse d'utilisation</h3>
-            <p class="mt-4 text-sm text-slate-600">Les statistiques d'utilisation seront disponibles prochainement.</p>
-          </div>
-
-          <!-- Contenu onglet Paramètres -->
-          <div v-if="currentTab === 'settings'" class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_26px_80px_-54px_rgba(15,23,42,0.45)] sm:p-8">
-            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Zone dangereuse</p>
-            <h3 class="mt-2 text-xl font-semibold text-slate-950">Suppression</h3>
-            <p class="mt-4 text-sm text-slate-600">
-              Mettre ce document à la corbeille. Vous pourrez le restaurer depuis la page "Mes contenus".
-            </p>
-            <div class="mt-6">
-              <AppButton variant="danger" size="md" type="button" @click="onMoveToTrash">
-                Mettre à la corbeille
-              </AppButton>
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Licence</label>
+              <input
+                v-model="form.license"
+                type="text"
+                class="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                placeholder="Ex : Licence Ouverte v2.0"
+              />
             </div>
           </div>
         </div>
+
+        <!-- Visibility -->
+        <div class="rounded-[2rem] border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <div class="border-b border-slate-100 px-7 py-5">
+            <h2 class="text-sm font-bold text-slate-900">Visibilité</h2>
+          </div>
+          <div class="px-7 py-4 flex flex-col divide-y divide-slate-100">
+            <label
+              v-for="opt in visibilityOptions"
+              :key="opt.value"
+              class="flex items-center gap-4 py-4 cursor-pointer"
+            >
+              <input
+                type="radio"
+                name="visibility"
+                :value="opt.value"
+                v-model="form.visibility"
+                class="accent-primary w-4 h-4 shrink-0"
+              />
+              <div class="flex flex-col">
+                <span class="text-sm font-semibold text-slate-800">{{ opt.label }}</span>
+                <span class="text-xs text-slate-500 mt-0.5">{{ opt.description }}</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Studio link -->
+        <div class="rounded-[2rem] border border-slate-200 bg-white p-7 shadow-sm flex items-center gap-5">
+          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+            <svg class="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+            </svg>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-slate-800">Éditer dans le Studio</p>
+            <p class="text-xs text-slate-500 mt-0.5">Construisez les pages de visualisation avec l'interface drag & drop.</p>
+          </div>
+          <AppButton as="router-link" :to="`/studio/${id}`" variant="secondary" size="sm">
+            Ouvrir le Studio
+          </AppButton>
+        </div>
+
+        <!-- Danger zone -->
+        <div class="rounded-[2rem] border border-red-100 bg-white shadow-sm overflow-hidden">
+          <div class="border-b border-red-100 px-7 py-5 bg-red-50/50">
+            <h2 class="text-sm font-bold text-red-600">Zone de danger</h2>
+          </div>
+          <div class="px-7 py-6 flex items-start gap-5">
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold text-slate-800">Supprimer ce StatsData</p>
+              <p class="text-xs text-slate-500 mt-0.5">Cette action supprime définitivement le dataset, toutes ses pages et les fichiers Parquet associés. Irréversible.</p>
+            </div>
+            <button
+              class="shrink-0 rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors"
+              @click="showDeleteConfirm = true"
+            >
+              Supprimer
+            </button>
+          </div>
+        </div>
+
+        <!-- Delete confirm modal -->
+        <Teleport to="body">
+          <div
+            v-if="showDeleteConfirm"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-sm"
+            @click.self="showDeleteConfirm = false"
+          >
+            <div class="w-full max-w-md rounded-[2rem] border border-slate-200 bg-white p-8 shadow-2xl mx-4">
+              <h3 class="text-lg font-bold text-slate-950">Confirmer la suppression</h3>
+              <p class="mt-2 text-sm text-slate-600">
+                Êtes-vous sûr de vouloir supprimer <strong>{{ form.title }}</strong> ?
+                Cette action est irréversible.
+              </p>
+              <div class="mt-6 flex gap-3 justify-end">
+                <button
+                  class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+                  @click="showDeleteConfirm = false"
+                >
+                  Annuler
+                </button>
+                <button
+                  class="rounded-xl bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 transition-colors"
+                  @click="confirmDelete"
+                >
+                  Supprimer définitivement
+                </button>
+              </div>
+            </div>
+          </div>
+        </Teleport>
       </div>
     </section>
   </main>
 </template>
-

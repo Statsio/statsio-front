@@ -122,10 +122,9 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#ffffff_16%,#eef4ff_100%)] text-slate-900">
-    <!-- <AppPromoBanner :items="sharedPromoItems" /> -->
+    <AppPromoBanner :items="[]" />
     <AppHeader />
     <RouterView />
     <AppFooter />
   </div>
 </template>
-

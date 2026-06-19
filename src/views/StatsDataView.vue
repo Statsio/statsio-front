@@ -1,315 +1,214 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import AppButton from '@/components/ui/AppButton.vue'
-import { fetchPublicStatsDataDocuments, type StatsDataPublicListItemDto } from '@/api/statsdata-documents'
 
-const heroStats = [
-  { label: 'Séries suivies', value: '2.4k' },
-  { label: 'APIs connectées', value: '18' },
-  { label: 'Mises à jour', value: 'Temps réel' },
-]
-
-const filters = ['Tous', 'Économie', 'Santé', 'Territoires', 'Élections', 'Audience']
-
-const isLoading = ref(true)
-const loadError = ref<string | null>(null)
-const datasets = ref<StatsDataPublicListItemDto[]>([])
-
-const visibleDatasets = computed(() => datasets.value.filter((d) => d.slug && d.title))
-
-function formatUpdated(iso: string): string {
-  if (!iso) return '—'
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) return '—'
-  return new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' }).format(date)
+type StatsDataItem = {
+  id: string
+  slug: string
+  title: string
+  description: string
+  theme: string
+  rowCount: number
+  updatedAt: string
+  pagesCount: number
+  channel: string
 }
 
-onMounted(async () => {
-  isLoading.value = true
-  loadError.value = null
-  try {
-    datasets.value = await fetchPublicStatsDataDocuments()
-  } catch (e) {
-    loadError.value = e instanceof Error ? e.message : 'Erreur lors du chargement'
-    datasets.value = []
-  } finally {
-    isLoading.value = false
-  }
-})
+const filters = ['Tous', 'Économie', 'Politique', 'Santé', 'Société', 'Climat', 'Démographie']
+const activeFilter = ref('Tous')
 
-const featurePanels = [
+const mockStatsData: StatsDataItem[] = [
   {
-    title: 'Comparaisons rapides',
-    detail: 'Basculez entre territoires, périodes et segments sans casser la lecture.',
+    id: '1',
+    slug: 'inflation-ville-france',
+    title: 'Inflation par ville en France',
+    description: 'Suivi mensuel de l\'inflation au niveau communal depuis 2020, croisé avec les indices INSEE et les relevés locaux.',
+    theme: 'Économie',
+    rowCount: 148_230,
+    updatedAt: '2026-06-10',
+    pagesCount: 3,
+    channel: 'Économie & Finance',
   },
   {
-    title: 'Blocs réutilisables',
-    detail: 'Tableaux, badges de statut, mini-graphiques et exports dans un même flux.',
+    id: '2',
+    slug: 'resultats-municipales-2026',
+    title: 'Résultats Municipales 2026',
+    description: 'Base complète des résultats par commune, tour par tour, avec taux de participation et scores par liste.',
+    theme: 'Politique',
+    rowCount: 36_000,
+    updatedAt: '2026-06-18',
+    pagesCount: 5,
+    channel: 'Politique & Société',
   },
   {
-    title: 'Connexion éditoriale',
-    detail: 'Chaque StatsData peut alimenter un article, une note interne ou un baromètre public.',
+    id: '3',
+    slug: 'esperance-vie-departement',
+    title: 'Espérance de vie par département',
+    description: 'Séries longues de l\'espérance de vie à la naissance et à 65 ans, désagrégées par sexe et territoire.',
+    theme: 'Santé',
+    rowCount: 9_880,
+    updatedAt: '2026-05-28',
+    pagesCount: 2,
+    channel: 'Santé Publique',
+  },
+  {
+    id: '4',
+    slug: 'emissions-co2-secteurs',
+    title: 'Émissions CO₂ par secteur',
+    description: 'Inventaire national des émissions de gaz à effet de serre ventilé par secteur d\'activité et par année.',
+    theme: 'Climat',
+    rowCount: 24_500,
+    updatedAt: '2026-04-15',
+    pagesCount: 4,
+    channel: 'Environnement',
+  },
+  {
+    id: '5',
+    slug: 'population-active-region',
+    title: 'Population active par région',
+    description: 'Structure de la population active, taux d\'emploi et chômage par tranche d\'âge et niveau d\'étude.',
+    theme: 'Démographie',
+    rowCount: 62_000,
+    updatedAt: '2026-03-20',
+    pagesCount: 3,
+    channel: 'Économie & Finance',
+  },
+  {
+    id: '6',
+    slug: 'satisfaction-services-publics',
+    title: 'Satisfaction envers les services publics',
+    description: 'Résultats agrégés des baromètres de satisfaction administrés par les collectivités et l\'État.',
+    theme: 'Société',
+    rowCount: 15_200,
+    updatedAt: '2026-06-01',
+    pagesCount: 2,
+    channel: 'Institutions',
   },
 ]
 
-const quickSignals = [
-  {
-    label: 'À surveiller',
-    title: 'Inflation alimentaire',
-    detail: 'Sujet le plus consulté sur les 72 dernières heures.',
-  },
-  {
-    label: 'En hausse',
-    title: 'Participation locale',
-    detail: 'Forte progression des comparaisons par commune cette semaine.',
-  },
-  {
-    label: 'Focus',
-    title: 'Santé mentale',
-    detail: 'Nouvelles données croisées avec âge, région et niveau d’études.',
-  },
+const filtered = computed(() =>
+  activeFilter.value === 'Tous'
+    ? mockStatsData
+    : mockStatsData.filter((d) => d.theme === activeFilter.value),
+)
+
+const formatRows = (n: number) => {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M lignes`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}k lignes`
+  return `${n} lignes`
+}
+
+const themeColor: Record<string, string> = {
+  Économie: 'bg-blue-50 text-blue-600',
+  Politique: 'bg-violet-50 text-violet-600',
+  Santé: 'bg-emerald-50 text-emerald-700',
+  Climat: 'bg-teal-50 text-teal-700',
+  Démographie: 'bg-orange-50 text-orange-600',
+  Société: 'bg-rose-50 text-rose-600',
+}
+
+const editorialPoints = [
+  { title: 'Données sourcées', detail: 'Chaque StatsData référence ses sources primaires et le protocole de collecte utilisé.' },
+  { title: 'Mises à jour continues', detail: 'Les bases sont enrichies au fil des nouvelles publications sans perdre l\'historique.' },
+  { title: 'Pages thématiques', detail: 'Un StatsData peut comporter plusieurs pages avec des angles d\'analyse distincts.' },
 ]
 </script>
 
 <template>
   <main class="pb-24 pt-32">
-      <section class="section pb-10">
-        <div class="container grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_320px] lg:items-start">
-          <div class="flex flex-col gap-8">
-            <div class="flex flex-col gap-5">
-              <p class="eyebrow text-accent">StatsData & exploration</p>
-              <div class="flex max-w-4xl flex-col gap-4">
-                <h1 class="text-4xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-5xl lg:text-6xl">
-                  Une page StatsData faite pour explorer, comparer et publier sans friction.
-                </h1>
-                <p class="max-w-3xl text-lg leading-8 text-slate-600">
-                  Des pages vivantes branchées à vos APIs, avec des signaux lisibles, des comparaisons rapides et des blocs exploitables directement dans vos formats éditoriaux.
-                </p>
-              </div>
+    <section class="section pb-10">
+      <div class="container grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_320px] lg:items-start">
+        <div class="flex flex-col gap-8">
+          <div class="flex flex-col gap-5">
+            <p class="eyebrow text-primary">Données & indicateurs</p>
+            <div class="flex max-w-4xl flex-col gap-4">
+              <h1 class="text-4xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-5xl lg:text-6xl">
+                Des bases de données lisibles, sourcées et prêtes à analyser.
+              </h1>
+              <p class="max-w-3xl text-lg leading-8 text-slate-600">
+                StatsData rassemble des jeux de données vérifiés, des séries longues et des indicateurs territoriaux.
+                Chaque entrée est enrichie de pages d'analyse et de comparateurs interactifs.
+              </p>
             </div>
+          </div>
 
-            <div class="grid gap-4 sm:grid-cols-3">
-              <div
-                v-for="stat in heroStats"
-                :key="stat.label"
-                class="rounded-[1.75rem] border border-slate-200 bg-white/85 px-5 py-4 shadow-[0_20px_60px_-42px_rgba(15,23,42,0.35)]"
-              >
-                <div class="flex flex-col gap-3">
-                  <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">{{ stat.label }}</p>
-                  <p class="text-2xl font-semibold text-slate-950">{{ stat.value }}</p>
-                </div>
-              </div>
-            </div>
-
-            <article
-              class="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_40px_110px_-58px_rgba(59,130,246,0.45)]"
+          <div class="flex flex-wrap gap-2">
+            <button
+              v-for="f in filters"
+              :key="f"
+              class="rounded-full border px-4 py-1.5 text-sm font-medium transition-colors"
+              :class="activeFilter === f
+                ? 'border-primary bg-primary text-white'
+                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'"
+              @click="activeFilter = f"
             >
-              <div class="grid gap-0 lg:grid-cols-[minmax(0,1fr)_300px]">
-                <div class="flex flex-col gap-6 p-7 sm:p-9">
-                  <span class="inline-flex w-fit rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-accent">
-                    Économie locale
-                  </span>
-                  <div class="flex flex-col gap-4">
-                    <h2 class="max-w-3xl text-3xl font-semibold leading-tight tracking-[-0.03em] text-slate-950">
-                      Inflation par ville en France
-                    </h2>
-                    <p class="max-w-2xl text-base leading-7 text-slate-600">
-                      Un cockpit de lecture pour suivre les écarts de prix, repérer les zones sous tension et comparer les signaux sans sortir du contexte.
-                    </p>
-                  </div>
-
-                  <div class="grid gap-3 sm:grid-cols-3">
-                    <div class="rounded-[1.5rem] bg-slate-50 px-4 py-4">
-                      <div class="flex flex-col gap-2">
-                        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Couverture</p>
-                        <p class="text-lg font-semibold text-slate-950">23 villes</p>
-                      </div>
-                    </div>
-                    <div class="rounded-[1.5rem] bg-slate-50 px-4 py-4">
-                      <div class="flex flex-col gap-2">
-                        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Actualisation</p>
-                        <p class="text-lg font-semibold text-slate-950">Continue</p>
-                      </div>
-                    </div>
-                    <div class="rounded-[1.5rem] bg-slate-50 px-4 py-4">
-                      <div class="flex flex-col gap-2">
-                        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Exports</p>
-                        <p class="text-lg font-semibold text-slate-950">CSV, PNG</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="flex flex-wrap gap-3">
-                    <AppButton as="router-link" to="/login" variant="primary" size="md">
-                      Ouvrir la base
-                    </AppButton>
-                    <AppButton variant="secondary" size="md">Partager la vue</AppButton>
-                  </div>
-                </div>
-
-                <div class="bg-slate-950 p-7 text-white sm:p-9">
-                  <div class="flex flex-col gap-6">
-                    <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Vue synthétique</p>
-                    <div class="rounded-[1.75rem] bg-white/8 p-5">
-                      <div class="flex flex-col gap-4">
-                        <div class="flex items-end gap-3">
-                          <div class="h-12 w-4 rounded-full bg-white/20"></div>
-                          <div class="h-20 w-4 rounded-full bg-accent"></div>
-                          <div class="h-32 w-4 rounded-full bg-white"></div>
-                          <div class="h-24 w-4 rounded-full bg-primary"></div>
-                          <div class="h-16 w-4 rounded-full bg-secondary"></div>
-                        </div>
-                        <div class="grid grid-cols-3 gap-2 text-xs uppercase tracking-[0.18em] text-slate-400">
-                          <span>Paris</span>
-                          <span>Lyon</span>
-                          <span>Lille</span>
-                        </div>
-                      </div>
-                    </div>
-                    <p class="text-sm leading-6 text-slate-300">
-                      Une interface dense, mais lisible: les signaux utiles remontent vite, les détails restent accessibles sans surcharger la page.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </article>
+              {{ f }}
+            </button>
           </div>
 
-          <aside class="flex flex-col gap-4">
-            <div class="rounded-[2rem] border border-slate-200 bg-slate-950 p-6 text-white">
-              <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Pourquoi ça marche</p>
-              <div class="mt-5 flex flex-col gap-5">
-                <div v-for="panel in featurePanels" :key="panel.title" class="rounded-[1.5rem] bg-white/8 p-4">
-                  <div class="flex flex-col gap-2">
-                    <p class="text-sm font-semibold text-white">{{ panel.title }}</p>
-                    <p class="text-sm leading-6 text-slate-300">{{ panel.detail }}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="rounded-[2rem] border border-slate-200 bg-white p-6">
-              <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">En ce moment</p>
-              <div class="mt-5 flex flex-col gap-4">
-                <div v-for="item in quickSignals" :key="item.title" class="rounded-[1.5rem] bg-slate-50 p-4">
-                  <div class="flex flex-col gap-2">
-                    <p class="text-xs font-semibold uppercase tracking-[0.22em] text-primary">{{ item.label }}</p>
-                    <p class="text-base font-semibold text-slate-950">{{ item.title }}</p>
-                    <p class="text-sm leading-6 text-slate-500">{{ item.detail }}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </aside>
-        </div>
-      </section>
-
-      <section class="section pt-8">
-        <div class="container flex flex-col gap-8">
-          <div class="flex flex-wrap items-center justify-between gap-5">
-            <div class="flex flex-col gap-2">
-              <p class="eyebrow">Catalogue</p>
-              <h2 class="text-3xl font-semibold text-slate-950">Les StatsData les plus consultées</h2>
-            </div>
-            <div class="flex flex-wrap gap-2">
-              <span
-                v-for="filter in filters"
-                :key="filter"
-                class="inline-flex rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600"
-              >
-                {{ filter }}
-              </span>
-            </div>
-          </div>
-
-          <div
-            v-if="isLoading"
-            class="rounded-[2rem] border border-slate-200 bg-white px-6 py-12 text-center shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)]"
-          >
-            <p class="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">Chargement</p>
-            <h3 class="mt-3 text-2xl font-semibold text-slate-950">On récupère les StatsData publiques.</h3>
-          </div>
-
-          <div
-            v-else-if="loadError"
-            class="rounded-[2rem] border border-rose-200 bg-rose-50 px-6 py-12 text-center shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)]"
-          >
-            <p class="text-sm font-semibold uppercase tracking-[0.24em] text-rose-700">Erreur</p>
-            <h3 class="mt-3 text-2xl font-semibold text-slate-950">Impossible de charger le catalogue.</h3>
-            <p class="mx-auto mt-3 max-w-2xl text-sm leading-7 text-rose-900/80">{{ loadError }}</p>
-          </div>
-
-          <div
-            v-else-if="visibleDatasets.length === 0"
-            class="rounded-[2rem] border border-dashed border-slate-300 bg-white px-6 py-12 text-center shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)]"
-          >
-            <p class="text-sm font-semibold uppercase tracking-[0.24em] text-slate-400">Aucune StatsData</p>
-            <h3 class="mt-3 text-2xl font-semibold text-slate-950">Le catalogue public est vide pour l’instant.</h3>
-          </div>
-
-          <div v-else class="grid gap-6 lg:grid-cols-2">
+          <div class="grid gap-4 sm:grid-cols-2">
             <RouterLink
-              v-for="item in visibleDatasets"
+              v-for="item in filtered"
               :key="item.id"
               :to="`/statsdata/${item.slug}`"
-              class="flex h-full flex-col gap-6 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_26px_80px_-54px_rgba(15,23,42,0.45)]"
+              class="group flex flex-col gap-4 overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_12px_40px_-24px_rgba(15,23,42,0.2)] transition-all hover:shadow-[0_20px_60px_-28px_rgba(15,23,42,0.3)] hover:-translate-y-0.5"
             >
-              <div class="flex items-start justify-between gap-4">
-                <div class="flex flex-col gap-2">
-                  <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
-                    {{ item.author ?? 'Statsio' }}
-                  </p>
-                  <h3 class="text-2xl font-semibold leading-tight tracking-[-0.03em] text-slate-950">
-                    {{ item.title }}
-                  </h3>
-                </div>
-                <span class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-                  {{ formatUpdated(item.updated_at) }}
+              <div class="flex items-start justify-between gap-3">
+                <span
+                  class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider"
+                  :class="themeColor[item.theme] ?? 'bg-slate-100 text-slate-500'"
+                >
+                  {{ item.theme }}
                 </span>
+                <span class="text-[11px] text-slate-400">{{ formatRows(item.rowCount) }}</span>
               </div>
 
-              <p class="text-sm leading-7 text-slate-600">
-                {{ item.subtitle ?? '—' }}
-              </p>
+              <div class="flex flex-col gap-2">
+                <h2 class="text-base font-semibold leading-snug text-slate-900 group-hover:text-primary transition-colors">
+                  {{ item.title }}
+                </h2>
+                <p class="text-sm leading-6 text-slate-500 line-clamp-2">{{ item.description }}</p>
+              </div>
 
-              <div class="flex flex-wrap gap-2">
-                <span class="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600">
-                  Public
-                </span>
-                <span class="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600">
-                  Créée le {{ formatUpdated(item.created_at) }}
-                </span>
+              <div class="mt-auto flex items-center justify-between border-t border-slate-100 pt-3 text-[11px] text-slate-400">
+                <span>{{ item.pagesCount }} page{{ item.pagesCount > 1 ? 's' : '' }}</span>
+                <span>MAJ {{ item.updatedAt }}</span>
               </div>
             </RouterLink>
           </div>
-        </div>
-      </section>
 
-      <section class="section pt-4">
-        <div class="container">
-          <div class="rounded-[2.5rem] border border-slate-200 bg-white px-6 py-8 shadow-[0_40px_120px_-66px_rgba(15,23,42,0.4)] sm:px-8 lg:px-10">
-            <div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-              <div class="flex flex-col gap-4">
-                <p class="eyebrow text-accent">Brancher vos données</p>
-                <h2 class="text-3xl font-semibold text-slate-950">
-                  Vos datasets peuvent devenir des pages lisibles, comparables et directement publiables.
-                </h2>
-                <p class="max-w-2xl text-base leading-7 text-slate-600">
-                  Connectez vos sources, structurez vos métriques et servez des vues plus utiles que de simples tableaux bruts.
-                </p>
-              </div>
-              <div class="flex flex-wrap gap-3">
-                <AppButton as="router-link" to="/register" variant="primary" size="md">
-                  Créer une StatsData
-                </AppButton>
-                <AppButton as="router-link" to="/login" variant="outline" size="md">
-                  Voir la démo
-                </AppButton>
+          <div v-if="!filtered.length" class="py-16 text-center text-slate-400">
+            Aucun dataset pour ce filtre.
+          </div>
+        </div>
+
+        <aside class="flex flex-col gap-4">
+          <div class="rounded-[2rem] border border-slate-200 bg-slate-950 p-6 text-white">
+            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Format StatsData</p>
+            <div class="mt-5 flex flex-col gap-5">
+              <div
+                v-for="item in editorialPoints"
+                :key="item.title"
+                class="rounded-[1.5rem] bg-white/8 p-4"
+              >
+                <p class="text-sm font-semibold text-white">{{ item.title }}</p>
+                <p class="mt-1 text-xs leading-5 text-slate-400">{{ item.detail }}</p>
               </div>
             </div>
           </div>
-        </div>
-      </section>
+
+          <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Publier un dataset</p>
+            <p class="mt-3 text-sm leading-6 text-slate-600">
+              Importez un CSV, XLSX ou JSON. Statsio génère automatiquement le schéma, l'aperçu et les pages d'exploration.
+            </p>
+            <AppButton as="router-link" to="/contenus" variant="primary" size="sm" class="mt-4 w-full justify-center">
+              Accéder à mes contenus
+            </AppButton>
+          </div>
+        </aside>
+      </div>
+    </section>
   </main>
 </template>
