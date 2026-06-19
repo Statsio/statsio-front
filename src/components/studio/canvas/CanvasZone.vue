@@ -67,7 +67,7 @@ function onDrop(event: DragEvent) {
 
 <template>
   <div
-    class="relative flex flex-col min-h-[180px] rounded-xl transition-all"
+    class="relative flex flex-col min-h-[180px] rounded-xl transition-all min-w-0 overflow-hidden"
     :class="[
       isEmpty
         ? 'border-2 border-dashed border-slate-200 bg-slate-50/60'
@@ -105,7 +105,7 @@ function onDrop(event: DragEvent) {
       v-model="zoneBlocks"
       :group="dragGroup"
       item-key="id"
-      class="flex flex-col gap-3 p-2 flex-1 min-h-[176px]"
+      class="flex flex-col gap-3 p-2 flex-1 min-h-[176px] min-w-0"
       ghost-class="opacity-30 ring-2 ring-[var(--color-primary)]/30 rounded-xl"
       animation="150"
     >

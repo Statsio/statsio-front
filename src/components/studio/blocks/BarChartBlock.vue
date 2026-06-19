@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useChart } from '@/composables/useChart'
 import { useBlockData } from '@/composables/useBlockData'
+import { useStudioStore } from '@/stores/studio'
 import type { StudioBlock } from '@/types/studio'
 
 const props = defineProps<{ block: StudioBlock }>()
 
+const studio = useStudioStore()
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const { data, isLoading, error } = useBlockData(() => props.block)
 
@@ -27,15 +29,17 @@ const chartData = computed(() => {
   }
 })
 
-useChart(canvasRef, 'bar', () => chartData.value, () => ({
+const { scheduleResize } = useChart(canvasRef, 'bar', () => chartData.value, () => ({
   indexAxis: props.block.config.orientation === 'horizontal' ? 'y' : 'x',
   plugins: { legend: { display: false } },
 }))
+
+watch(() => [studio.isPanelOpen, studio.selectedBlockId !== null], scheduleResize)
 </script>
 
 <template>
-  <div class="relative h-full min-h-[200px]">
-    <div v-if="isLoading" class="absolute inset-0 flex items-center justify-center bg-white/70">
+  <div class="relative w-full h-full min-h-[200px] overflow-hidden">
+    <div v-if="isLoading" class="absolute inset-0 flex items-center justify-center bg-white/70 z-10">
       <span class="text-sm text-slate-400">Chargement…</span>
     </div>
 

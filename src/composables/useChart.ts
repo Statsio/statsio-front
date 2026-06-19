@@ -78,5 +78,10 @@ export function useChart(
     else buildChart()
   }, { deep: true })
 
-  return { PALETTE }
+  // Force resize after sidebar transitions complete (200ms = transition duration)
+  function scheduleResize() {
+    setTimeout(() => chart?.resize(), 220)
+  }
+
+  return { PALETTE, scheduleResize }
 }

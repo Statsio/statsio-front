@@ -28,7 +28,7 @@ const tabs: { id: SidebarLeftTab; label: string; icon: string }[] = [
 
 <template>
   <!-- Icon strip (always visible) -->
-  <nav class="w-14 shrink-0 flex flex-col items-center py-2 gap-1 border-r border-slate-200 bg-white z-30">
+  <nav class="w-14 shrink-0 flex flex-col items-center py-2 gap-1 border-r border-slate-200 bg-white z-10">
     <button
       v-for="tab in tabs"
       :key="tab.id"
@@ -46,19 +46,12 @@ const tabs: { id: SidebarLeftTab; label: string; icon: string }[] = [
     </button>
   </nav>
 
-  <!-- Floating panel (absolute, overlays the canvas) -->
-  <Transition
-    enter-active-class="transition-all duration-200 ease-out"
-    enter-from-class="opacity-0 -translate-x-2"
-    enter-to-class="opacity-100 translate-x-0"
-    leave-active-class="transition-all duration-150 ease-in"
-    leave-from-class="opacity-100 translate-x-0"
-    leave-to-class="opacity-0 -translate-x-2"
+  <!-- Inline panel — in flex flow so the canvas is pushed, not overlaid -->
+  <aside
+    class="shrink-0 border-r border-slate-200 bg-white flex flex-col overflow-hidden transition-[width] duration-200 ease-in-out"
+    :class="studio.isPanelOpen ? 'w-72' : 'w-0'"
   >
-    <aside
-      v-if="studio.isPanelOpen"
-      class="absolute left-14 top-0 h-full w-72 bg-white border-r border-slate-200 shadow-xl z-20 flex flex-col overflow-hidden"
-    >
+    <div class="w-72 h-full flex flex-col overflow-hidden">
       <!-- Panel header -->
       <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100 shrink-0">
         <p class="text-sm font-bold text-slate-800">
@@ -80,6 +73,6 @@ const tabs: { id: SidebarLeftTab; label: string; icon: string }[] = [
         <SidebarLayouts v-else-if="studio.activeLeftTab === 'layouts'" />
         <SidebarDataSources v-else-if="studio.activeLeftTab === 'sources'" />
       </div>
-    </aside>
-  </Transition>
+    </div>
+  </aside>
 </template>

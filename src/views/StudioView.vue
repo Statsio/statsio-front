@@ -46,7 +46,7 @@ onBeforeUnmount(() => {
     <StudioHeader @save="saveNow" />
 
     <!-- Body -->
-    <div class="flex flex-1 min-h-0 overflow-hidden relative">
+    <div class="flex flex-1 min-h-0 overflow-hidden">
       <!-- Icon strip + floating panel -->
       <StudioSidebarLeft />
 
