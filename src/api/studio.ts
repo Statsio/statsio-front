@@ -76,15 +76,49 @@ export async function fetchBlockData(
   }
 }
 
+export async function fetchDistinctValues(datasetId: string, column: string, search: string): Promise<string[]> {
+  const { data } = await apiHttp.get(STATSIO_API.datasets.query(datasetId), {
+    params: {},
+    paramsSerializer: () => {
+      let qs = `columns[]=${encodeURIComponent(column)}&distinct=true&limit=100`
+      if (search) qs += `&search=${encodeURIComponent(search)}`
+      return qs
+    },
+  })
+  const rows: Record<string, unknown>[] = data.data?.rows ?? []
+  const seen = new Set<string>()
+  for (const row of rows) {
+    const val = row[column]
+    if (val !== null && val !== undefined && val !== '') seen.add(String(val))
+  }
+  return Array.from(seen)
+}
+
 // ─── StatsData document (page) ───────────────────────────────────────────────
 
 export interface StatsDataDocument {
   id: string
   title: string
+  description?: string | null
   slug?: string
   status?: string
+  author?: { name: string }
+  datasets?: { id: string; name: string; row_count?: number }[]
+  created_at?: string
+  updated_at?: string
+  pages?: import('@/types/studio').StudioDocumentPage[]
   sections?: import('@/types/studio').Section[]
   blocks?: StudioBlock[]
+}
+
+export async function fetchUserStatsDataDocuments(): Promise<StatsDataDocument[]> {
+  const { data } = await apiHttp.get(STATSIO_API.studioContent.collection)
+  return data.data ?? []
+}
+
+export async function fetchPublicStatsDataCatalog(): Promise<StatsDataDocument[]> {
+  const { data } = await apiHttp.get(STATSIO_API.studioContent.publicCollection)
+  return data.data ?? []
 }
 
 export async function fetchStatsDataDocument(documentId: string): Promise<StatsDataDocument> {
@@ -92,11 +126,27 @@ export async function fetchStatsDataDocument(documentId: string): Promise<StatsD
   return data.data
 }
 
+export async function fetchPublicStatsDataDocument(slug: string): Promise<StatsDataDocument> {
+  const { data } = await apiHttp.get(STATSIO_API.studioContent.publicBySlug(slug))
+  return data.data
+}
+
 export async function saveStatsDataDocument(
   documentId: string,
-  payload: { title?: string; sections?: import('@/types/studio').Section[]; blocks?: StudioBlock[] },
+  payload: {
+    title?: string
+    description?: string | null
+    status?: string
+    pages?: import('@/types/studio').StudioDocumentPage[]
+    sections?: import('@/types/studio').Section[]
+    blocks?: StudioBlock[]
+  },
 ): Promise<void> {
   await apiHttp.patch(STATSIO_API.studioContent.one(documentId), payload)
+}
+
+export async function deleteStatsDataDocument(documentId: string): Promise<void> {
+  await apiHttp.delete(STATSIO_API.studioContent.one(documentId))
 }
 
 export async function publishStatsDataDocument(documentId: string): Promise<void> {

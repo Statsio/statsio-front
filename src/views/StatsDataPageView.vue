@@ -1,88 +1,80 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import AppButton from '@/components/ui/AppButton.vue'
+import { fetchPublicStatsDataDocument } from '@/api/studio'
+import { useStudioStore } from '@/stores/studio'
+import { SECTION_LAYOUT_DEFINITIONS } from '@/types/studio'
+import type { StudioBlock } from '@/types/studio'
+import BlockRenderer from '@/components/studio/blocks/BlockRenderer.vue'
 
 const route = useRoute()
-const slug = computed(() => String(route.params.slug ?? 'inflation-ville-france'))
-const pageSlug = computed(() => String(route.params.pageSlug ?? 'vue-nationale'))
+const studio = useStudioStore()
 
-type BlockType = 'bar' | 'line' | 'kpi' | 'table' | 'text'
-type MockBlock = {
-  id: string
-  type: BlockType
-  title: string
-  span?: 'full' | 'half'
+const slug     = String(route.params.slug ?? '')
+const pageSlug = String(route.params.pageSlug ?? 'default')
+
+const loading = ref(true)
+const error   = ref<string | null>(null)
+
+// Sections of the current page
+const pageSections = computed(() => studio.currentPageSections)
+
+// Blocks grouped by zone
+const blocksByZone = computed(() => studio.blocksByZone)
+
+function sectionDef(layout: string) {
+  return SECTION_LAYOUT_DEFINITIONS.find((d) => d.type === layout) ?? SECTION_LAYOUT_DEFINITIONS[0]!
 }
 
-type MockPage = {
-  title: string
-  description: string
-  parentTitle: string
-  parentSlug: string
-  updatedAt: string
-  blocks: MockBlock[]
-  relatedPages: { slug: string; title: string }[]
+function blocksInZone(sectionId: string, colIdx: number): StudioBlock[] {
+  const zoneId = `${sectionId}-${colIdx}`
+  return blocksByZone.value[zoneId] ?? []
 }
 
-const pages: Record<string, MockPage> = {
-  'vue-nationale': {
-    title: 'Vue nationale',
-    description: 'Tendance agrégée de l\'inflation sur la France entière avec décomposition par poste de consommation.',
-    parentTitle: 'Inflation par ville en France',
-    parentSlug: 'inflation-ville-france',
-    updatedAt: '2026-06-10',
-    blocks: [
-      { id: 'k1', type: 'kpi', title: 'Inflation annuelle (mai 2026)', span: 'half' },
-      { id: 'k2', type: 'kpi', title: 'Variation mensuelle', span: 'half' },
-      { id: 'b1', type: 'line', title: 'Évolution de l\'IPC – 2020 à 2026', span: 'full' },
-      { id: 'b2', type: 'bar', title: 'Contribution par poste de consommation', span: 'full' },
-      { id: 'b3', type: 'table', title: 'Données brutes mensuelles', span: 'full' },
-    ],
-    relatedPages: [
-      { slug: 'comparatif-villes', title: 'Comparatif villes' },
-      { slug: 'serie-longue', title: 'Série longue' },
-    ],
-  },
-  'carte-nationale': {
-    title: 'Carte nationale',
-    description: 'Couleur politique des communes au second tour des municipales 2026.',
-    parentTitle: 'Résultats Municipales 2026',
-    parentSlug: 'resultats-municipales-2026',
-    updatedAt: '2026-06-18',
-    blocks: [
-      { id: 'k1', type: 'kpi', title: 'Communes analysées', span: 'half' },
-      { id: 'k2', type: 'kpi', title: 'Taux de participation moyen', span: 'half' },
-      { id: 'b1', type: 'bar', title: 'Répartition des communes par couleur politique', span: 'full' },
-      { id: 'b2', type: 'table', title: 'Top 20 communes par taux de participation', span: 'full' },
-    ],
-    relatedPages: [
-      { slug: 'participation', title: 'Participation' },
-      { slug: 'bascules', title: 'Bascules politiques' },
-    ],
-  },
-}
+// Other (non-template) pages of the same doc for navigation
+const otherPages = computed(() =>
+  studio.pages.filter((p) => p.id !== studio.currentPageId && !p.isTemplate)
+)
 
-const fallback = pages['vue-nationale']!
-const page = computed<MockPage>(() => pages[pageSlug.value] ?? fallback)
+onMounted(async () => {
+  try {
+    const doc = await fetchPublicStatsDataDocument(slug)
 
-const blockIcon: Record<BlockType, string> = {
-  bar: 'M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z',
-  line: 'M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941',
-  kpi: 'M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z',
-  table: 'M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0 1 12 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m19.5 0v1.5c0 .621-.504 1.125-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0h7.5c.621 0 1.125.504 1.125 1.125M3.375 8.25c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125m17.25-3.75h-7.5c-.621 0-1.125.504-1.125 1.125m8.625-1.125c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125m-17.25 0h7.5m-7.5 0c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125M12 10.875v-1.5m0 1.5c0 .621-.504 1.125-1.125 1.125H9.375m3.75-3.75H9.375m3.75 0h-3.75M12 10.875c0 .621.504 1.125 1.125 1.125H15m-3.75 3.75h3.75m-3.75 0c0 .621-.504 1.125-1.125 1.125H9.375m3.75 0h.375a1.125 1.125 0 0 0 1.125-1.125V15m0 0h3.75',
-  text: 'M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12',
-}
+    // Initialize Studio store with the real document data
+    studio.initPage(
+      { id: doc.id, type: 'statsdata', title: doc.title, status: doc.status as 'draft' | 'published' },
+      doc.sections,
+      doc.blocks,
+      doc.pages,
+    )
 
-const mockKpiValues = ['2,8 %', '+0,2 pt', '148 231', '67,4 %']
-let kpiIdx = 0
+    // Find the matching page by slug or id
+    const targetPage = studio.pages.find((p) => p.slug === pageSlug || p.id === pageSlug)
+    if (targetPage) {
+      studio.switchPage(targetPage.id)
+    }
 
-function getKpiValue(idx: number) {
-  return mockKpiValues[idx % mockKpiValues.length]
-}
+    // Apply URL query params as page params (e.g. ?ville=Paris)
+    const query = route.query
+    for (const [key, val] of Object.entries(query)) {
+      if (typeof val === 'string') {
+        studio.setPageParam(key, val)
+      }
+    }
+  } catch {
+    error.value = 'Page introuvable ou document non publié.'
+  } finally {
+    loading.value = false
+  }
+})
+
+onBeforeUnmount(() => {
+  studio.clearPageParams()
+})
+
+const currentPage = computed(() => studio.pages.find((p) => p.id === studio.currentPageId))
 
 const isCopied = ref(false)
-
 function copyLink() {
   navigator.clipboard.writeText(window.location.href).then(() => {
     isCopied.value = true
@@ -95,121 +87,135 @@ function copyLink() {
   <main class="pb-24 pt-32">
     <section class="section pb-10">
       <div class="container flex flex-col gap-8">
-        <!-- Breadcrumb -->
-        <nav class="flex items-center gap-2 text-sm text-slate-400 flex-wrap">
-          <RouterLink to="/statsdata" class="hover:text-primary transition-colors">StatsData</RouterLink>
-          <span>/</span>
-          <RouterLink :to="`/statsdata/${slug}`" class="hover:text-primary transition-colors">
-            {{ page.parentTitle }}
-          </RouterLink>
-          <span>/</span>
-          <span class="text-slate-600">{{ page.title }}</span>
-        </nav>
 
-        <!-- Header -->
-        <div class="flex flex-col gap-4 max-w-4xl">
-          <h1 class="text-4xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-5xl">
-            {{ page.title }}
-          </h1>
-          <p class="text-lg leading-8 text-slate-600">{{ page.description }}</p>
-          <div class="flex items-center gap-4 text-sm text-slate-400">
-            <span>Mise à jour {{ page.updatedAt }}</span>
-            <button
-              class="flex items-center gap-1.5 hover:text-slate-600 transition-colors"
-              @click="copyLink"
-            >
-              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
-              </svg>
-              {{ isCopied ? 'Lien copié !' : 'Partager' }}
-            </button>
-          </div>
+        <!-- Loading -->
+        <div v-if="loading" class="flex items-center justify-center py-32">
+          <svg class="w-8 h-8 text-primary animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
         </div>
 
-        <!-- Block canvas (read-only mock) -->
-        <div class="grid grid-cols-12 gap-4">
-          <template v-for="(block, i) in page.blocks" :key="block.id">
-            <!-- KPI block: half width -->
-            <div
-              v-if="block.type === 'kpi'"
-              class="col-span-12 sm:col-span-6 rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_12px_40px_-24px_rgba(15,23,42,0.15)]"
-            >
-              <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{{ block.title }}</p>
-              <p class="mt-3 text-4xl font-bold tracking-tight text-slate-950">{{ getKpiValue(i) }}</p>
+        <!-- Error -->
+        <div v-else-if="error" class="py-24 text-center text-slate-500">
+          <p class="text-lg font-medium">{{ error }}</p>
+          <RouterLink :to="`/statsdata/${slug}`" class="mt-4 inline-block text-primary underline">← Retour au document</RouterLink>
+        </div>
+
+        <template v-else>
+          <!-- Breadcrumb -->
+          <nav class="flex items-center gap-2 text-sm text-slate-400 flex-wrap">
+            <RouterLink to="/statsdata" class="hover:text-primary transition-colors">StatsData</RouterLink>
+            <span>/</span>
+            <RouterLink :to="`/statsdata/${slug}`" class="hover:text-primary transition-colors">
+              {{ studio.content?.title }}
+            </RouterLink>
+            <span>/</span>
+            <span class="text-slate-600">{{ currentPage?.title ?? pageSlug }}</span>
+          </nav>
+
+          <!-- Header -->
+          <div class="flex flex-col gap-3 max-w-4xl">
+            <h1 class="text-4xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-5xl">
+              {{ currentPage?.title ?? studio.content?.title }}
+            </h1>
+            <p v-if="currentPage?.description" class="text-lg leading-8 text-slate-600">
+              {{ currentPage.description }}
+            </p>
+            <div class="flex items-center gap-4 text-sm text-slate-400">
+              <button
+                class="flex items-center gap-1.5 hover:text-slate-600 transition-colors"
+                @click="copyLink"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
+                </svg>
+                {{ isCopied ? 'Lien copié !' : 'Partager' }}
+              </button>
             </div>
+          </div>
 
-            <!-- Other blocks: full width -->
-            <div
-              v-else
-              class="col-span-12 rounded-[1.75rem] border border-slate-200 bg-white shadow-[0_12px_40px_-24px_rgba(15,23,42,0.15)] overflow-hidden"
+          <!-- Active params banner (when navigated from search block) -->
+          <div
+            v-if="Object.keys(studio.pageParams).length > 0"
+            class="flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl"
+          >
+            <svg class="w-3.5 h-3.5 text-amber-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
+            </svg>
+            <span class="text-[11px] font-medium text-amber-700">Filtrés par :</span>
+            <span
+              v-for="[key, val] in Object.entries(studio.pageParams)"
+              :key="key"
+              class="text-[11px] font-mono bg-amber-100 border border-amber-200 rounded px-2 py-0.5 text-amber-800"
             >
-              <div class="border-b border-slate-100 px-6 py-4 flex items-center gap-3">
-                <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                  <svg class="w-3.5 h-3.5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="blockIcon[block.type]" />
-                  </svg>
-                </div>
-                <p class="text-sm font-semibold text-slate-800">{{ block.title }}</p>
-              </div>
+              {{ key }} = <strong>{{ val }}</strong>
+            </span>
+          </div>
 
-              <!-- Chart placeholder -->
-              <div v-if="block.type === 'bar' || block.type === 'line'" class="px-6 py-8">
-                <div class="flex items-end gap-2 h-48">
+          <!-- Block canvas (read-only) -->
+          <div class="flex flex-col gap-4">
+            <template v-if="pageSections.length > 0">
+              <div
+                v-for="section in pageSections"
+                :key="section.id"
+                class="grid gap-4"
+                :style="{ gridTemplateColumns: sectionDef(section.layout).gridCols.map((n) => `${n}fr`).join(' ') }"
+              >
+                <div
+                  v-for="(_, colIdx) in sectionDef(section.layout).gridCols"
+                  :key="colIdx"
+                  class="flex flex-col gap-4 min-w-0"
+                >
                   <div
-                    v-for="n in 8"
-                    :key="n"
-                    class="flex-1 rounded-t-lg bg-primary/20 transition-all"
-                    :style="{ height: `${20 + (n * 11) % 80}%` }"
-                  />
+                    v-for="block in blocksInZone(section.id, colIdx)"
+                    :key="block.id"
+                    class="bg-white rounded-[1.75rem] border border-slate-200 shadow-[0_12px_40px_-24px_rgba(15,23,42,0.15)] overflow-hidden"
+                  >
+                    <div v-if="block.config.title" class="border-b border-slate-100 px-5 py-3">
+                      <p class="text-sm font-semibold text-slate-800">{{ block.config.title }}</p>
+                    </div>
+                    <div class="p-4">
+                      <BlockRenderer :block="block" />
+                    </div>
+                  </div>
                 </div>
-                <p class="text-center text-xs text-slate-400 mt-4">Connectez un dataset pour afficher les données réelles</p>
               </div>
+            </template>
 
-              <!-- Table placeholder -->
-              <div v-else-if="block.type === 'table'" class="overflow-x-auto">
-                <table class="w-full text-sm">
-                  <thead>
-                    <tr class="bg-slate-50">
-                      <th v-for="col in ['Période', 'Valeur', 'Variation M-1', 'Variation A-1']" :key="col" class="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-400">{{ col }}</th>
-                    </tr>
-                  </thead>
-                  <tbody class="divide-y divide-slate-100">
-                    <tr v-for="row in 5" :key="row" class="text-slate-500">
-                      <td class="px-5 py-3">2026-0{{ row }}</td>
-                      <td class="px-5 py-3 font-mono">{{ (100 + row * 2.3).toFixed(1) }}</td>
-                      <td class="px-5 py-3 font-mono text-emerald-600">+{{ (row * 0.2).toFixed(1) }}%</td>
-                      <td class="px-5 py-3 font-mono text-blue-600">+{{ (2 + row * 0.3).toFixed(1) }}%</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </template>
-        </div>
-
-        <!-- Related pages -->
-        <div v-if="page.relatedPages.length" class="border-t border-slate-100 pt-8">
-          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400 mb-4">Autres pages de ce StatsData</p>
-          <div class="flex flex-wrap gap-3">
-            <RouterLink
-              v-for="rel in page.relatedPages"
-              :key="rel.slug"
-              :to="`/statsdata/${slug}/${rel.slug}`"
-              class="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 hover:border-primary hover:text-primary transition-colors"
-            >
-              {{ rel.title }}
-              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 18 6-6-6-6" />
+            <!-- Empty page -->
+            <div v-else class="py-24 text-center text-slate-400">
+              <svg class="w-12 h-12 mx-auto mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
               </svg>
-            </RouterLink>
-            <RouterLink
-              :to="`/statsdata/${slug}`"
-              class="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-400 hover:text-slate-600 transition-colors"
-            >
-              Voir toutes les pages
-            </RouterLink>
+              <p class="text-sm">Cette page ne contient pas encore de contenu.</p>
+            </div>
           </div>
-        </div>
+
+          <!-- Page navigation -->
+          <div v-if="otherPages.length > 0" class="border-t border-slate-100 pt-8">
+            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400 mb-4">Autres pages</p>
+            <div class="flex flex-wrap gap-3">
+              <RouterLink
+                v-for="page in otherPages"
+                :key="page.id"
+                :to="`/statsdata/${slug}/${page.slug ?? page.id}`"
+                class="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 hover:border-primary hover:text-primary transition-colors"
+              >
+                {{ page.title }}
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 18 6-6-6-6" />
+                </svg>
+              </RouterLink>
+              <RouterLink
+                :to="`/statsdata/${slug}`"
+                class="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                Toutes les pages
+              </RouterLink>
+            </div>
+          </div>
+        </template>
       </div>
     </section>
   </main>

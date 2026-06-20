@@ -84,10 +84,13 @@ const fileSize = computed(() => {
   return `${(bytes / 1024).toFixed(0)} Ko`
 })
 
-const ACCEPTED = '.csv,.xlsx,.xls,.json'
-const ACCEPTED_TYPES = ['text/csv', 'application/json',
+const ACCEPTED = '.csv,.xlsx,.xls,.json,.parquet'
+const ACCEPTED_TYPES = [
+  'text/csv', 'application/json',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/vnd.ms-excel', 'text/plain']
+  'application/vnd.ms-excel', 'text/plain',
+  'application/octet-stream', 'application/vnd.apache.parquet',
+]
 
 function onFileDragOver(event: DragEvent) {
   isDragOver.value = true
@@ -236,7 +239,7 @@ watch(() => true, () => {
                 {{ step === 'pick-type' ? 'Ajouter une source' : sourceType === 'file' ? 'Importer un fichier' : 'Connecter une API' }}
               </h2>
               <p v-if="step === 'configure'" class="text-xs text-slate-400 mt-0.5">
-                {{ sourceType === 'file' ? 'CSV, Excel ou JSON — traitement automatique' : 'REST API avec authentification optionnelle' }}
+                {{ sourceType === 'file' ? 'CSV, Excel, JSON ou Parquet natif' : 'REST API avec authentification optionnelle' }}
               </p>
             </div>
           </div>
@@ -267,7 +270,7 @@ watch(() => true, () => {
               </div>
               <div>
                 <p class="text-sm font-bold text-slate-800 group-hover:text-[var(--color-primary)] transition-colors">Fichier</p>
-                <p class="text-xs text-slate-400 mt-1 leading-relaxed">CSV, Excel, JSON<br>Upload direct</p>
+                <p class="text-xs text-slate-400 mt-1 leading-relaxed">CSV, Excel, JSON, Parquet<br>Upload direct</p>
               </div>
             </button>
 
@@ -317,7 +320,7 @@ watch(() => true, () => {
                 </svg>
                 <div>
                   <p class="text-sm font-semibold text-slate-600">Glisser un fichier ici</p>
-                  <p class="text-xs text-slate-400 mt-1">ou cliquer pour parcourir — CSV, XLSX, JSON</p>
+                  <p class="text-xs text-slate-400 mt-1">ou cliquer pour parcourir — CSV, XLSX, JSON, Parquet</p>
                 </div>
               </div>
 

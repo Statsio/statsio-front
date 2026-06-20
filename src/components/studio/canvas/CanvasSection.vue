@@ -33,12 +33,13 @@ const layoutIcons: Record<SectionLayout, string> = {
 </script>
 
 <template>
-  <div class="group/section relative bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all overflow-visible">
-    <!-- Section toolbar (visible on hover) -->
+  <!-- Outer wrapper includes the toolbar area: hover zone is continuous from toolbar to card bottom -->
+  <div class="group/section relative pt-8">
+    <!-- Section toolbar (in the pt-8 space above the card) -->
     <div
-      class="absolute -top-8 left-0 right-0 flex items-center justify-between opacity-0 group-hover/section:opacity-100 transition-opacity z-10 pointer-events-none group-hover/section:pointer-events-auto"
+      class="absolute top-0 left-0 right-0 h-8 flex items-center justify-between opacity-0 group-hover/section:opacity-100 transition-opacity z-10"
     >
-      <!-- Left: drag handle + layout label -->
+      <!-- Left: drag handle -->
       <div class="flex items-center gap-1.5">
         <div
           class="section-drag-handle flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 py-1 cursor-grab active:cursor-grabbing shadow-sm hover:bg-slate-50"
@@ -97,14 +98,17 @@ const layoutIcons: Record<SectionLayout, string> = {
       </div>
     </div>
 
-    <!-- Section body: columns -->
-    <div class="grid gap-3 p-3" :style="{ gridTemplateColumns: def.gridCols.map((s) => `${s}fr`).join(' ') }">
-      <CanvasZone
-        v-for="(zoneId, i) in zoneIds"
-        :key="zoneId"
-        :zone-id="zoneId"
-        :col-index="i"
-      />
+    <!-- Section card -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm group-hover/section:shadow-md transition-all">
+      <!-- Section body: columns -->
+      <div class="grid gap-3 p-3" :style="{ gridTemplateColumns: def.gridCols.map((s) => `${s}fr`).join(' ') }">
+        <CanvasZone
+          v-for="(zoneId, i) in zoneIds"
+          :key="zoneId"
+          :zone-id="zoneId"
+          :col-index="i"
+        />
+      </div>
     </div>
   </div>
 

@@ -5,6 +5,8 @@ import BarChartBlock from './BarChartBlock.vue'
 import LineChartBlock from './LineChartBlock.vue'
 import TableBlock from './TableBlock.vue'
 import KpiBlock from './KpiBlock.vue'
+import TextBlock from './TextBlock.vue'
+import SearchBlock from './SearchBlock.vue'
 
 const props = defineProps<{ block: StudioBlock }>()
 
@@ -14,6 +16,11 @@ const component = computed(() => {
     case 'line': return LineChartBlock
     case 'table': return TableBlock
     case 'kpi': return KpiBlock
+    case 'search': return SearchBlock
+    case 'heading':
+    case 'paragraph':
+    case 'quote':
+    case 'callout': return TextBlock
     default: return null
   }
 })

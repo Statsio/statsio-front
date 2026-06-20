@@ -1,243 +1,268 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
-import AppButton from '@/components/ui/AppButton.vue'
+import { ref, computed, onMounted } from 'vue'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { fetchPublicStatsDataDocument } from '@/api/studio'
+import type { StatsDataDocument as ApiDoc } from '@/api/studio'
+import { useStudioStore } from '@/stores/studio'
+import { SECTION_LAYOUT_DEFINITIONS } from '@/types/studio'
+import type { StudioBlock } from '@/types/studio'
+import BlockRenderer from '@/components/studio/blocks/BlockRenderer.vue'
 
-const route = useRoute()
-const slug = computed(() => String(route.params.slug ?? 'inflation-ville-france'))
+const route  = useRoute()
+const router = useRouter()
+const studio = useStudioStore()
+const slug   = String(route.params.slug ?? '')
 
-type PageSummary = { slug: string; title: string; description: string }
-type StatsDataDetail = {
-  slug: string
-  title: string
-  description: string
-  longDescription: string
-  theme: string
-  rowCount: number
-  columnCount: number
-  lastUpdated: string
-  source: string
-  license: string
-  channel: string
-  pages: PageSummary[]
-  columns: { name: string; type: string; description: string }[]
+const doc     = ref<ApiDoc | null>(null)
+const loading = ref(true)
+const error   = ref<string | null>(null)
+
+const firstPage = computed(() => studio.pages.find((p) => !p.isTemplate) ?? studio.pages[0])
+const publicPages = computed(() => studio.pages.filter((p) => !p.isTemplate))
+const pageSections = computed(() => studio.currentPageSections)
+
+function sectionDef(layout: string) {
+  return SECTION_LAYOUT_DEFINITIONS.find((d) => d.type === layout) ?? SECTION_LAYOUT_DEFINITIONS[0]!
 }
 
-const catalog: Record<string, StatsDataDetail> = {
-  'inflation-ville-france': {
-    slug: 'inflation-ville-france',
-    title: 'Inflation par ville en France',
-    description: 'Suivi mensuel de l\'inflation au niveau communal depuis 2020.',
-    longDescription: 'Cette base couvre l\'évolution de l\'indice des prix à la consommation pour 1 200 communes françaises sur la période 2020–2026. Les données sont issues des relevés mensuels de l\'INSEE, enrichis de corrections saisonnières et de comparaisons avec le panier européen harmonisé (IPCH).',
-    theme: 'Économie',
-    rowCount: 148_230,
-    columnCount: 12,
-    lastUpdated: '2026-06-10',
-    source: 'INSEE – Indices des prix à la consommation',
-    license: 'Licence Ouverte v2.0',
-    channel: 'Économie & Finance',
-    pages: [
-      { slug: 'vue-nationale', title: 'Vue nationale', description: 'Tendance agrégée sur la France entière avec décomposition par poste.' },
-      { slug: 'comparatif-villes', title: 'Comparatif villes', description: 'Classement et comparateur interactif entre communes.' },
-      { slug: 'serie-longue', title: 'Série longue', description: 'Évolution de 2015 à aujourd\'hui en base 100.' },
-    ],
-    columns: [
-      { name: 'commune_code', type: 'string', description: 'Code INSEE de la commune' },
-      { name: 'commune_name', type: 'string', description: 'Nom de la commune' },
-      { name: 'period', type: 'date', description: 'Mois de relevé (YYYY-MM)' },
-      { name: 'ipc', type: 'float', description: 'Indice des prix à la consommation (base 100 = 2020)' },
-      { name: 'variation_m1', type: 'float', description: 'Variation par rapport au mois précédent (%)' },
-      { name: 'variation_y1', type: 'float', description: 'Variation sur 12 mois glissants (%)' },
-    ],
-  },
-  'resultats-municipales-2026': {
-    slug: 'resultats-municipales-2026',
-    title: 'Résultats Municipales 2026',
-    description: 'Base complète des résultats par commune, tour par tour.',
-    longDescription: 'Résultats officiels des élections municipales 2026 pour l\'ensemble des communes de France métropolitaine et d\'outre-mer. La base comprend les deux tours, les listes en présence, les scores et les taux de participation. Source : Ministère de l\'Intérieur.',
-    theme: 'Politique',
-    rowCount: 36_000,
-    columnCount: 18,
-    lastUpdated: '2026-06-18',
-    source: 'Ministère de l\'Intérieur – Résultats électoraux',
-    license: 'Licence Ouverte v2.0',
-    channel: 'Politique & Société',
-    pages: [
-      { slug: 'carte-nationale', title: 'Carte nationale', description: 'Couleur politique des communes au second tour.' },
-      { slug: 'participation', title: 'Participation', description: 'Taux de participation par département et commune.' },
-      { slug: 'resultats-commune', title: 'Résultats par commune', description: 'Recherche et détail commune par commune.' },
-      { slug: 'bascules', title: 'Bascules politiques', description: 'Communes ayant changé de majorité depuis 2020.' },
-      { slug: 'profils-listes', title: 'Profils des listes', description: 'Étiquette, score et nombre de candidats par liste.' },
-    ],
-    columns: [
-      { name: 'code_commune', type: 'string', description: 'Code INSEE de la commune' },
-      { name: 'libelle_commune', type: 'string', description: 'Nom de la commune' },
-      { name: 'departement', type: 'string', description: 'Département' },
-      { name: 'tour', type: 'integer', description: 'Numéro du tour (1 ou 2)' },
-      { name: 'liste_label', type: 'string', description: 'Étiquette politique de la liste' },
-      { name: 'voix', type: 'integer', description: 'Nombre de voix obtenues' },
-      { name: 'pct_exprimes', type: 'float', description: 'Part des exprimés (%)' },
-      { name: 'participation', type: 'float', description: 'Taux de participation (%)' },
-    ],
-  },
+function blocksInZone(sectionId: string, colIdx: number): StudioBlock[] {
+  return studio.blocksByZone[`${sectionId}-${colIdx}`] ?? []
 }
 
-const fallbackSlug = 'inflation-ville-france'
-const detail = computed<StatsDataDetail>(
-  () => catalog[slug.value] ?? catalog[fallbackSlug]!,
-)
-
-const themeColor: Record<string, string> = {
-  Économie: 'bg-blue-50 text-blue-600',
-  Politique: 'bg-violet-50 text-violet-600',
-  Santé: 'bg-emerald-50 text-emerald-700',
-  Climat: 'bg-teal-50 text-teal-700',
-  Démographie: 'bg-orange-50 text-orange-600',
-  Société: 'bg-rose-50 text-rose-600',
+function formatDate(iso?: string) {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
 }
 
-const columnTypeColor: Record<string, string> = {
-  string: 'bg-slate-100 text-slate-500',
-  integer: 'bg-blue-50 text-blue-600',
-  float: 'bg-cyan-50 text-cyan-600',
-  date: 'bg-green-50 text-green-700',
+function formatRows(n?: number) {
+  if (!n) return null
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M lignes`
+  if (n >= 1_000) return `${Math.round(n / 1_000)}k lignes`
+  return `${n} lignes`
 }
 
-const formatRows = (n: number) => {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}k`
-  return String(n)
+onMounted(async () => {
+  try {
+    const data = await fetchPublicStatsDataDocument(slug)
+    doc.value = data
+    studio.initPage(
+      { id: data.id, type: 'statsdata', title: data.title, status: data.status as 'draft' | 'published' },
+      data.sections, data.blocks, data.pages,
+    )
+    const fp = studio.pages.find((p) => !p.isTemplate) ?? studio.pages[0]
+    if (fp) studio.switchPage(fp.id)
+  } catch {
+    error.value = 'Document introuvable ou non publié.'
+  } finally {
+    loading.value = false
+  }
+})
+
+function goToPage(pageSlug?: string, pageId?: string) {
+  router.push(`/statsdata/${slug}/${pageSlug ?? pageId}`)
+}
+
+const isCopied = ref(false)
+function copyLink() {
+  navigator.clipboard.writeText(window.location.href).then(() => {
+    isCopied.value = true
+    setTimeout(() => { isCopied.value = false }, 2000)
+  })
 }
 </script>
 
 <template>
   <main class="pb-24 pt-32">
-    <section class="section pb-10">
-      <div class="container flex flex-col gap-10">
-        <!-- Breadcrumb -->
-        <nav class="flex items-center gap-2 text-sm text-slate-400">
-          <RouterLink to="/statsdata" class="hover:text-primary transition-colors">StatsData</RouterLink>
-          <span>/</span>
-          <span class="text-slate-600">{{ detail.title }}</span>
-        </nav>
+    <section class="section">
+      <div class="container flex flex-col gap-6">
 
-        <!-- Header -->
-        <div class="flex flex-col gap-5">
-          <div class="flex items-center gap-3">
-            <span
-              class="inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider"
-              :class="themeColor[detail.theme] ?? 'bg-slate-100 text-slate-500'"
+        <!-- Loading -->
+        <div v-if="loading" class="flex items-center justify-center py-40">
+          <svg class="w-8 h-8 text-primary animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+        </div>
+
+        <!-- Error -->
+        <div v-else-if="error" class="py-24 text-center text-slate-500">
+          <p class="text-lg font-medium">{{ error }}</p>
+          <RouterLink to="/statsdata" class="mt-4 inline-block text-primary underline text-sm">← Retour au catalogue</RouterLink>
+        </div>
+
+        <template v-else-if="doc">
+          <!-- Breadcrumb -->
+          <nav class="flex items-center gap-2 text-sm text-slate-400">
+            <RouterLink to="/statsdata" class="hover:text-primary transition-colors">StatsData</RouterLink>
+            <span>/</span>
+            <span class="text-slate-600">{{ doc.title }}</span>
+          </nav>
+
+          <!-- Header -->
+          <div class="flex items-start justify-between gap-6 flex-wrap">
+            <div class="flex flex-col gap-2 max-w-3xl">
+              <h1 class="text-4xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-5xl">{{ doc.title }}</h1>
+              <p v-if="doc.description" class="text-base text-slate-500 leading-7">{{ doc.description }}</p>
+            </div>
+            <button
+              class="flex items-center gap-1.5 shrink-0 text-sm text-slate-400 hover:text-slate-600 transition-colors border border-slate-200 rounded-lg px-3 py-1.5 bg-white"
+              @click="copyLink"
             >
-              {{ detail.theme }}
-            </span>
-            <span class="text-sm text-slate-400">{{ detail.channel }}</span>
-          </div>
-          <div class="flex max-w-5xl flex-col gap-4">
-            <h1 class="text-4xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-5xl lg:text-6xl">
-              {{ detail.title }}
-            </h1>
-            <p class="max-w-3xl text-lg leading-8 text-slate-600">{{ detail.longDescription }}</p>
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
+              </svg>
+              {{ isCopied ? 'Copié !' : 'Partager' }}
+            </button>
           </div>
 
-          <!-- Key figures -->
-          <div class="grid gap-4 sm:grid-cols-4 mt-2">
-            <div class="rounded-[1.75rem] border border-slate-200 bg-white px-5 py-4 shadow-[0_12px_40px_-24px_rgba(15,23,42,0.15)]">
-              <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Lignes</p>
-              <p class="mt-2 text-2xl font-semibold text-slate-950">{{ formatRows(detail.rowCount) }}</p>
-            </div>
-            <div class="rounded-[1.75rem] border border-slate-200 bg-white px-5 py-4 shadow-[0_12px_40px_-24px_rgba(15,23,42,0.15)]">
-              <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Colonnes</p>
-              <p class="mt-2 text-2xl font-semibold text-slate-950">{{ detail.columnCount }}</p>
-            </div>
-            <div class="rounded-[1.75rem] border border-slate-200 bg-white px-5 py-4 shadow-[0_12px_40px_-24px_rgba(15,23,42,0.15)]">
-              <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Pages</p>
-              <p class="mt-2 text-2xl font-semibold text-slate-950">{{ detail.pages.length }}</p>
-            </div>
-            <div class="rounded-[1.75rem] border border-slate-200 bg-white px-5 py-4 shadow-[0_12px_40px_-24px_rgba(15,23,42,0.15)]">
-              <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Mise à jour</p>
-              <p class="mt-2 text-lg font-semibold text-slate-950">{{ detail.lastUpdated }}</p>
-            </div>
-          </div>
-        </div>
+          <!-- 2/3 + 1/3 layout -->
+          <div class="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)] lg:items-start">
 
-        <!-- Content grid -->
-        <div class="grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_320px] lg:items-start">
-          <div class="flex flex-col gap-8">
-            <!-- Pages -->
-            <div class="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_20px_60px_-30px_rgba(15,23,42,0.15)]">
-              <div class="border-b border-slate-100 px-7 py-5">
-                <h2 class="text-base font-bold text-slate-900">Pages d'exploration</h2>
+            <!-- LEFT — first page preview -->
+            <div class="flex flex-col gap-4">
+              <div v-if="firstPage" class="flex items-center gap-2">
+                <span class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Aperçu</span>
+                <span class="text-xs font-semibold text-slate-700 bg-slate-100 rounded-full px-2.5 py-0.5">{{ firstPage.title }}</span>
               </div>
-              <div class="divide-y divide-slate-100">
-                <RouterLink
-                  v-for="page in detail.pages"
-                  :key="page.slug"
-                  :to="`/statsdata/${detail.slug}/${page.slug}`"
-                  class="group flex items-center gap-4 px-7 py-4 hover:bg-slate-50 transition-colors"
-                >
-                  <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                    <svg class="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
-                    </svg>
-                  </div>
-                  <div class="flex-1 min-w-0">
-                    <p class="text-sm font-semibold text-slate-800 group-hover:text-primary transition-colors">{{ page.title }}</p>
-                    <p class="text-xs text-slate-500 mt-0.5">{{ page.description }}</p>
-                  </div>
-                  <svg class="w-4 h-4 text-slate-300 group-hover:text-primary transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 18 6-6-6-6" />
-                  </svg>
-                </RouterLink>
-              </div>
-            </div>
 
-            <!-- Schema -->
-            <div class="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_12px_40px_-20px_rgba(15,23,42,0.12)]">
-              <div class="border-b border-slate-100 px-7 py-5">
-                <h2 class="text-base font-bold text-slate-900">Schéma des données</h2>
-                <p class="text-xs text-slate-400 mt-0.5">{{ detail.columnCount }} colonnes au total — aperçu des principales</p>
-              </div>
-              <div class="divide-y divide-slate-100">
+              <template v-if="pageSections.length > 0">
                 <div
-                  v-for="col in detail.columns"
-                  :key="col.name"
-                  class="flex items-center gap-4 px-7 py-3"
+                  v-for="section in pageSections"
+                  :key="section.id"
+                  class="grid gap-4"
+                  :style="{ gridTemplateColumns: sectionDef(section.layout).gridCols.map((n) => `${n}fr`).join(' ') }"
                 >
-                  <span class="font-mono text-sm text-slate-700 shrink-0 w-44 truncate">{{ col.name }}</span>
-                  <span
-                    class="text-[10px] font-mono font-semibold px-2 py-0.5 rounded shrink-0"
-                    :class="columnTypeColor[col.type] ?? 'bg-slate-100 text-slate-400'"
-                  >{{ col.type }}</span>
-                  <span class="text-xs text-slate-500 truncate">{{ col.description }}</span>
+                  <div
+                    v-for="(_, colIdx) in sectionDef(section.layout).gridCols"
+                    :key="colIdx"
+                    class="flex flex-col gap-4 min-w-0"
+                  >
+                    <div
+                      v-for="block in blocksInZone(section.id, colIdx)"
+                      :key="block.id"
+                      class="bg-white rounded-[1.5rem] border border-slate-200 shadow-sm overflow-hidden"
+                    >
+                      <div v-if="block.config.title" class="border-b border-slate-100 px-5 py-3">
+                        <p class="text-sm font-semibold text-slate-800">{{ block.config.title }}</p>
+                      </div>
+                      <div class="p-4">
+                        <BlockRenderer :block="block" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </template>
+
+              <div v-else class="rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50 py-20 text-center text-slate-400">
+                <svg class="w-10 h-10 mx-auto mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12" />
+                </svg>
+                <p class="text-sm">Aucun contenu sur cette page.</p>
+              </div>
+
+              <RouterLink
+                v-if="firstPage"
+                :to="`/statsdata/${slug}/${firstPage.slug ?? firstPage.id}`"
+                class="inline-flex items-center gap-1.5 self-start text-sm font-semibold text-primary hover:underline"
+              >
+                Ouvrir en plein écran
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                </svg>
+              </RouterLink>
+            </div>
+
+            <!-- RIGHT — metadata sidebar -->
+            <aside class="flex flex-col gap-4">
+
+              <!-- Author + dates -->
+              <div class="rounded-[1.75rem] border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div class="border-b border-slate-100 px-5 py-4">
+                  <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">À propos</p>
+                </div>
+                <div class="px-5 py-4 flex flex-col gap-4">
+                  <div class="flex items-center gap-3">
+                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+                      {{ doc.author?.name?.charAt(0)?.toUpperCase() ?? '?' }}
+                    </div>
+                    <div>
+                      <p class="text-sm font-semibold text-slate-800">{{ doc.author?.name ?? 'Anonyme' }}</p>
+                      <p class="text-xs text-slate-400">Auteur</p>
+                    </div>
+                  </div>
+                  <div class="grid grid-cols-2 gap-3">
+                    <div class="rounded-xl bg-slate-50 px-3 py-2.5">
+                      <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Créé le</p>
+                      <p class="text-xs font-semibold text-slate-700 mt-0.5">{{ formatDate(doc.created_at) }}</p>
+                    </div>
+                    <div class="rounded-xl bg-slate-50 px-3 py-2.5">
+                      <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Mis à jour</p>
+                      <p class="text-xs font-semibold text-slate-700 mt-0.5">{{ formatDate(doc.updated_at) }}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-          <!-- Sidebar -->
-          <aside class="flex flex-col gap-4">
-            <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-              <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400 mb-4">Informations</p>
-              <dl class="flex flex-col gap-3">
-                <div>
-                  <dt class="text-[11px] text-slate-400 uppercase tracking-wider">Source</dt>
-                  <dd class="text-sm text-slate-700 mt-0.5">{{ detail.source }}</dd>
+              <!-- Exploration pages (non-template only) -->
+              <div v-if="publicPages.length > 0" class="rounded-[1.75rem] border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div class="border-b border-slate-100 px-5 py-4">
+                  <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Pages d'exploration</p>
                 </div>
-                <div>
-                  <dt class="text-[11px] text-slate-400 uppercase tracking-wider">Licence</dt>
-                  <dd class="text-sm text-slate-700 mt-0.5">{{ detail.license }}</dd>
+                <div class="divide-y divide-slate-100">
+                  <button
+                    v-for="page in publicPages"
+                    :key="page.id"
+                    class="w-full flex items-center gap-3 px-5 py-3.5 text-left hover:bg-slate-50 transition-colors"
+                    :class="firstPage?.id === page.id ? 'bg-primary/5' : ''"
+                    @click="goToPage(page.slug, page.id)"
+                  >
+                    <div
+                      class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors"
+                      :class="firstPage?.id === page.id ? 'bg-primary/15 text-primary' : 'bg-slate-100 text-slate-400'"
+                    >
+                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
+                      </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm font-semibold text-slate-800 truncate">{{ page.title }}</p>
+                      <p v-if="page.description" class="text-xs text-slate-400 truncate mt-0.5">{{ page.description }}</p>
+                    </div>
+                    <svg class="w-3.5 h-3.5 text-slate-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 18 6-6-6-6" />
+                    </svg>
+                  </button>
                 </div>
-                <div>
-                  <dt class="text-[11px] text-slate-400 uppercase tracking-wider">Dernière mise à jour</dt>
-                  <dd class="text-sm text-slate-700 mt-0.5">{{ detail.lastUpdated }}</dd>
+              </div>
+
+              <!-- Data sources -->
+              <div v-if="doc.datasets && doc.datasets.length > 0" class="rounded-[1.75rem] border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div class="border-b border-slate-100 px-5 py-4">
+                  <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Sources de données</p>
                 </div>
-              </dl>
-              <AppButton as="router-link" :to="`/statsdata/${detail.slug}/${detail.pages[0]?.slug}`" variant="primary" size="sm" class="mt-5 w-full justify-center">
-                Ouvrir la première page
-              </AppButton>
-            </div>
-          </aside>
-        </div>
+                <div class="divide-y divide-slate-100">
+                  <div v-for="dataset in doc.datasets" :key="dataset.id" class="flex items-center gap-3 px-5 py-3.5">
+                    <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100">
+                      <svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 5.625c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
+                      </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <p class="text-sm font-semibold text-slate-800 truncate">{{ dataset.name }}</p>
+                      <p v-if="formatRows(dataset.row_count)" class="text-xs text-slate-400">{{ formatRows(dataset.row_count) }}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Public URL -->
+              <div v-if="doc.slug" class="rounded-[1.75rem] border border-slate-200 bg-white shadow-sm px-5 py-4">
+                <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400 mb-1.5">Lien public</p>
+                <p class="text-xs font-mono text-slate-500 break-all">/statsdata/{{ doc.slug }}</p>
+              </div>
+            </aside>
+          </div>
+        </template>
       </div>
     </section>
   </main>

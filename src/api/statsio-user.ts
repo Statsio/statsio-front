@@ -13,3 +13,9 @@ export async function fetchStatsioMe(): Promise<unknown> {
   const res = await apiHttp.get(STATSIO_API.me)
   return unwrapStatsioResponseData(res)
 }
+
+/** `PATCH /me` — update profile (first_name, last_name). */
+export async function updateProfile(payload: { first_name?: string; last_name?: string }): Promise<unknown> {
+  const res = await apiHttp.patch(STATSIO_API.me, payload)
+  return unwrapStatsioResponseData(res)
+}

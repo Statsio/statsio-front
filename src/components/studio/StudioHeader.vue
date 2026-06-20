@@ -1,10 +1,26 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useStudioStore } from '@/stores/studio'
+import { publishStatsDataDocument } from '@/api/studio'
 import AppButton from '@/components/ui/AppButton.vue'
 
 const emit = defineEmits<{ save: [] }>()
 const studio = useStudioStore()
+
+const isPublishing = ref(false)
+const isPublished = computed(() => studio.content?.status === 'published')
+
+async function publish() {
+  const id = studio.content?.id
+  if (!id || id === 'demo') return
+  isPublishing.value = true
+  try {
+    await publishStatsDataDocument(id)
+    if (studio.content) studio.content.status = 'published'
+  } finally {
+    isPublishing.value = false
+  }
+}
 
 const isEditingTitle = ref(false)
 const titleInput = ref<HTMLInputElement | null>(null)
@@ -24,6 +40,30 @@ function handleTitleKeydown(e: KeyboardEvent) {
   if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
   if (e.key === 'Escape') isEditingTitle.value = false
 }
+
+// ─── Keyboard shortcuts ───────────────────────────────────────────────────────
+
+function onKeydown(e: KeyboardEvent) {
+  const target = e.target as HTMLElement
+  // Let Tiptap and native inputs handle their own undo/redo
+  if (target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
+
+  const ctrl = e.ctrlKey || e.metaKey
+  if (!ctrl) return
+
+  if (e.key === 'z' && !e.shiftKey) {
+    e.preventDefault()
+    studio.undo()
+  } else if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) {
+    e.preventDefault()
+    studio.redo()
+  }
+}
+
+onMounted(() => window.addEventListener('keydown', onKeydown))
+onUnmounted(() => window.removeEventListener('keydown', onKeydown))
+
+// ─── Save status ──────────────────────────────────────────────────────────────
 
 const saveLabel = computed(() => {
   switch (studio.saveStatus) {
@@ -45,7 +85,7 @@ const saveDotClass = computed(() => {
 </script>
 
 <template>
-  <header class="h-12 shrink-0 flex items-center px-4 gap-4 border-b border-slate-200 bg-white z-20">
+  <header class="h-12 shrink-0 flex items-center px-4 gap-3 border-b border-slate-200 bg-white z-20">
     <!-- Left: nav toggle + logo -->
     <div class="flex items-center gap-3 shrink-0">
       <button
@@ -62,6 +102,36 @@ const saveDotClass = computed(() => {
         <span class="w-6 h-6 rounded bg-[var(--color-primary)] flex items-center justify-center text-white text-[10px] font-black">S</span>
         <span class="text-sm font-bold text-slate-800 hidden sm:block">Studio</span>
       </a>
+    </div>
+
+    <!-- Undo / Redo -->
+    <div class="flex items-center gap-0.5 shrink-0">
+      <button
+        class="p-1.5 rounded-lg transition-colors"
+        :class="studio.canUndo
+          ? 'hover:bg-slate-100 text-slate-600'
+          : 'text-slate-300 cursor-not-allowed'"
+        title="Annuler (Ctrl+Z)"
+        :disabled="!studio.canUndo"
+        @click="studio.undo()"
+      >
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
+        </svg>
+      </button>
+      <button
+        class="p-1.5 rounded-lg transition-colors"
+        :class="studio.canRedo
+          ? 'hover:bg-slate-100 text-slate-600'
+          : 'text-slate-300 cursor-not-allowed'"
+        title="Rétablir (Ctrl+Y)"
+        :disabled="!studio.canRedo"
+        @click="studio.redo()"
+      >
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 15l6-6m0 0-6-6m6 6H9a6 6 0 0 0 0 12h3" />
+        </svg>
+      </button>
     </div>
 
     <!-- Center: editable title -->
@@ -106,8 +176,13 @@ const saveDotClass = computed(() => {
       </button>
 
       <!-- Publish -->
-      <AppButton size="sm" variant="primary">
-        Publier
+      <AppButton
+        size="sm"
+        :variant="isPublished ? 'secondary' : 'primary'"
+        :disabled="isPublishing"
+        @click="publish"
+      >
+        {{ isPublishing ? 'Publication…' : isPublished ? '✓ Publié' : 'Publier' }}
       </AppButton>
     </div>
   </header>

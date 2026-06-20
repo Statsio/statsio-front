@@ -2,25 +2,29 @@
 import { computed } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import type { StudioBlock } from '@/types/studio'
+import { isTextBlock } from '@/types/studio'
 import BlockRenderer from '../blocks/BlockRenderer.vue'
 
 const props = defineProps<{ block: StudioBlock }>()
 const studio = useStudioStore()
 
 const isSelected = computed(() => studio.selectedBlockId === props.block.id)
+const isText = computed(() => isTextBlock(props.block.type))
 
 const blockLabel: Record<string, string> = {
   bar: 'Barres', line: 'Lignes', table: 'Tableau', kpi: 'KPI', pie: 'Camembert',
+  heading: 'Titre', paragraph: 'Paragraphe', quote: 'Citation', callout: 'Encadré',
 }
 </script>
 
 <template>
   <div
-    class="relative group bg-white rounded-xl border-2 flex flex-col overflow-hidden transition-all duration-150 min-h-[180px] cursor-pointer"
-    :class="isSelected
-      ? 'border-[var(--color-primary)] shadow-lg shadow-purple-100'
-      : 'border-slate-200 hover:border-slate-300 hover:shadow-sm'"
-    @click.stop="studio.selectBlock(block.id)"
+    class="relative group bg-white rounded-xl border-2 flex flex-col transition-all duration-150"
+    :class="[
+      isSelected ? 'border-[var(--color-primary)] shadow-lg shadow-purple-100' : 'border-slate-200 hover:border-slate-300 hover:shadow-sm',
+      isText ? 'min-h-[48px] cursor-text overflow-visible' : 'min-h-[180px] cursor-pointer overflow-hidden',
+    ]"
+    @click.stop="isText ? undefined : studio.selectBlock(block.id)"
   >
     <!-- Block header bar (visible on hover / selection) -->
     <div

@@ -13,7 +13,6 @@ const props = defineProps<{
 const studio = useStudioStore()
 
 // vuedraggable v-model: handles reorder within zone AND cross-zone moves
-// setZoneBlocks updates zoneId for any block that lands here
 const zoneBlocks = computed<StudioBlock[]>({
   get: () => studio.blocksByZone[props.zoneId] ?? [],
   set: (newBlocks: StudioBlock[]) => {
@@ -23,22 +22,40 @@ const zoneBlocks = computed<StudioBlock[]>({
 
 const isEmpty = computed(() => zoneBlocks.value.length === 0)
 
-// vuedraggable group for cross-zone reordering (NOT for sidebar → canvas)
 const dragGroup = {
   name: 'canvas-blocks',
   put: true,
   pull: true,
 }
 
-// ─── Native HTML5 drop from sidebar ─────────────────────────────────────────
+// ─── Drop position tracking (sidebar → canvas) ────────────────────────────────
 
-const isDragOver = ref(false)
+const isDragOver  = ref(false)
+const dropIndex   = ref(-1) // -1 = append at end
+const draggableEl = ref<{ $el: HTMLElement } | null>(null)
+
+function getDropIndex(event: DragEvent): number {
+  const el = draggableEl.value?.$el
+  if (!el) return zoneBlocks.value.length
+
+  // Block items are marked with data-block-index to survive indicator divs in the DOM
+  const blockEls = Array.from(el.querySelectorAll('[data-block-index]')) as HTMLElement[]
+  const mouseY   = event.clientY
+
+  for (const blockEl of blockEls) {
+    const idx  = parseInt(blockEl.dataset.blockIndex!, 10)
+    const rect = blockEl.getBoundingClientRect()
+    if (mouseY < rect.top + rect.height / 2) return idx
+  }
+  return zoneBlocks.value.length
+}
 
 function onDragOver(event: DragEvent) {
   if (event.dataTransfer?.types.includes('studio-block-type')) {
     event.preventDefault()
     event.dataTransfer.dropEffect = 'copy'
     isDragOver.value = true
+    dropIndex.value  = getDropIndex(event)
   }
 }
 
@@ -49,18 +66,20 @@ function onDragEnter(event: DragEvent) {
 }
 
 function onDragLeave(event: DragEvent) {
-  // Only reset if we truly left the zone (not just entered a child element)
   if (!event.currentTarget || !(event.currentTarget as Element).contains(event.relatedTarget as Node)) {
     isDragOver.value = false
+    dropIndex.value  = -1
   }
 }
 
 function onDrop(event: DragEvent) {
   event.preventDefault()
+  const idx = dropIndex.value
   isDragOver.value = false
+  dropIndex.value  = -1
   const blockType = event.dataTransfer?.getData('studio-block-type') as BlockType
   if (blockType) {
-    studio.addBlock(blockType, props.zoneId)
+    studio.addBlock(blockType, props.zoneId, idx >= 0 ? idx : undefined)
   }
 }
 </script>
@@ -92,9 +111,9 @@ function onDrop(event: DragEvent) {
       <p class="text-[11px] text-slate-400 font-medium">Glisser un bloc ici</p>
     </div>
 
-    <!-- Drag over highlight text -->
+    <!-- Drag over highlight text (empty zone) -->
     <div
-      v-if="isDragOver"
+      v-if="isDragOver && isEmpty"
       class="absolute inset-0 flex items-center justify-center pointer-events-none z-10"
     >
       <span class="text-xs font-semibold text-[var(--color-primary)]">Déposer ici</span>
@@ -102,6 +121,7 @@ function onDrop(event: DragEvent) {
 
     <!-- vuedraggable: handles reorder + cross-zone moves -->
     <draggable
+      ref="draggableEl"
       v-model="zoneBlocks"
       :group="dragGroup"
       item-key="id"
@@ -109,8 +129,27 @@ function onDrop(event: DragEvent) {
       ghost-class="opacity-30 ring-2 ring-[var(--color-primary)]/30 rounded-xl"
       animation="150"
     >
-      <template #item="{ element }">
-        <BlockWrapper :block="element" />
+      <template #item="{ element, index }">
+        <div :data-block-index="index" class="flex flex-col">
+          <!-- Insertion indicator: above this block -->
+          <div
+            v-if="isDragOver && dropIndex === index"
+            class="relative h-0.5 rounded-full bg-[var(--color-primary)] mx-1 mb-2 shrink-0"
+          >
+            <div class="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-2.5 h-2.5 rounded-full bg-[var(--color-primary)]" />
+          </div>
+          <BlockWrapper :block="element" />
+        </div>
+      </template>
+
+      <!-- Insertion indicator: after all blocks (append) -->
+      <template #footer>
+        <div
+          v-if="isDragOver && dropIndex >= zoneBlocks.length"
+          class="relative h-0.5 rounded-full bg-[var(--color-primary)] mx-1 mt-2 shrink-0"
+        >
+          <div class="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-2.5 h-2.5 rounded-full bg-[var(--color-primary)]" />
+        </div>
       </template>
     </draggable>
   </div>

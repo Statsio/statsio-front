@@ -1,8 +1,11 @@
 import { ref, watch, computed } from 'vue'
 import { fetchBlockData } from '@/api/studio'
-import type { StudioBlock, BlockQueryResult } from '@/types/studio'
+import type { StudioBlock, BlockFilter, BlockQueryResult } from '@/types/studio'
+import { useStudioStore } from '@/stores/studio'
 
 export function useBlockData(block: () => StudioBlock | null) {
+  const studio = useStudioStore()
+
   const data = ref<BlockQueryResult | null>(null)
   const isLoading = ref(false)
   const error = ref<string | null>(null)
@@ -11,6 +14,16 @@ export function useBlockData(block: () => StudioBlock | null) {
     const b = block()
     return b?.datasetId != null
   })
+
+  function resolveFilterValue(value: string): string {
+    return value.replace(/\{\{(\w+)\}\}/g, (_, key) => studio.pageParams[key] ?? value)
+  }
+
+  function resolveFilters(filters: BlockFilter[]): BlockFilter[] {
+    return filters
+      .filter((f) => f.column && f.value)
+      .map((f) => ({ ...f, value: resolveFilterValue(f.value) }))
+  }
 
   async function load() {
     const b = block()
@@ -27,7 +40,7 @@ export function useBlockData(block: () => StudioBlock | null) {
       data.value = await fetchBlockData(b.datasetId, {
         columns,
         limit: 500,
-        filters: b.filters?.filter((f) => f.column && f.value) ?? [],
+        filters: resolveFilters(b.filters ?? []),
       })
     } catch (e) {
       error.value = 'Impossible de charger les données.'
@@ -37,11 +50,13 @@ export function useBlockData(block: () => StudioBlock | null) {
     }
   }
 
-  // Reload when block configuration or filters change
+  // Reload when block configuration, filters, or page params change
   watch(
     () => {
       const b = block()
-      return b ? `${b.datasetId}|${JSON.stringify(b.fieldMapping)}|${JSON.stringify(b.filters ?? [])}` : null
+      return b
+        ? `${b.datasetId}|${JSON.stringify(b.fieldMapping)}|${JSON.stringify(b.filters ?? [])}|${JSON.stringify(studio.pageParams)}`
+        : null
     },
     (key, prev) => {
       if (key && key !== prev) load()
@@ -52,6 +67,7 @@ export function useBlockData(block: () => StudioBlock | null) {
   return { data, isLoading, error, canFetch, reload: load }
 }
 
+// resolveColumns is module-level since it doesn't need store access
 function resolveColumns(block: StudioBlock): string[] {
   const m = block.fieldMapping
   const cols = new Set<string>()

@@ -4,6 +4,7 @@ import type { SidebarLeftTab } from '@/types/studio'
 import SidebarBlocks from './sidebar/SidebarBlocks.vue'
 import SidebarLayouts from './sidebar/SidebarLayouts.vue'
 import SidebarDataSources from './sidebar/SidebarDataSources.vue'
+import DynamicParamsPanel from './sidebar/DynamicParamsPanel.vue'
 
 const studio = useStudioStore()
 
@@ -68,11 +69,14 @@ const tabs: { id: SidebarLeftTab; label: string; icon: string }[] = [
       </div>
 
       <!-- Panel content -->
-      <div class="flex-1 overflow-y-auto">
+      <div class="flex-1 overflow-y-auto min-h-0">
         <SidebarBlocks v-if="studio.activeLeftTab === 'blocks'" />
         <SidebarLayouts v-else-if="studio.activeLeftTab === 'layouts'" />
         <SidebarDataSources v-else-if="studio.activeLeftTab === 'sources'" />
       </div>
+
+      <!-- Dynamic params panel — shown at bottom when on a template page -->
+      <DynamicParamsPanel />
     </div>
   </aside>
 </template>

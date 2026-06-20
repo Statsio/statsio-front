@@ -1,111 +1,39 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import AppButton from '@/components/ui/AppButton.vue'
+import { fetchPublicStatsDataCatalog, type StatsDataDocument } from '@/api/studio'
 
-type StatsDataItem = {
-  id: string
-  slug: string
-  title: string
-  description: string
-  theme: string
-  rowCount: number
-  updatedAt: string
-  pagesCount: number
-  channel: string
+const loading = ref(true)
+const docs = ref<StatsDataDocument[]>([])
+const searchQuery = ref('')
+
+onMounted(async () => {
+  try {
+    docs.value = await fetchPublicStatsDataCatalog()
+  } finally {
+    loading.value = false
+  }
+})
+
+const filtered = computed(() => {
+  if (!searchQuery.value.trim()) return docs.value
+  const q = searchQuery.value.toLowerCase()
+  return docs.value.filter((d) => d.title.toLowerCase().includes(q))
+})
+
+function formatDate(iso?: string) {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-const filters = ['Tous', 'Économie', 'Politique', 'Santé', 'Société', 'Climat', 'Démographie']
-const activeFilter = ref('Tous')
-
-const mockStatsData: StatsDataItem[] = [
-  {
-    id: '1',
-    slug: 'inflation-ville-france',
-    title: 'Inflation par ville en France',
-    description: 'Suivi mensuel de l\'inflation au niveau communal depuis 2020, croisé avec les indices INSEE et les relevés locaux.',
-    theme: 'Économie',
-    rowCount: 148_230,
-    updatedAt: '2026-06-10',
-    pagesCount: 3,
-    channel: 'Économie & Finance',
-  },
-  {
-    id: '2',
-    slug: 'resultats-municipales-2026',
-    title: 'Résultats Municipales 2026',
-    description: 'Base complète des résultats par commune, tour par tour, avec taux de participation et scores par liste.',
-    theme: 'Politique',
-    rowCount: 36_000,
-    updatedAt: '2026-06-18',
-    pagesCount: 5,
-    channel: 'Politique & Société',
-  },
-  {
-    id: '3',
-    slug: 'esperance-vie-departement',
-    title: 'Espérance de vie par département',
-    description: 'Séries longues de l\'espérance de vie à la naissance et à 65 ans, désagrégées par sexe et territoire.',
-    theme: 'Santé',
-    rowCount: 9_880,
-    updatedAt: '2026-05-28',
-    pagesCount: 2,
-    channel: 'Santé Publique',
-  },
-  {
-    id: '4',
-    slug: 'emissions-co2-secteurs',
-    title: 'Émissions CO₂ par secteur',
-    description: 'Inventaire national des émissions de gaz à effet de serre ventilé par secteur d\'activité et par année.',
-    theme: 'Climat',
-    rowCount: 24_500,
-    updatedAt: '2026-04-15',
-    pagesCount: 4,
-    channel: 'Environnement',
-  },
-  {
-    id: '5',
-    slug: 'population-active-region',
-    title: 'Population active par région',
-    description: 'Structure de la population active, taux d\'emploi et chômage par tranche d\'âge et niveau d\'étude.',
-    theme: 'Démographie',
-    rowCount: 62_000,
-    updatedAt: '2026-03-20',
-    pagesCount: 3,
-    channel: 'Économie & Finance',
-  },
-  {
-    id: '6',
-    slug: 'satisfaction-services-publics',
-    title: 'Satisfaction envers les services publics',
-    description: 'Résultats agrégés des baromètres de satisfaction administrés par les collectivités et l\'État.',
-    theme: 'Société',
-    rowCount: 15_200,
-    updatedAt: '2026-06-01',
-    pagesCount: 2,
-    channel: 'Institutions',
-  },
-]
-
-const filtered = computed(() =>
-  activeFilter.value === 'Tous'
-    ? mockStatsData
-    : mockStatsData.filter((d) => d.theme === activeFilter.value),
-)
-
-const formatRows = (n: number) => {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M lignes`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}k lignes`
-  return `${n} lignes`
-}
-
-const themeColor: Record<string, string> = {
-  Économie: 'bg-blue-50 text-blue-600',
-  Politique: 'bg-violet-50 text-violet-600',
-  Santé: 'bg-emerald-50 text-emerald-700',
-  Climat: 'bg-teal-50 text-teal-700',
-  Démographie: 'bg-orange-50 text-orange-600',
-  Société: 'bg-rose-50 text-rose-600',
+function firstPageLink(doc: StatsDataDocument) {
+  if (!doc.slug) return `/statsdata/${doc.id}`
+  if (doc.pages && doc.pages.length > 0) {
+    const first = doc.pages[0]!
+    return `/statsdata/${doc.slug}/${first.slug ?? first.id}`
+  }
+  return `/statsdata/${doc.slug}`
 }
 
 const editorialPoints = [
@@ -133,56 +61,72 @@ const editorialPoints = [
             </div>
           </div>
 
-          <div class="flex flex-wrap gap-2">
-            <button
-              v-for="f in filters"
-              :key="f"
-              class="rounded-full border px-4 py-1.5 text-sm font-medium transition-colors"
-              :class="activeFilter === f
-                ? 'border-primary bg-primary text-white'
-                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'"
-              @click="activeFilter = f"
-            >
-              {{ f }}
-            </button>
+          <!-- Search -->
+          <div class="relative w-full max-w-sm">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+            </svg>
+            <input
+              v-model="searchQuery"
+              type="search"
+              placeholder="Rechercher dans le catalogue…"
+              class="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-4 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            />
           </div>
 
-          <div class="grid gap-4 sm:grid-cols-2">
-            <RouterLink
-              v-for="item in filtered"
-              :key="item.id"
-              :to="`/statsdata/${item.slug}`"
-              class="group flex flex-col gap-4 overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_12px_40px_-24px_rgba(15,23,42,0.2)] transition-all hover:shadow-[0_20px_60px_-28px_rgba(15,23,42,0.3)] hover:-translate-y-0.5"
-            >
-              <div class="flex items-start justify-between gap-3">
-                <span
-                  class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider"
-                  :class="themeColor[item.theme] ?? 'bg-slate-100 text-slate-500'"
-                >
-                  {{ item.theme }}
-                </span>
-                <span class="text-[11px] text-slate-400">{{ formatRows(item.rowCount) }}</span>
-              </div>
-
-              <div class="flex flex-col gap-2">
-                <h2 class="text-base font-semibold leading-snug text-slate-900 group-hover:text-primary transition-colors">
-                  {{ item.title }}
-                </h2>
-                <p class="text-sm leading-6 text-slate-500 line-clamp-2">{{ item.description }}</p>
-              </div>
-
-              <div class="mt-auto flex items-center justify-between border-t border-slate-100 pt-3 text-[11px] text-slate-400">
-                <span>{{ item.pagesCount }} page{{ item.pagesCount > 1 ? 's' : '' }}</span>
-                <span>MAJ {{ item.updatedAt }}</span>
-              </div>
-            </RouterLink>
+          <!-- Loading -->
+          <div v-if="loading" class="flex items-center justify-center py-24">
+            <svg class="w-8 h-8 text-primary animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
           </div>
 
-          <div v-if="!filtered.length" class="py-16 text-center text-slate-400">
-            Aucun dataset pour ce filtre.
-          </div>
+          <template v-else>
+            <!-- Grid -->
+            <div v-if="filtered.length > 0" class="grid gap-4 sm:grid-cols-2">
+              <RouterLink
+                v-for="doc in filtered"
+                :key="doc.id"
+                :to="firstPageLink(doc)"
+                class="group flex flex-col gap-4 overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_12px_40px_-24px_rgba(15,23,42,0.2)] transition-all hover:shadow-[0_20px_60px_-28px_rgba(15,23,42,0.3)] hover:-translate-y-0.5"
+              >
+                <div class="flex items-start justify-between gap-3">
+                  <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider bg-primary/10 text-primary">
+                    StatsData
+                  </span>
+                  <span class="text-[11px] text-slate-400">
+                    {{ (doc.pages?.length ?? 0) + 1 }} page{{ ((doc.pages?.length ?? 0) + 1) > 1 ? 's' : '' }}
+                  </span>
+                </div>
+
+                <div class="flex flex-col gap-2">
+                  <h2 class="text-base font-semibold leading-snug text-slate-900 group-hover:text-primary transition-colors">
+                    {{ doc.title }}
+                  </h2>
+                  <p v-if="doc.slug" class="text-[11px] font-mono text-slate-400">{{ doc.slug }}</p>
+                </div>
+
+                <div class="mt-auto flex items-center justify-between border-t border-slate-100 pt-3 text-[11px] text-slate-400">
+                  <span>{{ (doc.sections ?? []).length }} section{{ (doc.sections ?? []).length > 1 ? 's' : '' }}</span>
+                  <span>MAJ {{ formatDate((doc as any).updated_at) }}</span>
+                </div>
+              </RouterLink>
+            </div>
+
+            <!-- Empty catalog -->
+            <div v-else class="py-20 text-center">
+              <svg class="w-12 h-12 mx-auto mb-4 opacity-20 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 5.625c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
+              </svg>
+              <p class="text-slate-400 text-sm">
+                {{ searchQuery ? 'Aucun résultat pour cette recherche.' : 'Aucun StatsData publié pour le moment.' }}
+              </p>
+            </div>
+          </template>
         </div>
 
+        <!-- Sidebar -->
         <aside class="flex flex-col gap-4">
           <div class="rounded-[2rem] border border-slate-200 bg-slate-950 p-6 text-white">
             <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Format StatsData</p>
@@ -206,6 +150,13 @@ const editorialPoints = [
             <AppButton as="router-link" to="/contenus" variant="primary" size="sm" class="mt-4 w-full justify-center">
               Accéder à mes contenus
             </AppButton>
+          </div>
+
+          <!-- Live count -->
+          <div v-if="!loading" class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Dans le catalogue</p>
+            <p class="mt-2 text-3xl font-bold text-slate-950">{{ docs.length }}</p>
+            <p class="text-sm text-slate-500 mt-1">dataset{{ docs.length > 1 ? 's' : '' }} publié{{ docs.length > 1 ? 's' : '' }}</p>
           </div>
         </aside>
       </div>

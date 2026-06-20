@@ -26,6 +26,7 @@ onMounted(async () => {
         { id: doc.id, type: 'statsdata', title: doc.title, status: doc.status as 'draft' | 'published' },
         doc.sections,
         doc.blocks,
+        doc.pages,
       )
     } catch {
       studio.initPage({ id: documentId, type: 'statsdata', title: 'Nouveau dashboard' })

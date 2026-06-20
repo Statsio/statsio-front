@@ -12,7 +12,10 @@ export interface StudioContent {
 
 // ─── Blocks ───────────────────────────────────────────────────────────────────
 
-export type BlockType = 'bar' | 'line' | 'pie' | 'table' | 'kpi'
+export type BlockType = 'bar' | 'line' | 'pie' | 'table' | 'kpi' | 'heading' | 'paragraph' | 'quote' | 'callout' | 'search'
+
+export const TEXT_BLOCK_TYPES: BlockType[] = ['heading', 'paragraph', 'quote', 'callout']
+export function isTextBlock(type: BlockType) { return TEXT_BLOCK_TYPES.includes(type) }
 
 export interface BlockDefinition {
   type: BlockType
@@ -37,6 +40,8 @@ export interface FieldMapping {
   columns?: string[]
   valueColumn?: string
   comparisonColumn?: string
+  searchColumn?: string
+  targetPageId?: string
 }
 
 export interface BlockConfig {
@@ -52,6 +57,17 @@ export interface BlockConfig {
   showPagination?: boolean
   pageSize?: number
   orientation?: 'vertical' | 'horizontal'
+  // KPI comparison
+  comparisonFormat?: 'percent' | 'number' | 'currency'
+  // Search block config
+  searchPlaceholder?: string
+  // Text block config
+  content?: string
+  fontFamily?: string
+  fontSize?: number
+  textAlign?: 'left' | 'center' | 'right' | 'justify'
+  headingLevel?: 1 | 2 | 3
+  calloutColor?: string
 }
 
 export type FilterOperator = '=' | '!=' | '>' | '>=' | '<' | '<=' | 'contains' | 'not_contains'
@@ -70,6 +86,7 @@ export interface StudioBlock {
   fieldMapping: FieldMapping
   config: BlockConfig
   filters?: BlockFilter[]
+  comparisonFilters?: BlockFilter[]
 }
 
 // ─── Layout ───────────────────────────────────────────────────────────────────
@@ -191,6 +208,18 @@ export type SectionLayout = '1-col' | '2-cols' | '3-cols' | '2-1-cols' | '1-2-co
 export interface Section {
   id: string
   layout: SectionLayout
+  pageId?: string
+}
+
+// ─── Document pages ───────────────────────────────────────────────────────────
+
+export interface StudioDocumentPage {
+  id: string
+  title: string
+  slug?: string
+  description?: string
+  isTemplate?: boolean
+  paramName?: string
 }
 
 export interface SectionLayoutDefinition {
@@ -219,6 +248,16 @@ export interface BlockCategoryDef {
 
 export const BLOCK_CATEGORIES: BlockCategoryDef[] = [
   {
+    id: 'text',
+    label: 'Texte',
+    blocks: [
+      { type: 'heading',   label: 'Titre',      description: 'Titre H1/H2/H3',          iconPath: 'M4 6h16M4 12h8m-8 6h16' },
+      { type: 'paragraph', label: 'Paragraphe', description: 'Bloc de texte libre',       iconPath: 'M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5' },
+      { type: 'quote',     label: 'Citation',   description: 'Bloc citation stylisé',     iconPath: 'M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z' },
+      { type: 'callout',   label: 'Encadré',    description: 'Note ou info mise en avant', iconPath: 'M12 18v-5.25m0 0a6.01 6.01 0 0 0 1.5-.189m-1.5.189a6.01 6.01 0 0 1-1.5-.189m3.75 7.478a12.06 12.06 0 0 1-4.5 0m3.75 2.383a14.406 14.406 0 0 1-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 1 0-7.517 0c.85.493 1.509 1.333 1.509 2.316V18' },
+    ],
+  },
+  {
     id: 'charts',
     label: 'Graphiques',
     blocks: [
@@ -232,7 +271,8 @@ export const BLOCK_CATEGORIES: BlockCategoryDef[] = [
     label: 'Données',
     blocks: [
       { type: 'table', label: 'Tableau', description: 'Données tabulaires paginées',   iconPath: 'M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-1.5A1.125 1.125 0 0 1 18 18.375' },
-      { type: 'kpi',   label: 'KPI',     description: 'Indicateur clé avec tendance',  iconPath: 'M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z' },
+      { type: 'kpi',    label: 'KPI',      description: 'Indicateur clé avec tendance', iconPath: 'M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z' },
+      { type: 'search', label: 'Recherche', description: 'Barre de recherche drill-down', iconPath: 'M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z' },
     ],
   },
 ]

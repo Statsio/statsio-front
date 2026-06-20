@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import type {
   StudioBlock,
   StudioContent,
+  StudioDocumentPage,
   BlockType,
   FieldMapping,
   BlockConfig,
@@ -21,11 +22,26 @@ function getColCount(layout: SectionLayout): number {
   return SECTION_LAYOUT_DEFINITIONS.find((d) => d.type === layout)?.cols ?? 1
 }
 
+interface HistoryEntry {
+  pages: StudioDocumentPage[]
+  sections: Section[]
+  blocks: StudioBlock[]
+}
+
+function deepClone<T>(val: T): T {
+  return JSON.parse(JSON.stringify(val))
+}
+
+const MAX_HISTORY = 50
+
 export const useStudioStore = defineStore('studio', () => {
   // ─── State ──────────────────────────────────────────────────────────────────
 
   const content = ref<StudioContent | null>(null)
-  const sections = ref<Section[]>([{ id: uid(), layout: '1-col' }])
+  const pages = ref<StudioDocumentPage[]>([{ id: 'default', title: 'Page 1' }])
+  const currentPageId = ref<string>('default')
+  const pageParams = ref<Record<string, string>>({})
+  const sections = ref<Section[]>([{ id: uid(), layout: '1-col', pageId: 'default' }])
   const blocks = ref<StudioBlock[]>([])
 
   const selectedBlockId = ref<string | null>(null)
@@ -36,7 +52,70 @@ export const useStudioStore = defineStore('studio', () => {
   const isDirty = ref(false)
   const dirtyVersion = ref(0)
 
+  // ─── History (undo/redo) ─────────────────────────────────────────────────────
+
+  const past = ref<HistoryEntry[]>([])
+  const future = ref<HistoryEntry[]>([])
+
+  const canUndo = computed(() => past.value.length > 0)
+  const canRedo = computed(() => future.value.length > 0)
+
+  // Call BEFORE applying a mutation to save the current state
+  function snapshot() {
+    past.value = [
+      ...past.value.slice(-(MAX_HISTORY - 1)),
+      { pages: deepClone(pages.value), sections: deepClone(sections.value), blocks: deepClone(blocks.value) },
+    ]
+    future.value = []
+  }
+
+  function undo() {
+    const prev = past.value[past.value.length - 1]
+    if (!prev) return
+    future.value = [
+      ...future.value,
+      { pages: deepClone(pages.value), sections: deepClone(sections.value), blocks: deepClone(blocks.value) },
+    ]
+    past.value = past.value.slice(0, -1)
+    pages.value = prev.pages
+    sections.value = prev.sections
+    blocks.value = prev.blocks
+    if (!pages.value.find((p) => p.id === currentPageId.value)) {
+      currentPageId.value = pages.value[0]?.id ?? 'default'
+    }
+    selectedBlockId.value = null
+    isSidebarRightOpen.value = false
+    markDirty()
+  }
+
+  function redo() {
+    const next = future.value[future.value.length - 1]
+    if (!next) return
+    past.value = [
+      ...past.value.slice(-(MAX_HISTORY - 1)),
+      { pages: deepClone(pages.value), sections: deepClone(sections.value), blocks: deepClone(blocks.value) },
+    ]
+    future.value = future.value.slice(0, -1)
+    pages.value = next.pages
+    sections.value = next.sections
+    blocks.value = next.blocks
+    if (!pages.value.find((p) => p.id === currentPageId.value)) {
+      currentPageId.value = pages.value[0]?.id ?? 'default'
+    }
+    selectedBlockId.value = null
+    isSidebarRightOpen.value = false
+    markDirty()
+  }
+
   // ─── Computed ────────────────────────────────────────────────────────────────
+
+  const currentPage = computed<StudioDocumentPage | undefined>(
+    () => pages.value.find((p) => p.id === currentPageId.value),
+  )
+
+  const currentPageSections = computed<Section[]>(
+    () => sections.value.filter((s) => (s.pageId ?? 'default') === currentPageId.value),
+  )
 
   const selectedBlock = computed<StudioBlock | null>(() => {
     if (!selectedBlockId.value) return null
@@ -65,14 +144,32 @@ export const useStudioStore = defineStore('studio', () => {
     pageContent: StudioContent,
     pageSections?: Section[],
     pageBlocks?: StudioBlock[],
+    documentPages?: StudioDocumentPage[],
   ) {
     content.value = pageContent
-    sections.value = pageSections ?? [{ id: uid(), layout: '1-col' }]
+
+    if (documentPages && documentPages.length > 0) {
+      pages.value = documentPages
+    } else {
+      pages.value = [{ id: 'default', title: 'Page 1' }]
+    }
+    currentPageId.value = pages.value[0]?.id ?? 'default'
+    pageParams.value = {}
+
+    // Migrate sections without pageId to the first page
+    const defaultPageId = pages.value[0]?.id ?? 'default'
+    sections.value = (pageSections ?? [{ id: uid(), layout: '1-col', pageId: defaultPageId }]).map((s) => ({
+      ...s,
+      pageId: s.pageId ?? defaultPageId,
+    }))
+
     blocks.value = pageBlocks ?? []
     selectedBlockId.value = null
     saveStatus.value = 'idle'
     isDirty.value = false
     dirtyVersion.value = 0
+    past.value = []
+    future.value = []
   }
 
   function setTitle(title: string) {
@@ -84,7 +181,8 @@ export const useStudioStore = defineStore('studio', () => {
   // ─── Sections ────────────────────────────────────────────────────────────────
 
   function addSection(layout: SectionLayout, atIndex?: number) {
-    const section: Section = { id: uid(), layout }
+    snapshot()
+    const section: Section = { id: uid(), layout, pageId: currentPageId.value }
     if (atIndex !== undefined) {
       sections.value.splice(atIndex, 0, section)
     } else {
@@ -95,9 +193,9 @@ export const useStudioStore = defineStore('studio', () => {
   }
 
   function removeSection(sectionId: string) {
+    snapshot()
     sections.value = sections.value.filter((s) => s.id !== sectionId)
-    // Remove blocks that belonged to zones of this section
-    blocks.value = blocks.value.filter((b) => !b.zoneId.startsWith(`${sectionId}-`))
+    blocks.value = blocks.value.filter((b) => !b.zoneId?.startsWith(`${sectionId}-`))
     if (selectedBlockId.value) {
       const stillExists = blocks.value.find((b) => b.id === selectedBlockId.value)
       if (!stillExists) {
@@ -111,12 +209,11 @@ export const useStudioStore = defineStore('studio', () => {
   function changeSectionLayout(sectionId: string, layout: SectionLayout) {
     const section = sections.value.find((s) => s.id === sectionId)
     if (!section) return
-    const oldCols = getColCount(section.layout)
+    snapshot()
     const newCols = getColCount(layout)
-    // Migrate blocks: keep them in same column index if possible, else merge into last col
     blocks.value = blocks.value.map((b) => {
       if (!b.zoneId.startsWith(`${sectionId}-`)) return b
-      const colIdx = parseInt(b.zoneId.split('-').pop() ?? '0', 10)
+      const colIdx = parseInt(b.zoneId?.split('-').pop() ?? '0', 10)
       const safeIdx = Math.min(colIdx, newCols - 1)
       return { ...b, zoneId: `${sectionId}-${safeIdx}` }
     })
@@ -125,21 +222,120 @@ export const useStudioStore = defineStore('studio', () => {
   }
 
   function reorderSections(newOrder: Section[]) {
+    snapshot()
     sections.value = newOrder
     markDirty()
   }
 
+  function reorderCurrentPageSections(newPageOrder: Section[]) {
+    snapshot()
+    const otherSections = sections.value.filter((s) => (s.pageId ?? 'default') !== currentPageId.value)
+    sections.value = [...otherSections, ...newPageOrder]
+    markDirty()
+  }
+
+  // ─── Pages ───────────────────────────────────────────────────────────────────
+
+  function addPage(title: string, options: { isTemplate?: boolean; paramName?: string; description?: string } = {}): StudioDocumentPage {
+    snapshot()
+    const page: StudioDocumentPage = {
+      id: uid(),
+      title,
+      slug: title.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+      description: options.description,
+      isTemplate: options.isTemplate,
+      paramName: options.paramName,
+    }
+    pages.value.push(page)
+    currentPageId.value = page.id
+    pageParams.value = {}
+    selectedBlockId.value = null
+    isSidebarRightOpen.value = false
+    markDirty()
+    return page
+  }
+
+  function updatePage(pageId: string, patch: Partial<Omit<StudioDocumentPage, 'id'>>) {
+    const page = pages.value.find((p) => p.id === pageId)
+    if (!page) return
+    snapshot()
+    Object.assign(page, patch)
+    markDirty()
+  }
+
+  function switchPage(pageId: string) {
+    if (!pages.value.find((p) => p.id === pageId)) return
+    currentPageId.value = pageId
+    pageParams.value = {}
+    selectedBlockId.value = null
+    isSidebarRightOpen.value = false
+  }
+
+  function removePage(pageId: string) {
+    if (pages.value.length <= 1) return
+    snapshot()
+    // Remove blocks that belong to sections of this page
+    const pageSectionIds = sections.value
+      .filter((s) => (s.pageId ?? 'default') === pageId)
+      .map((s) => s.id)
+    blocks.value = blocks.value.filter((b) => {
+      const sectionId = b.zoneId?.split('-').slice(0, -1).join('-') ?? ''
+      return !pageSectionIds.includes(sectionId)
+    })
+    sections.value = sections.value.filter((s) => (s.pageId ?? 'default') !== pageId)
+    pages.value = pages.value.filter((p) => p.id !== pageId)
+    if (currentPageId.value === pageId) {
+      currentPageId.value = pages.value[0]?.id ?? 'default'
+      pageParams.value = {}
+      selectedBlockId.value = null
+      isSidebarRightOpen.value = false
+    }
+    markDirty()
+  }
+
+  function setPageParam(name: string, value: string) {
+    pageParams.value = { ...pageParams.value, [name]: value }
+  }
+
+  function clearPageParams() {
+    pageParams.value = {}
+  }
+
   // ─── Blocks ──────────────────────────────────────────────────────────────────
 
-  function addBlock(type: BlockType, zoneId: string): StudioBlock {
+  const TEXT_DEFAULTS: Partial<Record<BlockType, object>> = {
+    heading:   { content: '<h2></h2>', headingLevel: 2, textAlign: 'left' },
+    paragraph: { content: '<p></p>', textAlign: 'left' },
+    quote:     { content: '<p></p>', textAlign: 'left' },
+    callout:   { content: '<p></p>', textAlign: 'left', calloutColor: '#eff6ff' },
+  }
+
+  function addBlock(type: BlockType, zoneId: string, atIndex?: number): StudioBlock {
+    snapshot()
     const block: StudioBlock = {
       id: uid(),
       type,
       zoneId,
       fieldMapping: {},
-      config: { title: '' },
+      config: { title: '', ...(TEXT_DEFAULTS[type] ?? {}) },
     }
-    blocks.value.push(block)
+
+    if (atIndex !== undefined) {
+      const zoneBlockIds = blocks.value.filter((b) => b.zoneId === zoneId).map((b) => b.id)
+      if (atIndex < zoneBlockIds.length) {
+        const flatIdx = blocks.value.findIndex((b) => b.id === zoneBlockIds[atIndex])
+        if (flatIdx >= 0) {
+          blocks.value.splice(flatIdx, 0, block)
+        } else {
+          blocks.value.push(block)
+        }
+      } else {
+        blocks.value.push(block)
+      }
+    } else {
+      blocks.value.push(block)
+    }
+
     selectedBlockId.value = block.id
     isSidebarRightOpen.value = true
     markDirty()
@@ -147,6 +343,7 @@ export const useStudioStore = defineStore('studio', () => {
   }
 
   function removeBlock(blockId: string) {
+    snapshot()
     blocks.value = blocks.value.filter((b) => b.id !== blockId)
     if (selectedBlockId.value === blockId) {
       selectedBlockId.value = null
@@ -161,22 +358,20 @@ export const useStudioStore = defineStore('studio', () => {
   }
 
   function moveBlock(blockId: string, toZoneId: string) {
+    snapshot()
     const block = blocks.value.find((b) => b.id === blockId)
     if (!block) return
     block.zoneId = toZoneId
     markDirty()
   }
 
-  // Called by vuedraggable v-model setter — handles both reorder within zone
-  // and cross-zone moves (updates zoneId for moved blocks)
   function setZoneBlocks(zoneId: string, blockIds: string[]) {
-    // Update zoneId for blocks that landed in this zone
+    snapshot()
     for (const block of blocks.value) {
       if (blockIds.includes(block.id)) {
         block.zoneId = zoneId
       }
     }
-    // Reorder: place zone blocks in the declared order
     const zoneBlocks = blockIds
       .map((id) => blocks.value.find((b) => b.id === id))
       .filter(Boolean) as StudioBlock[]
@@ -188,11 +383,15 @@ export const useStudioStore = defineStore('studio', () => {
   function updateBlockConfig(blockId: string, config: Partial<BlockConfig>) {
     const block = blocks.value.find((b) => b.id === blockId)
     if (!block) return
+    // Text content changes are handled by Tiptap's internal history — no structural snapshot
+    const isTextOnly = Object.keys(config).length === 1 && 'content' in config
+    if (!isTextOnly) snapshot()
     block.config = { ...block.config, ...config }
     markDirty()
   }
 
   function updateBlockDataset(blockId: string, datasetId: string) {
+    snapshot()
     const block = blocks.value.find((b) => b.id === blockId)
     if (!block) return
     block.datasetId = datasetId
@@ -201,6 +400,7 @@ export const useStudioStore = defineStore('studio', () => {
   }
 
   function updateBlockFieldMapping(blockId: string, mapping: Partial<FieldMapping>) {
+    snapshot()
     const block = blocks.value.find((b) => b.id === blockId)
     if (!block) return
     block.fieldMapping = { ...block.fieldMapping, ...mapping }
@@ -208,9 +408,18 @@ export const useStudioStore = defineStore('studio', () => {
   }
 
   function updateBlockFilters(blockId: string, filters: import('@/types/studio').BlockFilter[]) {
+    snapshot()
     const block = blocks.value.find((b) => b.id === blockId)
     if (!block) return
     block.filters = filters
+    markDirty()
+  }
+
+  function updateBlockComparisonFilters(blockId: string, filters: import('@/types/studio').BlockFilter[]) {
+    snapshot()
+    const block = blocks.value.find((b) => b.id === blockId)
+    if (!block) return
+    block.comparisonFilters = filters
     markDirty()
   }
 
@@ -247,6 +456,7 @@ export const useStudioStore = defineStore('studio', () => {
   function getPayload() {
     return {
       title: content.value?.title,
+      pages: pages.value,
       sections: sections.value,
       blocks: blocks.value,
     }
@@ -254,6 +464,11 @@ export const useStudioStore = defineStore('studio', () => {
 
   return {
     content,
+    pages,
+    currentPageId,
+    currentPage,
+    currentPageSections,
+    pageParams,
     sections,
     blocks,
     selectedBlock,
@@ -265,12 +480,21 @@ export const useStudioStore = defineStore('studio', () => {
     activeLeftTab,
     isPanelOpen,
     isSidebarRightOpen,
+    canUndo,
+    canRedo,
     initPage,
     setTitle,
     addSection,
     removeSection,
     changeSectionLayout,
     reorderSections,
+    addPage,
+    updatePage,
+    switchPage,
+    removePage,
+    setPageParam,
+    clearPageParams,
+    reorderCurrentPageSections,
     addBlock,
     removeBlock,
     selectBlock,
@@ -280,8 +504,11 @@ export const useStudioStore = defineStore('studio', () => {
     updateBlockDataset,
     updateBlockFieldMapping,
     updateBlockFilters,
+    updateBlockComparisonFilters,
     setSaveStatus,
     markDirty,
+    undo,
+    redo,
     setLeftTab,
     closePanel,
     getPayload,
