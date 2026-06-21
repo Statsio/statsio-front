@@ -28,7 +28,7 @@ function formatDate(iso?: string) {
 }
 
 function firstPageLink(doc: StatsDataDocument) {
-  if (!doc.slug) return `/statsdata/${doc.id}`
+  if (!doc.slug) return `/statsdata/${doc.id}` // fallback for old docs without slug
   if (doc.pages && doc.pages.length > 0) {
     const first = doc.pages[0]!
     return `/statsdata/${doc.slug}/${first.slug ?? first.id}`

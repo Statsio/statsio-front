@@ -49,6 +49,7 @@ export async function fetchBlockData(
     columns?: string[]
     limit?: number
     filters?: import('@/types/studio').BlockFilter[]
+    joins?: import('@/types/studio').BlockJoin[]
   } = {},
 ): Promise<BlockQueryResult> {
   const { data } = await apiHttp.get(STATSIO_API.datasets.query(datasetId), {
@@ -66,6 +67,15 @@ export async function fetchBlockData(
           parts.push(`filters[${i}][value]=${encodeURIComponent(f.value)}`)
         })
       }
+      if (p.joins?.length) {
+        p.joins.forEach((j: import('@/types/studio').BlockJoin, i: number) => {
+          parts.push(`joins[${i}][dataset_id]=${encodeURIComponent(j.datasetId)}`)
+          parts.push(`joins[${i}][left_column]=${encodeURIComponent(j.leftColumn)}`)
+          parts.push(`joins[${i}][right_column]=${encodeURIComponent(j.rightColumn)}`)
+          parts.push(`joins[${i}][type]=${j.type}`)
+          j.columns.forEach((c) => parts.push(`joins[${i}][columns][]=${encodeURIComponent(c)}`))
+        })
+      }
       return parts.join('&')
     },
   })
@@ -74,6 +84,34 @@ export async function fetchBlockData(
     rows: data.data?.rows ?? [],
     totalRows: data.data?.total_rows ?? 0,
   }
+}
+
+export async function fetchSearchRows(
+  datasetId: string,
+  columns: string[],
+  searchQ: string,
+  limit = 50,
+  joins: import('@/types/studio').BlockJoin[] = [],
+): Promise<Record<string, unknown>[]> {
+  const { data } = await apiHttp.get(STATSIO_API.datasets.query(datasetId), {
+    params: {},
+    paramsSerializer: () => {
+      const parts = columns.map((c) => `search_columns[]=${encodeURIComponent(c)}`)
+      parts.push(`search_q=${encodeURIComponent(searchQ)}`)
+      parts.push(`limit=${limit}`)
+      if (joins.length) {
+        joins.forEach((j, i) => {
+          parts.push(`joins[${i}][dataset_id]=${encodeURIComponent(j.datasetId)}`)
+          parts.push(`joins[${i}][left_column]=${encodeURIComponent(j.leftColumn)}`)
+          parts.push(`joins[${i}][right_column]=${encodeURIComponent(j.rightColumn)}`)
+          parts.push(`joins[${i}][type]=${j.type}`)
+          j.columns.forEach((c) => parts.push(`joins[${i}][columns][]=${encodeURIComponent(c)}`))
+        })
+      }
+      return parts.join('&')
+    },
+  })
+  return data.data?.rows ?? []
 }
 
 export async function fetchDistinctValues(datasetId: string, column: string, search: string): Promise<string[]> {
@@ -114,6 +152,11 @@ export interface StatsDataDocument {
 export async function fetchUserStatsDataDocuments(): Promise<StatsDataDocument[]> {
   const { data } = await apiHttp.get(STATSIO_API.studioContent.collection)
   return data.data ?? []
+}
+
+export async function createStatsDataDocument(title: string): Promise<StatsDataDocument> {
+  const { data } = await apiHttp.post(STATSIO_API.studioContent.collection, { title })
+  return data.data
 }
 
 export async function fetchPublicStatsDataCatalog(): Promise<StatsDataDocument[]> {

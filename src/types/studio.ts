@@ -31,6 +31,20 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
   { type: 'kpi', label: 'KPI', icon: 'hashtag', description: 'Indicateur clé' },
 ]
 
+export interface SearchSource {
+  datasetId: string
+  columns: string[]
+}
+
+export interface SearchJoin {
+  sourceDatasetId: string   // which search source this join enriches
+  datasetId: string         // secondary dataset to join
+  leftColumn: string        // column from sourceDataset
+  rightColumn: string       // column from secondary dataset
+  columns: string[]         // columns to pull from secondary dataset
+  type: 'inner' | 'left'
+}
+
 export interface FieldMapping {
   xAxis?: string
   yAxis?: string
@@ -40,8 +54,12 @@ export interface FieldMapping {
   columns?: string[]
   valueColumn?: string
   comparisonColumn?: string
-  searchColumn?: string
+  searchColumn?: string    // legacy – kept for backward compat
+  searchSources?: SearchSource[]
+  searchJoins?: SearchJoin[]
   targetPageId?: string
+  urlParams?: string[]
+  urlParamMapping?: Record<string, string>
 }
 
 export interface BlockConfig {
@@ -78,6 +96,14 @@ export interface BlockFilter {
   value: string
 }
 
+export interface BlockJoin {
+  datasetId: string
+  leftColumn: string   // column from primary dataset
+  rightColumn: string  // column from secondary dataset
+  columns: string[]    // columns to pull from secondary dataset
+  type: 'inner' | 'left'
+}
+
 export interface StudioBlock {
   id: string
   type: BlockType
@@ -87,6 +113,7 @@ export interface StudioBlock {
   config: BlockConfig
   filters?: BlockFilter[]
   comparisonFilters?: BlockFilter[]
+  joins?: BlockJoin[]
 }
 
 // ─── Layout ───────────────────────────────────────────────────────────────────
@@ -199,7 +226,7 @@ export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 // ─── Sidebar tabs ─────────────────────────────────────────────────────────────
 
-export type SidebarLeftTab = 'blocks' | 'layouts' | 'sources'
+export type SidebarLeftTab = 'blocks' | 'layouts' | 'sources' | 'variables'
 
 // ─── Sections (canvas model) ──────────────────────────────────────────────────
 

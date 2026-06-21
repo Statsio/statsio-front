@@ -176,7 +176,7 @@ function copyLink() {
                       <p class="text-sm font-semibold text-slate-800">{{ block.config.title }}</p>
                     </div>
                     <div class="p-4">
-                      <BlockRenderer :block="block" />
+                      <BlockRenderer :block="block" :readonly="true" />
                     </div>
                   </div>
                 </div>

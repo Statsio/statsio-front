@@ -271,6 +271,14 @@ export const useStudioStore = defineStore('studio', () => {
     isSidebarRightOpen.value = false
   }
 
+  // Like switchPage but keeps existing pageParams (used when URL navigation already set them)
+  function switchPageKeepParams(pageId: string) {
+    if (!pages.value.find((p) => p.id === pageId)) return
+    currentPageId.value = pageId
+    selectedBlockId.value = null
+    isSidebarRightOpen.value = false
+  }
+
   function removePage(pageId: string) {
     if (pages.value.length <= 1) return
     snapshot()
@@ -295,6 +303,10 @@ export const useStudioStore = defineStore('studio', () => {
 
   function setPageParam(name: string, value: string) {
     pageParams.value = { ...pageParams.value, [name]: value }
+  }
+
+  function setPageParams(params: Record<string, string>) {
+    pageParams.value = { ...params }
   }
 
   function clearPageParams() {
@@ -423,6 +435,14 @@ export const useStudioStore = defineStore('studio', () => {
     markDirty()
   }
 
+  function updateBlockJoins(blockId: string, joins: import('@/types/studio').BlockJoin[]) {
+    snapshot()
+    const block = blocks.value.find((b) => b.id === blockId)
+    if (!block) return
+    block.joins = joins
+    markDirty()
+  }
+
   // ─── Save status ─────────────────────────────────────────────────────────────
 
   function setSaveStatus(status: SaveStatus) {
@@ -493,7 +513,9 @@ export const useStudioStore = defineStore('studio', () => {
     switchPage,
     removePage,
     setPageParam,
+    setPageParams,
     clearPageParams,
+    switchPageKeepParams,
     reorderCurrentPageSections,
     addBlock,
     removeBlock,
@@ -505,6 +527,7 @@ export const useStudioStore = defineStore('studio', () => {
     updateBlockFieldMapping,
     updateBlockFilters,
     updateBlockComparisonFilters,
+    updateBlockJoins,
     setSaveStatus,
     markDirty,
     undo,

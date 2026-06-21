@@ -2,11 +2,18 @@
 import { computed, ref, watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
+import { useActiveEditor } from '@/composables/useActiveEditor'
 import { isTextBlock } from '@/types/studio'
-import type { BlockFilter, FilterOperator, BlockType } from '@/types/studio'
+import type { BlockFilter, FilterOperator, BlockType, BlockJoin } from '@/types/studio'
 
 const studio   = useStudioStore()
 const datasets = useStudioDatasetsStore()
+const { setActiveInput } = useActiveEditor()
+
+function hasVariable(value: string) { return /\{\{\w+\}\}/.test(value) }
+function extractVariables(value: string) {
+  return [...value.matchAll(/\{\{(\w+)\}\}/g)].map((m) => m[1]!)
+}
 
 const block  = computed(() => studio.selectedBlock)
 const isText = computed(() => block.value ? isTextBlock(block.value.type) : false)
@@ -37,15 +44,7 @@ watch([() => block.value?.id, isText, isSearch], () => {
 
 // ─── Accordion state ──────────────────────────────────────────────────────────
 
-const ALL_OPEN = [
-  'source', 'axes', 'segments', 'value', 'filters-list',
-  'comp-ref', 'comp-filters', 'comp-format',
-  'title', 'orientation', 'line-opts', 'table-opts', 'color',
-  'heading-level', 'alignment', 'font-family', 'font-size', 'bg-color',
-  'search-col', 'search-target',
-]
-
-const openSections = ref<Set<string>>(new Set(ALL_OPEN))
+const openSections = ref<Set<string>>(new Set<string>())
 
 function toggle(id: string) {
   const s = new Set(openSections.value)
@@ -55,7 +54,7 @@ function toggle(id: string) {
 const open = (id: string) => openSections.value.has(id)
 
 watch(() => block.value?.id, () => {
-  openSections.value = new Set(ALL_OPEN)
+  openSections.value = new Set<string>()
 })
 
 // ─── Block metadata ───────────────────────────────────────────────────────────
@@ -145,6 +144,168 @@ const compFilters = computed<BlockFilter[]>(() => block.value?.comparisonFilters
 function addCompFilter()                                    { if (!block.value) return; studio.updateBlockComparisonFilters(block.value.id, [...compFilters.value, { column: columnNames.value[0] ?? '', operator: '=', value: '' }]) }
 function removeCompFilter(i: number)                        { if (!block.value) return; studio.updateBlockComparisonFilters(block.value.id, compFilters.value.filter((_, idx) => idx !== i)) }
 function updateCompFilter(i: number, p: Partial<BlockFilter>) { if (!block.value) return; studio.updateBlockComparisonFilters(block.value.id, compFilters.value.map((f, idx) => idx === i ? { ...f, ...p } : f)) }
+
+// ─── Joins ────────────────────────────────────────────────────────────────────
+
+const joins = computed<BlockJoin[]>(() => block.value?.joins ?? [])
+
+function addJoin() {
+  if (!block.value) return
+  studio.updateBlockJoins(block.value.id, [
+    ...joins.value,
+    { datasetId: '', leftColumn: '', rightColumn: '', columns: [], type: 'left' },
+  ])
+}
+function removeJoin(i: number) {
+  if (!block.value) return
+  studio.updateBlockJoins(block.value.id, joins.value.filter((_, idx) => idx !== i))
+}
+function updateJoin(i: number, patch: Partial<BlockJoin>) {
+  if (!block.value) return
+  const updated = joins.value.map((j, idx) => idx === i ? { ...j, ...patch } : j)
+  studio.updateBlockJoins(block.value.id, updated)
+  // Load schema for the newly selected dataset
+  if (patch.datasetId) datasets.loadSchema(patch.datasetId)
+}
+function toggleJoinColumn(joinIdx: number, col: string) {
+  const j = joins.value[joinIdx]
+  if (!j) return
+  const cols = j.columns.includes(col)
+    ? j.columns.filter((c) => c !== col)
+    : [...j.columns, col]
+  updateJoin(joinIdx, { columns: cols })
+}
+
+// Load schemas for existing join datasets on block change
+watch(() => block.value?.id, () => {
+  joins.value.forEach((j) => { if (j.datasetId) datasets.loadSchema(j.datasetId) })
+}, { immediate: true })
+
+function joinSchema(joinIdx: number) {
+  const id = joins.value[joinIdx]?.datasetId
+  return id ? (datasets.getSchema(id) ?? null) : null
+}
+function joinColumnNames(joinIdx: number) {
+  return joinSchema(joinIdx)?.columns.map((c) => c.name) ?? []
+}
+
+// ─── Search sources ───────────────────────────────────────────────────────────
+
+import type { SearchSource, SearchJoin } from '@/types/studio'
+
+const searchSources = computed<SearchSource[]>(() => block.value?.fieldMapping.searchSources ?? [])
+
+function addSearchSource() {
+  if (!block.value) return
+  studio.updateBlockFieldMapping(block.value.id, {
+    searchSources: [...searchSources.value, { datasetId: '', columns: [] }],
+  })
+}
+function removeSearchSource(i: number) {
+  if (!block.value) return
+  studio.updateBlockFieldMapping(block.value.id, {
+    searchSources: searchSources.value.filter((_, idx) => idx !== i),
+  })
+}
+function updateSearchSource(i: number, patch: Partial<SearchSource>) {
+  if (!block.value) return
+  const updated = searchSources.value.map((s, idx) => idx === i ? { ...s, ...patch } : s)
+  studio.updateBlockFieldMapping(block.value.id, { searchSources: updated })
+  if (patch.datasetId) datasets.loadSchema(patch.datasetId)
+}
+function toggleSearchSourceColumn(sourceIdx: number, col: string) {
+  const s = searchSources.value[sourceIdx]
+  if (!s) return
+  const cols = s.columns.includes(col)
+    ? s.columns.filter((c) => c !== col)
+    : [...s.columns, col]
+  updateSearchSource(sourceIdx, { columns: cols })
+}
+
+watch(() => block.value?.id, () => {
+  searchSources.value.forEach((s) => { if (s.datasetId) datasets.loadSchema(s.datasetId) })
+}, { immediate: true })
+
+function searchSourceSchema(si: number) {
+  const id = searchSources.value[si]?.datasetId
+  return id ? (datasets.getSchema(id) ?? null) : null
+}
+function searchSourceColumnNames(si: number) {
+  return searchSourceSchema(si)?.columns.map((c) => c.name) ?? []
+}
+
+// ─── Search joins (global, not per-source) ────────────────────────────────────
+
+const searchJoins = computed<SearchJoin[]>(() => block.value?.fieldMapping.searchJoins ?? [])
+
+function addSearchJoin() {
+  if (!block.value) return
+  const firstSource = searchSources.value[0]?.datasetId ?? ''
+  studio.updateBlockFieldMapping(block.value.id, {
+    searchJoins: [...searchJoins.value, { sourceDatasetId: firstSource, datasetId: '', leftColumn: '', rightColumn: '', columns: [], type: 'left' }],
+  })
+}
+function removeSearchJoin(ji: number) {
+  if (!block.value) return
+  studio.updateBlockFieldMapping(block.value.id, { searchJoins: searchJoins.value.filter((_, idx) => idx !== ji) })
+}
+function updateSearchJoin(ji: number, patch: Partial<SearchJoin>) {
+  if (!block.value) return
+  const updated = searchJoins.value.map((j, idx) => idx === ji ? { ...j, ...patch } : j)
+  studio.updateBlockFieldMapping(block.value.id, { searchJoins: updated })
+  if (patch.datasetId) datasets.loadSchema(patch.datasetId)
+}
+function toggleSearchJoinColumn(ji: number, col: string) {
+  const j = searchJoins.value[ji]
+  if (!j) return
+  const cols = j.columns.includes(col) ? j.columns.filter((c) => c !== col) : [...j.columns, col]
+  updateSearchJoin(ji, { columns: cols })
+}
+function searchJoinSecondaryColumns(ji: number) {
+  const id = searchJoins.value[ji]?.datasetId
+  return id ? (datasets.getSchema(id)?.columns.map((c) => c.name) ?? []) : []
+}
+function searchJoinPrimaryColumns(ji: number) {
+  const srcId = searchJoins.value[ji]?.sourceDatasetId
+  const si = searchSources.value.findIndex((s) => s.datasetId === srcId)
+  return si >= 0 ? searchSourceColumnNames(si) : []
+}
+
+watch(searchJoins, (joins) => {
+  joins.forEach((j) => { if (j.datasetId) datasets.loadSchema(j.datasetId) })
+}, { immediate: true, deep: true })
+
+// All unique columns across all search sources + their joins (for URL params picker)
+const allSearchSourceColumns = computed(() => {
+  const cols = new Set<string>()
+  searchSources.value.forEach((_, si) => searchSourceColumnNames(si).forEach((c) => cols.add(c)))
+  searchJoins.value.forEach((_, ji) => searchJoinSecondaryColumns(ji).forEach((c) => cols.add(c)))
+  return Array.from(cols)
+})
+
+const urlParams = computed<string[]>(() => block.value?.fieldMapping.urlParams ?? [])
+const urlParamMapping = computed<Record<string, string>>(() => block.value?.fieldMapping.urlParamMapping ?? {})
+
+function toggleUrlParam(col: string) {
+  if (!block.value) return
+  const current = urlParams.value
+  const updated = current.includes(col)
+    ? current.filter((c) => c !== col)
+    : [...current, col]
+  studio.updateBlockFieldMapping(block.value.id, { urlParams: updated })
+}
+
+function setUrlParamMapping(urlKey: string, sourceCol: string) {
+  if (!block.value) return
+  const current = urlParamMapping.value
+  const updated = { ...current }
+  if (sourceCol === urlKey) {
+    delete updated[urlKey]  // identity mapping → no need to store
+  } else {
+    updated[urlKey] = sourceCol
+  }
+  studio.updateBlockFieldMapping(block.value.id, { urlParamMapping: updated })
+}
 </script>
 
 <template>
@@ -196,70 +357,331 @@ function updateCompFilter(i: number, p: Partial<BlockFilter>) { if (!block.value
       <template v-if="isSearch">
         <template v-if="activeTab === 'config'">
 
-          <!-- Section: Source -->
+          <!-- Section: Sources de recherche + Page cible -->
           <div class="accordion-item">
-            <button class="accordion-header" @click="toggle('source')">
-              <span>Source de données</span>
-              <svg class="chevron" :class="open('source') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <button class="accordion-header" @click="toggle('search-sources')">
+              <span class="flex items-center gap-2">
+                Sources de recherche
+                <span v-if="searchSources.length > 0" class="min-w-4 h-4 px-1 rounded-full bg-cyan-500 text-white text-[9px] flex items-center justify-center font-bold">{{ searchSources.length }}</span>
+              </span>
+              <svg class="chevron" :class="open('search-sources') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
               </svg>
             </button>
-            <div v-show="open('source')" class="accordion-body">
-              <select class="cfg-select" :value="block.datasetId ?? ''" @change="updateDataset(($event.target as HTMLSelectElement).value)">
-                <option value="">— Choisir un dataset —</option>
-                <option v-for="ds in datasets.readyDatasets" :key="ds.id" :value="ds.id">{{ ds.name }}</option>
-              </select>
-            </div>
-          </div>
+            <div v-show="open('search-sources')" class="accordion-body flex flex-col gap-3">
 
-          <!-- Section: Colonne de recherche -->
-          <div v-if="block.datasetId" class="accordion-item">
-            <button class="accordion-header" @click="toggle('search-col')">
-              <span>Colonne de recherche</span>
-              <svg class="chevron" :class="open('search-col') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-              </svg>
-            </button>
-            <div v-show="open('search-col')" class="accordion-body flex flex-col gap-3">
+              <!-- Page cible -->
               <div>
-                <label class="cfg-label">Colonne</label>
-                <select class="cfg-select" :value="block.fieldMapping.searchColumn ?? ''" @change="updateMapping('searchColumn', ($event.target as HTMLSelectElement).value)">
-                  <option value="">— Choisir une colonne —</option>
-                  <option v-for="col in stringColumns" :key="col" :value="col">{{ col }}</option>
+                <label class="cfg-label">Page de destination</label>
+                <select class="cfg-select" :value="block.fieldMapping.targetPageId ?? ''" @change="updateMapping('targetPageId', ($event.target as HTMLSelectElement).value)">
+                  <option value="">— Aucune —</option>
+                  <option v-for="page in studio.pages.filter(p => p.id !== studio.currentPageId)" :key="page.id" :value="page.id">
+                    {{ page.title }}{{ page.isTemplate ? ' (template)' : '' }}
+                  </option>
                 </select>
               </div>
-              <div>
-                <label class="cfg-label">Texte placeholder</label>
-                <input
-                  type="text"
-                  class="cfg-input"
-                  :value="block.config.searchPlaceholder ?? ''"
-                  placeholder="Rechercher…"
-                  @change="updateConfig('searchPlaceholder', ($event.target as HTMLInputElement).value)"
-                />
+
+              <div class="border-t border-slate-100 pt-3">
+                <p class="text-[11px] text-slate-500 font-semibold mb-2.5">Datasets de recherche</p>
               </div>
+
+              <!-- Empty state -->
+              <div v-if="searchSources.length === 0" class="flex flex-col items-center py-3 text-center">
+                <svg class="w-7 h-7 text-slate-200 mb-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                </svg>
+                <p class="text-xs text-slate-400">Aucun dataset configuré</p>
+              </div>
+
+              <!-- Source cards -->
+              <div v-for="(src, si) in searchSources" :key="si" class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+
+                <!-- Card header -->
+                <div class="w-full flex items-center gap-2 px-3 py-2 bg-slate-50 border-b border-slate-200 hover:bg-slate-100 transition-colors cursor-pointer" @click="toggle(`ss-${si}`)">
+                  <svg class="w-3.5 h-3.5 text-cyan-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375" />
+                  </svg>
+                  <span class="flex-1 text-left text-[11px] font-semibold text-slate-600 truncate min-w-0">
+                    {{ datasets.readyDatasets.find(d => d.id === src.datasetId)?.name ?? 'Dataset non choisi' }}
+                    <span v-if="src.columns.length" class="font-normal text-slate-400"> · {{ src.columns.join(', ') }}</span>
+                  </span>
+                  <svg class="w-3 h-3 text-slate-300 shrink-0 transition-transform" :class="open(`ss-${si}`) ? '' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                  </svg>
+                  <button class="p-0.5 rounded hover:bg-red-50 text-slate-300 hover:text-red-400 transition-colors shrink-0" @click.stop="removeSearchSource(si)">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                <!-- Card body -->
+                <div v-show="open(`ss-${si}`)" class="p-3 flex flex-col gap-3">
+
+                  <!-- Dataset picker -->
+                  <div>
+                    <label class="cfg-label">Dataset</label>
+                    <select class="cfg-select" :value="src.datasetId" @change="updateSearchSource(si, { datasetId: ($event.target as HTMLSelectElement).value, columns: [] })">
+                      <option value="">— Choisir —</option>
+                      <option v-for="ds in datasets.readyDatasets" :key="ds.id" :value="ds.id">{{ ds.name }}</option>
+                    </select>
+                  </div>
+
+                  <!-- Search columns: selected pills + add dropdown -->
+                  <div v-if="src.datasetId">
+                    <label class="cfg-label">Chercher sur</label>
+                    <div class="flex flex-wrap gap-1 mt-1">
+                      <!-- Selected columns as removable pills -->
+                      <span
+                        v-for="col in src.columns" :key="col"
+                        class="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-full bg-cyan-50 border border-cyan-200 text-[11px] font-medium text-cyan-700"
+                      >
+                        {{ col }}
+                        <button class="flex items-center justify-center w-3.5 h-3.5 rounded-full hover:bg-cyan-200 transition-colors" @click="toggleSearchSourceColumn(si, col)">
+                          <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                        </button>
+                      </span>
+                      <!-- Add column via dropdown -->
+                      <select
+                        v-if="searchSourceColumnNames(si).filter(c => !src.columns.includes(c)).length > 0"
+                        class="pl-2 pr-6 py-0.5 rounded-full border border-dashed border-slate-300 text-[11px] text-slate-500 bg-white hover:border-cyan-300 hover:text-cyan-600 transition-colors appearance-none cursor-pointer"
+                        value=""
+                        @change="toggleSearchSourceColumn(si, ($event.target as HTMLSelectElement).value); ($event.target as HTMLSelectElement).value = ''"
+                      >
+                        <option value="" disabled>+ Ajouter…</option>
+                        <option v-for="col in searchSourceColumnNames(si).filter(c => !src.columns.includes(c))" :key="col" :value="col">{{ col }}</option>
+                      </select>
+                      <p v-else-if="searchSourceColumnNames(si).length === 0" class="text-[11px] text-slate-400">Chargement…</p>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              <!-- Add source button -->
+              <button
+                class="flex items-center justify-center gap-1.5 w-full py-2 rounded-xl border border-dashed border-slate-300 text-xs font-semibold text-slate-500 hover:border-cyan-300 hover:text-cyan-600 hover:bg-cyan-50 transition-colors"
+                @click="addSearchSource"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                Ajouter un dataset
+              </button>
             </div>
           </div>
 
-          <!-- Section: Page cible -->
-          <div v-if="block.fieldMapping.searchColumn" class="accordion-item">
-            <button class="accordion-header" @click="toggle('search-target')">
-              <span>Page cible</span>
-              <svg class="chevron" :class="open('search-target') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <!-- Section: Jointures -->
+          <div v-if="searchSources.some(s => s.datasetId)" class="accordion-item">
+            <button class="accordion-header" @click="toggle('search-joins')">
+              <span class="flex items-center gap-2">
+                Jointures
+                <span v-if="searchJoins.length > 0" class="min-w-4 h-4 px-1 rounded-full bg-violet-500 text-white text-[9px] flex items-center justify-center font-bold">{{ searchJoins.length }}</span>
+              </span>
+              <svg class="chevron" :class="open('search-joins') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
               </svg>
             </button>
-            <div v-show="open('search-target')" class="accordion-body flex flex-col gap-2">
-              <select class="cfg-select" :value="block.fieldMapping.targetPageId ?? ''" @change="updateMapping('targetPageId', ($event.target as HTMLSelectElement).value)">
-                <option value="">— Aucune page cible —</option>
-                <option v-for="page in studio.pages.filter(p => p.id !== studio.currentPageId)" :key="page.id" :value="page.id">
-                  {{ page.title }}{{ page.isTemplate ? ' (template)' : '' }}
-                </option>
-              </select>
-              <p v-if="block?.fieldMapping.targetPageId && targetPageToken" class="text-xs text-slate-400 leading-relaxed">
-                La valeur sera passée comme paramètre
-                <code class="font-mono bg-slate-100 px-1 rounded text-slate-600">{{ targetPageToken }}</code>
+            <div v-show="open('search-joins')" class="accordion-body flex flex-col gap-3">
+
+              <p class="text-[11px] text-slate-400 leading-relaxed">
+                Enrichissez les résultats avec des colonnes d'un autre dataset. Utile quand un dataset n'a pas une colonne dont vous avez besoin.
               </p>
+
+              <!-- Empty state -->
+              <div v-if="searchJoins.length === 0" class="flex flex-col items-center py-3 text-center">
+                <svg class="w-7 h-7 text-slate-200 mb-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+                </svg>
+                <p class="text-xs text-slate-400">Aucune jointure</p>
+              </div>
+
+              <!-- Join cards -->
+              <div v-for="(join, ji) in searchJoins" :key="ji" class="rounded-xl border border-violet-200 bg-violet-50 overflow-hidden">
+
+                <!-- Card header -->
+                <div class="w-full flex items-center gap-2 px-3 py-2 bg-violet-100 border-b border-violet-200 hover:bg-violet-200 transition-colors cursor-pointer" @click="toggle(`sj-${ji}`)">
+                  <svg class="w-3.5 h-3.5 text-violet-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+                  </svg>
+                  <span class="flex-1 text-left text-[11px] font-semibold text-violet-700 truncate min-w-0">
+                    {{ join.datasetId ? datasets.readyDatasets.find(d => d.id === join.datasetId)?.name : 'Jointure ' + (ji + 1) }}
+                    <span v-if="join.sourceDatasetId" class="font-normal text-violet-400"> · depuis {{ datasets.readyDatasets.find(d => d.id === join.sourceDatasetId)?.name?.split(' ')[0] ?? '…' }}</span>
+                  </span>
+                  <svg class="w-3 h-3 text-violet-300 shrink-0 transition-transform" :class="open(`sj-${ji}`) ? '' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                  </svg>
+                  <button class="p-0.5 rounded hover:bg-red-50 text-violet-300 hover:text-red-400 transition-colors shrink-0" @click.stop="removeSearchJoin(ji)">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                <div v-show="open(`sj-${ji}`)" class="p-3 flex flex-col gap-2.5">
+
+                  <!-- Source dataset -->
+                  <div>
+                    <label class="cfg-label">Pour les résultats de</label>
+                    <select class="cfg-select" :value="join.sourceDatasetId"
+                      @change="updateSearchJoin(ji, { sourceDatasetId: ($event.target as HTMLSelectElement).value, leftColumn: '' })"
+                    >
+                      <option value="">— Dataset source —</option>
+                      <option v-for="src in searchSources.filter(s => s.datasetId)" :key="src.datasetId" :value="src.datasetId">
+                        {{ datasets.readyDatasets.find(d => d.id === src.datasetId)?.name ?? src.datasetId }}
+                      </option>
+                    </select>
+                  </div>
+
+                  <!-- Type + secondary dataset on same row -->
+                  <div>
+                    <label class="cfg-label">Joindre avec</label>
+                    <div class="flex gap-1.5">
+                      <div class="flex gap-0.5 shrink-0">
+                        <button v-for="t in [{ v: 'left', l: 'LEFT' }, { v: 'inner', l: 'INNER' }]" :key="t.v"
+                          class="px-1.5 py-1.5 rounded text-[9px] font-bold border transition-colors"
+                          :class="join.type === t.v ? 'bg-violet-500 border-violet-500 text-white' : 'bg-white border-violet-200 text-violet-400 hover:border-violet-400'"
+                          @click="updateSearchJoin(ji, { type: t.v as 'left' | 'inner' })"
+                        >{{ t.l }}</button>
+                      </div>
+                      <select class="cfg-select flex-1 min-w-0" :value="join.datasetId"
+                        @change="updateSearchJoin(ji, { datasetId: ($event.target as HTMLSelectElement).value, rightColumn: '', columns: [] })"
+                      >
+                        <option value="">— Dataset —</option>
+                        <option v-for="ds in datasets.readyDatasets.filter(d => d.id !== join.sourceDatasetId)" :key="ds.id" :value="ds.id">{{ ds.name }}</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <!-- Join keys side by side -->
+                  <template v-if="join.sourceDatasetId && join.datasetId">
+                    <div>
+                      <label class="cfg-label">Clé de jointure</label>
+                      <div class="flex items-center gap-1.5">
+                        <select class="cfg-select flex-1 min-w-0 text-[11px]" :value="join.leftColumn"
+                          @change="updateSearchJoin(ji, { leftColumn: ($event.target as HTMLSelectElement).value })"
+                        >
+                          <option value="">source</option>
+                          <option v-for="col in searchJoinPrimaryColumns(ji)" :key="col" :value="col">{{ col }}</option>
+                        </select>
+                        <span class="text-[12px] text-violet-400 font-bold shrink-0">=</span>
+                        <select class="cfg-select flex-1 min-w-0 text-[11px]" :value="join.rightColumn"
+                          @change="updateSearchJoin(ji, { rightColumn: ($event.target as HTMLSelectElement).value })"
+                        >
+                          <option value="">jointure</option>
+                          <option v-for="col in searchJoinSecondaryColumns(ji)" :key="col" :value="col">{{ col }}</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <!-- Columns to retrieve -->
+                    <div>
+                      <label class="cfg-label">Colonnes à récupérer</label>
+                      <div class="flex flex-wrap gap-1 mt-1">
+                        <span v-for="col in join.columns" :key="col"
+                          class="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-full bg-white border border-violet-300 text-[11px] font-medium text-violet-700"
+                        >
+                          {{ col }}
+                          <button class="flex items-center justify-center w-3.5 h-3.5 rounded-full hover:bg-violet-100 transition-colors" @click="toggleSearchJoinColumn(ji, col)">
+                            <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                          </button>
+                        </span>
+                        <select
+                          v-if="searchJoinSecondaryColumns(ji).filter(c => !join.columns.includes(c)).length > 0"
+                          class="pl-2 pr-6 py-0.5 rounded-full border border-dashed border-violet-200 text-[11px] text-violet-400 bg-white hover:border-violet-400 transition-colors appearance-none cursor-pointer"
+                          value=""
+                          @change="toggleSearchJoinColumn(ji, ($event.target as HTMLSelectElement).value); ($event.target as HTMLSelectElement).value = ''"
+                        >
+                          <option value="" disabled>+ Ajouter…</option>
+                          <option v-for="col in searchJoinSecondaryColumns(ji).filter(c => !join.columns.includes(c))" :key="col" :value="col">{{ col }}</option>
+                        </select>
+                        <p v-else-if="searchJoinSecondaryColumns(ji).length === 0 && join.datasetId" class="text-[11px] text-violet-300">Chargement…</p>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+
+              <!-- Add join button -->
+              <button
+                class="flex items-center justify-center gap-1.5 w-full py-2 rounded-xl border border-dashed border-violet-200 text-xs font-semibold text-violet-400 hover:border-violet-400 hover:text-violet-600 hover:bg-violet-50 transition-colors"
+                @click="addSearchJoin"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                Ajouter une jointure
+              </button>
+            </div>
+          </div>
+
+          <!-- Section: Placeholder -->
+          <div class="accordion-item">
+            <button class="accordion-header" @click="toggle('search-placeholder')">
+              <span>Texte placeholder</span>
+              <svg class="chevron" :class="open('search-placeholder') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+              </svg>
+            </button>
+            <div v-show="open('search-placeholder')" class="accordion-body">
+              <input
+                type="text"
+                class="cfg-input"
+                :value="block.config.searchPlaceholder ?? ''"
+                placeholder="Rechercher…"
+                @change="updateConfig('searchPlaceholder', ($event.target as HTMLInputElement).value)"
+              />
+            </div>
+          </div>
+
+          <!-- Section: Paramètres URL -->
+          <div class="accordion-item">
+            <button class="accordion-header" @click="toggle('search-url-params')">
+              <span class="flex items-center gap-2">
+                Paramètres URL
+                <span v-if="urlParams.length > 0" class="min-w-4 h-4 px-1 rounded-full bg-violet-500 text-white text-[9px] flex items-center justify-center font-bold">{{ urlParams.length }}</span>
+              </span>
+              <svg class="chevron" :class="open('search-url-params') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+              </svg>
+            </button>
+            <div v-show="open('search-url-params')" class="accordion-body flex flex-col gap-3">
+              <p class="text-[11px] text-slate-400 leading-relaxed">
+                Colonnes passées dans l'URL lors d'une sélection (<code class="font-mono bg-slate-100 px-1 rounded text-slate-600">?col=valeur</code>) pour générer des liens partageables vers la page template.
+              </p>
+
+              <div v-if="allSearchSourceColumns.length === 0" class="text-xs text-slate-400 text-center py-2">
+                Configurez d'abord les datasets de recherche.
+              </div>
+
+              <!-- Selected URL params as removable pills + add dropdown -->
+              <div v-else class="flex flex-col gap-2">
+                <div class="flex flex-wrap gap-1.5">
+                  <span v-for="col in urlParams" :key="col"
+                    class="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-full bg-violet-50 border border-violet-300 text-[11px] font-medium text-violet-700"
+                  >
+                    {{ col }}
+                    <button class="flex items-center justify-center w-3.5 h-3.5 rounded-full hover:bg-violet-200 transition-colors" @click="toggleUrlParam(col)">
+                      <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                    </button>
+                  </span>
+                  <select
+                    v-if="allSearchSourceColumns.filter(c => !urlParams.includes(c)).length > 0"
+                    class="pl-2 pr-6 py-0.5 rounded-full border border-dashed border-slate-300 text-[11px] text-slate-500 bg-white hover:border-violet-300 hover:text-violet-600 transition-colors appearance-none cursor-pointer"
+                    value=""
+                    @change="toggleUrlParam(($event.target as HTMLSelectElement).value); ($event.target as HTMLSelectElement).value = ''"
+                  >
+                    <option value="" disabled>+ Ajouter…</option>
+                    <option v-for="col in allSearchSourceColumns.filter(c => !urlParams.includes(c))" :key="col" :value="col">{{ col }}</option>
+                  </select>
+                </div>
+
+                <div v-if="urlParams.length > 0" class="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2">
+                  <p class="text-[10px] font-mono text-slate-500 break-all">
+                    ?{{ urlParams.map(c => c + '=…').join('&amp;') }}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -291,6 +713,125 @@ function updateCompFilter(i: number, p: Partial<BlockFilter>) { if (!block.value
                 </svg>
                 <p class="text-xs text-slate-400">Choisissez un dataset pour mapper les colonnes</p>
               </div>
+            </div>
+          </div>
+
+          <!-- Section: Jointures -->
+          <div v-if="block.datasetId" class="accordion-item">
+            <button class="accordion-header" @click="toggle('joins')">
+              <span class="flex items-center gap-2">
+                Jointures
+                <span v-if="joins.length > 0" class="min-w-4 h-4 px-1 rounded-full bg-violet-500 text-white text-[9px] flex items-center justify-center font-bold">{{ joins.length }}</span>
+              </span>
+              <svg class="chevron" :class="open('joins') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+              </svg>
+            </button>
+            <div v-show="open('joins')" class="accordion-body flex flex-col gap-4">
+
+              <!-- Empty state -->
+              <div v-if="joins.length === 0" class="flex flex-col items-center py-3 text-center">
+                <svg class="w-7 h-7 text-slate-200 mb-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+                </svg>
+                <p class="text-xs text-slate-400">Aucune jointure configurée</p>
+              </div>
+
+              <!-- Join list -->
+              <div v-for="(join, ji) in joins" :key="ji" class="rounded-xl border border-violet-200 bg-white overflow-hidden">
+                <!-- Card header -->
+                <div class="w-full flex items-center gap-2 px-3 py-2 bg-violet-50 border-b border-violet-100 hover:bg-violet-100 transition-colors cursor-pointer" @click="toggle(`dj-${ji}`)">
+                  <svg class="w-3.5 h-3.5 text-violet-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+                  </svg>
+                  <span class="flex-1 text-left text-[11px] font-semibold text-violet-700 truncate min-w-0">
+                    {{ join.datasetId ? datasets.readyDatasets.find(d => d.id === join.datasetId)?.name : 'Jointure ' + (ji + 1) }}
+                    <span v-if="join.type" class="font-normal text-violet-400"> · {{ join.type.toUpperCase() }}</span>
+                  </span>
+                  <svg class="w-3 h-3 text-violet-300 shrink-0 transition-transform" :class="open(`dj-${ji}`) ? '' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                  </svg>
+                  <button class="p-0.5 rounded hover:bg-red-50 text-violet-300 hover:text-red-400 transition-colors shrink-0" @click.stop="removeJoin(ji)">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                <!-- Card body -->
+                <div v-show="open(`dj-${ji}`)" class="p-3 flex flex-col gap-2.5">
+                  <div>
+                    <label class="cfg-label">Dataset secondaire</label>
+                    <select class="cfg-select" :value="join.datasetId" @change="updateJoin(ji, { datasetId: ($event.target as HTMLSelectElement).value, leftColumn: '', rightColumn: '', columns: [] })">
+                      <option value="">— Choisir —</option>
+                      <option v-for="ds in datasets.readyDatasets" :key="ds.id" :value="ds.id">{{ ds.name }}</option>
+                    </select>
+                  </div>
+
+                  <template v-if="join.datasetId">
+                    <div>
+                      <label class="cfg-label">Type</label>
+                      <div class="flex gap-1.5">
+                        <button v-for="t in [{ v: 'left', l: 'LEFT' }, { v: 'inner', l: 'INNER' }]" :key="t.v"
+                          class="flex-1 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors"
+                          :class="join.type === t.v ? 'bg-violet-50 border-violet-300 text-violet-700' : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'"
+                          @click="updateJoin(ji, { type: t.v as 'left' | 'inner' })"
+                        >{{ t.l }}</button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label class="cfg-label">Clé de jointure</label>
+                      <div class="flex items-center gap-1.5">
+                        <select class="cfg-select flex-1 min-w-0 text-[11px]" :value="join.leftColumn" @change="updateJoin(ji, { leftColumn: ($event.target as HTMLSelectElement).value })">
+                          <option value="">principal</option>
+                          <option v-for="col in columnNames" :key="col" :value="col">{{ col }}</option>
+                        </select>
+                        <span class="text-[12px] text-violet-400 font-bold shrink-0">=</span>
+                        <select class="cfg-select flex-1 min-w-0 text-[11px]" :value="join.rightColumn" @change="updateJoin(ji, { rightColumn: ($event.target as HTMLSelectElement).value })">
+                          <option value="">secondaire</option>
+                          <option v-for="col in joinColumnNames(ji)" :key="col" :value="col">{{ col }}</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label class="cfg-label">Colonnes à inclure</label>
+                      <div class="flex flex-wrap gap-1 mt-1">
+                        <span v-for="col in join.columns" :key="col"
+                          class="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-full bg-violet-50 border border-violet-300 text-[11px] font-medium text-violet-700"
+                        >
+                          {{ col }}
+                          <button class="flex items-center justify-center w-3.5 h-3.5 rounded-full hover:bg-violet-200 transition-colors" @click="toggleJoinColumn(ji, col)">
+                            <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                          </button>
+                        </span>
+                        <select
+                          v-if="joinColumnNames(ji).filter(c => !join.columns.includes(c)).length > 0"
+                          class="pl-2 pr-6 py-0.5 rounded-full border border-dashed border-violet-200 text-[11px] text-violet-400 bg-white hover:border-violet-400 transition-colors appearance-none cursor-pointer"
+                          value=""
+                          @change="toggleJoinColumn(ji, ($event.target as HTMLSelectElement).value); ($event.target as HTMLSelectElement).value = ''"
+                        >
+                          <option value="" disabled>+ Ajouter…</option>
+                          <option v-for="col in joinColumnNames(ji).filter(c => !join.columns.includes(c))" :key="col" :value="col">{{ col }}</option>
+                        </select>
+                        <p v-else-if="joinColumnNames(ji).length === 0" class="text-[11px] text-slate-400 mt-0.5">Chargement…</p>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+
+              <!-- Add join button -->
+              <button
+                class="flex items-center justify-center gap-1.5 w-full py-2 rounded-xl border border-dashed border-slate-300 text-xs font-semibold text-slate-500 hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50 transition-colors"
+                @click="addJoin"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                Ajouter une jointure
+              </button>
             </div>
           </div>
 
@@ -408,7 +949,7 @@ function updateCompFilter(i: number, p: Partial<BlockFilter>) { if (!block.value
         <!-- ── Tab: Filtres ── -->
         <template v-if="activeTab === 'filters'">
           <div class="accordion-item">
-            <button class="accordion-header" @click="toggle('filters-list')">
+            <div class="accordion-header cursor-pointer" @click="toggle('filters-list')">
               <span>
                 Règles de filtrage
                 <span v-if="filters.length" class="ml-1.5 text-[10px] font-bold text-[var(--color-primary)]">{{ filters.length }} active{{ filters.length > 1 ? 's' : '' }}</span>
@@ -422,7 +963,7 @@ function updateCompFilter(i: number, p: Partial<BlockFilter>) { if (!block.value
                   <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                 </svg>
               </div>
-            </button>
+            </div>
             <div v-show="open('filters-list')" class="accordion-body">
               <div v-if="!block.datasetId" class="text-xs text-slate-400 py-2">Connectez d'abord une source dans l'onglet Données.</div>
               <template v-else>
@@ -433,20 +974,44 @@ function updateCompFilter(i: number, p: Partial<BlockFilter>) { if (!block.value
                   <p class="text-xs text-slate-400">Toutes les lignes affichées</p>
                 </div>
                 <div v-else class="flex flex-col gap-2">
-                  <div v-for="(filter, i) in filters" :key="i" class="filter-card">
-                    <div class="flex items-center justify-between mb-1.5">
-                      <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Règle {{ i + 1 }}</span>
-                      <button class="p-0.5 rounded text-slate-300 hover:text-red-400 hover:bg-red-50 transition-colors" @click="removeFilter(i)">
+                  <div v-for="(filter, i) in filters" :key="i" class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+                    <div class="w-full flex items-center gap-2 px-3 py-2 bg-slate-50 border-b border-slate-100 hover:bg-slate-100 transition-colors cursor-pointer" @click="toggle(`f-${i}`)">
+                      <span class="flex-1 text-left text-[11px] font-semibold text-slate-600 truncate min-w-0">
+                        {{ filter.column || 'Règle ' + (i + 1) }}
+                        <span class="font-normal text-slate-400"> {{ OPERATORS.find(o => o.value === filter.operator)?.label ?? filter.operator }} </span>
+                        <span v-if="filter.value" class="font-mono text-[10px]">{{ filter.value.length > 20 ? filter.value.slice(0, 20) + '…' : filter.value }}</span>
+                      </span>
+                      <svg class="w-3 h-3 text-slate-300 shrink-0 transition-transform" :class="open(`f-${i}`) ? '' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                      </svg>
+                      <button class="p-0.5 rounded text-slate-300 hover:text-red-400 hover:bg-red-50 transition-colors shrink-0" @click.stop="removeFilter(i)">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                       </button>
                     </div>
-                    <select class="cfg-select-sm" :value="filter.column" @change="updateFilter(i, { column: ($event.target as HTMLSelectElement).value })">
-                      <option v-for="col in columnNames" :key="col" :value="col">{{ col }}</option>
-                    </select>
-                    <select class="cfg-select-sm mt-1.5" :value="filter.operator" @change="updateFilter(i, { operator: ($event.target as HTMLSelectElement).value as FilterOperator })">
-                      <option v-for="op in OPERATORS" :key="op.value" :value="op.value">{{ op.label }}</option>
-                    </select>
-                    <input type="text" class="cfg-input-sm mt-1.5" placeholder="Valeur…" :value="filter.value" @input="updateFilter(i, { value: ($event.target as HTMLInputElement).value })" />
+                    <div v-show="open(`f-${i}`)" class="p-3 flex flex-col gap-1.5">
+                      <select class="cfg-select-sm" :value="filter.column" @change="updateFilter(i, { column: ($event.target as HTMLSelectElement).value })">
+                        <option v-for="col in columnNames" :key="col" :value="col">{{ col }}</option>
+                      </select>
+                      <select class="cfg-select-sm" :value="filter.operator" @change="updateFilter(i, { operator: ($event.target as HTMLSelectElement).value as FilterOperator })">
+                        <option v-for="op in OPERATORS" :key="op.value" :value="op.value">{{ op.label }}</option>
+                      </select>
+                      <div>
+                        <input
+                          type="text"
+                          placeholder="Valeur…"
+                          :value="filter.value"
+                          class="cfg-input-sm w-full"
+                          :class="hasVariable(filter.value) ? 'border-amber-300 bg-amber-50/40 focus:border-amber-400 focus:ring-amber-200' : ''"
+                          @focus="setActiveInput($event.target as HTMLInputElement)"
+                          @input="updateFilter(i, { value: ($event.target as HTMLInputElement).value })"
+                        />
+                        <div v-if="hasVariable(filter.value)" class="flex flex-wrap gap-1 mt-1">
+                          <span v-for="v in extractVariables(filter.value)" :key="v" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                            {{ '{' + '{' + v + '}' + '}' }}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </template>
@@ -479,7 +1044,7 @@ function updateCompFilter(i: number, p: Partial<BlockFilter>) { if (!block.value
 
             <!-- Filtres comparaison -->
             <div class="accordion-item">
-              <button class="accordion-header" @click="toggle('comp-filters')">
+              <div class="accordion-header cursor-pointer" @click="toggle('comp-filters')">
                 <span>
                   Filtres de comparaison
                   <span v-if="compFilters.length" class="ml-1.5 text-[10px] font-bold text-rose-500">{{ compFilters.length }} active{{ compFilters.length > 1 ? 's' : '' }}</span>
@@ -490,25 +1055,49 @@ function updateCompFilter(i: number, p: Partial<BlockFilter>) { if (!block.value
                     <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                   </svg>
                 </div>
-              </button>
+              </div>
               <div v-show="open('comp-filters')" class="accordion-body">
                 <p class="text-[11px] text-slate-400 mb-2 leading-relaxed">Requête indépendante — ex : <code class="text-[10px] bg-slate-100 px-1 rounded">année = 2023</code></p>
                 <div v-if="!compFilters.length" class="text-xs text-slate-400 py-1">Aucun filtre — utilisez « + Ajouter »</div>
                 <div v-else class="flex flex-col gap-2">
-                  <div v-for="(f, i) in compFilters" :key="i" class="filter-card border-rose-100 bg-rose-50/60">
-                    <div class="flex items-center justify-between mb-1.5">
-                      <span class="text-[10px] font-bold text-rose-400 uppercase tracking-widest">Règle {{ i + 1 }}</span>
-                      <button class="p-0.5 rounded text-rose-300 hover:text-red-500 hover:bg-red-50 transition-colors" @click="removeCompFilter(i)">
+                  <div v-for="(f, i) in compFilters" :key="i" class="rounded-xl border border-rose-200 bg-white overflow-hidden">
+                    <div class="w-full flex items-center gap-2 px-3 py-2 bg-rose-50 border-b border-rose-100 hover:bg-rose-100 transition-colors cursor-pointer" @click="toggle(`cf-${i}`)">
+                      <span class="flex-1 text-left text-[11px] font-semibold text-rose-700 truncate min-w-0">
+                        {{ f.column || 'Règle ' + (i + 1) }}
+                        <span class="font-normal text-rose-400"> {{ OPERATORS.find(o => o.value === f.operator)?.label ?? f.operator }} </span>
+                        <span v-if="f.value" class="font-mono text-[10px]">{{ f.value.length > 20 ? f.value.slice(0, 20) + '…' : f.value }}</span>
+                      </span>
+                      <svg class="w-3 h-3 text-rose-300 shrink-0 transition-transform" :class="open(`cf-${i}`) ? '' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                      </svg>
+                      <button class="p-0.5 rounded text-rose-300 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0" @click.stop="removeCompFilter(i)">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                       </button>
                     </div>
-                    <select class="cfg-select-sm" :value="f.column" @change="updateCompFilter(i, { column: ($event.target as HTMLSelectElement).value })">
-                      <option v-for="col in columnNames" :key="col" :value="col">{{ col }}</option>
-                    </select>
-                    <select class="cfg-select-sm mt-1.5" :value="f.operator" @change="updateCompFilter(i, { operator: ($event.target as HTMLSelectElement).value as FilterOperator })">
-                      <option v-for="op in OPERATORS" :key="op.value" :value="op.value">{{ op.label }}</option>
-                    </select>
-                    <input type="text" class="cfg-input-sm mt-1.5" placeholder="Valeur…" :value="f.value" @input="updateCompFilter(i, { value: ($event.target as HTMLInputElement).value })" />
+                    <div v-show="open(`cf-${i}`)" class="p-3 flex flex-col gap-1.5">
+                      <select class="cfg-select-sm" :value="f.column" @change="updateCompFilter(i, { column: ($event.target as HTMLSelectElement).value })">
+                        <option v-for="col in columnNames" :key="col" :value="col">{{ col }}</option>
+                      </select>
+                      <select class="cfg-select-sm" :value="f.operator" @change="updateCompFilter(i, { operator: ($event.target as HTMLSelectElement).value as FilterOperator })">
+                        <option v-for="op in OPERATORS" :key="op.value" :value="op.value">{{ op.label }}</option>
+                      </select>
+                      <div>
+                        <input
+                          type="text"
+                          placeholder="Valeur…"
+                          :value="f.value"
+                          class="cfg-input-sm w-full"
+                          :class="hasVariable(f.value) ? 'border-amber-300 bg-amber-50/40 focus:border-amber-400 focus:ring-amber-200' : ''"
+                          @focus="setActiveInput($event.target as HTMLInputElement)"
+                          @input="updateCompFilter(i, { value: ($event.target as HTMLInputElement).value })"
+                        />
+                        <div v-if="hasVariable(f.value)" class="flex flex-wrap gap-1 mt-1">
+                          <span v-for="v in extractVariables(f.value)" :key="v" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                            {{ '{' + '{' + v + '}' + '}' }}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -555,8 +1144,14 @@ function updateCompFilter(i: number, p: Partial<BlockFilter>) { if (!block.value
               </svg>
             </button>
             <div v-show="open('title')" class="accordion-body">
-              <input type="text" class="cfg-input" placeholder="Ex : Évolution des ventes"
-                :value="block.config.title ?? ''" @input="updateConfig('title', ($event.target as HTMLInputElement).value)" />
+              <input
+                type="text"
+                class="cfg-input"
+                placeholder="Ex : Évolution des ventes"
+                :value="block.config.title ?? ''"
+                @focus="setActiveInput($event.target as HTMLInputElement)"
+                @input="updateConfig('title', ($event.target as HTMLInputElement).value)"
+              />
             </div>
           </div>
 

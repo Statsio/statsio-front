@@ -6,7 +6,7 @@ import { fetchStatsDataDocument, saveStatsDataDocument, deleteStatsDataDocument 
 
 const route = useRoute()
 const router = useRouter()
-const id = String(route.params.id ?? '')
+const id = String(route.params.slug ?? '')
 
 const loading = ref(true)
 const error = ref<string | null>(null)

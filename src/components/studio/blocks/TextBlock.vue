@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import { BubbleMenu } from '@tiptap/vue-3/menus'
 import { StarterKit } from '@tiptap/starter-kit'
@@ -7,17 +7,63 @@ import { Underline } from '@tiptap/extension-underline'
 import { TextStyle, Color } from '@tiptap/extension-text-style'
 import { Highlight } from '@tiptap/extension-highlight'
 import { TextAlign } from '@tiptap/extension-text-align'
+import { Extension } from '@tiptap/core'
+import { Plugin, PluginKey } from '@tiptap/pm/state'
+import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import { useStudioStore } from '@/stores/studio'
+import { useActiveEditor } from '@/composables/useActiveEditor'
 import type { StudioBlock } from '@/types/studio'
 
-const props = defineProps<{ block: StudioBlock }>()
-const studio = useStudioStore()
+// ProseMirror decoration plugin — highlights {{variable}} tokens visually
+// without modifying the document model
+const VariableHighlight = Extension.create({
+  name: 'variableHighlight',
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: new PluginKey('variableHighlight'),
+        props: {
+          decorations(state) {
+            const decos: Decoration[] = []
+            const re = /\{\{(\w+)\}\}/g
+            state.doc.descendants((node, pos) => {
+              if (!node.isText || !node.text) return
+              re.lastIndex = 0
+              let m: RegExpExecArray | null
+              while ((m = re.exec(node.text)) !== null) {
+                decos.push(Decoration.inline(pos + m.index, pos + m.index + m[0].length, { class: 'var-token' }))
+              }
+            })
+            return DecorationSet.create(state.doc, decos)
+          },
+        },
+      }),
+    ]
+  },
+})
 
+const props = defineProps<{ block: StudioBlock; readonly?: boolean }>()
+const studio = useStudioStore()
+const { setActiveEditor } = useActiveEditor()
+
+// Substituted content: {{variable}} → pageParams value
+const resolvedContent = computed(() => {
+  const raw = props.block.config.content || '<p></p>'
+  return raw.replace(/\{\{(\w+)\}\}/g, (match: string, key: string) => studio.pageParams[key] ?? match)
+})
+
+const hasSubstitution = computed(() => resolvedContent.value !== (props.block.config.content || '<p></p>'))
+
+// Track whether the editor is focused (for studio preview toggle)
+const isEditorFocused = ref(false)
+// Prevents onUpdate from saving during programmatic setContent calls
+let suppressSave = false
 let syncTimer: ReturnType<typeof setTimeout> | null = null
 
 const editor = useEditor({
-  content: props.block.config.content || '<p></p>',
-  editable: true,
+  // Public view: start with substituted content; studio: start with raw template
+  content: props.readonly ? resolvedContent.value : (props.block.config.content || '<p></p>'),
+  editable: !props.readonly,
   extensions: [
     StarterKit.configure({
       blockquote: false,
@@ -32,20 +78,49 @@ const editor = useEditor({
     Color,
     Highlight.configure({ multicolor: true }),
     TextAlign.configure({ types: ['heading', 'paragraph'] }),
+    ...(props.readonly ? [] : [VariableHighlight]),
   ],
   editorProps: {
     attributes: { class: 'outline-none' },
-    handleClick: () => {
+    handleClick: props.readonly ? undefined : () => {
       studio.selectBlock(props.block.id)
       return false
     },
   },
+  onFocus: ({ editor: e }) => {
+    if (!props.readonly) {
+      setActiveEditor(e)
+      isEditorFocused.value = true
+    }
+  },
+  onBlur: () => { isEditorFocused.value = false },
   onUpdate: ({ editor }) => {
+    if (suppressSave) return
     if (syncTimer) clearTimeout(syncTimer)
     syncTimer = setTimeout(() => {
       studio.updateBlockConfig(props.block.id, { content: editor.getHTML() })
     }, 300)
   },
+})
+
+// Public view: update displayed content when pageParams change after mount
+watch(resolvedContent, (c) => {
+  if (!props.readonly || !editor.value || editor.value.isDestroyed) return
+  suppressSave = true
+  editor.value.commands.setContent(c)
+  suppressSave = false
+})
+
+// Studio: when not editing, show substituted preview; when focused, show template with {{badge}}
+watch([isEditorFocused, resolvedContent] as const, () => {
+  if (props.readonly || !editor.value || editor.value.isDestroyed || !hasSubstitution.value) return
+  suppressSave = true
+  if (isEditorFocused.value) {
+    editor.value.commands.setContent(props.block.config.content || '<p></p>')
+  } else {
+    editor.value.commands.setContent(resolvedContent.value)
+  }
+  suppressSave = false
 })
 
 // Apply heading level from sidebar
@@ -224,5 +299,17 @@ function setHighlight(color: string) {
   float: left;
   height: 0;
   pointer-events: none;
+}
+
+:deep(.tiptap .var-token) {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.8em;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 </style>

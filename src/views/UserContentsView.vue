@@ -1,11 +1,24 @@
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import AppButton from '@/components/ui/AppButton.vue'
 import { useAuthStore } from '@/stores/auth'
-import { fetchUserStatsDataDocuments, type StatsDataDocument } from '@/api/studio'
+import { fetchUserStatsDataDocuments, createStatsDataDocument, type StatsDataDocument } from '@/api/studio'
 
 const auth = useAuthStore()
+const router = useRouter()
+
+const isCreating = ref(false)
+
+async function createNew() {
+  isCreating.value = true
+  try {
+    const doc = await createStatsDataDocument('Nouveau StatsData')
+    router.push(`/studio/${doc.slug}`)
+  } finally {
+    isCreating.value = false
+  }
+}
 
 type StatusFilter = 'all' | 'published' | 'draft'
 
@@ -77,11 +90,11 @@ const stats = computed(() => ({
                 Bonjour {{ auth.user?.profile?.first_name ?? 'vous' }}, retrouvez ici tous vos datasets et pages d'exploration.
               </p>
             </div>
-            <AppButton as="router-link" to="/studio" variant="primary" size="md">
+            <AppButton variant="primary" size="md" :disabled="isCreating" @click="createNew">
               <svg class="w-4 h-4 mr-2 -ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15" />
               </svg>
-              Nouveau StatsData
+              {{ isCreating ? 'Création…' : 'Nouveau StatsData' }}
             </AppButton>
           </div>
         </div>
@@ -158,7 +171,7 @@ const stats = computed(() => ({
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 flex-wrap">
                   <RouterLink
-                    :to="content.slug ? `/statsdata/${content.slug}` : `/studio/${content.id}`"
+                    :to="content.slug ? `/statsdata/${content.slug}` : `/studio/${content.slug ?? content.id}`"
                     class="text-sm font-semibold text-slate-900 hover:text-primary transition-colors truncate"
                   >
                     {{ content.title }}
@@ -181,13 +194,13 @@ const stats = computed(() => ({
               <!-- Actions -->
               <div class="flex items-center gap-2 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                 <RouterLink
-                  :to="`/studio/${content.id}`"
+                  :to="`/studio/${content.slug ?? content.id}`"
                   class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
                 >
                   Studio
                 </RouterLink>
                 <RouterLink
-                  :to="`/statsdata/${content.id}/proprietes`"
+                  :to="`/statsdata/${content.slug ?? content.id}/proprietes`"
                   class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
                 >
                   Propriétés
@@ -198,8 +211,8 @@ const stats = computed(() => ({
             <!-- Empty states -->
             <div v-if="!filtered.length && !docs.length" class="py-20 text-center">
               <p class="text-slate-400 text-sm mb-4">Vous n'avez pas encore créé de contenu.</p>
-              <AppButton as="router-link" to="/studio" variant="primary" size="sm">
-                Créer mon premier StatsData
+              <AppButton variant="primary" size="sm" :disabled="isCreating" @click="createNew">
+                {{ isCreating ? 'Création…' : 'Créer mon premier StatsData' }}
               </AppButton>
             </div>
             <div v-else-if="!filtered.length" class="py-16 text-center text-slate-400">

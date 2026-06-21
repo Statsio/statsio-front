@@ -8,7 +8,7 @@ import KpiBlock from './KpiBlock.vue'
 import TextBlock from './TextBlock.vue'
 import SearchBlock from './SearchBlock.vue'
 
-const props = defineProps<{ block: StudioBlock }>()
+const props = defineProps<{ block: StudioBlock; readonly?: boolean }>()
 
 const component = computed(() => {
   switch (props.block.type) {
@@ -27,7 +27,7 @@ const component = computed(() => {
 </script>
 
 <template>
-  <component :is="component" v-if="component" :block="block" class="h-full w-full" />
+  <component :is="component" v-if="component" :block="block" :readonly="props.readonly" class="h-full w-full" />
   <div v-else class="flex items-center justify-center h-full text-slate-400 text-xs">
     Bloc inconnu : {{ block.type }}
   </div>

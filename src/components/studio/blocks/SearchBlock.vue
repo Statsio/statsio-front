@@ -1,26 +1,59 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
-import { fetchDistinctValues } from '@/api/studio'
+import { useRoute, useRouter } from 'vue-router'
+import { fetchSearchRows } from '@/api/studio'
 import { useStudioStore } from '@/stores/studio'
 import type { StudioBlock } from '@/types/studio'
 
-const props = defineProps<{ block: StudioBlock }>()
+const props = defineProps<{ block: StudioBlock; readonly?: boolean }>()
 
 const studio = useStudioStore()
+const route  = useRoute()
+const router = useRouter()
 
-const query        = ref('')
-const suggestions  = ref<string[]>([])
-const isLoading    = ref(false)
-const isOpen       = ref(false)
-const inputRef     = ref<HTMLInputElement | null>(null)
+// ─── Config ───────────────────────────────────────────────────────────────────
+
+// Support both new multi-source and legacy single-column config
+const searchSources = computed(() => {
+  const sources = props.block.fieldMapping.searchSources ?? []
+  if (sources.length > 0) return sources
+  // Legacy fallback
+  if (props.block.datasetId && props.block.fieldMapping.searchColumn) {
+    return [{ datasetId: props.block.datasetId, columns: [props.block.fieldMapping.searchColumn] }]
+  }
+  return []
+})
+
+const targetPageId  = computed(() => props.block.fieldMapping.targetPageId)
+const placeholder   = computed(() => props.block.config.searchPlaceholder || 'Rechercher…')
+const isConfigured  = computed(() => searchSources.value.some((s) => s.datasetId && s.columns.length > 0))
+const urlParamCols  = computed(() => props.block.fieldMapping.urlParams ?? [])
+
+// For URL navigation: doc slug from route, target page slug from store
+const docSlug = computed(() => String(route.params.slug ?? ''))
+const targetPageSlug = computed(() => {
+  const page = studio.pages.find((p) => p.id === targetPageId.value)
+  return page?.slug ?? page?.id ?? ''
+})
+
+// ─── State ────────────────────────────────────────────────────────────────────
+
+interface SearchResult {
+  key: string
+  displayValue: string
+  subValues: { label: string; value: string }[]
+  row: Record<string, unknown>
+}
+
+const query       = ref('')
+const results     = ref<SearchResult[]>([])
+const isLoading   = ref(false)
+const isOpen      = ref(false)
+const inputRef    = ref<HTMLInputElement | null>(null)
 const containerRef = ref<HTMLElement | null>(null)
 
-const searchColumn = computed(() => props.block.fieldMapping.searchColumn)
-const targetPageId = computed(() => props.block.fieldMapping.targetPageId)
-const placeholder  = computed(() => props.block.config.searchPlaceholder || 'Rechercher…')
-const isConfigured = computed(() => !!props.block.datasetId && !!searchColumn.value)
+// ─── Dropdown positioning ─────────────────────────────────────────────────────
 
-// Dropdown position (fixed, escapes overflow:hidden parents)
 const dropdownStyle = ref({ top: '0px', left: '0px', width: '0px' })
 
 function updateDropdownPosition() {
@@ -34,28 +67,66 @@ function updateDropdownPosition() {
   }
 }
 
-// Debounced search — only fires when ≥2 chars
+// ─── Search logic ─────────────────────────────────────────────────────────────
+
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
 function scheduleSearch(q: string) {
   if (debounceTimer) clearTimeout(debounceTimer)
   if (q.length < 2) {
-    suggestions.value = []
+    results.value = []
     isOpen.value = false
     isLoading.value = false
     return
   }
   isLoading.value = true
   isOpen.value = true
-  debounceTimer = setTimeout(async () => {
-    try {
-      suggestions.value = await fetchDistinctValues(props.block.datasetId!, searchColumn.value!, q)
-    } catch {
-      suggestions.value = []
-    } finally {
-      isLoading.value = false
-    }
-  }, 250)
+  debounceTimer = setTimeout(() => doSearch(q), 250)
+}
+
+async function doSearch(q: string) {
+  try {
+    const allRows: SearchResult[] = []
+    const seen = new Set<string>()
+
+    await Promise.all(
+      searchSources.value
+        .filter((s) => s.datasetId && s.columns.length > 0)
+        .map(async (source) => {
+          const sourceJoins = (props.block.fieldMapping.searchJoins ?? [])
+            .filter((j) => j.sourceDatasetId === source.datasetId)
+            .map((j) => ({ datasetId: j.datasetId, leftColumn: j.leftColumn, rightColumn: j.rightColumn, columns: j.columns, type: j.type }))
+          const rows = await fetchSearchRows(source.datasetId, source.columns, q, 30, sourceJoins)
+          for (const row of rows) {
+            // Use first matching column value as display value
+            const primaryCol = source.columns.find(
+              (c) => String(row[c] ?? '').toLowerCase().includes(q.toLowerCase()),
+            ) ?? source.columns[0]!
+            const displayValue = String(row[primaryCol] ?? '')
+            if (!displayValue || seen.has(displayValue)) continue
+            seen.add(displayValue)
+
+            // Other column values shown as sub-info
+            const subValues = source.columns
+              .filter((c) => c !== primaryCol && row[c] != null && row[c] !== '')
+              .map((c) => ({ label: c, value: String(row[c]) }))
+
+            allRows.push({
+              key: `${source.datasetId}:${displayValue}`,
+              displayValue,
+              subValues,
+              row,
+            })
+          }
+        }),
+    )
+
+    results.value = allRows
+  } catch {
+    results.value = []
+  } finally {
+    isLoading.value = false
+  }
 }
 
 watch(query, (q) => {
@@ -64,19 +135,55 @@ watch(query, (q) => {
   scheduleSearch(q)
 })
 
-// Reset when dataset/column changes
-watch(
-  [() => props.block.datasetId, searchColumn],
-  () => { query.value = ''; suggestions.value = []; isOpen.value = false },
-)
+watch(searchSources, () => {
+  query.value = ''
+  results.value = []
+  isOpen.value = false
+})
 
-function onSelect(value: string) {
-  query.value = value
+// ─── Select a result — set ALL row columns as page params ─────────────────────
+
+function onSelect(result: SearchResult) {
+  query.value = result.displayValue
   isOpen.value = false
 
-  const targetPage = studio.pages.find((p) => p.id === targetPageId.value)
+  // Public view + urlParams configured → URL navigation for deep-linking
+  if (props.readonly && urlParamCols.value.length > 0 && targetPageId.value && docSlug.value && targetPageSlug.value) {
+    // Build allParams from ALL result row columns (used for in-memory variable substitution)
+    const allParams: Record<string, string> = {}
+    for (const [col, val] of Object.entries(result.row)) {
+      if (val !== null && val !== undefined && val !== '') {
+        allParams[col] = String(val)
+      }
+    }
+
+    // Apply column aliasing: urlKey may be fed by a different source column
+    // e.g. urlParams = ["CODGEO_2025"], urlParamMapping = { "CODGEO_2025": "com" }
+    // → reads result.row["com"] and writes it as CODGEO_2025 in both URL and allParams
+    const mapping = props.block.fieldMapping.urlParamMapping ?? {}
+    const queryParams: Record<string, string> = {}
+    for (const urlKey of urlParamCols.value) {
+      const sourceCol = mapping[urlKey] ?? urlKey
+      // Fall back to urlKey itself if mapped column doesn't exist in this result row
+      const val = allParams[sourceCol] ?? allParams[urlKey]
+      if (val) {
+        queryParams[urlKey] = val
+        allParams[urlKey] = val  // ensure canonical key is always in allParams
+      }
+    }
+
+    studio.setPageParams(allParams)
+    router.push({ path: `/statsdata/${docSlug.value}/${targetPageSlug.value}`, query: queryParams })
+    return
+  }
+
+  // Studio or no urlParams → in-memory navigation (switch FIRST then set params)
   if (targetPageId.value) studio.switchPage(targetPageId.value)
-  if (targetPage?.paramName) studio.setPageParam(targetPage.paramName, value)
+  for (const [col, val] of Object.entries(result.row)) {
+    if (val !== null && val !== undefined && val !== '') {
+      studio.setPageParam(col, String(val))
+    }
+  }
 }
 
 function onFocus() {
@@ -111,7 +218,7 @@ onBeforeUnmount(() => {
       <svg class="w-8 h-8 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
       </svg>
-      <span class="text-xs">Configurer la source et la colonne →</span>
+      <span class="text-xs">Configurer les sources de recherche →</span>
     </div>
 
     <!-- Search UI -->
@@ -141,26 +248,34 @@ onBeforeUnmount(() => {
         </svg>
       </div>
 
-      <!-- Hint -->
       <p v-if="query.length > 0 && query.length < 2" class="mt-1 text-[11px] text-slate-400 pl-1">
         Tapez au moins 2 caractères…
       </p>
 
-      <!-- Dropdown via Teleport to escape overflow:hidden -->
+      <!-- Dropdown via Teleport -->
       <Teleport to="body">
         <div
-          v-if="isOpen && suggestions.length > 0"
-          class="fixed z-[9999] bg-white border border-slate-200 rounded-lg shadow-xl max-h-56 overflow-y-auto"
+          v-if="isOpen && results.length > 0"
+          class="fixed z-[9999] bg-white border border-slate-200 rounded-lg shadow-xl max-h-64 overflow-y-auto"
           :style="dropdownStyle"
         >
           <button
-            v-for="value in suggestions"
-            :key="value"
+            v-for="result in results"
+            :key="result.key"
             type="button"
-            class="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-[var(--color-primary)] transition-colors first:rounded-t-lg last:rounded-b-lg"
-            @mousedown.prevent="onSelect(value)"
+            class="w-full text-left px-4 py-2.5 hover:bg-slate-50 transition-colors first:rounded-t-lg last:rounded-b-lg border-b border-slate-50 last:border-0"
+            @mousedown.prevent="onSelect(result)"
           >
-            {{ value }}
+            <p class="text-sm font-medium text-slate-800">{{ result.displayValue }}</p>
+            <div v-if="result.subValues.length > 0" class="flex flex-wrap gap-2 mt-0.5">
+              <span
+                v-for="sub in result.subValues"
+                :key="sub.label"
+                class="text-[11px] text-slate-400"
+              >
+                <span class="font-medium text-slate-500">{{ sub.label }}</span> {{ sub.value }}
+              </span>
+            </div>
           </button>
         </div>
 

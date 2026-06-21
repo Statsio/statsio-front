@@ -16,7 +16,7 @@ const datasets = useStudioDatasetsStore()
 const { saveNow } = useStudioAutosave()
 
 onMounted(async () => {
-  const documentId = route.params.id as string | undefined
+  const documentId = route.params.slug as string | undefined
   datasets.loadDatasets()
 
   if (documentId) {

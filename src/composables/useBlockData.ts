@@ -16,7 +16,7 @@ export function useBlockData(block: () => StudioBlock | null) {
   })
 
   function resolveFilterValue(value: string): string {
-    return value.replace(/\{\{(\w+)\}\}/g, (_, key) => studio.pageParams[key] ?? value)
+    return value.replace(/\{\{(\w+)\}\}/g, (match, key) => studio.pageParams[key] ?? match)
   }
 
   function resolveFilters(filters: BlockFilter[]): BlockFilter[] {
@@ -41,6 +41,7 @@ export function useBlockData(block: () => StudioBlock | null) {
         columns,
         limit: 500,
         filters: resolveFilters(b.filters ?? []),
+        joins: b.joins?.length ? b.joins : undefined,
       })
     } catch (e) {
       error.value = 'Impossible de charger les données.'
@@ -55,7 +56,7 @@ export function useBlockData(block: () => StudioBlock | null) {
     () => {
       const b = block()
       return b
-        ? `${b.datasetId}|${JSON.stringify(b.fieldMapping)}|${JSON.stringify(b.filters ?? [])}|${JSON.stringify(studio.pageParams)}`
+        ? `${b.datasetId}|${JSON.stringify(b.fieldMapping)}|${JSON.stringify(b.filters ?? [])}|${JSON.stringify(b.joins ?? [])}|${JSON.stringify(studio.pageParams)}`
         : null
     },
     (key, prev) => {

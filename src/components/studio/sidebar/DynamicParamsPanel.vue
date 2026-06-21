@@ -1,56 +1,88 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
+import { useStudioDatasetsStore } from '@/stores/studio-datasets'
+import { useActiveEditor } from '@/composables/useActiveEditor'
 
-const studio = useStudioStore()
+const studio   = useStudioStore()
+const datasets = useStudioDatasetsStore()
+const { insertToken } = useActiveEditor()
 
 const currentPage = computed(() => studio.pages.find((p) => p.id === studio.currentPageId))
 const isTemplate  = computed(() => !!currentPage.value?.isTemplate)
-const paramName   = computed(() => currentPage.value?.paramName)
-const paramValue  = computed(() => paramName.value ? (studio.pageParams[paramName.value] ?? null) : null)
-const token       = computed(() => paramName.value ? `{{${paramName.value}}}` : null)
 
-async function copyToken() {
-  if (!token.value) return
-  try {
-    await navigator.clipboard.writeText(token.value)
-  } catch {
-    // clipboard not available (insecure context)
+// All search blocks targeting this template page
+const searchBlocks = computed(() => {
+  if (!isTemplate.value) return []
+  const thisPageId = studio.currentPageId
+  return studio.blocks.filter(
+    (b) => b.type === 'search' && b.fieldMapping.targetPageId === thisPageId,
+  )
+})
+
+// Load schemas for every source dataset referenced by those search blocks
+watch(searchBlocks, (blocks) => {
+  for (const block of blocks) {
+    for (const src of block.fieldMapping.searchSources ?? []) {
+      if (src.datasetId) datasets.loadSchema(src.datasetId)
+    }
+    if (block.datasetId) datasets.loadSchema(block.datasetId)
   }
+}, { immediate: true })
+
+// ALL columns from ALL source datasets (not just the search columns)
+const availableTokens = computed((): string[] => {
+  if (!isTemplate.value) return []
+  const tokens = new Set<string>()
+  for (const block of searchBlocks.value) {
+    // New multi-source config → use full schema of each source dataset
+    for (const src of block.fieldMapping.searchSources ?? []) {
+      const schema = src.datasetId ? datasets.getSchema(src.datasetId) : null
+      if (schema) {
+        for (const col of schema.columns) tokens.add(col.name)
+      } else {
+        // Schema not yet loaded — show configured search columns as fallback
+        for (const col of src.columns) tokens.add(col)
+      }
+    }
+    // Legacy single-column config
+    if (block.datasetId && block.fieldMapping.searchColumn) {
+      const schema = datasets.getSchema(block.datasetId)
+      if (schema) {
+        for (const col of schema.columns) tokens.add(col.name)
+      } else {
+        tokens.add(block.fieldMapping.searchColumn)
+      }
+    }
+  }
+  return Array.from(tokens).sort()
+})
+
+function tokenDisplay(name: string) {
+  return '{' + '{' + name + '}' + '}'
 }
 </script>
 
 <template>
-  <div v-if="isTemplate && token" class="border-t border-slate-100 bg-amber-50/60 px-4 py-3 shrink-0">
-    <p class="text-[10px] font-bold text-amber-700 uppercase tracking-widest mb-2">Variables dynamiques</p>
-
-    <div class="flex items-center justify-between gap-2 bg-white border border-amber-200 rounded-xl px-3 py-2">
-      <div class="flex items-center gap-2 min-w-0">
-        <svg class="w-3.5 h-3.5 text-amber-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" />
-        </svg>
-        <code class="text-xs font-mono text-amber-800 truncate">{{ token }}</code>
-      </div>
-
-      <div class="flex items-center gap-1.5 shrink-0">
-        <span v-if="paramValue" class="text-[10px] text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded font-medium max-w-[80px] truncate" :title="paramValue">
-          = {{ paramValue }}
-        </span>
-        <button
-          type="button"
-          class="text-amber-500 hover:text-amber-700 transition-colors"
-          title="Copier le token"
-          @click="copyToken"
-        >
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
-          </svg>
-        </button>
-      </div>
+  <div v-if="isTemplate && availableTokens.length > 0 && studio.activeLeftTab !== 'variables'" class="border-t border-slate-100 px-3 py-2.5 shrink-0">
+    <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Variables disponibles</p>
+    <div class="flex flex-wrap gap-1">
+      <button
+        v-for="token in availableTokens"
+        :key="token"
+        class="group flex items-center gap-1 px-2 py-0.5 rounded-md border transition-all text-[11px] font-mono font-semibold select-none"
+        :class="studio.pageParams[token]
+          ? 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100'
+          : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700'"
+        :title="studio.pageParams[token] ? `= ${studio.pageParams[token]}` : 'Cliquer pour insérer dans le champ actif'"
+        @mousedown.prevent="insertToken(token)"
+      >
+        {{ tokenDisplay(token) }}
+        <span
+          v-if="studio.pageParams[token]"
+          class="text-[9px] font-sans font-normal text-amber-600 max-w-[60px] truncate"
+        >= {{ studio.pageParams[token] }}</span>
+      </button>
     </div>
-
-    <p class="text-[10px] text-amber-600 mt-1.5 leading-relaxed">
-      Copiez ce token et collez-le dans la valeur d'un filtre de bloc pour le rendre dynamique.
-    </p>
   </div>
 </template>

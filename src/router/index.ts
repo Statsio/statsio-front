@@ -99,7 +99,7 @@ const router = createRouter({
         {
           path: 'statsdata/:slug/:pageSlug',
           name: 'statsdata-page',
-          component: StatsDataPageView,
+          component: StatsDataDetailView,
         },
         {
           path: 'stats/:pageSlug',
@@ -107,7 +107,7 @@ const router = createRouter({
           component: StatsDataPageView,
         },
         {
-          path: 'statsdata/:id/proprietes',
+          path: 'statsdata/:slug/proprietes',
           name: 'statsdata-settings',
           component: StatsDataSettingsView,
           meta: {
@@ -239,7 +239,7 @@ const router = createRouter({
           },
         },
         {
-          path: 'studio/:id',
+          path: 'studio/:slug',
           name: 'studio-edit',
           component: () => import('../views/StudioView.vue'),
           meta: {

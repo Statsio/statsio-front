@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { fetchPublicStatsDataDocument } from '@/api/studio'
 import type { StatsDataDocument as ApiDoc } from '@/api/studio'
@@ -11,15 +11,89 @@ import BlockRenderer from '@/components/studio/blocks/BlockRenderer.vue'
 const route  = useRoute()
 const router = useRouter()
 const studio = useStudioStore()
-const slug   = String(route.params.slug ?? '')
+
+const docSlug  = computed(() => String(route.params.slug ?? ''))
+const pageSlug = computed(() => route.params.pageSlug as string | undefined)
 
 const doc     = ref<ApiDoc | null>(null)
 const loading = ref(true)
 const error   = ref<string | null>(null)
 
-const firstPage = computed(() => studio.pages.find((p) => !p.isTemplate) ?? studio.pages[0])
+// Active page = the one matching pageSlug param, or first non-template
+const activePage = computed(() => {
+  if (!studio.pages.length) return null
+  if (pageSlug.value) {
+    const match = studio.pages.find(
+      (p) => p.slug === pageSlug.value || p.id === pageSlug.value,
+    )
+    if (match) return match
+  }
+  return studio.pages.find((p) => !p.isTemplate) ?? studio.pages[0] ?? null
+})
+
 const publicPages = computed(() => studio.pages.filter((p) => !p.isTemplate))
 const pageSections = computed(() => studio.currentPageSections)
+
+// Helper: extract string-typed query params as pageParams
+function queryToParams(q: import('vue-router').LocationQuery): Record<string, string> {
+  const result: Record<string, string> = {}
+  for (const [key, val] of Object.entries(q)) {
+    if (typeof val === 'string') result[key] = val
+  }
+  return result
+}
+
+// Finds the first non-template page to use as fallback / redirect target
+function defaultExplorationPage() {
+  return studio.pages.find((p) => !p.isTemplate) ?? studio.pages[0] ?? null
+}
+
+// Redirects to the default exploration page (replaces history entry so Back works)
+function redirectToDefault() {
+  const fallback = defaultExplorationPage()
+  if (!fallback) return
+  const ps = fallback.slug ?? fallback.id
+  router.replace(`/statsdata/${route.params.slug}/${ps}`)
+}
+
+// When pageSlug URL param changes, switch the active page
+watch(pageSlug, (slug) => {
+  if (!studio.pages.length) return
+  const target = slug
+    ? (studio.pages.find((p) => p.slug === slug || p.id === slug) ?? studio.pages.find((p) => !p.isTemplate) ?? studio.pages[0])
+    : (studio.pages.find((p) => !p.isTemplate) ?? studio.pages[0])
+  if (!target) return
+
+  const urlParams = queryToParams(route.query)
+  const hasMemoryParams = Object.keys(studio.pageParams).length > 0
+
+  // Same-session URL navigation: params were already set by onSelect → preserve them
+  if (target.isTemplate && hasMemoryParams) {
+    studio.switchPageKeepParams(target.id)
+    for (const [k, v] of Object.entries(urlParams)) studio.setPageParam(k, v)
+    return
+  }
+
+  // Template accessed without any params (direct URL, no prior selection) → redirect
+  if (target.isTemplate && !Object.keys(urlParams).length) {
+    redirectToDefault()
+    return
+  }
+
+  // Normal navigation: full reset + restore URL params
+  studio.switchPage(target.id)
+  studio.setPageParams(urlParams)
+})
+
+// When only query changes (same template page, new result selected via URL)
+watch(() => route.query, (q) => {
+  if (!studio.pages.length) return
+  const currentPage = studio.pages.find((p) => p.id === studio.currentPageId)
+  if (!currentPage?.isTemplate) return
+  for (const [k, v] of Object.entries(q)) {
+    if (typeof v === 'string') studio.setPageParam(k, v)
+  }
+}, { deep: true })
 
 function sectionDef(layout: string) {
   return SECTION_LAYOUT_DEFINITIONS.find((d) => d.type === layout) ?? SECTION_LAYOUT_DEFINITIONS[0]!
@@ -41,16 +115,33 @@ function formatRows(n?: number) {
   return `${n} lignes`
 }
 
+function pageLink(page: { id: string; slug?: string }) {
+  const ps = page.slug ?? page.id
+  return `/statsdata/${docSlug.value}/${ps}`
+}
+
 onMounted(async () => {
   try {
-    const data = await fetchPublicStatsDataDocument(slug)
+    const data = await fetchPublicStatsDataDocument(docSlug.value)
     doc.value = data
     studio.initPage(
       { id: data.id, type: 'statsdata', title: data.title, status: data.status as 'draft' | 'published' },
       data.sections, data.blocks, data.pages,
     )
-    const fp = studio.pages.find((p) => !p.isTemplate) ?? studio.pages[0]
-    if (fp) studio.switchPage(fp.id)
+    // Switch to the page matching pageSlug param, else first non-template
+    const target = pageSlug.value
+      ? (studio.pages.find((p) => p.slug === pageSlug.value || p.id === pageSlug.value) ?? studio.pages.find((p) => !p.isTemplate) ?? studio.pages[0])
+      : (studio.pages.find((p) => !p.isTemplate) ?? studio.pages[0])
+    if (target) {
+      const urlParams = queryToParams(route.query)
+      // Template accessed directly without URL params → redirect to default page
+      if (target.isTemplate && !Object.keys(urlParams).length) {
+        redirectToDefault()
+        return
+      }
+      studio.switchPage(target.id)
+      studio.setPageParams(urlParams)
+    }
   } catch {
     error.value = 'Document introuvable ou non publié.'
   } finally {
@@ -58,8 +149,8 @@ onMounted(async () => {
   }
 })
 
-function goToPage(pageSlug?: string, pageId?: string) {
-  router.push(`/statsdata/${slug}/${pageSlug ?? pageId}`)
+function resolveToken(str: string): string {
+  return str.replace(/\{\{(\w+)\}\}/g, (match, key) => studio.pageParams[key] ?? match)
 }
 
 const isCopied = ref(false)
@@ -73,8 +164,8 @@ function copyLink() {
 
 <template>
   <main class="pb-24 pt-32">
-    <section class="section">
-      <div class="container flex flex-col gap-6">
+    <section class="py-8">
+      <div class="mx-auto w-full max-w-[1440px] px-4 sm:px-6 flex flex-col gap-6">
 
         <!-- Loading -->
         <div v-if="loading" class="flex items-center justify-center py-40">
@@ -95,13 +186,20 @@ function copyLink() {
           <nav class="flex items-center gap-2 text-sm text-slate-400">
             <RouterLink to="/statsdata" class="hover:text-primary transition-colors">StatsData</RouterLink>
             <span>/</span>
-            <span class="text-slate-600">{{ doc.title }}</span>
+            <RouterLink :to="`/statsdata/${docSlug}`" class="hover:text-primary transition-colors">{{ doc.title }}</RouterLink>
+            <template v-if="activePage && pageSlug">
+              <span>/</span>
+              <span class="text-slate-600">{{ activePage.title }}</span>
+            </template>
           </nav>
 
           <!-- Header -->
           <div class="flex items-start justify-between gap-6 flex-wrap">
             <div class="flex flex-col gap-2 max-w-3xl">
               <h1 class="text-4xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-5xl">{{ doc.title }}</h1>
+              <p v-if="activePage && pageSlug && activePage.title !== doc.title" class="text-lg font-medium text-primary">
+                {{ activePage.title }}
+              </p>
               <p v-if="doc.description" class="text-base text-slate-500 leading-7">{{ doc.description }}</p>
             </div>
             <button
@@ -116,15 +214,10 @@ function copyLink() {
           </div>
 
           <!-- 2/3 + 1/3 layout -->
-          <div class="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)] lg:items-start">
+          <div class="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(260px,380px)] lg:items-start">
 
-            <!-- LEFT — first page preview -->
+            <!-- LEFT — active page content -->
             <div class="flex flex-col gap-4">
-              <div v-if="firstPage" class="flex items-center gap-2">
-                <span class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Aperçu</span>
-                <span class="text-xs font-semibold text-slate-700 bg-slate-100 rounded-full px-2.5 py-0.5">{{ firstPage.title }}</span>
-              </div>
-
               <template v-if="pageSections.length > 0">
                 <div
                   v-for="section in pageSections"
@@ -143,10 +236,10 @@ function copyLink() {
                       class="bg-white rounded-[1.5rem] border border-slate-200 shadow-sm overflow-hidden"
                     >
                       <div v-if="block.config.title" class="border-b border-slate-100 px-5 py-3">
-                        <p class="text-sm font-semibold text-slate-800">{{ block.config.title }}</p>
+                        <p class="text-sm font-semibold text-slate-800">{{ resolveToken(block.config.title) }}</p>
                       </div>
                       <div class="p-4">
-                        <BlockRenderer :block="block" />
+                        <BlockRenderer :block="block" :readonly="true" />
                       </div>
                     </div>
                   </div>
@@ -159,20 +252,9 @@ function copyLink() {
                 </svg>
                 <p class="text-sm">Aucun contenu sur cette page.</p>
               </div>
-
-              <RouterLink
-                v-if="firstPage"
-                :to="`/statsdata/${slug}/${firstPage.slug ?? firstPage.id}`"
-                class="inline-flex items-center gap-1.5 self-start text-sm font-semibold text-primary hover:underline"
-              >
-                Ouvrir en plein écran
-                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                </svg>
-              </RouterLink>
             </div>
 
-            <!-- RIGHT — metadata sidebar -->
+            <!-- RIGHT — metadata sidebar (stable across page changes) -->
             <aside class="flex flex-col gap-4">
 
               <!-- Author + dates -->
@@ -203,22 +285,22 @@ function copyLink() {
                 </div>
               </div>
 
-              <!-- Exploration pages (non-template only) -->
-              <div v-if="publicPages.length > 0" class="rounded-[1.75rem] border border-slate-200 bg-white shadow-sm overflow-hidden">
+              <!-- Exploration pages (non-template) -->
+              <div v-if="publicPages.length > 1" class="rounded-[1.75rem] border border-slate-200 bg-white shadow-sm overflow-hidden">
                 <div class="border-b border-slate-100 px-5 py-4">
                   <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Pages d'exploration</p>
                 </div>
                 <div class="divide-y divide-slate-100">
-                  <button
+                  <RouterLink
                     v-for="page in publicPages"
                     :key="page.id"
-                    class="w-full flex items-center gap-3 px-5 py-3.5 text-left hover:bg-slate-50 transition-colors"
-                    :class="firstPage?.id === page.id ? 'bg-primary/5' : ''"
-                    @click="goToPage(page.slug, page.id)"
+                    :to="pageLink(page)"
+                    class="flex items-center gap-3 px-5 py-3.5 hover:bg-slate-50 transition-colors"
+                    :class="activePage?.id === page.id ? 'bg-primary/5' : ''"
                   >
                     <div
                       class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors"
-                      :class="firstPage?.id === page.id ? 'bg-primary/15 text-primary' : 'bg-slate-100 text-slate-400'"
+                      :class="activePage?.id === page.id ? 'bg-primary/15 text-primary' : 'bg-slate-100 text-slate-400'"
                     >
                       <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
@@ -228,10 +310,14 @@ function copyLink() {
                       <p class="text-sm font-semibold text-slate-800 truncate">{{ page.title }}</p>
                       <p v-if="page.description" class="text-xs text-slate-400 truncate mt-0.5">{{ page.description }}</p>
                     </div>
-                    <svg class="w-3.5 h-3.5 text-slate-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg
+                      class="w-3.5 h-3.5 shrink-0 transition-colors"
+                      :class="activePage?.id === page.id ? 'text-primary' : 'text-slate-300'"
+                      fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                    >
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 18 6-6-6-6" />
                     </svg>
-                  </button>
+                  </RouterLink>
                 </div>
               </div>
 

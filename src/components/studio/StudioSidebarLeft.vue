@@ -1,12 +1,18 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import type { SidebarLeftTab } from '@/types/studio'
 import SidebarBlocks from './sidebar/SidebarBlocks.vue'
 import SidebarLayouts from './sidebar/SidebarLayouts.vue'
 import SidebarDataSources from './sidebar/SidebarDataSources.vue'
-import DynamicParamsPanel from './sidebar/DynamicParamsPanel.vue'
+import SidebarVariables from './sidebar/SidebarVariables.vue'
 
 const studio = useStudioStore()
+
+// Show a badge on Variables tab when on a template page with configured search blocks
+const hasVariables = computed(() =>
+  studio.blocks.some((b) => b.type === 'search' && !!b.fieldMapping.targetPageId),
+)
 
 const tabs: { id: SidebarLeftTab; label: string; icon: string }[] = [
   {
@@ -24,6 +30,11 @@ const tabs: { id: SidebarLeftTab; label: string; icon: string }[] = [
     label: 'Données',
     icon: 'M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 5.625c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125',
   },
+  {
+    id: 'variables',
+    label: 'Variables',
+    icon: 'M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5',
+  },
 ]
 </script>
 
@@ -33,7 +44,7 @@ const tabs: { id: SidebarLeftTab; label: string; icon: string }[] = [
     <button
       v-for="tab in tabs"
       :key="tab.id"
-      class="flex flex-col items-center gap-0.5 w-12 py-2.5 rounded-xl transition-colors"
+      class="relative flex flex-col items-center gap-0.5 w-12 py-2.5 rounded-xl transition-colors"
       :class="studio.isPanelOpen && studio.activeLeftTab === tab.id
         ? 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
         : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'"
@@ -44,10 +55,15 @@ const tabs: { id: SidebarLeftTab; label: string; icon: string }[] = [
         <path stroke-linecap="round" stroke-linejoin="round" :d="tab.icon" />
       </svg>
       <span class="text-[9px] font-semibold tracking-wide">{{ tab.label }}</span>
+      <!-- Badge dot for Variables when search blocks exist -->
+      <span
+        v-if="tab.id === 'variables' && hasVariables"
+        class="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-amber-400"
+      />
     </button>
   </nav>
 
-  <!-- Inline panel — in flex flow so the canvas is pushed, not overlaid -->
+  <!-- Inline panel -->
   <aside
     class="shrink-0 border-r border-slate-200 bg-white flex flex-col overflow-hidden transition-[width] duration-200 ease-in-out"
     :class="studio.isPanelOpen ? 'w-72' : 'w-0'"
@@ -70,13 +86,11 @@ const tabs: { id: SidebarLeftTab; label: string; icon: string }[] = [
 
       <!-- Panel content -->
       <div class="flex-1 overflow-y-auto min-h-0">
-        <SidebarBlocks v-if="studio.activeLeftTab === 'blocks'" />
-        <SidebarLayouts v-else-if="studio.activeLeftTab === 'layouts'" />
+        <SidebarBlocks     v-if="studio.activeLeftTab === 'blocks'" />
+        <SidebarLayouts    v-else-if="studio.activeLeftTab === 'layouts'" />
         <SidebarDataSources v-else-if="studio.activeLeftTab === 'sources'" />
+        <SidebarVariables  v-else-if="studio.activeLeftTab === 'variables'" />
       </div>
-
-      <!-- Dynamic params panel — shown at bottom when on a template page -->
-      <DynamicParamsPanel />
     </div>
   </aside>
 </template>
