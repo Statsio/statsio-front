@@ -26,6 +26,7 @@ import TvstatsView from '../views/TvstatsView.vue'
 import { useAuthStore } from '@/stores/auth'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import StudioLayout from '@/layouts/StudioLayout.vue'
+import AdminLayout from '@/layouts/AdminLayout.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -311,11 +312,100 @@ const router = createRouter({
         },
       ],
     },
+    // Admin
+    {
+      path: '/admin',
+      component: AdminLayout,
+      meta: { requiresAdmin: true },
+      children: [
+        {
+          path: '',
+          name: 'admin-dashboard',
+          component: () => import('../views/admin/AdminDashboardView.vue'),
+          meta: { requiresAdmin: true },
+        },
+        {
+          path: 'users',
+          name: 'admin-users',
+          component: () => import('../views/admin/AdminUsersView.vue'),
+          meta: { requiresAdmin: true },
+        },
+        // Channels
+        {
+          path: 'tvstats/channels',
+          name: 'admin-tv-channels',
+          component: () => import('../views/admin/tvstats/AdminTvChannelsView.vue'),
+          meta: { requiresAdmin: true },
+        },
+        {
+          path: 'tvstats/channels/create',
+          name: 'admin-tv-channel-create',
+          component: () => import('../views/admin/tvstats/AdminTvChannelCreateView.vue'),
+          meta: { requiresAdmin: true },
+        },
+        {
+          path: 'tvstats/channels/:id',
+          name: 'admin-tv-channel-detail',
+          component: () => import('../views/admin/tvstats/AdminTvChannelDetailView.vue'),
+          meta: { requiresAdmin: true },
+        },
+        {
+          path: 'tvstats/channels/:id/edit',
+          name: 'admin-tv-channel-edit',
+          component: () => import('../views/admin/tvstats/AdminTvChannelEditView.vue'),
+          meta: { requiresAdmin: true },
+        },
+        // Programs
+        {
+          path: 'tvstats/programs',
+          name: 'admin-tv-programs',
+          component: () => import('../views/admin/tvstats/AdminTvProgramsView.vue'),
+          meta: { requiresAdmin: true },
+        },
+        {
+          path: 'tvstats/programs/:id',
+          name: 'admin-tv-program-detail',
+          component: () => import('../views/admin/tvstats/AdminTvProgramDetailView.vue'),
+          meta: { requiresAdmin: true },
+        },
+        {
+          path: 'tvstats/programs/:id/edit',
+          name: 'admin-tv-program-edit',
+          component: () => import('../views/admin/tvstats/AdminTvProgramEditView.vue'),
+          meta: { requiresAdmin: true },
+        },
+        // Broadcasts
+        {
+          path: 'tvstats/broadcasts',
+          name: 'admin-tv-broadcasts',
+          component: () => import('../views/admin/tvstats/AdminTvBroadcastsView.vue'),
+          meta: { requiresAdmin: true },
+        },
+        {
+          path: 'tvstats/broadcasts/:id',
+          name: 'admin-tv-broadcast-detail',
+          component: () => import('../views/admin/tvstats/AdminTvBroadcastDetailView.vue'),
+          meta: { requiresAdmin: true },
+        },
+        {
+          path: 'tvstats/broadcasts/:id/edit',
+          name: 'admin-tv-broadcast-edit',
+          component: () => import('../views/admin/tvstats/AdminTvBroadcastEditView.vue'),
+          meta: { requiresAdmin: true },
+        },
+      ],
+    },
   ],
 })
 
 router.beforeEach((to) => {
   const authStore = useAuthStore()
+
+  if (to.meta.requiresAdmin) {
+    if (!authStore.hasSession) return { name: 'login' }
+    if (!authStore.isAdmin) return { name: 'home' }
+    return true
+  }
 
   if (to.meta.requiresAuth && !authStore.hasSession) {
     // Remember where the user wanted to go, so login can send them back.

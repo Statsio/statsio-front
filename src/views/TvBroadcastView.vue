@@ -5,6 +5,7 @@ import { fetchBroadcast, toggleBroadcastView } from '@/api/tv-broadcast'
 import type { BroadcastDetail } from '@/api/tv-broadcast'
 import { TNT_CHANNELS } from '@/data/tnt-channels'
 import { useAuthStore } from '@/stores/auth'
+import { apiHttp } from '@/lib/http'
 
 const route = useRoute()
 const router = useRouter()
@@ -14,12 +15,19 @@ const broadcast = ref<BroadcastDetail | null>(null)
 const isLoading = ref(true)
 const error = ref<string | null>(null)
 const isToggling = ref(false)
+const dbLogoMap = ref<Map<string, string>>(new Map())
 
 const broadcastId = computed(() => Number(route.params.id))
 
 const channel = computed(() =>
   broadcast.value ? TNT_CHANNELS.find((c) => c.id === broadcast.value!.channelId) ?? null : null,
 )
+
+// Resolve logo: DB upload takes priority over static CDN URL
+const channelLogoUrl = computed(() => {
+  if (!channel.value) return null
+  return dbLogoMap.value.get(channel.value.id) ?? channel.value.logoUrl
+})
 
 const formattedDate = computed(() => {
   if (!broadcast.value) return ''
@@ -37,7 +45,14 @@ async function load() {
   isLoading.value = true
   error.value = null
   try {
-    broadcast.value = await fetchBroadcast(broadcastId.value)
+    const [detail, channels] = await Promise.all([
+      fetchBroadcast(broadcastId.value),
+      apiHttp.get<{ slug: string; logo_url: string | null }[]>('/tv/channels').catch(() => ({ data: [] })),
+    ])
+    broadcast.value = detail
+    dbLogoMap.value = new Map(
+      channels.data.filter((c) => c.logo_url).map((c) => [c.slug, c.logo_url as string]),
+    )
   } catch {
     error.value = 'Programme introuvable.'
   } finally {
@@ -94,16 +109,16 @@ onMounted(load)
       <div class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
         <div class="flex items-start gap-4">
           <!-- Channel logo -->
-          <div
-            v-if="channel"
-            class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-100 p-1.5"
-          >
-            <img
-              :src="channel.logoUrl"
-              :alt="channel.displayName"
-              class="h-full w-full object-contain"
-              @error="($event.target as HTMLImageElement).style.display = 'none'"
-            />
+          <div v-if="channel" class="flex shrink-0 flex-col items-center gap-1">
+            <div class="flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-200 bg-slate-100 p-1.5">
+              <img
+                :src="channelLogoUrl ?? undefined"
+                :alt="channel.displayName"
+                class="h-full w-full object-contain"
+                @error="($event.target as HTMLImageElement).style.display = 'none'"
+              />
+            </div>
+            <span class="text-[10px] font-semibold text-slate-400">{{ channel.number }}</span>
           </div>
 
           <div class="min-w-0 flex-1">

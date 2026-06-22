@@ -3,10 +3,14 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppButton from '@/components/ui/AppButton.vue'
 import TvScheduleGrid from '@/components/tv/TvScheduleGrid.vue'
+import TvScheduleNowNext from '@/components/tv/TvScheduleNowNext.vue'
 import { useTvSchedule } from '@/composables/useTvSchedule'
 import type { TimePreset, TvProgramme } from '@/types/tv-schedule'
 
 const router = useRouter()
+
+type DisplayMode = 'normal' | 'grid'
+const displayMode = ref<DisplayMode>('normal')
 
 function goToBroadcast(programme: TvProgramme) {
   if (programme.broadcastId != null) {
@@ -31,6 +35,8 @@ const {
   selectedPreset,
   selectedDate,
   timeWindow,
+  referenceMinutes,
+  currentLabel,
   now,
   formattedDate,
   load,
@@ -39,6 +45,7 @@ const {
 } = useTvSchedule()
 
 const mobileLogoFailed = ref<Record<string, boolean>>({})
+const nowNextLogoFailed = ref<Record<string, boolean>>({})
 </script>
 
 <template>
@@ -94,9 +101,40 @@ const mobileLogoFailed = ref<Record<string, boolean>>({})
                 <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Date affichée</p>
                 <p class="mt-1 text-sm font-semibold capitalize text-slate-900">{{ formattedDate }}</p>
               </div>
-              <AppButton variant="secondary" size="md" @click="selectPreset('tonight')">
-                Revenir à ce soir
-              </AppButton>
+              <div class="flex items-center gap-2">
+                <!-- Display mode toggle -->
+                <div class="flex rounded-2xl border border-slate-200 bg-slate-50 p-1">
+                  <!-- Normal (now/next) -->
+                  <button
+                    type="button"
+                    class="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition"
+                    :class="displayMode === 'normal' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'"
+                    :title="'Vue maintenant / suivant'"
+                    @click="displayMode = 'normal'"
+                  >
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h10" />
+                    </svg>
+                    <span class="hidden sm:inline">Normal</span>
+                  </button>
+                  <!-- Grid -->
+                  <button
+                    type="button"
+                    class="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition"
+                    :class="displayMode === 'grid' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'"
+                    :title="'Vue grille EPG'"
+                    @click="displayMode = 'grid'"
+                  >
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18M10 3v18M14 3v18" />
+                    </svg>
+                    <span class="hidden sm:inline">Grille</span>
+                  </button>
+                </div>
+                <AppButton variant="secondary" size="md" @click="selectPreset('tonight')">
+                  Revenir à ce soir
+                </AppButton>
+              </div>
             </div>
           </div>
         </div>
@@ -128,6 +166,18 @@ const mobileLogoFailed = ref<Record<string, boolean>>({})
         </div>
 
         <template v-else>
+          <!-- Normal mode: now/next for all channels -->
+          <TvScheduleNowNext
+            v-if="displayMode === 'normal'"
+            :schedules="schedules"
+            :logo-failed="nowNextLogoFailed"
+            :reference-minutes="referenceMinutes"
+            :current-label="currentLabel"
+            @logo-error="(id) => (nowNextLogoFailed[id] = true)"
+          />
+
+          <!-- Grid mode: desktop EPG timeline -->
+          <template v-else>
           <!-- Desktop EPG grid -->
           <TvScheduleGrid
             class="hidden lg:block"
@@ -144,27 +194,27 @@ const mobileLogoFailed = ref<Record<string, boolean>>({})
               class="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)]"
             >
               <div class="mb-4 flex items-center gap-3">
-                <div class="flex h-12 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-100 p-2">
-                  <img
-                    v-if="schedule.logoUrl && !mobileLogoFailed[schedule.channel.id]"
-                    :src="schedule.logoUrl"
-                    :alt="schedule.channel.displayName"
-                    class="h-full w-full object-contain"
-                    loading="lazy"
-                    @error="mobileLogoFailed[schedule.channel.id] = true"
-                  />
-                  <div
-                    v-else
-                    class="flex h-full w-full items-center justify-center rounded-lg text-xs font-bold text-white"
-                    :class="schedule.channel.fallbackBg"
-                  >
-                    {{ schedule.channel.displayName.slice(0, 3).toUpperCase() }}
+                <div class="flex shrink-0 flex-col items-center gap-1">
+                  <div class="flex h-12 w-16 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-100 p-2">
+                    <img
+                      v-if="schedule.logoUrl && !mobileLogoFailed[schedule.channel.id]"
+                      :src="schedule.logoUrl"
+                      :alt="schedule.channel.displayName"
+                      class="h-full w-full object-contain"
+                      loading="lazy"
+                      @error="mobileLogoFailed[schedule.channel.id] = true"
+                    />
+                    <div
+                      v-else
+                      class="flex h-full w-full items-center justify-center rounded-lg text-xs font-bold text-white"
+                      :class="schedule.channel.fallbackBg"
+                    >
+                      {{ schedule.channel.displayName.slice(0, 3).toUpperCase() }}
+                    </div>
                   </div>
+                  <span class="text-[10px] font-semibold text-slate-400">{{ schedule.channel.number }}</span>
                 </div>
                 <div>
-                  <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                    Chaîne {{ schedule.channel.number }}
-                  </p>
                   <h2 class="text-xl font-semibold tracking-[-0.03em] text-slate-950">
                     {{ schedule.channel.displayName }}
                   </h2>
@@ -209,6 +259,7 @@ const mobileLogoFailed = ref<Record<string, boolean>>({})
               </p>
             </article>
           </div>
+          </template><!-- end grid mode -->
         </template>
 
       </div>

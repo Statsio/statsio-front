@@ -70,6 +70,30 @@ export function useTvSchedule() {
     }
   })
 
+  // Heure d'ancrage pour TvScheduleNowNext : le programme "courant" est celui qui passe à cette minute-là
+  const referenceMinutes = computed<number>(() => {
+    switch (selectedPreset.value) {
+      case 'live':      return now.value.getHours() * 60 + now.value.getMinutes()
+      case 'morning':   return 8 * 60
+      case 'afternoon': return 14 * 60
+      case 'tonight':   return 21 * 60 + 10
+      case 'night':     return 23 * 60 + 30
+      default:          return 20 * 60  // yesterday / tomorrow / custom
+    }
+  })
+
+  // Label du badge "courant" dans TvScheduleNowNext
+  const currentLabel = computed<string>(() => {
+    switch (selectedPreset.value) {
+      case 'live':      return 'En cours'
+      case 'morning':   return 'Matin'
+      case 'afternoon': return 'Après-midi'
+      case 'tonight':   return 'Ce soir'
+      case 'night':     return 'Nuit'
+      default:          return '-'
+    }
+  })
+
   async function load() {
     isLoading.value = true
     error.value = null
@@ -113,6 +137,8 @@ export function useTvSchedule() {
     selectedPreset,
     selectedDate,
     timeWindow,
+    referenceMinutes,
+    currentLabel,
     now,
     formattedDate,
     load,

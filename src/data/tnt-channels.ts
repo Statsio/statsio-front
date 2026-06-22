@@ -230,11 +230,11 @@ export const TNT_CHANNELS: TntChannel[] = [
   },
   {
     number: 25,
-    id: 'cherie25',
-    displayName: 'Chérie 25',
+    id: 'rmclife',
+    displayName: 'RMC Life',
     epgChannelId: '443110',
-    fallbackBg: 'bg-[#be185d]',
+    fallbackBg: 'bg-[#e11d48]',
     fallbackText: 'text-white',
-    logoUrl: `${BASE}/cherie-25-fr.png`,
+    logoUrl: `${BASE}/rmc-life-fr.png`,
   },
 ]

@@ -303,6 +303,11 @@ onBeforeUnmount(() => {
             </button>
 
             <AppDropdownMenu v-if="isUserMenuOpen" label="Menu utilisateur">
+              <AppDropdownMenuItem v-if="authStore.isAdmin" to="/admin" @click="closeUserMenu">
+                Administration
+                <template #trailing>⚙</template>
+              </AppDropdownMenuItem>
+
               <AppDropdownMenuItem to="/profile" @click="closeUserMenu">
                 Mon profil
               </AppDropdownMenuItem>

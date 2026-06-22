@@ -20,12 +20,46 @@ type EpgChannelEntry = {
   programmes: EpgProgramme[]
 }
 
-export async function fetchChannelSchedules(date: string): Promise<ChannelSchedule[]> {
-  const { data } = await apiHttp.get<EpgChannelEntry[]>(STATSIO_API.tv.epg(date))
-  return buildChannelSchedules(data)
+type DbChannel = {
+  slug: string
+  logo_url: string | null
 }
 
-function buildChannelSchedules(entries: EpgChannelEntry[]): ChannelSchedule[] {
+// Module-level cache so channels are fetched once per session
+let dbChannelCache: Map<string, string> | null = null
+
+async function getDbLogoMap(): Promise<Map<string, string>> {
+  if (dbChannelCache) return dbChannelCache
+
+  try {
+    const { data } = await apiHttp.get<DbChannel[]>('/tv/channels')
+    dbChannelCache = new Map(
+      data
+        .filter((ch) => ch.logo_url !== null)
+        .map((ch) => [ch.slug, ch.logo_url as string]),
+    )
+  } catch {
+    dbChannelCache = new Map()
+  }
+
+  return dbChannelCache
+}
+
+export async function fetchChannelSchedules(date: string): Promise<ChannelSchedule[]> {
+  const [{ data: entries }, logoMap] = await Promise.all([
+    apiHttp.get<EpgChannelEntry[]>(STATSIO_API.tv.epg(date)),
+    getDbLogoMap(),
+  ])
+
+  return buildChannelSchedules(entries, logoMap)
+}
+
+// Allow external callers (e.g. TvBroadcastView) to invalidate the cache after an admin logo upload
+export function invalidateDbChannelCache() {
+  dbChannelCache = null
+}
+
+function buildChannelSchedules(entries: EpgChannelEntry[], logoMap: Map<string, string>): ChannelSchedule[] {
   const now = new Date()
   const entryMap = new Map(entries.map((e) => [e.channelId, e.programmes]))
 
@@ -48,7 +82,10 @@ function buildChannelSchedules(entries: EpgChannelEntry[]): ChannelSchedule[] {
       isLive: p.isLive ?? isCurrentlyLive(p.startMinutes, p.durationMinutes, now),
     }))
 
-    return { channel, programmes, logoUrl: channel.logoUrl }
+    // DB logo_url takes priority over the static CDN URL
+    const logoUrl = logoMap.get(channel.id) ?? channel.logoUrl
+
+    return { channel, programmes, logoUrl }
   })
 }
 

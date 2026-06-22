@@ -41,22 +41,25 @@ const channelInitials = computed(() => {
       class="sticky left-0 z-10 flex w-20 shrink-0 items-center justify-center border-r border-slate-100 bg-white"
       :style="{ height: rowHeight + 'px' }"
     >
-      <div class="flex h-11 w-15 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-100 p-1.5">
-        <img
-          v-if="schedule.logoUrl && !logoFailed"
-          :src="schedule.logoUrl"
-          :alt="schedule.channel.displayName"
-          class="h-full w-full object-contain"
-          loading="lazy"
-          @error="logoFailed = true"
-        />
-        <span
-          v-else
-          class="text-[10px] font-bold text-white w-full h-full flex items-center justify-center rounded-lg"
-          :class="schedule.channel.fallbackBg"
-        >
-          {{ channelInitials }}
-        </span>
+      <div class="flex flex-col items-center gap-1">
+        <div class="flex h-11 w-15 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-100 p-1.5">
+          <img
+            v-if="schedule.logoUrl && !logoFailed"
+            :src="schedule.logoUrl"
+            :alt="schedule.channel.displayName"
+            class="h-full w-full object-contain"
+            loading="lazy"
+            @error="logoFailed = true"
+          />
+          <span
+            v-else
+            class="text-[10px] font-bold text-white w-full h-full flex items-center justify-center rounded-lg"
+            :class="schedule.channel.fallbackBg"
+          >
+            {{ channelInitials }}
+          </span>
+        </div>
+        <span class="text-[9px] font-semibold text-slate-400">{{ schedule.channel.number }}</span>
       </div>
     </div>
 

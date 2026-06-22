@@ -18,6 +18,7 @@ export interface AuthUser {
   google_id?: string | null
   email_verified_at?: string | null
   status?: string
+  is_admin?: boolean
   suspended_until?: string | null
   anonymized_at?: string | null
   created_at?: string
