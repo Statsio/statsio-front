@@ -5,6 +5,7 @@ import AppAccessibilityPanel from '@/components/layout/AppAccessibilityPanel.vue
 import type { HeaderNavItem } from '@/components/layout/brands/header-nav.types'
 import StatsioAppHeaderNav from '@/components/layout/brands/statsio/AppHeaderNav.vue'
 import TvstatsAppHeaderNav from '@/components/layout/brands/tvstats/AppHeaderNav.vue'
+import MedistatsAppHeaderNav from '@/components/layout/brands/medistats/AppHeaderNav.vue'
 import AppDropdownMenu from '@/components/layout/AppDropdownMenu.vue'
 import AppDropdownMenuItem from '@/components/layout/AppDropdownMenuItem.vue'
 import AppAvatar from '@/components/ui/AppAvatar.vue'
@@ -73,6 +74,7 @@ const brandMenuItems = computed(() => currentBrand.value.switchMenu)
 const brandNavComponentById = {
   statsio: StatsioAppHeaderNav,
   tvstats: TvstatsAppHeaderNav,
+  medistats: MedistatsAppHeaderNav,
 } as const
 const currentBrandNavComponent = computed(() => brandNavComponentById[currentBrand.value.id])
 

@@ -152,6 +152,15 @@ const router = createRouter({
           component: TvProgrammeView,
         },
         {
+          path: 'medistats',
+          name: 'medistats',
+          component: () => import('../views/MedistatsView.vue'),
+          meta: {
+            title: 'Medistats',
+            description: 'Données de santé publique, pathologies, médicaments et offre de soins.',
+          },
+        },
+        {
           path: 'about',
           name: 'about',
           component: () => import('../views/AboutView.vue'),
@@ -246,6 +255,27 @@ const router = createRouter({
             requiresAuth: true,
             studio: true,
             title: 'Studio — Édition',
+          },
+        },
+        {
+          path: 'tvstats/studio',
+          name: 'tvstats-studio',
+          component: () => import('../views/StudioView.vue'),
+          meta: {
+            requiresAuth: true,
+            studio: true,
+            title: 'Studio TVStats',
+            description: "Créez et éditez vos contenus TVStats avec l'interface Studio.",
+          },
+        },
+        {
+          path: 'tvstats/studio/:slug',
+          name: 'tvstats-studio-edit',
+          component: () => import('../views/StudioView.vue'),
+          meta: {
+            requiresAuth: true,
+            studio: true,
+            title: 'Studio TVStats — Édition',
           },
         },
         {

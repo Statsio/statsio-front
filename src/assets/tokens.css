@@ -14,6 +14,10 @@
   --color-tvstats-secondary: #86efac;
   --color-tvstats-soft: #bbf7d0;
   --color-tvstats-dark: #0f4526;
+  --color-medistats-primary: #991b1b;
+  --color-medistats-secondary: #fca5a5;
+  --color-medistats-soft: #fee2e2;
+  --color-medistats-dark: #7f1d1d;
   --font-sans: 'Manrope', system-ui, sans-serif;
   --font-mono:
     'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
@@ -23,3 +27,51 @@
     'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
     'Courier New', monospace;
 }
+
+/* TVStats theme — overrides primary/secondary/accent with green palette.
+   Must target *, ::before, ::after to match Tailwind v4's @theme variable scope. */
+[data-theme='tvstats'],
+[data-theme='tvstats'] *,
+[data-theme='tvstats'] ::before,
+[data-theme='tvstats'] ::after {
+  --color-primary: #166534;
+  --color-secondary: #86efac;
+  --color-accent: #22c55e;
+  --color-studio-header-start: #f0fdf4;
+  --color-studio-header-mid: #dcfce7;
+  --color-studio-header-end: #f0fdf4;
+}
+
+/* Medistats theme — red palette */
+[data-theme='medistats'],
+[data-theme='medistats'] *,
+[data-theme='medistats'] ::before,
+[data-theme='medistats'] ::after {
+  --color-primary: #991b1b;
+  --color-secondary: #fca5a5;
+  --color-accent: #ef4444;
+  --color-studio-header-start: #fff5f5;
+  --color-studio-header-mid: #fee2e2;
+  --color-studio-header-end: #fff5f5;
+}
+
+[data-theme='medistats'] .fill-primary { fill: #991b1b; }
+[data-theme='medistats'] .fill-secondary { fill: #fca5a5; }
+[data-theme='medistats'] .fill-accent { fill: #ef4444; }
+[data-theme='medistats'] .stroke-primary { stroke: #991b1b; }
+[data-theme='medistats'] .stroke-secondary { stroke: #fca5a5; }
+[data-theme='medistats'] .stroke-accent { stroke: #ef4444; }
+[data-theme='medistats'] .text-primary { color: #991b1b; }
+[data-theme='medistats'] .bg-primary { background-color: #991b1b; }
+[data-theme='medistats'] .border-primary { border-color: #991b1b; }
+
+/* Explicit SVG/color overrides — fallback si Tailwind génère des valeurs statiques */
+[data-theme='tvstats'] .fill-primary { fill: #166534; }
+[data-theme='tvstats'] .fill-secondary { fill: #86efac; }
+[data-theme='tvstats'] .fill-accent { fill: #22c55e; }
+[data-theme='tvstats'] .stroke-primary { stroke: #166534; }
+[data-theme='tvstats'] .stroke-secondary { stroke: #86efac; }
+[data-theme='tvstats'] .stroke-accent { stroke: #22c55e; }
+[data-theme='tvstats'] .text-primary { color: #166534; }
+[data-theme='tvstats'] .bg-primary { background-color: #166534; }
+[data-theme='tvstats'] .border-primary { border-color: #166534; }

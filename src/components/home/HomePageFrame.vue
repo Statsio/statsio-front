@@ -12,7 +12,7 @@ import HomeStatsStrip from '@/components/home/HomeStatsStrip.vue'
 
 const props = withDefaults(
   defineProps<{
-    variant?: 'statsio' | 'tvstats'
+    variant?: 'statsio' | 'tvstats' | 'medistats'
     heroBullets: string[]
     heroKpis: { label: string; value: string }[]
     statsStrip: { label: string; value: string; hint: string }[]
@@ -26,7 +26,11 @@ const props = withDefaults(
   },
 )
 
-const pageClass = computed(() => (props.variant === 'tvstats' ? 'brand-theme-tvstats' : ''))
+const pageClass = computed(() => {
+  if (props.variant === 'tvstats') return 'brand-theme-tvstats'
+  if (props.variant === 'medistats') return 'brand-theme-medistats'
+  return ''
+})
 const promoItems = computed(() => (props.variant === 'tvstats' ? tvstatsPromoItems : statsioPromoItems))
 </script>
 
@@ -62,6 +66,20 @@ const promoItems = computed(() => (props.variant === 'tvstats' ? tvstatsPromoIte
   --app-badge-border: rgba(22, 101, 52, 0.26);
   --app-badge-surface: rgba(134, 239, 172, 0.16);
   --app-badge-text: #14532d;
+  background: var(--app-body-background);
+}
+
+.brand-theme-medistats {
+  --color-primary: var(--color-medistats-primary);
+  --color-secondary: var(--color-medistats-soft);
+  --color-accent: var(--color-medistats-secondary);
+  --app-body-background:
+    linear-gradient(90deg, rgba(15, 23, 42, 0.04) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.04) 1px, transparent 1px),
+    radial-gradient(900px 480px at 15% -10%, rgba(153, 27, 27, 0.1), transparent 70%), #fdf8f8;
+  --app-badge-border: rgba(153, 27, 27, 0.22);
+  --app-badge-surface: rgba(252, 165, 165, 0.18);
+  --app-badge-text: #7f1d1d;
   background: var(--app-body-background);
 }
 </style>

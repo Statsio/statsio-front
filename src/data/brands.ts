@@ -1,7 +1,8 @@
 import statsioLogo from '@/assets/brand/statsio-logo.svg'
 import tvstatsLogo from '@/assets/brand/tvstats/tvstats-logo.svg'
+import medistatsLogo from '@/assets/brand/medistats/medistats-logo.svg'
 
-export type BrandId = 'statsio' | 'tvstats'
+export type BrandId = 'statsio' | 'tvstats' | 'medistats'
 
 export type BrandMenuItem = {
   id: BrandId
@@ -43,6 +44,13 @@ const brandConfigs: Record<BrandId, BrandConfig> = {
         logo: tvstatsLogo,
         eyebrow: 'Sous-marque',
       },
+      {
+        id: 'medistats',
+        to: '/medistats',
+        name: 'MEDISTATS',
+        logo: medistatsLogo,
+        eyebrow: 'Sous-marque',
+      },
     ],
   },
   tvstats: {
@@ -63,11 +71,48 @@ const brandConfigs: Record<BrandId, BrandConfig> = {
         logo: statsioLogo,
         eyebrow: 'Marque principale',
       },
+      {
+        id: 'medistats',
+        to: '/medistats',
+        name: 'MEDISTATS',
+        logo: medistatsLogo,
+        eyebrow: 'Sous-marque',
+      },
+    ],
+  },
+  medistats: {
+    id: 'medistats',
+    to: '/medistats',
+    name: 'MEDISTATS',
+    logo: medistatsLogo,
+    logoAlt: 'MEDISTATS',
+    wordmarkClass: 'text-medistats-primary',
+    prefix: 'Medi',
+    suffix: 'STATS',
+    suffixClass: 'text-medistats-secondary',
+    switchMenu: [
+      {
+        id: 'statsio',
+        to: '/',
+        name: 'Statsio',
+        logo: statsioLogo,
+        eyebrow: 'Marque principale',
+      },
+      {
+        id: 'tvstats',
+        to: '/tvstats',
+        name: 'TVSTATS',
+        logo: tvstatsLogo,
+        eyebrow: 'Sous-marque',
+      },
     ],
   },
 }
 
 export const getBrandConfig = (brandId: BrandId) => brandConfigs[brandId]
 
-export const getBrandFromPath = (path: string): BrandConfig =>
-  path.startsWith('/tvstats') ? brandConfigs.tvstats : brandConfigs.statsio
+export const getBrandFromPath = (path: string): BrandConfig => {
+  if (path.startsWith('/tvstats')) return brandConfigs.tvstats
+  if (path.startsWith('/medistats')) return brandConfigs.medistats
+  return brandConfigs.statsio
+}

@@ -8,13 +8,12 @@ export function useFavicon() {
     let faviconPath = '/favicon.ico'
 
     if (route.path.startsWith('/studio')) {
-      // Favicon Studio (SVG créé précédemment)
       faviconPath = '/src/assets/brand/statsio-studio.svg'
     } else if (route.path.startsWith('/tvstats')) {
-      // Favicon TVSTATS
       faviconPath = '/src/assets/brand/tvstats/tvstats-logo.svg'
+    } else if (route.path.startsWith('/medistats')) {
+      faviconPath = '/src/assets/brand/medistats/medistats-logo.svg'
     } else {
-      // Favicon Statsio par défaut
       faviconPath = '/src/assets/brand/statsio-logo.svg'
     }
 
