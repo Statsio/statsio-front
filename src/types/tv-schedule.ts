@@ -2,6 +2,7 @@ import type { TntChannel } from '@/data/tnt-channels'
 
 export type TvProgramme = {
   id: number
+  broadcastId: number | null   // DB broadcast ID — null if not yet stored
   title: string
   startTime: string    // 'HH:MM' in Europe/Paris
   endTime: string      // 'HH:MM' in Europe/Paris

@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 import type { TvProgramme, TimeWindow } from '@/types/tv-schedule'
+
+const router = useRouter()
 
 const props = defineProps<{
   programme: TvProgramme
@@ -23,18 +26,26 @@ const widthPx = computed(() => {
 })
 
 const genreLabel = computed(() => props.programme.genres[0] ?? props.programme.type)
+
+function goToDetail() {
+  if (props.programme.broadcastId != null) {
+    router.push({ name: 'tvstats-broadcast', params: { id: props.programme.broadcastId } })
+  }
+}
 </script>
 
 <template>
   <div
     class="absolute top-1 bottom-1 flex flex-col justify-between overflow-hidden rounded-xl border p-2 transition-shadow hover:shadow-md"
-    :class="
+    :class="[
       programme.isLive
         ? 'border-tvstats-primary/30 bg-tvstats-soft/50'
-        : 'border-slate-200 bg-white'
-    "
+        : 'border-slate-200 bg-white',
+      programme.broadcastId != null ? 'cursor-pointer' : '',
+    ]"
     :style="{ left: leftPx + 'px', width: widthPx + 'px' }"
     :title="programme.summary ?? programme.title"
+    @click="goToDetail"
   >
     <div class="min-w-0">
       <p class="truncate text-[10px] font-semibold tracking-[0.1em] text-tvstats-primary">

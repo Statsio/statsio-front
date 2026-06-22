@@ -83,4 +83,10 @@ export const STATSIO_API = {
     mediaOne: (documentId: string, mediaId: string) =>
       `/statsdata/${encodeURIComponent(documentId)}/media/${encodeURIComponent(mediaId)}`,
   },
+  tv: {
+    epg: (date: string) => `/tv/epg?date=${encodeURIComponent(date)}`,
+    audiences: '/tv/audiences',
+    broadcast: (id: number) => `/tv/broadcasts/${id}`,
+    broadcastView: (id: number) => `/tv/broadcasts/${id}/view`,
+  },
 } as const

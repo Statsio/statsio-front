@@ -152,6 +152,16 @@ const router = createRouter({
           component: TvProgrammeView,
         },
         {
+          path: 'tvstats/audiences',
+          name: 'tvstats-audiences',
+          component: () => import('../views/TvAudiencesView.vue'),
+        },
+        {
+          path: 'tvstats/emission/:id',
+          name: 'tvstats-broadcast',
+          component: () => import('../views/TvBroadcastView.vue'),
+        },
+        {
           path: 'medistats',
           name: 'medistats',
           component: () => import('../views/MedistatsView.vue'),

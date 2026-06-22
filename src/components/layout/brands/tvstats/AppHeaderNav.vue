@@ -30,7 +30,7 @@ const items: HeaderNavItem[] = [
   },
   {
     label: 'Audiences',
-    href: '/statsdata',
+    href: '/tvstats/audiences',
     icon: 'stats',
     eyebrow: 'Mesures & séries',
     title: 'Analysez les audiences, courbes et signaux de performance de vos formats TV.',

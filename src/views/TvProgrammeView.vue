@@ -1,9 +1,18 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import AppButton from '@/components/ui/AppButton.vue'
 import TvScheduleGrid from '@/components/tv/TvScheduleGrid.vue'
 import { useTvSchedule } from '@/composables/useTvSchedule'
-import type { TimePreset } from '@/types/tv-schedule'
+import type { TimePreset, TvProgramme } from '@/types/tv-schedule'
+
+const router = useRouter()
+
+function goToBroadcast(programme: TvProgramme) {
+  if (programme.broadcastId != null) {
+    router.push({ name: 'tvstats-broadcast', params: { id: programme.broadcastId } })
+  }
+}
 
 const presetOptions: Array<{ id: Exclude<TimePreset, 'custom'>; label: string }> = [
   { id: 'yesterday', label: 'Hier' },
@@ -167,11 +176,13 @@ const mobileLogoFailed = ref<Record<string, boolean>>({})
                   v-for="programme in schedule.programmes.slice(0, 5)"
                   :key="programme.id"
                   class="flex gap-3 rounded-2xl border p-3 transition"
-                  :class="
+                  :class="[
                     programme.isLive
                       ? 'border-tvstats-primary/20 bg-tvstats-soft/30'
-                      : 'border-slate-100 bg-slate-50'
-                  "
+                      : 'border-slate-100 bg-slate-50',
+                    programme.broadcastId != null ? 'cursor-pointer hover:shadow-sm' : '',
+                  ]"
+                  @click="goToBroadcast(programme)"
                 >
                   <div class="w-14 shrink-0 text-right">
                     <p class="text-xs font-semibold text-tvstats-primary">{{ programme.startTime }}</p>

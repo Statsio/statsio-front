@@ -1,5 +1,5 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { fetchEpgData, buildChannelSchedules } from '@/api/tv-schedule'
+import { fetchChannelSchedules } from '@/api/tv-schedule'
 import type { ChannelSchedule, TimePreset, TimeWindow } from '@/types/tv-schedule'
 
 function toDateStr(date: Date): string {
@@ -74,8 +74,7 @@ export function useTvSchedule() {
     isLoading.value = true
     error.value = null
     try {
-      const doc = await fetchEpgData()
-      schedules.value = buildChannelSchedules(doc, effectiveDate.value)
+      schedules.value = await fetchChannelSchedules(effectiveDate.value)
     } catch {
       error.value = 'Impossible de charger le programme TV. Veuillez réessayer.'
       schedules.value = []
