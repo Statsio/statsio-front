@@ -6,42 +6,48 @@ Statsio est une plateforme de data journalism qui centralise analyses, sources e
 
 ## Stack technique
 
-- **Framework**: Vue 3 avec Composition API (script setup)
-- **Build tool**: Vite 7
+- **Framework**: Nuxt 3 (compatibilityVersion 4) + Vue 3 Composition API
+- **Build tool**: Nuxt / Vite (géré par Nuxt)
 - **Langage**: TypeScript
 - **Styling**: Tailwind CSS v4 + tokens CSS personnalisés + SCSS
-- **State management**: Pinia
-- **Routing**: Vue Router 5
+- **State management**: Pinia (via @pinia/nuxt)
+- **Routing**: Nuxt file-based routing (app/pages/)
+- **Rendu**: SSR hybride — pages publiques en SSR, Studio/admin en client-only (ssr: false)
 - **Graphiques**: Chart.js
 - **Tests**: Vitest
 - **Linting**: ESLint + Oxlint
 - **Formatting**: Prettier
 
-## Architecture du projet
+## Architecture du projet (Nuxt 4 — dossier app/)
 
-src/
-├── api/              # Services API (appels HTTP)
+app/
+├── api/              # Services API (appels HTTP via axios)
 ├── assets/           # Ressources statiques (CSS tokens, images, icônes)
-├── components/       # Composants Vue réutilisables
+├── components/       # Composants Vue (auto-importés par Nuxt)
 │   ├── auth/        # Composants d'authentification
 │   ├── dashboard/   # Composants du tableau de bord
-│   ├── home/        # Composants de la page d'accueil (voir AGENTS.md)
-│   ├── layout/      # Composants de layout globaux (voir AGENTS.md)
+│   ├── home/        # Composants de la page d'accueil
+│   ├── layout/      # Composants de layout globaux
 │   ├── login/       # Composants de connexion
 │   ├── polls/       # Composants de sondages
 │   ├── statsdata/   # Composants StatsData
-│   ├── studio-new/  # Composants du studio (en développement)
+│   ├── studio/      # Composants du Studio (client-only)
 │   ├── tv/          # Composants TVStats
 │   └── ui/          # Composants UI réutilisables (AppButton, etc.)
-├── composables/      # Composables Vue (logique réutilisable)
-├── data/            # Données statiques et configurations
-├── layouts/         # Layouts de page (DefaultLayout, StudioLayout)
-├── lib/             # Utilitaires et helpers
-├── router/          # Configuration Vue Router
-├── services/        # Services métier
-├── stores/          # Stores Pinia
-├── types/           # Types TypeScript
-└── views/           # Vues/Pages de l'application
+├── composables/      # Composables Vue (auto-importés)
+├── data/             # Données statiques et configurations
+├── layouts/          # Layouts Nuxt (default.vue, studio.vue, admin.vue)
+├── lib/              # Utilitaires et helpers
+├── middleware/       # Middleware Nuxt (auth.ts, guest.ts, admin.ts)
+├── pages/            # Pages Nuxt (routing fichier-système)
+├── plugins/          # Plugins Nuxt (01.axios.ts, 02.fontawesome.ts, 03.auth-init.client.ts)
+├── services/         # Services métier
+├── stores/           # Stores Pinia (auto-importés)
+├── types/            # Types TypeScript
+└── app.vue           # Composant racine (NuxtLayout + NuxtPage)
+
+public/
+└── brand/            # Assets de marque servis statiquement (/brand/*)
 
 ## Conventions de code
 
@@ -133,19 +139,22 @@ src/
 ## Commandes
 
 npm install              # Installation des dépendances
-npm run dev             # Serveur de développement
-npm run build           # Build de production
-npm run type-check      # Vérification TypeScript
+npm run dev             # Serveur de développement Nuxt (port 3000)
+npm run build           # Build de production SSR
+npm run generate        # Build statique (SSG)
+npm run preview         # Prévisualisation du build
+npm run type-check      # Vérification TypeScript via nuxt typecheck
 npm run test:unit       # Tests unitaires
 npm run lint            # Linting (oxlint + eslint)
 npm run format          # Formatage avec Prettier
 
 ## Variables d'environnement
 
-Créer un fichier .env.local basé sur les besoins:
+Créer un fichier .env.local basé sur les besoins (préfixe NUXT_PUBLIC_ pour les vars exposées au client):
 
-VITE_API_BASE_URL=http://localhost:8080/api
-VITE_GOOGLE_CLIENT_ID=your-google-client-id
+NUXT_PUBLIC_API_BASE_URL=http://localhost:8080/api
+NUXT_PUBLIC_AUTH_API_BASE_URL=http://localhost:8080/api/auth
+NUXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-client-id
 
 ## Développement du Studio
 
@@ -178,17 +187,21 @@ Le studio est en cours de développement (voir plan_studio_claude.txt). Objectif
 
 ## Ressources importantes
 
-- Design tokens: src/assets/tokens.css
-- Helpers SCSS: src/assets/theme.scss
-- Composant bouton principal: src/components/ui/AppButton.vue
-- Store auth: src/stores/auth.ts
-- Configuration router: src/router/index.ts
-- Endpoints API: src/api/statsio-endpoints.ts
+- Design tokens: app/assets/tokens.css
+- Helpers SCSS: app/assets/theme.scss
+- Composant bouton principal: app/components/ui/AppButton.vue
+- Store auth: app/stores/auth.ts
+- Middleware auth: app/middleware/auth.ts
+- Endpoints API: app/api/statsio-endpoints.ts
+- Config Nuxt: nuxt.config.ts
+- Plugins bootstrap: app/plugins/ (01.axios, 02.fontawesome, 03.auth-init.client)
 
 ## Notes importantes
 
 - Node.js version requise: ^20.19.0 || >=22.12.0
-- Le projet utilise des imports avec alias @/ pointant vers src/
-- Les composants doivent rester focalisés et composables
-- Éviter d'ajouter de grandes quantités de logique inline dans les vues
-- Créer un composable dédié ou un composant quand c'est plus clair
+- L'alias @/ pointe vers app/ (configuré dans nuxt.config.ts)
+- Les composants sont auto-importés par Nuxt depuis app/components/
+- Les composables sont auto-importés depuis app/composables/
+- Les stores Pinia sont auto-importés depuis app/stores/
+- Le Studio et les pages auth-protégées ont ssr: false (client-only rendering)
+- Pages publiques (Home, Articles, TVStats, etc.) bénéficient du SSR pour le SEO
