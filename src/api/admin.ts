@@ -95,6 +95,53 @@ export async function adminDeleteChannel(id: number): Promise<void> {
   await apiHttp.delete(`/admin/tv/channels/${id}`)
 }
 
+// ---- Review Questions ----
+
+export type AdminReviewQuestion = {
+  id: number
+  label: string
+  description: string | null
+  category_slugs: string[] | null
+  is_active: boolean
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+export async function adminListReviewQuestions(): Promise<AdminReviewQuestion[]> {
+  const { data } = await apiHttp.get<AdminReviewQuestion[]>('/admin/tv/review-questions')
+  return data
+}
+
+export async function adminCreateReviewQuestion(payload: {
+  label: string
+  description?: string | null
+  category_slugs?: string[] | null
+  is_active?: boolean
+  sort_order?: number
+}): Promise<AdminReviewQuestion> {
+  const { data } = await apiHttp.post<AdminReviewQuestion>('/admin/tv/review-questions', payload)
+  return data
+}
+
+export async function adminUpdateReviewQuestion(
+  id: number,
+  payload: {
+    label?: string
+    description?: string | null
+    category_slugs?: string[] | null
+    is_active?: boolean
+    sort_order?: number
+  },
+): Promise<AdminReviewQuestion> {
+  const { data } = await apiHttp.patch<AdminReviewQuestion>(`/admin/tv/review-questions/${id}`, payload)
+  return data
+}
+
+export async function adminDeleteReviewQuestion(id: number): Promise<void> {
+  await apiHttp.delete(`/admin/tv/review-questions/${id}`)
+}
+
 // ---- Categories ----
 
 export type AdminCategory = {

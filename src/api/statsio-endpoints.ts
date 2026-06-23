@@ -88,5 +88,9 @@ export const STATSIO_API = {
     audiences: '/tv/audiences',
     broadcast: (id: number) => `/tv/broadcasts/${id}`,
     broadcastView: (id: number) => `/tv/broadcasts/${id}/view`,
+    broadcastSchedule: (id: number) => `/tv/broadcasts/${id}/schedule`,
+    broadcastReviews: (id: number) => `/tv/broadcasts/${id}/reviews`,
+    broadcastQuestions: (id: number) => `/tv/broadcasts/${id}/questions`,
+    broadcastReview: (id: number) => `/tv/broadcasts/${id}/review`,
   },
 } as const
