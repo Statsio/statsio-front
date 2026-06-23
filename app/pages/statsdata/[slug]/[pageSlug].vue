@@ -164,7 +164,7 @@ function copyLink() {
 </script>
 
 <template>
-  <main class="pb-24 pt-32">
+  <main class="pb-24 pt-4">
     <section class="py-8">
       <div class="mx-auto w-full max-w-[1440px] px-4 sm:px-6 flex flex-col gap-6">
 

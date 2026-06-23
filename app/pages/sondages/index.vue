@@ -46,7 +46,7 @@ const editorialPoints = [
 </script>
 
 <template>
-  <main class="pb-24 pt-32">
+  <main class="pb-24 pt-4">
     <section class="section pb-8">
       <div class="container grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_320px] lg:items-start">
         <div class="flex flex-col gap-8">

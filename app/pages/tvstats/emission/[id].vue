@@ -158,6 +158,8 @@ function onReviewSubmitted(reviews: ReviewsResponse) {
   showReviewModal.value = false
   if (broadcast.value) broadcast.value.userHasReviewed = true
 }
+
+onMounted(() => load())
 </script>
 
 <template>

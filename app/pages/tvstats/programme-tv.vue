@@ -50,7 +50,7 @@ const nowNextLogoFailed = ref<Record<string, boolean>>({})
 </script>
 
 <template>
-  <main class="pb-24 pt-28">
+  <main class="pb-24">
     <section class="section pt-4">
       <div class="container flex flex-col gap-6">
 

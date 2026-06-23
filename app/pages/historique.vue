@@ -5,7 +5,7 @@ import { RouterLink } from 'vue-router'
 </script>
 
 <template>
-  <main class="pb-24 pt-32">
+  <main class="pb-24 pt-4">
     <section class="section pb-8">
       <div class="container flex flex-col gap-8">
         <div class="flex flex-col gap-5">

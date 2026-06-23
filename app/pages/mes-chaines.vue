@@ -58,7 +58,7 @@ const getStatus = (status: string) =>
 </script>
 
 <template>
-  <main class="pb-24 pt-32">
+  <main class="pb-24 pt-4">
 
     <!-- ─── SKELETON ─── -->
     <section v-if="isLoading" class="section">

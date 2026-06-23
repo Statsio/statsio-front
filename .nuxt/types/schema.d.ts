@@ -16,8 +16,6 @@ import { NuxtModule, ModuleDependencyMeta } from '@nuxt/schema'
    },
   }
   interface SharedPublicRuntimeConfig {
-   authApiBaseUrl: string,
-
    apiBaseUrl: string,
 
    googleClientId: string,

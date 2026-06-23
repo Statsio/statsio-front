@@ -165,7 +165,7 @@ const handleCancel = () => {
 </script>
 
 <template>
-  <main class="pb-24 pt-32">
+  <main class="pb-24 pt-4">
     <section class="section">
       <div class="container">
         <div class="mx-auto max-w-4xl">

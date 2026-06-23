@@ -692,7 +692,6 @@ const _inlineRuntimeConfig = {
     }
   },
   "public": {
-    "authApiBaseUrl": "http://localhost:8080/api/auth",
     "apiBaseUrl": "http://localhost:8080/api",
     "googleClientId": ""
   }

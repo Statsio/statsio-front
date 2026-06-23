@@ -68,7 +68,7 @@ const visibilityOptions = [
 </script>
 
 <template>
-  <main class="pb-24 pt-32">
+  <main class="pb-24 pt-4">
     <section class="section pb-10">
       <div class="container max-w-3xl flex flex-col gap-8">
 

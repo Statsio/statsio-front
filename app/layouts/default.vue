@@ -67,7 +67,9 @@ useHead({
   >
     <AppPromoBanner :items="sharedPromoItems" />
     <AppHeader />
-    <slot />
+    <main class="pt-28">
+      <slot />
+    </main>
     <AppFooter />
   </div>
 </template>

@@ -19,7 +19,7 @@ const formatCompactNumber = (value: number) =>
 </script>
 
 <template>
-  <main class="pb-24 pt-32">
+  <main class="pb-24 pt-4">
     <section class="section">
       <div class="container grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
         <!-- Colonne principale 2/3 -->
