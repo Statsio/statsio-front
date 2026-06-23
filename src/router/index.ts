@@ -355,6 +355,13 @@ const router = createRouter({
           component: () => import('../views/admin/tvstats/AdminTvChannelEditView.vue'),
           meta: { requiresAdmin: true },
         },
+        // Categories
+        {
+          path: 'tvstats/categories',
+          name: 'admin-tv-categories',
+          component: () => import('../views/admin/tvstats/AdminTvCategoriesView.vue'),
+          meta: { requiresAdmin: true },
+        },
         // Programs
         {
           path: 'tvstats/programs',

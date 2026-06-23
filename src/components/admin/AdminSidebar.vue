@@ -16,6 +16,7 @@ const sections: NavSection[] = [
     title: 'TVStats',
     items: [
       { label: 'Chaînes', to: '/admin/tvstats/channels' },
+      { label: 'Catégories', to: '/admin/tvstats/categories' },
       { label: 'Programmes', to: '/admin/tvstats/programs' },
       { label: 'Diffusions', to: '/admin/tvstats/broadcasts' },
     ],

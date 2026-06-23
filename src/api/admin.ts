@@ -95,6 +95,37 @@ export async function adminDeleteChannel(id: number): Promise<void> {
   await apiHttp.delete(`/admin/tv/channels/${id}`)
 }
 
+// ---- Categories ----
+
+export type AdminCategory = {
+  id: number
+  name: string
+  slug: string
+  color: string | null
+  programs_count?: number
+  created_at: string
+  updated_at: string
+}
+
+export async function adminListCategories(): Promise<AdminCategory[]> {
+  const { data } = await apiHttp.get<AdminCategory[]>('/admin/tv/categories')
+  return data
+}
+
+export async function adminCreateCategory(payload: { name: string; color?: string | null }): Promise<AdminCategory> {
+  const { data } = await apiHttp.post<AdminCategory>('/admin/tv/categories', payload)
+  return data
+}
+
+export async function adminUpdateCategory(id: number, payload: { name?: string; color?: string | null }): Promise<AdminCategory> {
+  const { data } = await apiHttp.patch<AdminCategory>(`/admin/tv/categories/${id}`, payload)
+  return data
+}
+
+export async function adminDeleteCategory(id: number): Promise<void> {
+  await apiHttp.delete(`/admin/tv/categories/${id}`)
+}
+
 // ---- Programs ----
 
 export type AdminProgram = {
@@ -103,6 +134,10 @@ export type AdminProgram = {
   tv_channel_id: string
   type: string | null
   description: string | null
+  image_url: string | null
+  youtube_url: string | null
+  is_tvstats_pick: boolean
+  categories: AdminCategory[]
   broadcasts_count: number
   created_at: string
   updated_at: string
@@ -130,7 +165,18 @@ export async function adminGetProgram(id: number): Promise<AdminProgramDetail> {
   return data
 }
 
-export async function adminUpdateProgram(id: number, payload: { title?: string; type?: string | null; description?: string | null }): Promise<AdminProgram> {
+export async function adminUpdateProgram(
+  id: number,
+  payload: {
+    title?: string
+    type?: string | null
+    description?: string | null
+    image_url?: string | null
+    youtube_url?: string | null
+    is_tvstats_pick?: boolean
+    category_ids?: number[]
+  },
+): Promise<AdminProgram> {
   const { data } = await apiHttp.patch<AdminProgram>(`/admin/tv/programs/${id}`, payload)
   return data
 }
@@ -141,6 +187,16 @@ export async function adminDeleteProgram(id: number): Promise<void> {
 
 // ---- Broadcasts ----
 
+export const BROADCAST_TYPES = [
+  { value: 'inedit',      label: 'Inédit' },
+  { value: 'rediffusion', label: 'Rediffusion' },
+  { value: 'direct',      label: 'Direct' },
+  { value: 'replay',      label: 'Replay' },
+  { value: 'exclusivite', label: 'Exclusivité' },
+] as const
+
+export type BroadcastType = typeof BROADCAST_TYPES[number]['value']
+
 export type AdminBroadcast = {
   id: number
   tv_channel_id: string
@@ -149,8 +205,14 @@ export type AdminBroadcast = {
   end_at: string
   season: number | null
   episode: number | null
+  broadcast_type: BroadcastType | null
   program: { id: number; title: string; type: string | null } | null
-  audience: { viewers: number | null; pda: number | null; rank: number | null } | null
+  audience: {
+    viewers: number | null
+    pda: number | null
+    rank: number | null
+    mediametrie_viewers: number | null
+  } | null
   created_at: string
 }
 
@@ -172,8 +234,19 @@ export async function adminGetBroadcast(id: number): Promise<AdminBroadcast> {
   return data
 }
 
-export async function adminUpdateBroadcast(id: number, payload: { season?: number | null; episode?: number | null }): Promise<AdminBroadcast> {
+export async function adminUpdateBroadcast(
+  id: number,
+  payload: { season?: number | null; episode?: number | null; broadcast_type?: BroadcastType | null },
+): Promise<AdminBroadcast> {
   const { data } = await apiHttp.patch<AdminBroadcast>(`/admin/tv/broadcasts/${id}`, payload)
+  return data
+}
+
+export async function adminUpdateBroadcastAudience(
+  id: number,
+  payload: { pda?: number | null; rank?: number | null; mediametrie_viewers?: number | null },
+): Promise<AdminBroadcast> {
+  const { data } = await apiHttp.patch<AdminBroadcast>(`/admin/tv/broadcasts/${id}/audience`, payload)
   return data
 }
 
