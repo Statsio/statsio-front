@@ -8,6 +8,10 @@ export default defineNuxtConfig({
 
   ssr: true,
 
+  nitro: {
+    preset: 'cloudflare_module',
+  },
+
   modules: ['@pinia/nuxt'],
 
   css: [
