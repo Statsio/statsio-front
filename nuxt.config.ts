@@ -32,7 +32,6 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     public: {
-      authApiBaseUrl: 'http://localhost:8080/api/auth',
       apiBaseUrl: 'http://localhost:8080/api',
       googleClientId: '',
     },
