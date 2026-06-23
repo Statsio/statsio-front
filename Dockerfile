@@ -13,8 +13,8 @@ RUN npm install
 # Copier le reste du projet
 COPY . .
 
-# Expose le port de Vite
-EXPOSE 5173
+# Expose le port de Nuxt
+EXPOSE 3000
 
-# Commande par défaut pour lancer Vite en mode dev
-CMD ["npm", "run", "dev", "--", "--host"]
+# Commande par défaut pour lancer Nuxt en mode dev
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "3000"]
