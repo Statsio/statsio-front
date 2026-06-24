@@ -41,10 +41,15 @@ jobs:
 
       - name: Deploy to Cloudflare Workers
         run: |
-          WRANGLER_ENV=${{ github.ref_name == 'main' && '' || '--env staging' }}
-          npx wrangler deploy $WRANGLER_ENV \
-            --var "NUXT_PUBLIC_API_BASE_URL:$NUXT_PUBLIC_API_BASE_URL" \
-            --var "NUXT_PUBLIC_GOOGLE_CLIENT_ID:$NUXT_PUBLIC_GOOGLE_CLIENT_ID"
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            npx wrangler deploy \
+              --var "NUXT_PUBLIC_API_BASE_URL:$NUXT_PUBLIC_API_BASE_URL" \
+              --var "NUXT_PUBLIC_GOOGLE_CLIENT_ID:$NUXT_PUBLIC_GOOGLE_CLIENT_ID"
+          else
+            npx wrangler deploy --env staging \
+              --var "NUXT_PUBLIC_API_BASE_URL:$NUXT_PUBLIC_API_BASE_URL" \
+              --var "NUXT_PUBLIC_GOOGLE_CLIENT_ID:$NUXT_PUBLIC_GOOGLE_CLIENT_ID"
+          fi
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
