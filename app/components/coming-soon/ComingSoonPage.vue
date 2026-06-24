@@ -72,12 +72,6 @@ const usecases = [
   { emoji: '🔬', title: 'Chercheurs & analystes', desc: 'Explorez des datasets structurés, comparez des indicateurs et diffusez vos résultats.' },
 ]
 
-const email = ref('')
-const notified = ref(false)
-function notify() {
-  if (!email.value.trim()) return
-  notified.value = true
-}
 </script>
 
 <template>
@@ -102,10 +96,9 @@ function notify() {
       <!-- Header -->
       <header class="flex items-center justify-between">
         <div class="flex items-center gap-3">
-          <img src="/brand/statsio-white.svg" alt="Statsio" class="h-10 w-10 rounded-2xl bg-primary/20 p-1.5 sm:h-11 sm:w-11" />
+          <img src="/brand/statsio-logo.svg" alt="Statsio" class="h-10 w-10 rounded-2xl bg-primary/20 p-1.5 sm:h-11 sm:w-11" />
           <div>
             <AppWordmark as="p" class="text-sm tracking-[0.3em] text-white" />
-            <p class="text-[11px] font-medium text-white/50">Media intelligence platform</p>
           </div>
         </div>
         <span class="badge border-white/10 bg-white/8 text-white/60">
@@ -146,39 +139,12 @@ function notify() {
           </p>
         </div>
 
-        <!-- Notify form -->
-        <div class="mt-10 flex flex-col items-center gap-2">
-          <Transition
-            enter-active-class="transition duration-300 ease-out"
-            enter-from-class="opacity-0 scale-95"
-            enter-to-class="opacity-100 scale-100"
-          >
-            <p v-if="notified" class="text-base font-semibold text-primary">
-              Parfait, on vous prévient dès l'ouverture !
-            </p>
-            <form v-else class="flex w-full max-w-sm gap-2" @submit.prevent="notify">
-              <input
-                v-model="email"
-                type="email"
-                placeholder="votre@email.fr"
-                class="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none transition focus:border-primary/50 focus:bg-white/8"
-              />
-              <button
-                type="submit"
-                class="shrink-0 rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-primary/25 transition hover:bg-primary/90 active:scale-[0.97]"
-              >
-                Me notifier
-              </button>
-            </form>
-          </Transition>
-          <p class="text-xs text-slate-600">Soyez parmi les premiers à accéder à la plateforme.</p>
-        </div>
       </section>
 
       <!-- Divider -->
       <div class="my-24 flex items-center gap-4 lg:my-32">
         <div class="h-px flex-1 bg-white/6" />
-        <img src="/brand/statsio-white.svg" alt="" class="h-5 w-5 opacity-20" aria-hidden="true" />
+        <img src="/brand/statsio-logo.svg" alt="" class="h-5 w-5 opacity-20" aria-hidden="true" />
         <div class="h-px flex-1 bg-white/6" />
       </div>
 
@@ -291,7 +257,7 @@ function notify() {
       <footer class="mt-24 border-t border-white/6 pb-6 pt-8">
         <div class="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
           <div class="flex items-center gap-2.5">
-            <img src="/brand/statsio-white.svg" alt="Statsio" class="h-6 w-6 opacity-40" />
+            <img src="/brand/statsio-logo.svg" alt="Statsio" class="h-6 w-6 opacity-40" />
             <AppWordmark as="span" class="text-xs tracking-[0.3em] text-white/30" />
           </div>
           <p class="text-xs text-slate-600">© 2026 Statsio. Tous droits réservés.</p>
