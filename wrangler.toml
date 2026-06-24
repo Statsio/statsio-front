@@ -5,3 +5,17 @@ compatibility_flags = ["nodejs_compat"]
 
 [site]
 bucket = ".output/public"
+
+[observability.logs]
+enabled = true
+invocation_logs = true
+
+[env.staging]
+name = "statsio-front-staging"
+
+[env.staging.site]
+bucket = ".output/public"
+
+[env.staging.observability.logs]
+enabled = true
+invocation_logs = true

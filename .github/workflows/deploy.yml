@@ -2,13 +2,13 @@ name: Deploy Frontend
 
 on:
   push:
-    branches: [main]
+    branches: [main, staging]
 
 jobs:
   deploy:
-    name: Build & Deploy to Cloudflare
+    name: Build & Deploy to Cloudflare (${{ github.ref_name }})
     runs-on: ubuntu-latest
-    environment: Production
+    environment: ${{ github.ref_name == 'main' && 'Production' || 'Staging' }}
 
     steps:
       - name: Checkout
@@ -41,7 +41,8 @@ jobs:
 
       - name: Deploy to Cloudflare Workers
         run: |
-          npx wrangler deploy \
+          WRANGLER_ENV=${{ github.ref_name == 'main' && '' || '--env staging' }}
+          npx wrangler deploy $WRANGLER_ENV \
             --var "NUXT_PUBLIC_API_BASE_URL:$NUXT_PUBLIC_API_BASE_URL" \
             --var "NUXT_PUBLIC_GOOGLE_CLIENT_ID:$NUXT_PUBLIC_GOOGLE_CLIENT_ID"
         env:
