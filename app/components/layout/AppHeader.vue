@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import AppAccessibilityPanel from '@/components/layout/AppAccessibilityPanel.vue'
 import type { HeaderNavItem } from '@/components/layout/brands/header-nav.types'
@@ -59,6 +59,9 @@ const notificationToneClasses = {
 const activeMenu = ref<HeaderNavItem | null>(null)
 const logoutError = ref('')
 const isBrandMenuOpen = ref(false)
+const isMobileMenuOpen = ref(false)
+const brandNavRef = ref<any>(null)
+const mobileNavItems = computed<HeaderNavItem[]>(() => brandNavRef.value?.items ?? [])
 const brandMenuRef = ref<HTMLElement | null>(null)
 const isNotificationsOpen = ref(false)
 const notificationsRef = ref<HTMLElement | null>(null)
@@ -86,11 +89,36 @@ const userInitials = () => {
   return initials || 'ST'
 }
 
+const toggleMobileMenu = () => {
+  isMobileMenuOpen.value = !isMobileMenuOpen.value
+  if (isMobileMenuOpen.value) {
+    isBrandMenuOpen.value = false
+    isNotificationsOpen.value = false
+    isUserMenuOpen.value = false
+    activeMenu.value = null
+  }
+}
+
+const closeMobileMenu = () => {
+  isMobileMenuOpen.value = false
+}
+
+watch(route, () => {
+  closeMobileMenu()
+})
+
+watch(isMobileMenuOpen, (open) => {
+  if (typeof document !== 'undefined') {
+    document.body.style.overflow = open ? 'hidden' : ''
+  }
+})
+
 const handleLogout = async () => {
   logoutError.value = ''
   isBrandMenuOpen.value = false
   isNotificationsOpen.value = false
   isUserMenuOpen.value = false
+  closeMobileMenu()
 
   try {
     await authStore.logout()
@@ -168,6 +196,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleDocumentClick)
+  document.body.style.overflow = ''
 })
 </script>
 
@@ -227,7 +256,7 @@ onBeforeUnmount(() => {
         </AppDropdownMenu>
       </div>
 
-      <component :is="currentBrandNavComponent" v-model="activeMenu" />
+      <component :is="currentBrandNavComponent" ref="brandNavRef" v-model="activeMenu" />
 
       <div class="flex items-center gap-3">
         <AppAccessibilityPanel />
@@ -365,8 +394,39 @@ onBeforeUnmount(() => {
             </AppButton>
           </div>
         </template>
+
+        <button
+          type="button"
+          class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 lg:hidden"
+          :aria-expanded="isMobileMenuOpen"
+          aria-haspopup="dialog"
+          aria-label="Menu de navigation"
+          @click="toggleMobileMenu"
+        >
+          <svg v-if="!isMobileMenuOpen" viewBox="0 0 24 24" class="h-5 w-5" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+          </svg>
+          <svg v-else viewBox="0 0 24 24" class="h-5 w-5" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+          </svg>
+        </button>
       </div>
     </div>
+
+    <!-- Mobile navigation slider -->
+    <nav class="mobile-slider flex gap-2 overflow-x-auto border-t border-slate-100 px-4 py-2 lg:hidden" aria-label="Navigation rapide">
+      <component
+        v-for="item in mobileNavItems"
+        :key="item.label"
+        :is="item.href.startsWith('/') ? RouterLink : 'a'"
+        :to="item.href.startsWith('/') ? item.href : undefined"
+        :href="item.href.startsWith('/') ? undefined : item.href"
+        class="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-primary/30 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+      >
+        <AppNavIcon :kind="item.icon" class="h-[16px] w-[16px]" />
+        {{ item.label }}
+      </component>
+    </nav>
 
     <div v-if="logoutError" class="container pt-3">
       <div class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
@@ -421,4 +481,131 @@ onBeforeUnmount(() => {
       </div>
     </div>
   </header>
+
+  <!-- Mobile menu drawer -->
+  <Teleport to="body">
+    <Transition
+      enter-active-class="transition duration-300 ease-out"
+      enter-from-class="opacity-0 translate-y-3"
+      enter-to-class="opacity-100 translate-y-0"
+      leave-active-class="transition duration-200 ease-in"
+      leave-from-class="opacity-100 translate-y-0"
+      leave-to-class="opacity-0 translate-y-3"
+    >
+      <div
+        v-if="isMobileMenuOpen"
+        class="fixed inset-0 z-50 flex flex-col bg-white lg:hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Menu de navigation"
+      >
+        <!-- Drawer header -->
+        <div class="flex shrink-0 items-center justify-between border-b border-slate-100 px-4 py-3">
+          <RouterLink
+            :to="currentBrand.to"
+            class="flex items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            @click="closeMobileMenu"
+          >
+            <img :src="currentBrand.logo" :alt="currentBrand.logoAlt" class="h-9 w-9 rounded-xl border border-slate-100 bg-white p-1" />
+            <p :class="[currentBrand.wordmarkClass, 'text-lg font-bold uppercase font-mono']">
+              {{ currentBrand.prefix }}<span :class="currentBrand.suffixClass">{{ currentBrand.suffix }}</span>
+            </p>
+          </RouterLink>
+          <button
+            type="button"
+            class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            aria-label="Fermer le menu"
+            @click="closeMobileMenu"
+          >
+            <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Nav items -->
+        <div class="flex-1 space-y-3 overflow-y-auto p-4">
+          <div v-for="item in mobileNavItems" :key="item.label" class="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+            <component
+              :is="item.href.startsWith('/') ? RouterLink : 'a'"
+              :to="item.href.startsWith('/') ? item.href : undefined"
+              :href="item.href.startsWith('/') ? undefined : item.href"
+              class="group mb-3 flex items-center gap-3"
+              @click="closeMobileMenu"
+            >
+              <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white">
+                <AppNavIcon :kind="item.icon" class="h-[20px] w-[20px]" />
+              </span>
+              <span class="min-w-0">
+                <span class="block text-sm font-semibold text-slate-900 transition group-hover:text-primary">{{ item.label }}</span>
+                <span class="block text-xs font-medium uppercase tracking-[0.16em] text-slate-400">{{ item.eyebrow }}</span>
+              </span>
+            </component>
+            <div class="flex flex-wrap gap-2">
+              <a
+                v-for="link in item.links"
+                :key="link"
+                href="#"
+                class="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 transition hover:border-primary/25 hover:bg-primary/5 hover:text-primary"
+                @click="closeMobileMenu"
+              >
+                {{ link }}
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Auth footer -->
+        <div class="shrink-0 border-t border-slate-100 p-4">
+          <template v-if="authStore.isAuthenticated">
+            <div class="mb-4 flex items-center gap-3">
+              <AppAvatar :initials="userInitials()" size="sm" />
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-sm font-semibold text-slate-900">{{ authStore.displayName }}</p>
+                <p class="truncate text-xs text-slate-500">{{ authStore.user?.email }}</p>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <RouterLink
+                to="/profile"
+                class="flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-white"
+                @click="closeMobileMenu"
+              >
+                Mon profil
+              </RouterLink>
+              <button
+                type="button"
+                class="flex items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-60"
+                :disabled="authStore.isLoggingOut"
+                @click="handleLogout"
+              >
+                {{ authStore.isLoggingOut ? 'Déconnexion...' : 'Se déconnecter' }}
+              </button>
+            </div>
+          </template>
+          <template v-else>
+            <div class="flex gap-3">
+              <AppButton as="router-link" to="/login" variant="outline" size="md" class="flex-1" @click="closeMobileMenu">
+                Connexion
+              </AppButton>
+              <AppButton as="router-link" to="/register" variant="primary" size="md" icon-position="right" class="flex-1" @click="closeMobileMenu">
+                Lancez-vous !
+                <template #icon>→</template>
+              </AppButton>
+            </div>
+          </template>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
+
+<style scoped>
+.mobile-slider::-webkit-scrollbar {
+  display: none;
+}
+.mobile-slider {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+</style>

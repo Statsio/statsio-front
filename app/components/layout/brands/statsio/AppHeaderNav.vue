@@ -73,6 +73,8 @@ const items: HeaderNavItem[] = [
     links: ['Newsletters', 'Réseaux sociaux', 'Partenaires', 'Automatisations'],
   },
 ]
+
+defineExpose({ items })
 </script>
 
 <template>
