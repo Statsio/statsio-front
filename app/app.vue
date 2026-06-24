@@ -14,14 +14,16 @@ const retry = () => {
 </script>
 
 <template>
-  <StagingGate>
-    <AppBootstrapError v-if="bootstrapError" :error="bootstrapError" @retry="retry" />
-    <template v-else>
-      <NuxtLayout>
-        <NuxtPage />
-      </NuxtLayout>
-      <AppCreateFab v-if="showCreateFab" />
-    </template>
-    <AppNotificationStack />
-  </StagingGate>
+  <ComingSoonGate>
+    <StagingGate>
+      <AppBootstrapError v-if="bootstrapError" :error="bootstrapError" @retry="retry" />
+      <template v-else>
+        <NuxtLayout>
+          <NuxtPage />
+        </NuxtLayout>
+        <AppCreateFab v-if="showCreateFab" />
+      </template>
+      <AppNotificationStack />
+    </StagingGate>
+  </ComingSoonGate>
 </template>
