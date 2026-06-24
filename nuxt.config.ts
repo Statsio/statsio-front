@@ -36,6 +36,7 @@ export default defineNuxtConfig({
       googleClientId: process.env.NUXT_PUBLIC_GOOGLE_CLIENT_ID ?? '',
       appEnv: process.env.NUXT_PUBLIC_APP_ENV ?? 'development',
       passwordMiddleware: process.env.NUXT_PUBLIC_PASSWORD_MIDDLEWARE ?? '',
+      comingSoon: process.env.NUXT_PUBLIC_COMING_SOON ?? 'false',
     },
   },
 
