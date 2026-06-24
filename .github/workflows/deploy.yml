@@ -23,11 +23,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Create .env
+        run: |
+          echo "NUXT_PUBLIC_API_BASE_URL=${{ vars.NUXT_PUBLIC_API_BASE_URL }}" >> .env
+          echo "NUXT_PUBLIC_GOOGLE_CLIENT_ID=${{ vars.NUXT_PUBLIC_GOOGLE_CLIENT_ID }}" >> .env
+
       - name: Build
         run: npm run build
-        env:
-          NUXT_PUBLIC_API_BASE_URL: ${{ vars.NUXT_PUBLIC_API_BASE_URL }}
-          NUXT_PUBLIC_GOOGLE_CLIENT_ID: ${{ vars.NUXT_PUBLIC_GOOGLE_CLIENT_ID }}
 
       - name: Deploy to Cloudflare Workers
         run: npx wrangler deploy
