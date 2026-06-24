@@ -1,6 +1,8 @@
 <script setup lang="ts">
 const config = useRuntimeConfig()
-const isComingSoon = (config.public.comingSoon as string) === 'true'
+const raw = config.public.comingSoon
+console.log('[ComingSoonGate] comingSoon raw value:', raw, typeof raw)
+const isComingSoon = String(raw).trim() === 'true'
 </script>
 
 <template>
