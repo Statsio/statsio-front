@@ -35,6 +35,8 @@ jobs:
         run: |
           echo "NUXT_PUBLIC_API_BASE_URL=${{ vars.NUXT_PUBLIC_API_BASE_URL }}" >> .env
           echo "NUXT_PUBLIC_GOOGLE_CLIENT_ID=${{ vars.NUXT_PUBLIC_GOOGLE_CLIENT_ID }}" >> .env
+          echo "NUXT_PUBLIC_APP_ENV=${{ vars.NUXT_PUBLIC_APP_ENV }}" >> .env
+          echo "NUXT_PUBLIC_PASSWORD_MIDDLEWARE=${{ secrets.NUXT_PUBLIC_PASSWORD_MIDDLEWARE }}" >> .env
 
       - name: Build
         run: npm run build
