@@ -14,6 +14,7 @@ const retry = () => {
 </script>
 
 <template>
+  <AppLoadingBar />
   <ComingSoonGate>
     <StagingGate>
       <AppBootstrapError v-if="bootstrapError" :error="bootstrapError" @retry="retry" />
