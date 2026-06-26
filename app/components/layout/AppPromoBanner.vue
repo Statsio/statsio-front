@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useAccessibilityPreferences } from '@/composables/useAccessibilityPreferences'
+import { storeToRefs } from 'pinia'
+import { usePrefsStore } from '@/stores/prefs'
 
 const props = defineProps<{
   items: {
@@ -15,7 +16,7 @@ const props = defineProps<{
 const activeIndex = ref(0)
 let rotationTimer: ReturnType<typeof setInterval> | null = null
 const ROTATION_DELAY = 6800
-const { reducedMotion } = useAccessibilityPreferences()
+const { reducedMotion } = storeToRefs(usePrefsStore())
 
 const activeItem = computed(() => props.items[activeIndex.value] ?? null)
 
