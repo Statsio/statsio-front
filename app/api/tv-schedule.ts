@@ -35,8 +35,8 @@ async function getDbLogoMap(): Promise<Map<string, string>> {
     const { data } = await apiHttp.get<DbChannel[]>('/tv/channels')
     dbChannelCache = new Map(
       data
-        .filter((ch) => ch.logo_url !== null)
-        .map((ch) => [ch.slug, ch.logo_url as string]),
+        .filter((ch: DbChannel) => ch.logo_url !== null)
+        .map((ch: DbChannel) => [ch.slug, ch.logo_url as string]),
     )
   } catch {
     dbChannelCache = new Map()

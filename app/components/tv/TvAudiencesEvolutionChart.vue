@@ -20,7 +20,7 @@ const chartOptions = computed<ChartOptions>(() => ({
     y: {
       beginAtZero: false,
       ticks: {
-        callback: (v) => `${v}%`,
+        callback: (v: number | string) => `${v}%`,
         font: { size: 11 },
         color: '#94a3b8',
       },
@@ -39,7 +39,7 @@ const chartOptions = computed<ChartOptions>(() => ({
       mode: 'index',
       intersect: false,
       callbacks: {
-        label: (ctx) => ` ${ctx.dataset.label} : ${ctx.parsed.y}%`,
+        label: (ctx: import('chart.js').TooltipItem<'line'>) => ` ${ctx.dataset.label} : ${ctx.parsed.y}%`,
       },
     },
   },

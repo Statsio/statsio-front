@@ -1,3 +1,6 @@
+import { ref, watch } from 'vue'
+import { defineStore } from 'pinia'
+
 type ColorScheme = 'light' | 'dark'
 
 interface StoredPrefs {

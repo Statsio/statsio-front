@@ -23,10 +23,14 @@ const VariableHighlight = Extension.create({
       new Plugin({
         key: new PluginKey('variableHighlight'),
         props: {
-          decorations(state) {
+          decorations(state: unknown) {
+            type PmNode = { isText: boolean; text?: string }
+            type PmDoc  = { descendants: (fn: (node: PmNode, pos: number) => void) => void }
+            type PmState = { doc: PmDoc }
+            const st = state as PmState
             const decos: Decoration[] = []
             const re = /\{\{(\w+)\}\}/g
-            state.doc.descendants((node, pos) => {
+            st.doc.descendants((node: PmNode, pos: number) => {
               if (!node.isText || !node.text) return
               re.lastIndex = 0
               let m: RegExpExecArray | null
@@ -34,7 +38,7 @@ const VariableHighlight = Extension.create({
                 decos.push(Decoration.inline(pos + m.index, pos + m.index + m[0].length, { class: 'var-token' }))
               }
             })
-            return DecorationSet.create(state.doc, decos)
+            return DecorationSet.create(st.doc as unknown as Parameters<typeof DecorationSet.create>[0], decos)
           },
         },
       }),
@@ -87,14 +91,14 @@ const editor = useEditor({
       return false
     },
   },
-  onFocus: ({ editor: e }) => {
+  onFocus: ({ editor: e }: { editor: unknown }) => {
     if (!props.readonly) {
-      setActiveEditor(e)
+      setActiveEditor(e as Parameters<typeof setActiveEditor>[0])
       isEditorFocused.value = true
     }
   },
   onBlur: () => { isEditorFocused.value = false },
-  onUpdate: ({ editor }) => {
+  onUpdate: ({ editor }: { editor: { getHTML: () => string } }) => {
     if (suppressSave) return
     if (syncTimer) clearTimeout(syncTimer)
     syncTimer = setTimeout(() => {
@@ -104,7 +108,7 @@ const editor = useEditor({
 })
 
 // Public view: update displayed content when pageParams change after mount
-watch(resolvedContent, (c) => {
+watch(resolvedContent, (c: string) => {
   if (!props.readonly || !editor.value || editor.value.isDestroyed) return
   suppressSave = true
   editor.value.commands.setContent(c)
@@ -124,13 +128,13 @@ watch([isEditorFocused, resolvedContent] as const, () => {
 })
 
 // Apply heading level from sidebar
-watch(() => props.block.config.headingLevel, (level) => {
+watch(() => props.block.config.headingLevel, (level: 1 | 2 | 3 | undefined) => {
   if (!level || !editor.value || props.block.type !== 'heading') return
   editor.value.chain().selectAll().setHeading({ level }).run()
 })
 
 // Apply text align from sidebar
-watch(() => props.block.config.textAlign, (align) => {
+watch(() => props.block.config.textAlign, (align: 'left' | 'center' | 'right' | 'justify' | undefined) => {
   if (!align || !editor.value) return
   editor.value.chain().selectAll().setTextAlign(align).run()
 })
@@ -138,7 +142,7 @@ watch(() => props.block.config.textAlign, (align) => {
 onBeforeUnmount(() => {
   if (syncTimer) clearTimeout(syncTimer)
   // Only flush if the block still exists (not being deleted) and editor is alive
-  const stillExists = studio.blocks.some((b) => b.id === props.block.id)
+  const stillExists = studio.blocks.some((b: StudioBlock) => b.id === props.block.id)
   if (stillExists && editor.value && !editor.value.isDestroyed) {
     studio.updateBlockConfig(props.block.id, { content: editor.value.getHTML() })
   }

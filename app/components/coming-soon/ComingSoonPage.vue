@@ -131,7 +131,7 @@ const usecases = [
                 </div>
                 <span class="eyebrow text-[9px] sm:text-[10px]">{{ unit.label }}</span>
               </div>
-              <span v-if="i < 3" class="mono mt-3 text-2xl font-light text-white/20 sm:mt-5 sm:text-3xl lg:mt-7">:</span>
+              <span v-if="(i as number) < 3" class="mono mt-3 text-2xl font-light text-white/20 sm:mt-5 sm:text-3xl lg:mt-7">:</span>
             </template>
           </template>
           <p v-else class="text-xl font-semibold text-primary">

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'admin', middleware: ['admin'], ssr: false })
 import { ref, reactive, computed } from 'vue'
+import { getErrorMessage } from '@/lib/http-errors'
 import { useRouter } from 'vue-router'
 import { adminCreateChannel, adminUploadChannelLogo } from '@/api/admin'
 
@@ -56,8 +57,8 @@ async function submit() {
     }
 
     router.push(`/admin/tvstats/channels/${channel.id}`)
-  } catch (e: any) {
-    error.value = e?.response?.data?.message ?? 'Erreur lors de la création.'
+  } catch (e) {
+    error.value = getErrorMessage(e, 'Erreur lors de la création.')
   } finally {
     saving.value = false
   }

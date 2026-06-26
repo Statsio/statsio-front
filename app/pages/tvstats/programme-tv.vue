@@ -45,8 +45,6 @@ const {
   selectDate,
 } = useTvSchedule()
 
-const mobileLogoFailed = ref<Record<string, boolean>>({})
-const nowNextLogoFailed = ref<Record<string, boolean>>({})
 </script>
 
 <template>
@@ -171,10 +169,8 @@ const nowNextLogoFailed = ref<Record<string, boolean>>({})
           <TvScheduleNowNext
             v-if="displayMode === 'normal'"
             :schedules="schedules"
-            :logo-failed="nowNextLogoFailed"
             :reference-minutes="referenceMinutes"
             :current-label="currentLabel"
-            @logo-error="(id) => (nowNextLogoFailed[id] = true)"
           />
 
           <!-- Grid mode: desktop EPG timeline -->
@@ -196,23 +192,13 @@ const nowNextLogoFailed = ref<Record<string, boolean>>({})
             >
               <div class="mb-4 flex items-center gap-3">
                 <div class="flex shrink-0 flex-col items-center gap-1">
-                  <div class="flex h-12 w-16 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-100 p-2">
-                    <img
-                      v-if="schedule.logoUrl && !mobileLogoFailed[schedule.channel.id]"
-                      :src="schedule.logoUrl"
-                      :alt="schedule.channel.displayName"
-                      class="h-full w-full object-contain"
-                      loading="lazy"
-                      @error="mobileLogoFailed[schedule.channel.id] = true"
-                    />
-                    <div
-                      v-else
-                      class="flex h-full w-full items-center justify-center rounded-lg text-xs font-bold text-white"
-                      :class="schedule.channel.fallbackBg"
-                    >
-                      {{ schedule.channel.displayName.slice(0, 3).toUpperCase() }}
-                    </div>
-                  </div>
+                  <TvChannelLogo
+                    class="h-12 w-16 rounded-xl p-2"
+                    :src="schedule.logoUrl"
+                    :name="schedule.channel.displayName"
+                    :fallback-bg="schedule.channel.fallbackBg"
+                    :max-initials="3"
+                  />
                   <span class="text-[10px] font-semibold text-slate-400">{{ schedule.channel.number }}</span>
                 </div>
                 <div>

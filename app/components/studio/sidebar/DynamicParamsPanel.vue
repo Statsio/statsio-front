@@ -3,12 +3,13 @@ import { computed, watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import { useActiveEditor } from '@/composables/useActiveEditor'
+import type { StudioDocumentPage, StudioBlock } from '@/types/studio'
 
 const studio   = useStudioStore()
 const datasets = useStudioDatasetsStore()
 const { insertToken } = useActiveEditor()
 
-const currentPage = computed(() => studio.pages.find((p) => p.id === studio.currentPageId))
+const currentPage = computed(() => studio.pages.find((p: StudioDocumentPage) => p.id === studio.currentPageId))
 const isTemplate  = computed(() => !!currentPage.value?.isTemplate)
 
 // All search blocks targeting this template page
@@ -16,12 +17,12 @@ const searchBlocks = computed(() => {
   if (!isTemplate.value) return []
   const thisPageId = studio.currentPageId
   return studio.blocks.filter(
-    (b) => b.type === 'search' && b.fieldMapping.targetPageId === thisPageId,
+    (b: StudioBlock) => b.type === 'search' && b.fieldMapping.targetPageId === thisPageId,
   )
 })
 
 // Load schemas for every source dataset referenced by those search blocks
-watch(searchBlocks, (blocks) => {
+watch(searchBlocks, (blocks: StudioBlock[]) => {
   for (const block of blocks) {
     for (const src of block.fieldMapping.searchSources ?? []) {
       if (src.datasetId) datasets.loadSchema(src.datasetId)

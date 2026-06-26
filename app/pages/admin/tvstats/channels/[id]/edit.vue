@@ -1,6 +1,7 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'admin', middleware: ['admin'], ssr: false })
 import { ref, reactive, computed, onMounted } from 'vue'
+import { getErrorMessage } from '@/lib/http-errors'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { adminGetChannel, adminUpdateChannel, adminUploadChannelLogo, type AdminChannel } from '@/api/admin'
 
@@ -76,8 +77,8 @@ async function submit() {
     }
 
     router.push(`/admin/tvstats/channels/${channel.value.id}`)
-  } catch (e: any) {
-    error.value = e?.response?.data?.message ?? 'Erreur lors de la mise à jour.'
+  } catch (e) {
+    error.value = getErrorMessage(e, 'Erreur lors de la mise à jour.')
   } finally {
     saving.value = false
   }

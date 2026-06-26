@@ -13,8 +13,9 @@ import {
   faFont,
   faBold,
 } from '@fortawesome/free-solid-svg-icons'
+import type { NuxtApp } from '#app'
 
-export default defineNuxtPlugin((nuxtApp) => {
+export default defineNuxtPlugin((nuxtApp: NuxtApp) => {
   library.add(
     faItalic,
     faUnderline,

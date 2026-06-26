@@ -1,4 +1,4 @@
-import axios, { type AxiosInstance } from 'axios'
+import axios, { type AxiosInstance, type InternalAxiosRequestConfig, type AxiosResponse } from 'axios'
 import { clearStoredToken, getStoredToken, storeSession } from '@/lib/auth-storage'
 import type { ApiAuthResponse, AuthSession, PersistMode } from '@/types/auth'
 
@@ -74,7 +74,7 @@ function createAuthenticatedClient(getBaseURL: () => string): AxiosInstance {
     headers: { Accept: 'application/json' },
   })
 
-  client.interceptors.request.use((config) => {
+  client.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     config.baseURL = getBaseURL()
     const storedToken = getStoredToken()
     if (storedToken) {
@@ -84,8 +84,8 @@ function createAuthenticatedClient(getBaseURL: () => string): AxiosInstance {
   })
 
   client.interceptors.response.use(
-    (response) => response,
-    async (error) => {
+    (response: AxiosResponse) => response,
+    async (error: unknown) => {
       if (!axios.isAxiosError(error) || !error.response || error.response.status !== 401 || !error.config) {
         return Promise.reject(error)
       }

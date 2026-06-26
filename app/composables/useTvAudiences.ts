@@ -64,13 +64,13 @@ export function useTvAudiences() {
     const channelMap = new Map(TNT_CHANNELS.map((c) => [c.id, c]))
 
     return apiData.value.channelYearData
-      .filter((d) => d.year === selectedYear.value)
-      .map((d) => {
+      .filter((d: ChannelYearData) => d.year === selectedYear.value)
+      .map((d: ChannelYearData) => {
         const channel = channelMap.get(d.channelId)
         if (!channel) return null
         return { ...d, channel }
       })
-      .filter((d): d is YearDataWithChannel => d !== null)
+      .filter((d: YearDataWithChannel | null): d is YearDataWithChannel => d !== null)
   })
 
   const sortedYearData = computed<YearDataWithChannel[]>(() => {
@@ -89,9 +89,9 @@ export function useTvAudiences() {
     return TNT_CHANNELS
       .filter((c) => visibleChannels.value.includes(c.id))
       .map((channel) => {
-        const data = allYears.map((year) => {
+        const data = allYears.map((year: number) => {
           const entry = apiData.value!.channelYearData.find(
-            (d) => d.channelId === channel.id && d.year === year,
+            (d: ChannelYearData) => d.channelId === channel.id && d.year === year,
           )
           return entry?.pda ?? null
         })
@@ -112,17 +112,17 @@ export function useTvAudiences() {
   const filteredTop50 = computed<Top50Record[]>(() => {
     if (!apiData.value) return []
     if (top50Category.value === 'all') return apiData.value.top50
-    return apiData.value.top50.filter((r) => r.category === top50Category.value)
+    return apiData.value.top50.filter((r: Top50Record) => r.category === top50Category.value)
   })
 
   const maxPda = computed(() =>
-    yearData.value.reduce((max, d) => Math.max(max, d.pda), 0),
+    yearData.value.reduce((max: number, d: YearDataWithChannel) => Math.max(max, d.pda), 0),
   )
 
   function toggleChannel(channelId: string) {
     if (visibleChannels.value.includes(channelId)) {
       if (visibleChannels.value.length > 1) {
-        visibleChannels.value = visibleChannels.value.filter((id) => id !== channelId)
+        visibleChannels.value = visibleChannels.value.filter((id: string) => id !== channelId)
       }
     } else {
       visibleChannels.value = [...visibleChannels.value, channelId]

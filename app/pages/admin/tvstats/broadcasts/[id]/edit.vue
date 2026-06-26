@@ -1,6 +1,7 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'admin', middleware: ['admin'], ssr: false })
 import { ref, reactive, onMounted } from 'vue'
+import { getErrorMessage } from '@/lib/http-errors'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { adminGetBroadcast, adminUpdateBroadcast, adminUpdateBroadcastAudience, BROADCAST_TYPES, type AdminBroadcast } from '@/api/admin'
 import { TNT_CHANNELS } from '@/data/tnt-channels'
@@ -65,8 +66,8 @@ async function submit() {
       broadcast_type: (form.broadcast_type as any) || null,
     })
     router.push(`/admin/tvstats/broadcasts/${broadcast.value.id}`)
-  } catch (e: any) {
-    error.value = e?.response?.data?.message ?? 'Erreur lors de la mise à jour.'
+  } catch (e) {
+    error.value = getErrorMessage(e, 'Erreur lors de la mise à jour.')
   } finally {
     saving.value = false
   }
@@ -86,8 +87,8 @@ async function submitAudience() {
     broadcast.value = updated
     audienceSaved.value = true
     setTimeout(() => (audienceSaved.value = false), 3000)
-  } catch (e: any) {
-    audienceError.value = e?.response?.data?.message ?? 'Erreur lors de la mise à jour des audiences.'
+  } catch (e) {
+    audienceError.value = getErrorMessage(e, 'Erreur lors de la mise à jour des audiences.')
   } finally {
     savingAudience.value = false
   }

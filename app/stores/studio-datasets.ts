@@ -14,7 +14,7 @@ export const useStudioDatasetsStore = defineStore('studio-datasets', () => {
   const loadingPreviews = ref<Set<string>>(new Set())
 
   const readyDatasets = computed(() =>
-    datasets.value.filter((d) => d.status === 'ready'),
+    datasets.value.filter((d: DatasetMeta) => d.status === 'ready'),
   )
 
   async function loadDatasets() {
@@ -88,13 +88,13 @@ export const useStudioDatasetsStore = defineStore('studio-datasets', () => {
 
   async function renameDataset(datasetId: string, name: string): Promise<void> {
     const updated = await updateDataset(datasetId, { name })
-    const idx = datasets.value.findIndex((d) => d.id === datasetId)
+    const idx = datasets.value.findIndex((d: DatasetMeta) => d.id === datasetId)
     if (idx !== -1) datasets.value[idx] = updated
   }
 
   async function removeDataset(datasetId: string): Promise<void> {
     await deleteDataset(datasetId)
-    datasets.value = datasets.value.filter((d) => d.id !== datasetId)
+    datasets.value = datasets.value.filter((d: DatasetMeta) => d.id !== datasetId)
     schemas.value.delete(datasetId)
     previews.value.delete(datasetId)
     previewErrors.value.delete(datasetId)

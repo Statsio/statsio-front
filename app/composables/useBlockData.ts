@@ -59,7 +59,7 @@ export function useBlockData(block: () => StudioBlock | null) {
         ? `${b.datasetId}|${JSON.stringify(b.fieldMapping)}|${JSON.stringify(b.filters ?? [])}|${JSON.stringify(b.joins ?? [])}|${JSON.stringify(studio.pageParams)}`
         : null
     },
-    (key, prev) => {
+    (key: string | null, prev: string | null) => {
       if (key && key !== prev) load()
     },
     { immediate: true },

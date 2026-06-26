@@ -17,11 +17,11 @@ const chartData = computed(() => {
   const yKey = props.block.fieldMapping.yAxis ?? ''
 
   return {
-    labels: rows.map((r) => String(r[xKey] ?? '')),
+    labels: rows.map((r: Record<string, unknown>) => String(r[xKey] ?? '')),
     datasets: [
       {
         label: props.block.config.title ?? yKey,
-        data: rows.map((r) => Number(r[yKey] ?? 0)),
+        data: rows.map((r: Record<string, unknown>) => Number(r[yKey] ?? 0)),
         backgroundColor: props.block.config.colors?.[0] ?? '#8b5cf6',
         borderRadius: 4,
       },

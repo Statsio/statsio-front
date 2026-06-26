@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import AppButton from '@/components/ui/AppButton.vue'
 import AppNavIcon from '@/components/layout/AppNavIcon.vue'
 import { getBrandFromPath } from '@/data/brands'
 import { useAuthStore } from '@/stores/auth'
+import { useClickOutside } from '@/composables/useClickOutside'
 
 const authStore = useAuthStore()
 const route = useRoute()
@@ -56,44 +57,11 @@ const createButtonClass = computed(() =>
     : 'shadow-[0_24px_55px_-28px_rgba(139,92,246,0.55)]',
 )
 
-const closeMenu = () => {
-  isOpen.value = false
-}
+const closeMenu = () => { isOpen.value = false }
+const toggleMenu = () => { isOpen.value = !isOpen.value }
 
-const toggleMenu = () => {
-  isOpen.value = !isOpen.value
-}
-
-const handleDocumentClick = (event: MouseEvent) => {
-  const target = event.target
-
-  if (!(target instanceof Node) || !fabRef.value?.contains(target)) {
-    closeMenu()
-  }
-}
-
-const handleKeydown = (event: KeyboardEvent) => {
-  if (event.key === 'Escape') {
-    closeMenu()
-  }
-}
-
-watch(
-  () => route.fullPath,
-  () => {
-    closeMenu()
-  },
-)
-
-onMounted(() => {
-  document.addEventListener('click', handleDocumentClick)
-  document.addEventListener('keydown', handleKeydown)
-})
-
-onBeforeUnmount(() => {
-  document.removeEventListener('click', handleDocumentClick)
-  document.removeEventListener('keydown', handleKeydown)
-})
+useClickOutside(fabRef, closeMenu)
+watch(() => route.fullPath, closeMenu)
 </script>
 
 <template>

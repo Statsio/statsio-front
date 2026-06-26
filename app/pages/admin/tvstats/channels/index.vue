@@ -1,6 +1,7 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'admin', middleware: ['admin'], ssr: false })
 import { ref, watch } from 'vue'
+import { getErrorMessage } from '@/lib/http-errors'
 import { RouterLink } from 'vue-router'
 import { adminListChannels, adminUpdateChannel, adminDeleteChannel, type AdminChannel } from '@/api/admin'
 
@@ -44,8 +45,8 @@ async function remove(ch: AdminChannel) {
   try {
     await adminDeleteChannel(ch.id)
     await load(currentPage.value)
-  } catch (e: any) {
-    alert(e?.response?.data?.message ?? 'Impossible de supprimer cette chaîne.')
+  } catch (e) {
+    alert(getErrorMessage(e, 'Impossible de supprimer cette chaîne.'))
   }
 }
 </script>

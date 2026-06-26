@@ -64,7 +64,7 @@ const initial = computed(() => normalizeHex(props.value ?? '') ?? props.value ??
 
 watch(
   () => modelValue.value,
-  async (open) => {
+  async (open: boolean) => {
     if (!open) return
     draft.value = (initial.value ?? '').toString()
     await nextTick()

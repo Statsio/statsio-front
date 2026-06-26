@@ -72,14 +72,14 @@ const filteredOptions = computed(() => {
   }
 
   const query = searchQuery.value.toLowerCase().trim()
-  return props.options.filter(opt =>
+  return props.options.filter((opt: AppSelectOption<Exclude<Primitive, null>>) =>
     opt.label.toLowerCase().includes(query)
   )
 })
 
 const selectedLabels = computed(() => {
   return selectedValues.value
-    .map(val => props.options.find(o => o.value === val)?.label)
+    .map((val: Primitive) => props.options.find((o: AppSelectOption<Exclude<Primitive, null>>) => o.value === val)?.label)
     .filter(Boolean)
 })
 
@@ -119,7 +119,7 @@ const sizeClasses = computed(() => {
 })
 
 function firstEnabledIndex() {
-  return filteredOptions.value.findIndex((o) => !o.disabled)
+  return filteredOptions.value.findIndex((o: AppSelectOption<Exclude<Primitive, null>>) => !o.disabled)
 }
 
 function clampToEnabled(start: number, dir: 1 | -1) {

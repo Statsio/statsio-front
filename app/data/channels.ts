@@ -12,6 +12,7 @@ export type ChannelEntry = {
   subscriptions: number
   followers: number
   articles: string[]
+  statsData: string[]
   polls: string[]
   tone: ChannelTone
   hasPaidSubscription: boolean
@@ -39,6 +40,7 @@ export const channels: ChannelEntry[] = [
       'Présidentielle 2027 : les bassins d’indécision qui peuvent faire basculer le second tour',
       'Réforme des retraites : où le rejet reste le plus fort',
     ],
+    statsData: [],
     polls: ['Municipales 2026 : intentions de vote', 'Abstention probable par segment'],
     tone: 'primary',
     hasPaidSubscription: false,
@@ -60,6 +62,7 @@ export const channels: ChannelEntry[] = [
       'Présidentielle 2027 : les bassins d’indécision qui peuvent faire basculer le second tour',
       'Réforme des retraites : où le rejet reste le plus fort',
     ],
+    statsData: [],
     polls: ['Municipales 2026 : intentions de vote', 'Priorités locales avant le scrutin'],
     tone: 'primary',
     hasPaidSubscription: true,
@@ -82,6 +85,7 @@ export const channels: ChannelEntry[] = [
       'Inflation : qui retrouve un peu d’air en 2026 ?',
       'Pouvoir d’achat : ce que les ménages coupent en premier',
     ],
+    statsData: [],
     polls: ['Perception de l’inflation ce trimestre', 'Confiance budgétaire des ménages'],
     tone: 'accent',
     hasPaidSubscription: true,
@@ -104,6 +108,7 @@ export const channels: ChannelEntry[] = [
       'Déserts médicaux : les zones où l’accès se détériore le plus vite',
       'Hôpitaux : l’impact des déserts médicaux',
     ],
+    statsData: [],
     polls: ['Qualité perçue de l’offre de soins', 'Temps d’attente avant consultation'],
     tone: 'secondary',
     hasPaidSubscription: false,
@@ -125,6 +130,7 @@ export const channels: ChannelEntry[] = [
       'Sécheresse : la fracture hydrique s’installe au printemps',
       'Les cartes qui racontent la France des mobilités contraintes',
     ],
+    statsData: [],
     polls: ['Priorité eau dans les budgets locaux', 'Perception du risque sécheresse'],
     tone: 'accent',
     hasPaidSubscription: true,
@@ -147,6 +153,7 @@ export const channels: ChannelEntry[] = [
       'Pouvoir d’achat : ce que les ménages coupent en premier',
       'Les cartes qui racontent la France des mobilités contraintes',
     ],
+    statsData: [],
     polls: ['Renoncements du quotidien', 'Priorités budgétaires des ménages'],
     tone: 'secondary',
     hasPaidSubscription: false,
@@ -168,6 +175,7 @@ export const channels: ChannelEntry[] = [
       'Présidentielle 2027 : les bassins d’indécision qui peuvent faire basculer le second tour',
       'Réforme des retraites : où le rejet reste le plus fort',
     ],
+    statsData: [],
     polls: ['Municipales 2026 : intentions de vote', 'Abstention probable par segment'],
     tone: 'primary',
     hasPaidSubscription: true,
@@ -190,6 +198,7 @@ export const channels: ChannelEntry[] = [
       'Déserts médicaux : les zones où l’accès se détériore le plus vite',
       'Hôpitaux : l’impact des déserts médicaux',
     ],
+    statsData: [],
     polls: ['Qualité des services publics locaux', 'Accès perçu aux soins'],
     tone: 'secondary',
     hasPaidSubscription: false,
@@ -211,6 +220,7 @@ export const channels: ChannelEntry[] = [
       'Inflation : qui retrouve un peu d’air en 2026 ?',
       'Pouvoir d’achat : ce que les ménages coupent en premier',
     ],
+    statsData: [],
     polls: ['Confiance économique du trimestre', 'Perception de l’inflation'],
     tone: 'accent',
     hasPaidSubscription: true,
@@ -233,6 +243,7 @@ export const channels: ChannelEntry[] = [
       'BFM Business : l’impact de la inflation sur les marchés',
       'Les indicateurs économiques à surveiller ce trimestre',
     ],
+    statsData: [],
     polls: ['Confiance des entrepreneurs', 'Perspectives économiques'],
     tone: 'primary',
     hasPaidSubscription: true,

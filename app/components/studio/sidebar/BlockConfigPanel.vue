@@ -4,7 +4,7 @@ import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import { useActiveEditor } from '@/composables/useActiveEditor'
 import { isTextBlock } from '@/types/studio'
-import type { BlockFilter, FilterOperator, BlockType, BlockJoin } from '@/types/studio'
+import type { BlockFilter, FilterOperator, BlockType, BlockJoin, StudioDocumentPage, DatasetMeta, DatasetColumn } from '@/types/studio'
 
 const studio   = useStudioStore()
 const datasets = useStudioDatasetsStore()
@@ -71,14 +71,14 @@ const BLOCK_META: Record<BlockType, { label: string; colorClass: string; iconPat
   callout:   { label: 'Encadré',    colorClass: 'bg-slate-100 text-slate-600',     iconPath: 'M12 18v-5.25m0 0a6.01 6.01 0 0 0 1.5-.189m-1.5.189a6.01 6.01 0 0 1-1.5-.189m3.75 7.478a12.06 12.06 0 0 1-4.5 0m3.75 2.383a14.406 14.406 0 0 1-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 1 0-7.517 0c.85.493 1.509 1.333 1.509 2.316V18' },
   search:    { label: 'Recherche',  colorClass: 'bg-cyan-100 text-cyan-600',       iconPath: 'M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z' },
 }
-const blockMeta = computed(() => block.value ? BLOCK_META[block.value.type] : null)
+const blockMeta = computed(() => block.value ? BLOCK_META[block.value.type as BlockType] : null)
 
 // ─── Dataset ──────────────────────────────────────────────────────────────────
 
 const schema      = computed(() => block.value?.datasetId ? (datasets.getSchema(block.value.datasetId) ?? null) : null)
-const columnNames = computed(() => schema.value?.columns.map((c) => c.name) ?? [])
+const columnNames = computed(() => schema.value?.columns.map((c: DatasetColumn) => c.name) ?? [])
 
-watch(() => block.value?.datasetId, async (id) => { if (id) await datasets.loadSchema(id) }, { immediate: true })
+watch(() => block.value?.datasetId, async (id: string | undefined) => { if (id) await datasets.loadSchema(id) }, { immediate: true })
 
 function updateConfig(key: string, value: unknown)  { if (!block.value) return; studio.updateBlockConfig(block.value.id, { [key]: value }) }
 function updateMapping(key: string, value: string)  { if (!block.value) return; studio.updateBlockFieldMapping(block.value.id, { [key]: value }) }
@@ -93,14 +93,14 @@ const isTable       = computed(() => block.value?.type === 'table')
 
 const stringColumns = computed(() =>
   schema.value?.columns
-    .filter((c) => ['string', 'integer', 'float'].includes(c.type))
-    .map((c) => c.name) ?? [],
+    .filter((c: DatasetColumn) => ['string', 'integer', 'float'].includes(c.type))
+    .map((c: DatasetColumn) => c.name) ?? [],
 )
 
 const targetPageToken = computed(() => {
   const targetId = block.value?.fieldMapping.targetPageId
   if (!targetId) return null
-  const paramName = studio.pages.find((p) => p.id === targetId)?.paramName
+  const paramName = studio.pages.find((p: StudioDocumentPage) => p.id === targetId)?.paramName
   if (!paramName) return null
   return `{{${paramName}}}`
 })
@@ -134,16 +134,16 @@ const OPERATORS: { value: FilterOperator; label: string }[] = [
 ]
 
 function addFilter()                                    { if (!block.value) return; studio.updateBlockFilters(block.value.id, [...filters.value, { column: columnNames.value[0] ?? '', operator: '=', value: '' }]) }
-function removeFilter(i: number)                        { if (!block.value) return; studio.updateBlockFilters(block.value.id, filters.value.filter((_, idx) => idx !== i)) }
-function updateFilter(i: number, p: Partial<BlockFilter>) { if (!block.value) return; studio.updateBlockFilters(block.value.id, filters.value.map((f, idx) => idx === i ? { ...f, ...p } : f)) }
+function removeFilter(i: number)                        { if (!block.value) return; studio.updateBlockFilters(block.value.id, filters.value.filter((_: BlockFilter, idx: number) => idx !== i)) }
+function updateFilter(i: number, p: Partial<BlockFilter>) { if (!block.value) return; studio.updateBlockFilters(block.value.id, filters.value.map((f: BlockFilter, idx: number) => idx === i ? { ...f, ...p } : f)) }
 
 // ─── Comparison filters ───────────────────────────────────────────────────────
 
 const compFilters = computed<BlockFilter[]>(() => block.value?.comparisonFilters ?? [])
 
 function addCompFilter()                                    { if (!block.value) return; studio.updateBlockComparisonFilters(block.value.id, [...compFilters.value, { column: columnNames.value[0] ?? '', operator: '=', value: '' }]) }
-function removeCompFilter(i: number)                        { if (!block.value) return; studio.updateBlockComparisonFilters(block.value.id, compFilters.value.filter((_, idx) => idx !== i)) }
-function updateCompFilter(i: number, p: Partial<BlockFilter>) { if (!block.value) return; studio.updateBlockComparisonFilters(block.value.id, compFilters.value.map((f, idx) => idx === i ? { ...f, ...p } : f)) }
+function removeCompFilter(i: number)                        { if (!block.value) return; studio.updateBlockComparisonFilters(block.value.id, compFilters.value.filter((_: BlockFilter, idx: number) => idx !== i)) }
+function updateCompFilter(i: number, p: Partial<BlockFilter>) { if (!block.value) return; studio.updateBlockComparisonFilters(block.value.id, compFilters.value.map((f: BlockFilter, idx: number) => idx === i ? { ...f, ...p } : f)) }
 
 // ─── Joins ────────────────────────────────────────────────────────────────────
 
@@ -158,11 +158,11 @@ function addJoin() {
 }
 function removeJoin(i: number) {
   if (!block.value) return
-  studio.updateBlockJoins(block.value.id, joins.value.filter((_, idx) => idx !== i))
+  studio.updateBlockJoins(block.value.id, joins.value.filter((_: BlockJoin, idx: number) => idx !== i))
 }
 function updateJoin(i: number, patch: Partial<BlockJoin>) {
   if (!block.value) return
-  const updated = joins.value.map((j, idx) => idx === i ? { ...j, ...patch } : j)
+  const updated = joins.value.map((j: BlockJoin, idx: number) => idx === i ? { ...j, ...patch } : j)
   studio.updateBlockJoins(block.value.id, updated)
   // Load schema for the newly selected dataset
   if (patch.datasetId) datasets.loadSchema(patch.datasetId)
@@ -171,14 +171,14 @@ function toggleJoinColumn(joinIdx: number, col: string) {
   const j = joins.value[joinIdx]
   if (!j) return
   const cols = j.columns.includes(col)
-    ? j.columns.filter((c) => c !== col)
+    ? j.columns.filter((c: string) => c !== col)
     : [...j.columns, col]
   updateJoin(joinIdx, { columns: cols })
 }
 
 // Load schemas for existing join datasets on block change
 watch(() => block.value?.id, () => {
-  joins.value.forEach((j) => { if (j.datasetId) datasets.loadSchema(j.datasetId) })
+  joins.value.forEach((j: BlockJoin) => { if (j.datasetId) datasets.loadSchema(j.datasetId) })
 }, { immediate: true })
 
 function joinSchema(joinIdx: number) {
@@ -186,7 +186,7 @@ function joinSchema(joinIdx: number) {
   return id ? (datasets.getSchema(id) ?? null) : null
 }
 function joinColumnNames(joinIdx: number) {
-  return joinSchema(joinIdx)?.columns.map((c) => c.name) ?? []
+  return joinSchema(joinIdx)?.columns.map((c: DatasetColumn) => c.name) ?? []
 }
 
 // ─── Search sources ───────────────────────────────────────────────────────────
@@ -204,12 +204,12 @@ function addSearchSource() {
 function removeSearchSource(i: number) {
   if (!block.value) return
   studio.updateBlockFieldMapping(block.value.id, {
-    searchSources: searchSources.value.filter((_, idx) => idx !== i),
+    searchSources: searchSources.value.filter((_: SearchSource, idx: number) => idx !== i),
   })
 }
 function updateSearchSource(i: number, patch: Partial<SearchSource>) {
   if (!block.value) return
-  const updated = searchSources.value.map((s, idx) => idx === i ? { ...s, ...patch } : s)
+  const updated = searchSources.value.map((s: SearchSource, idx: number) => idx === i ? { ...s, ...patch } : s)
   studio.updateBlockFieldMapping(block.value.id, { searchSources: updated })
   if (patch.datasetId) datasets.loadSchema(patch.datasetId)
 }
@@ -217,13 +217,13 @@ function toggleSearchSourceColumn(sourceIdx: number, col: string) {
   const s = searchSources.value[sourceIdx]
   if (!s) return
   const cols = s.columns.includes(col)
-    ? s.columns.filter((c) => c !== col)
+    ? s.columns.filter((c: string) => c !== col)
     : [...s.columns, col]
   updateSearchSource(sourceIdx, { columns: cols })
 }
 
 watch(() => block.value?.id, () => {
-  searchSources.value.forEach((s) => { if (s.datasetId) datasets.loadSchema(s.datasetId) })
+  searchSources.value.forEach((s: SearchSource) => { if (s.datasetId) datasets.loadSchema(s.datasetId) })
 }, { immediate: true })
 
 function searchSourceSchema(si: number) {
@@ -231,7 +231,7 @@ function searchSourceSchema(si: number) {
   return id ? (datasets.getSchema(id) ?? null) : null
 }
 function searchSourceColumnNames(si: number) {
-  return searchSourceSchema(si)?.columns.map((c) => c.name) ?? []
+  return searchSourceSchema(si)?.columns.map((c: DatasetColumn) => c.name) ?? []
 }
 
 // ─── Search joins (global, not per-source) ────────────────────────────────────
@@ -247,39 +247,39 @@ function addSearchJoin() {
 }
 function removeSearchJoin(ji: number) {
   if (!block.value) return
-  studio.updateBlockFieldMapping(block.value.id, { searchJoins: searchJoins.value.filter((_, idx) => idx !== ji) })
+  studio.updateBlockFieldMapping(block.value.id, { searchJoins: searchJoins.value.filter((_: SearchJoin, idx: number) => idx !== ji) })
 }
 function updateSearchJoin(ji: number, patch: Partial<SearchJoin>) {
   if (!block.value) return
-  const updated = searchJoins.value.map((j, idx) => idx === ji ? { ...j, ...patch } : j)
+  const updated = searchJoins.value.map((j: SearchJoin, idx: number) => idx === ji ? { ...j, ...patch } : j)
   studio.updateBlockFieldMapping(block.value.id, { searchJoins: updated })
   if (patch.datasetId) datasets.loadSchema(patch.datasetId)
 }
 function toggleSearchJoinColumn(ji: number, col: string) {
   const j = searchJoins.value[ji]
   if (!j) return
-  const cols = j.columns.includes(col) ? j.columns.filter((c) => c !== col) : [...j.columns, col]
+  const cols = j.columns.includes(col) ? j.columns.filter((c: string) => c !== col) : [...j.columns, col]
   updateSearchJoin(ji, { columns: cols })
 }
 function searchJoinSecondaryColumns(ji: number) {
   const id = searchJoins.value[ji]?.datasetId
-  return id ? (datasets.getSchema(id)?.columns.map((c) => c.name) ?? []) : []
+  return id ? (datasets.getSchema(id)?.columns.map((c: DatasetColumn) => c.name) ?? []) : []
 }
 function searchJoinPrimaryColumns(ji: number) {
   const srcId = searchJoins.value[ji]?.sourceDatasetId
-  const si = searchSources.value.findIndex((s) => s.datasetId === srcId)
+  const si = searchSources.value.findIndex((s: SearchSource) => s.datasetId === srcId)
   return si >= 0 ? searchSourceColumnNames(si) : []
 }
 
-watch(searchJoins, (joins) => {
-  joins.forEach((j) => { if (j.datasetId) datasets.loadSchema(j.datasetId) })
+watch(searchJoins, (joins: SearchJoin[]) => {
+  joins.forEach((j: SearchJoin) => { if (j.datasetId) datasets.loadSchema(j.datasetId) })
 }, { immediate: true, deep: true })
 
 // All unique columns across all search sources + their joins (for URL params picker)
 const allSearchSourceColumns = computed(() => {
   const cols = new Set<string>()
-  searchSources.value.forEach((_, si) => searchSourceColumnNames(si).forEach((c) => cols.add(c)))
-  searchJoins.value.forEach((_, ji) => searchJoinSecondaryColumns(ji).forEach((c) => cols.add(c)))
+  searchSources.value.forEach((_: SearchSource, si: number) => searchSourceColumnNames(si).forEach((c: string) => cols.add(c)))
+  searchJoins.value.forEach((_: SearchJoin, ji: number) => searchJoinSecondaryColumns(ji).forEach((c: string) => cols.add(c)))
   return Array.from(cols)
 })
 
@@ -290,7 +290,7 @@ function toggleUrlParam(col: string) {
   if (!block.value) return
   const current = urlParams.value
   const updated = current.includes(col)
-    ? current.filter((c) => c !== col)
+    ? current.filter((c: string) => c !== col)
     : [...current, col]
   studio.updateBlockFieldMapping(block.value.id, { urlParams: updated })
 }
@@ -375,7 +375,7 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
                 <label class="cfg-label">Page de destination</label>
                 <select class="cfg-select" :value="block.fieldMapping.targetPageId ?? ''" @change="updateMapping('targetPageId', ($event.target as HTMLSelectElement).value)">
                   <option value="">— Aucune —</option>
-                  <option v-for="page in studio.pages.filter(p => p.id !== studio.currentPageId)" :key="page.id" :value="page.id">
+                  <option v-for="page in studio.pages.filter((p: StudioDocumentPage) => p.id !== studio.currentPageId)" :key="page.id" :value="page.id">
                     {{ page.title }}{{ page.isTemplate ? ' (template)' : '' }}
                   </option>
                 </select>
@@ -402,7 +402,7 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
                     <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375" />
                   </svg>
                   <span class="flex-1 text-left text-[11px] font-semibold text-slate-600 truncate min-w-0">
-                    {{ datasets.readyDatasets.find(d => d.id === src.datasetId)?.name ?? 'Dataset non choisi' }}
+                    {{ datasets.readyDatasets.find((d: DatasetMeta) => d.id === src.datasetId)?.name ?? 'Dataset non choisi' }}
                     <span v-if="src.columns.length" class="font-normal text-slate-400"> · {{ src.columns.join(', ') }}</span>
                   </span>
                   <svg class="w-3 h-3 text-slate-300 shrink-0 transition-transform" :class="open(`ss-${si}`) ? '' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
@@ -443,13 +443,13 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
                       </span>
                       <!-- Add column via dropdown -->
                       <select
-                        v-if="searchSourceColumnNames(si).filter(c => !src.columns.includes(c)).length > 0"
+                        v-if="searchSourceColumnNames(si).filter((c: string) => !src.columns.includes(c)).length > 0"
                         class="pl-2 pr-6 py-0.5 rounded-full border border-dashed border-slate-300 text-[11px] text-slate-500 bg-white hover:border-cyan-300 hover:text-cyan-600 transition-colors appearance-none cursor-pointer"
                         value=""
                         @change="toggleSearchSourceColumn(si, ($event.target as HTMLSelectElement).value); ($event.target as HTMLSelectElement).value = ''"
                       >
                         <option value="" disabled>+ Ajouter…</option>
-                        <option v-for="col in searchSourceColumnNames(si).filter(c => !src.columns.includes(c))" :key="col" :value="col">{{ col }}</option>
+                        <option v-for="col in searchSourceColumnNames(si).filter((c: string) => !src.columns.includes(c))" :key="col" :value="col">{{ col }}</option>
                       </select>
                       <p v-else-if="searchSourceColumnNames(si).length === 0" class="text-[11px] text-slate-400">Chargement…</p>
                     </div>
@@ -472,7 +472,7 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
           </div>
 
           <!-- Section: Jointures -->
-          <div v-if="searchSources.some(s => s.datasetId)" class="accordion-item">
+          <div v-if="searchSources.some((s: SearchSource) => s.datasetId)" class="accordion-item">
             <button class="accordion-header" @click="toggle('search-joins')">
               <span class="flex items-center gap-2">
                 Jointures
@@ -505,8 +505,8 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
                     <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
                   </svg>
                   <span class="flex-1 text-left text-[11px] font-semibold text-violet-700 truncate min-w-0">
-                    {{ join.datasetId ? datasets.readyDatasets.find(d => d.id === join.datasetId)?.name : 'Jointure ' + (ji + 1) }}
-                    <span v-if="join.sourceDatasetId" class="font-normal text-violet-400"> · depuis {{ datasets.readyDatasets.find(d => d.id === join.sourceDatasetId)?.name?.split(' ')[0] ?? '…' }}</span>
+                    {{ join.datasetId ? datasets.readyDatasets.find((d: DatasetMeta) => d.id === join.datasetId)?.name : 'Jointure ' + ((ji as number) + 1) }}
+                    <span v-if="join.sourceDatasetId" class="font-normal text-violet-400"> · depuis {{ datasets.readyDatasets.find((d: DatasetMeta) => d.id === join.sourceDatasetId)?.name?.split(' ')[0] ?? '…' }}</span>
                   </span>
                   <svg class="w-3 h-3 text-violet-300 shrink-0 transition-transform" :class="open(`sj-${ji}`) ? '' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
@@ -527,8 +527,8 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
                       @change="updateSearchJoin(ji, { sourceDatasetId: ($event.target as HTMLSelectElement).value, leftColumn: '' })"
                     >
                       <option value="">— Dataset source —</option>
-                      <option v-for="src in searchSources.filter(s => s.datasetId)" :key="src.datasetId" :value="src.datasetId">
-                        {{ datasets.readyDatasets.find(d => d.id === src.datasetId)?.name ?? src.datasetId }}
+                      <option v-for="src in searchSources.filter((s: SearchSource) => s.datasetId)" :key="src.datasetId" :value="src.datasetId">
+                        {{ datasets.readyDatasets.find((d: DatasetMeta) => d.id === src.datasetId)?.name ?? src.datasetId }}
                       </option>
                     </select>
                   </div>
@@ -548,7 +548,7 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
                         @change="updateSearchJoin(ji, { datasetId: ($event.target as HTMLSelectElement).value, rightColumn: '', columns: [] })"
                       >
                         <option value="">— Dataset —</option>
-                        <option v-for="ds in datasets.readyDatasets.filter(d => d.id !== join.sourceDatasetId)" :key="ds.id" :value="ds.id">{{ ds.name }}</option>
+                        <option v-for="ds in datasets.readyDatasets.filter((d: DatasetMeta) => d.id !== join.sourceDatasetId)" :key="ds.id" :value="ds.id">{{ ds.name }}</option>
                       </select>
                     </div>
                   </div>
@@ -587,13 +587,13 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
                           </button>
                         </span>
                         <select
-                          v-if="searchJoinSecondaryColumns(ji).filter(c => !join.columns.includes(c)).length > 0"
+                          v-if="searchJoinSecondaryColumns(ji).filter((c: string) => !join.columns.includes(c)).length > 0"
                           class="pl-2 pr-6 py-0.5 rounded-full border border-dashed border-violet-200 text-[11px] text-violet-400 bg-white hover:border-violet-400 transition-colors appearance-none cursor-pointer"
                           value=""
                           @change="toggleSearchJoinColumn(ji, ($event.target as HTMLSelectElement).value); ($event.target as HTMLSelectElement).value = ''"
                         >
                           <option value="" disabled>+ Ajouter…</option>
-                          <option v-for="col in searchJoinSecondaryColumns(ji).filter(c => !join.columns.includes(c))" :key="col" :value="col">{{ col }}</option>
+                          <option v-for="col in searchJoinSecondaryColumns(ji).filter((c: string) => !join.columns.includes(c))" :key="col" :value="col">{{ col }}</option>
                         </select>
                         <p v-else-if="searchJoinSecondaryColumns(ji).length === 0 && join.datasetId" class="text-[11px] text-violet-300">Chargement…</p>
                       </div>
@@ -666,19 +666,19 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
                     </button>
                   </span>
                   <select
-                    v-if="allSearchSourceColumns.filter(c => !urlParams.includes(c)).length > 0"
+                    v-if="allSearchSourceColumns.filter((c: string) => !urlParams.includes(c)).length > 0"
                     class="pl-2 pr-6 py-0.5 rounded-full border border-dashed border-slate-300 text-[11px] text-slate-500 bg-white hover:border-violet-300 hover:text-violet-600 transition-colors appearance-none cursor-pointer"
                     value=""
                     @change="toggleUrlParam(($event.target as HTMLSelectElement).value); ($event.target as HTMLSelectElement).value = ''"
                   >
                     <option value="" disabled>+ Ajouter…</option>
-                    <option v-for="col in allSearchSourceColumns.filter(c => !urlParams.includes(c))" :key="col" :value="col">{{ col }}</option>
+                    <option v-for="col in allSearchSourceColumns.filter((c: string) => !urlParams.includes(c))" :key="col" :value="col">{{ col }}</option>
                   </select>
                 </div>
 
                 <div v-if="urlParams.length > 0" class="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2">
                   <p class="text-[10px] font-mono text-slate-500 break-all">
-                    ?{{ urlParams.map(c => c + '=…').join('&amp;') }}
+                    ?{{ urlParams.map((c: string) => c + '=…').join('&amp;') }}
                   </p>
                 </div>
               </div>
@@ -745,7 +745,7 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
                     <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
                   </svg>
                   <span class="flex-1 text-left text-[11px] font-semibold text-violet-700 truncate min-w-0">
-                    {{ join.datasetId ? datasets.readyDatasets.find(d => d.id === join.datasetId)?.name : 'Jointure ' + (ji + 1) }}
+                    {{ join.datasetId ? datasets.readyDatasets.find((d: DatasetMeta) => d.id === join.datasetId)?.name : 'Jointure ' + ((ji as number) + 1) }}
                     <span v-if="join.type" class="font-normal text-violet-400"> · {{ join.type.toUpperCase() }}</span>
                   </span>
                   <svg class="w-3 h-3 text-violet-300 shrink-0 transition-transform" :class="open(`dj-${ji}`) ? '' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
@@ -807,13 +807,13 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
                           </button>
                         </span>
                         <select
-                          v-if="joinColumnNames(ji).filter(c => !join.columns.includes(c)).length > 0"
+                          v-if="joinColumnNames(ji).filter((c: string) => !join.columns.includes(c)).length > 0"
                           class="pl-2 pr-6 py-0.5 rounded-full border border-dashed border-violet-200 text-[11px] text-violet-400 bg-white hover:border-violet-400 transition-colors appearance-none cursor-pointer"
                           value=""
                           @change="toggleJoinColumn(ji, ($event.target as HTMLSelectElement).value); ($event.target as HTMLSelectElement).value = ''"
                         >
                           <option value="" disabled>+ Ajouter…</option>
-                          <option v-for="col in joinColumnNames(ji).filter(c => !join.columns.includes(c))" :key="col" :value="col">{{ col }}</option>
+                          <option v-for="col in joinColumnNames(ji).filter((c: string) => !join.columns.includes(c))" :key="col" :value="col">{{ col }}</option>
                         </select>
                         <p v-else-if="joinColumnNames(ji).length === 0" class="text-[11px] text-slate-400 mt-0.5">Chargement…</p>
                       </div>
@@ -977,8 +977,8 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
                   <div v-for="(filter, i) in filters" :key="i" class="rounded-xl border border-slate-200 bg-white overflow-hidden">
                     <div class="w-full flex items-center gap-2 px-3 py-2 bg-slate-50 border-b border-slate-100 hover:bg-slate-100 transition-colors cursor-pointer" @click="toggle(`f-${i}`)">
                       <span class="flex-1 text-left text-[11px] font-semibold text-slate-600 truncate min-w-0">
-                        {{ filter.column || 'Règle ' + (i + 1) }}
-                        <span class="font-normal text-slate-400"> {{ OPERATORS.find(o => o.value === filter.operator)?.label ?? filter.operator }} </span>
+                        {{ filter.column || 'Règle ' + ((i as number) + 1) }}
+                        <span class="font-normal text-slate-400"> {{ OPERATORS.find((o: { value: FilterOperator; label: string }) => o.value === filter.operator)?.label ?? filter.operator }} </span>
                         <span v-if="filter.value" class="font-mono text-[10px]">{{ filter.value.length > 20 ? filter.value.slice(0, 20) + '…' : filter.value }}</span>
                       </span>
                       <svg class="w-3 h-3 text-slate-300 shrink-0 transition-transform" :class="open(`f-${i}`) ? '' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
@@ -1063,8 +1063,8 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
                   <div v-for="(f, i) in compFilters" :key="i" class="rounded-xl border border-rose-200 bg-white overflow-hidden">
                     <div class="w-full flex items-center gap-2 px-3 py-2 bg-rose-50 border-b border-rose-100 hover:bg-rose-100 transition-colors cursor-pointer" @click="toggle(`cf-${i}`)">
                       <span class="flex-1 text-left text-[11px] font-semibold text-rose-700 truncate min-w-0">
-                        {{ f.column || 'Règle ' + (i + 1) }}
-                        <span class="font-normal text-rose-400"> {{ OPERATORS.find(o => o.value === f.operator)?.label ?? f.operator }} </span>
+                        {{ f.column || 'Règle ' + ((i as number) + 1) }}
+                        <span class="font-normal text-rose-400"> {{ OPERATORS.find((o: { value: FilterOperator; label: string }) => o.value === f.operator)?.label ?? f.operator }} </span>
                         <span v-if="f.value" class="font-mono text-[10px]">{{ f.value.length > 20 ? f.value.slice(0, 20) + '…' : f.value }}</span>
                       </span>
                       <svg class="w-3 h-3 text-rose-300 shrink-0 transition-transform" :class="open(`cf-${i}`) ? '' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
@@ -1311,7 +1311,7 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
             <button class="accordion-header" @click="toggle('font-family')">
               <span>Police</span>
               <div class="flex items-center gap-2">
-                <span class="text-[11px] text-slate-400 truncate max-w-20">{{ FONT_FAMILIES.find(f => f.value === (block?.config.fontFamily ?? ''))?.label ?? 'Par défaut' }}</span>
+                <span class="text-[11px] text-slate-400 truncate max-w-20">{{ FONT_FAMILIES.find((f: { value: string; label: string }) => f.value === (block?.config.fontFamily ?? ''))?.label ?? 'Par défaut' }}</span>
                 <svg class="chevron shrink-0" :class="open('font-family') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                   <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                 </svg>

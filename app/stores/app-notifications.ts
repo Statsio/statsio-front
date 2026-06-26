@@ -21,7 +21,7 @@ export const useAppNotificationsStore = defineStore('app-notifications', () => {
 
   const dismiss = (id: string) => {
     clearTimer(id)
-    const index = items.value.findIndex((item) => item.id === id)
+    const index = items.value.findIndex((item: AppNotificationItem) => item.id === id)
     if (index !== -1) {
       items.value.splice(index, 1)
     }

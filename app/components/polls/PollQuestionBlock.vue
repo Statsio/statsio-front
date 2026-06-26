@@ -27,7 +27,7 @@ const updateValue = (optionId: string, checked: boolean) => {
 
   const nextValue = checked
     ? [...props.modelValue, optionId]
-    : props.modelValue.filter((value) => value !== optionId)
+    : props.modelValue.filter((value: string) => value !== optionId)
 
   emit('update:modelValue', nextValue)
 }

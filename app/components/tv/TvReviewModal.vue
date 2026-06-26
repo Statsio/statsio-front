@@ -46,7 +46,7 @@ async function submit() {
   try {
     const scoreList = Object.entries(scores.value).map(([qid, score]) => ({
       question_id: Number(qid),
-      score,
+      score: score as number,
     }))
     const res = await submitBroadcastReview(props.broadcastId, {
       rating: globalRating.value,
