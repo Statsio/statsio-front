@@ -11,15 +11,13 @@ const sectionRef = ref<HTMLElement | null>(null)
 useScrollAnim(sectionRef, (gsap) => {
   return gsap.context(() => {
     gsap.from('[data-anim="stat"]', {
-      y: 24,
+      y: 20,
       opacity: 0,
-      duration: 0.65,
-      stagger: 0.14,
+      duration: 0.6,
+      stagger: 0.12,
       ease: 'power2.out',
-      scrollTrigger: {
-        trigger: sectionRef.value,
-        start: 'top 85%',
-      },
+      immediateRender: false,
+      scrollTrigger: { trigger: sectionRef.value, start: 'top 88%', once: true },
     })
   }, sectionRef.value)
 })

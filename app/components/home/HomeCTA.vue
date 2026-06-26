@@ -8,23 +8,26 @@ const sectionRef = ref<HTMLElement | null>(null)
 useScrollAnim(sectionRef, (gsap) => {
   return gsap.context(() => {
     gsap.from('[data-anim="cta-card"]', {
-      y: 36, opacity: 0, duration: 0.85, ease: 'power3.out',
-      scrollTrigger: { trigger: sectionRef.value, start: 'top 82%' },
+      y: 32, opacity: 0, duration: 0.8, ease: 'power3.out',
+      immediateRender: false,
+      scrollTrigger: { trigger: sectionRef.value, start: 'top 86%', once: true },
     })
     gsap.from('[data-anim="cta-text"]', {
-      y: 20, opacity: 0, duration: 0.65, ease: 'power2.out',
-      scrollTrigger: { trigger: '[data-anim="cta-card"]', start: 'top 75%' },
+      y: 16, opacity: 0, duration: 0.6, ease: 'power2.out',
+      immediateRender: false,
+      scrollTrigger: { trigger: '[data-anim="cta-card"]', start: 'top 78%', once: true },
     })
     gsap.from('[data-anim="cta-btn"]', {
-      y: 16, opacity: 0, duration: 0.5, stagger: 0.1, ease: 'power2.out',
-      scrollTrigger: { trigger: '[data-anim="cta-card"]', start: 'top 70%' },
+      y: 12, opacity: 0, duration: 0.45, stagger: 0.1, ease: 'power2.out',
+      immediateRender: false,
+      scrollTrigger: { trigger: '[data-anim="cta-card"]', start: 'top 72%', once: true },
     })
   }, sectionRef.value)
 })
 </script>
 
 <template>
-  <section ref="sectionRef" class="bg-slate-900">
+  <section ref="sectionRef" class="bg-slate-50">
     <div class="container py-20">
       <div
         data-anim="cta-card"
