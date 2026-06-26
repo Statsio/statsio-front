@@ -43,7 +43,7 @@ const handleError = ref('')
 const handleAvailable = ref<boolean | null>(null)
 
 const categoryOptions = computed(() =>
-  availableCategories.value.map(c => ({ value: c.slug, label: c.label }))
+  availableCategories.value.map((c: ChannelCategoryItem) => ({ value: c.slug, label: c.label }))
 )
 
 const handleLogoUpload = (event: Event) => {

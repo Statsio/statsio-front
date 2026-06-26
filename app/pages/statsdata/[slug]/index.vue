@@ -6,7 +6,7 @@ import { fetchPublicStatsDataDocument } from '@/api/studio'
 import type { StatsDataDocument as ApiDoc } from '@/api/studio'
 import { useStudioStore } from '@/stores/studio'
 import { SECTION_LAYOUT_DEFINITIONS } from '@/types/studio'
-import type { StudioBlock } from '@/types/studio'
+import type { StudioBlock, StudioDocumentPage } from '@/types/studio'
 import BlockRenderer from '@/components/studio/blocks/BlockRenderer.vue'
 
 const route  = useRoute()
@@ -25,14 +25,14 @@ const activePage = computed(() => {
   if (!studio.pages.length) return null
   if (pageSlug.value) {
     const match = studio.pages.find(
-      (p) => p.slug === pageSlug.value || p.id === pageSlug.value,
+      (p: StudioDocumentPage) => p.slug === pageSlug.value || p.id === pageSlug.value,
     )
     if (match) return match
   }
-  return studio.pages.find((p) => !p.isTemplate) ?? studio.pages[0] ?? null
+  return studio.pages.find((p: StudioDocumentPage) => !p.isTemplate) ?? studio.pages[0] ?? null
 })
 
-const publicPages = computed(() => studio.pages.filter((p) => !p.isTemplate))
+const publicPages = computed(() => studio.pages.filter((p: StudioDocumentPage) => !p.isTemplate))
 const pageSections = computed(() => studio.currentPageSections)
 
 // Helper: extract string-typed query params as pageParams
@@ -46,7 +46,7 @@ function queryToParams(q: import('vue-router').LocationQuery): Record<string, st
 
 // Finds the first non-template page to use as fallback / redirect target
 function defaultExplorationPage() {
-  return studio.pages.find((p) => !p.isTemplate) ?? studio.pages[0] ?? null
+  return studio.pages.find((p: StudioDocumentPage) => !p.isTemplate) ?? studio.pages[0] ?? null
 }
 
 // Redirects to the default exploration page (replaces history entry so Back works)
@@ -58,11 +58,11 @@ function redirectToDefault() {
 }
 
 // When pageSlug URL param changes, switch the active page
-watch(pageSlug, (slug) => {
+watch(pageSlug, (slug: string | undefined) => {
   if (!studio.pages.length) return
   const target = slug
-    ? (studio.pages.find((p) => p.slug === slug || p.id === slug) ?? studio.pages.find((p) => !p.isTemplate) ?? studio.pages[0])
-    : (studio.pages.find((p) => !p.isTemplate) ?? studio.pages[0])
+    ? (studio.pages.find((p: StudioDocumentPage) => p.slug === slug || p.id === slug) ?? studio.pages.find((p: StudioDocumentPage) => !p.isTemplate) ?? studio.pages[0])
+    : (studio.pages.find((p: StudioDocumentPage) => !p.isTemplate) ?? studio.pages[0])
   if (!target) return
 
   const urlParams = queryToParams(route.query)
@@ -87,9 +87,9 @@ watch(pageSlug, (slug) => {
 })
 
 // When only query changes (same template page, new result selected via URL)
-watch(() => route.query, (q) => {
+watch(() => route.query, (q: import('vue-router').LocationQuery) => {
   if (!studio.pages.length) return
-  const currentPage = studio.pages.find((p) => p.id === studio.currentPageId)
+  const currentPage = studio.pages.find((p: StudioDocumentPage) => p.id === studio.currentPageId)
   if (!currentPage?.isTemplate) return
   for (const [k, v] of Object.entries(q)) {
     if (typeof v === 'string') studio.setPageParam(k, v)
@@ -131,8 +131,8 @@ onMounted(async () => {
     )
     // Switch to the page matching pageSlug param, else first non-template
     const target = pageSlug.value
-      ? (studio.pages.find((p) => p.slug === pageSlug.value || p.id === pageSlug.value) ?? studio.pages.find((p) => !p.isTemplate) ?? studio.pages[0])
-      : (studio.pages.find((p) => !p.isTemplate) ?? studio.pages[0])
+      ? (studio.pages.find((p: StudioDocumentPage) => p.slug === pageSlug.value || p.id === pageSlug.value) ?? studio.pages.find((p: StudioDocumentPage) => !p.isTemplate) ?? studio.pages[0])
+      : (studio.pages.find((p: StudioDocumentPage) => !p.isTemplate) ?? studio.pages[0])
     if (target) {
       const urlParams = queryToParams(route.query)
       // Template accessed directly without URL params → redirect to default page
@@ -224,7 +224,7 @@ function copyLink() {
                   v-for="section in pageSections"
                   :key="section.id"
                   class="grid gap-4"
-                  :style="{ gridTemplateColumns: sectionDef(section.layout).gridCols.map((n) => `${n}fr`).join(' ') }"
+                  :style="{ gridTemplateColumns: sectionDef(section.layout).gridCols.map((n: number) => `${n}fr`).join(' ') }"
                 >
                   <div
                     v-for="(_, colIdx) in sectionDef(section.layout).gridCols"

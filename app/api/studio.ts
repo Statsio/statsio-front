@@ -54,7 +54,7 @@ export async function fetchBlockData(
 ): Promise<BlockQueryResult> {
   const { data } = await apiHttp.get(STATSIO_API.datasets.query(datasetId), {
     params,
-    paramsSerializer: (p) => {
+    paramsSerializer: (p: typeof params) => {
       const parts: string[] = []
       if (p.columns?.length) {
         p.columns.forEach((c: string) => parts.push(`columns[]=${encodeURIComponent(c)}`))

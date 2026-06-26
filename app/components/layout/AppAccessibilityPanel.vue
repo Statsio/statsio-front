@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { usePrefsStore } from '@/stores/prefs'
+import { useClickOutside } from '@/composables/useClickOutside'
 
 const prefs = usePrefsStore()
 
-// Panel open/close
 const isOpen = ref(false)
 const panelRef = ref<HTMLElement | null>(null)
 
@@ -12,7 +12,8 @@ function closePanel() { isOpen.value = false }
 
 defineExpose({ open: () => { isOpen.value = true } })
 
-// Slider handlers
+useClickOutside(panelRef, closePanel)
+
 function onFontScaleInput(e: Event) {
   prefs.setFontScale(Number((e.target as HTMLInputElement).value))
 }
@@ -20,25 +21,8 @@ function onLineHeightInput(e: Event) {
   prefs.setLineHeight(Number((e.target as HTMLInputElement).value))
 }
 
-// Derived labels
 const fontScaleLabel = computed(() => `${prefs.fontScale}%`)
 const lineHeightLabel = computed(() => prefs.lineHeight.toFixed(1).replace('.', ','))
-
-// Close on outside click / Escape
-function onDocumentClick(e: MouseEvent) {
-  if (e.target instanceof Node && !panelRef.value?.contains(e.target)) closePanel()
-}
-function onKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape') closePanel()
-}
-onMounted(() => {
-  document.addEventListener('click', onDocumentClick)
-  document.addEventListener('keydown', onKeydown)
-})
-onBeforeUnmount(() => {
-  document.removeEventListener('click', onDocumentClick)
-  document.removeEventListener('keydown', onKeydown)
-})
 
 // ─── Speech synthesis (runtime UI, not persisted) ────────────────────────
 const isReading = ref(false)

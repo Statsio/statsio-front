@@ -1,6 +1,7 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'admin', middleware: ['admin'], ssr: false })
 import { ref, onMounted } from 'vue'
+import { getErrorMessage } from '@/lib/http-errors'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { adminGetChannel, adminDeleteChannel, adminUpdateChannel, type AdminChannel } from '@/api/admin'
 
@@ -31,8 +32,8 @@ async function doDelete() {
   try {
     await adminDeleteChannel(channel.value.id)
     router.push('/admin/tvstats/channels')
-  } catch (e: any) {
-    deleteError.value = e?.response?.data?.message ?? 'Impossible de supprimer cette chaîne.'
+  } catch (e) {
+    deleteError.value = getErrorMessage(e, 'Impossible de supprimer cette chaîne.')
     deleteLoading.value = false
   }
 }

@@ -49,7 +49,7 @@ const icons = [
       >
         <div class="mb-4 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-white/8 text-slate-300 transition group-hover:bg-white/14 group-hover:text-white">
           <!-- eslint-disable-next-line vue/no-v-html -->
-          <span v-html="icons[i % icons.length]" />
+          <span v-html="icons[(i as number) % icons.length]" />
         </div>
         <p class="text-[11px] font-semibold uppercase tracking-[0.26em] text-slate-500">
           {{ signal.label }}

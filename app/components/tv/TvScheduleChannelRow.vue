@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import TvScheduleProgrammeBlock from './TvScheduleProgrammeBlock.vue'
 import type { ChannelSchedule, TimeWindow } from '@/types/tv-schedule'
 
@@ -10,11 +10,8 @@ const props = defineProps<{
   rowHeight: number
 }>()
 
-const logoFailed = ref(false)
-
-// Only render programmes that overlap the visible window
 const visibleProgrammes = computed(() =>
-  props.schedule.programmes.filter((p) => {
+  props.schedule.programmes.filter((p: import('@/types/tv-schedule').TvProgramme) => {
     const end = p.startMinutes + p.durationMinutes
     return end > props.timeWindow.startMinutes && p.startMinutes < props.timeWindow.endMinutes
   }),
@@ -23,15 +20,6 @@ const visibleProgrammes = computed(() =>
 const totalWidth = computed(
   () => (props.timeWindow.endMinutes - props.timeWindow.startMinutes) * props.pxPerMin,
 )
-
-const channelInitials = computed(() => {
-  return props.schedule.channel.displayName
-    .split(' ')
-    .map((w) => w[0])
-    .join('')
-    .slice(0, 3)
-    .toUpperCase()
-})
 </script>
 
 <template>
@@ -42,23 +30,13 @@ const channelInitials = computed(() => {
       :style="{ height: rowHeight + 'px' }"
     >
       <div class="flex flex-col items-center gap-1">
-        <div class="flex h-11 w-15 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-100 p-1.5">
-          <img
-            v-if="schedule.logoUrl && !logoFailed"
-            :src="schedule.logoUrl"
-            :alt="schedule.channel.displayName"
-            class="h-full w-full object-contain"
-            loading="lazy"
-            @error="logoFailed = true"
-          />
-          <span
-            v-else
-            class="text-[10px] font-bold text-white w-full h-full flex items-center justify-center rounded-lg"
-            :class="schedule.channel.fallbackBg"
-          >
-            {{ channelInitials }}
-          </span>
-        </div>
+        <TvChannelLogo
+          class="h-11 w-15 rounded-xl p-1.5"
+          :src="schedule.logoUrl"
+          :name="schedule.channel.displayName"
+          :fallback-bg="schedule.channel.fallbackBg"
+          :max-initials="3"
+        />
         <span class="text-[9px] font-semibold text-slate-400">{{ schedule.channel.number }}</span>
       </div>
     </div>

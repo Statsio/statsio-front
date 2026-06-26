@@ -3,6 +3,7 @@ import { computed, watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import { useActiveEditor } from '@/composables/useActiveEditor'
+import type { StudioDocumentPage, StudioBlock, DatasetMeta, DatasetColumn, SearchSource } from '@/types/studio'
 
 const studio   = useStudioStore()
 const datasets = useStudioDatasetsStore()
@@ -10,7 +11,7 @@ const { insertToken } = useActiveEditor()
 
 // ─── Current page ──────────────────────────────────────────────────────────────
 
-const currentPage = computed(() => studio.pages.find((p) => p.id === studio.currentPageId))
+const currentPage = computed(() => studio.pages.find((p: StudioDocumentPage) => p.id === studio.currentPageId))
 const isTemplate  = computed(() => !!currentPage.value?.isTemplate)
 
 // ─── All search blocks + which page they target ────────────────────────────────
@@ -24,21 +25,21 @@ interface SearchBlockInfo {
 
 const searchBlockInfos = computed((): SearchBlockInfo[] => {
   return studio.blocks
-    .filter((b) => b.type === 'search' && !!b.fieldMapping.targetPageId)
-    .map((b) => {
-      const targetPage = studio.pages.find((p) => p.id === b.fieldMapping.targetPageId)
+    .filter((b: StudioBlock) => b.type === 'search' && !!b.fieldMapping.targetPageId)
+    .map((b: StudioBlock) => {
+      const targetPage = studio.pages.find((p: StudioDocumentPage) => p.id === b.fieldMapping.targetPageId)
       const sources = (b.fieldMapping.searchSources ?? [])
-        .filter((s) => s.datasetId)
-        .map((s) => ({
+        .filter((s: SearchSource) => s.datasetId)
+        .map((s: SearchSource) => ({
           datasetId: s.datasetId,
-          datasetName: datasets.readyDatasets.find((d) => d.id === s.datasetId)?.name ?? s.datasetId,
+          datasetName: datasets.readyDatasets.find((d: DatasetMeta) => d.id === s.datasetId)?.name ?? s.datasetId,
           searchColumns: s.columns,
         }))
       // Legacy single-column
       if (sources.length === 0 && b.datasetId && b.fieldMapping.searchColumn) {
         sources.push({
           datasetId: b.datasetId,
-          datasetName: datasets.readyDatasets.find((d) => d.id === b.datasetId)?.name ?? b.datasetId,
+          datasetName: datasets.readyDatasets.find((d: DatasetMeta) => d.id === b.datasetId)?.name ?? b.datasetId,
           searchColumns: [b.fieldMapping.searchColumn],
         })
       }
@@ -52,7 +53,7 @@ const searchBlockInfos = computed((): SearchBlockInfo[] => {
 })
 
 // Load all source schemas
-watch(searchBlockInfos, (infos) => {
+watch(searchBlockInfos, (infos: SearchBlockInfo[]) => {
   for (const info of infos) {
     for (const src of info.sources) {
       if (src.datasetId) datasets.loadSchema(src.datasetId)
@@ -85,7 +86,7 @@ const varGroups = computed((): VarGroup[] => {
 
       const schema = datasets.getSchema(src.datasetId)
       const allColumns = schema
-        ? schema.columns.map((c) => c.name)
+        ? schema.columns.map((c: DatasetColumn) => c.name)
         : src.searchColumns // fallback while loading
 
       groups.push({

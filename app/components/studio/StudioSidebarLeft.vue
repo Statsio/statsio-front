@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useStudioStore } from '@/stores/studio'
-import type { SidebarLeftTab } from '@/types/studio'
+import type { SidebarLeftTab, StudioBlock } from '@/types/studio'
 import SidebarBlocks from './sidebar/SidebarBlocks.vue'
 import SidebarLayouts from './sidebar/SidebarLayouts.vue'
 import SidebarDataSources from './sidebar/SidebarDataSources.vue'
@@ -11,7 +11,7 @@ const studio = useStudioStore()
 
 // Show a badge on Variables tab when on a template page with configured search blocks
 const hasVariables = computed(() =>
-  studio.blocks.some((b) => b.type === 'search' && !!b.fieldMapping.targetPageId),
+  studio.blocks.some((b: StudioBlock) => b.type === 'search' && !!b.fieldMapping.targetPageId),
 )
 
 const tabs: { id: SidebarLeftTab; label: string; icon: string }[] = [
@@ -72,7 +72,7 @@ const tabs: { id: SidebarLeftTab; label: string; icon: string }[] = [
       <!-- Panel header -->
       <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100 shrink-0">
         <p class="text-sm font-bold text-slate-800">
-          {{ tabs.find((t) => t.id === studio.activeLeftTab)?.label }}
+          {{ tabs.find((t: { id: SidebarLeftTab; label: string; icon: string }) => t.id === studio.activeLeftTab)?.label }}
         </p>
         <button
           class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"

@@ -3,7 +3,7 @@ import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { fetchSearchRows } from '@/api/studio'
 import { useStudioStore } from '@/stores/studio'
-import type { StudioBlock } from '@/types/studio'
+import type { StudioBlock, StudioDocumentPage, SearchSource, SearchJoin } from '@/types/studio'
 
 const props = defineProps<{ block: StudioBlock; readonly?: boolean }>()
 
@@ -26,13 +26,13 @@ const searchSources = computed(() => {
 
 const targetPageId  = computed(() => props.block.fieldMapping.targetPageId)
 const placeholder   = computed(() => props.block.config.searchPlaceholder || 'Rechercher…')
-const isConfigured  = computed(() => searchSources.value.some((s) => s.datasetId && s.columns.length > 0))
+const isConfigured  = computed(() => searchSources.value.some((s: SearchSource) => s.datasetId && s.columns.length > 0))
 const urlParamCols  = computed(() => props.block.fieldMapping.urlParams ?? [])
 
 // For URL navigation: doc slug from route, target page slug from store
 const docSlug = computed(() => String(route.params.slug ?? ''))
 const targetPageSlug = computed(() => {
-  const page = studio.pages.find((p) => p.id === targetPageId.value)
+  const page = studio.pages.find((p: StudioDocumentPage) => p.id === targetPageId.value)
   return page?.slug ?? page?.id ?? ''
 })
 
@@ -91,16 +91,16 @@ async function doSearch(q: string) {
 
     await Promise.all(
       searchSources.value
-        .filter((s) => s.datasetId && s.columns.length > 0)
-        .map(async (source) => {
+        .filter((s: SearchSource) => s.datasetId && s.columns.length > 0)
+        .map(async (source: SearchSource) => {
           const sourceJoins = (props.block.fieldMapping.searchJoins ?? [])
-            .filter((j) => j.sourceDatasetId === source.datasetId)
-            .map((j) => ({ datasetId: j.datasetId, leftColumn: j.leftColumn, rightColumn: j.rightColumn, columns: j.columns, type: j.type }))
+            .filter((j: SearchJoin) => j.sourceDatasetId === source.datasetId)
+            .map((j: SearchJoin) => ({ datasetId: j.datasetId, leftColumn: j.leftColumn, rightColumn: j.rightColumn, columns: j.columns, type: j.type }))
           const rows = await fetchSearchRows(source.datasetId, source.columns, q, 30, sourceJoins)
           for (const row of rows) {
             // Use first matching column value as display value
             const primaryCol = source.columns.find(
-              (c) => String(row[c] ?? '').toLowerCase().includes(q.toLowerCase()),
+              (c: string) => String(row[c] ?? '').toLowerCase().includes(q.toLowerCase()),
             ) ?? source.columns[0]!
             const displayValue = String(row[primaryCol] ?? '')
             if (!displayValue || seen.has(displayValue)) continue
@@ -108,8 +108,8 @@ async function doSearch(q: string) {
 
             // Other column values shown as sub-info
             const subValues = source.columns
-              .filter((c) => c !== primaryCol && row[c] != null && row[c] !== '')
-              .map((c) => ({ label: c, value: String(row[c]) }))
+              .filter((c: string) => c !== primaryCol && row[c] != null && row[c] !== '')
+              .map((c: string) => ({ label: c, value: String(row[c]) }))
 
             allRows.push({
               key: `${source.datasetId}:${displayValue}`,
@@ -129,7 +129,7 @@ async function doSearch(q: string) {
   }
 }
 
-watch(query, (q) => {
+watch(query, (q: string) => {
   if (!isConfigured.value) return
   updateDropdownPosition()
   scheduleSearch(q)

@@ -1,11 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue'
 import type { Top50Record } from '@/types/tv-audiences'
 import { TNT_CHANNELS } from '@/data/tnt-channels'
 
 defineProps<{ records: Top50Record[] }>()
 
-const logoFailed = ref<Record<string, boolean>>({})
 
 const CATEGORY_LABELS: Record<string, string> = {
   sport:         'Sport',
@@ -73,20 +71,12 @@ function formatDate(dateStr: string): string {
 
             <!-- Channel logo -->
             <td class="px-4 py-3">
-              <div class="flex h-8 w-11 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-100 p-1">
-                <img
-                  v-if="!logoFailed[record.channelId]"
-                  :src="getChannel(record.channelId)?.logoUrl"
-                  :alt="record.channelName"
-                  class="h-full w-full object-contain"
-                  loading="lazy"
-                  @error="logoFailed[record.channelId] = true"
-                />
-                <span
-                  v-else
-                  class="text-[9px] font-bold text-slate-600"
-                >{{ record.channelName.slice(0, 3) }}</span>
-              </div>
+              <TvChannelLogo
+                class="h-8 w-11 rounded-lg p-1"
+                :src="getChannel(record.channelId)?.logoUrl"
+                :name="record.channelName"
+                :max-initials="3"
+              />
             </td>
 
             <!-- Programme -->

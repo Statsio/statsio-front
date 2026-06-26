@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch, type Component } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import AppAccessibilityPanel from '@/components/layout/AppAccessibilityPanel.vue'
 import type { HeaderNavItem } from '@/components/layout/brands/header-nav.types'
@@ -10,9 +10,10 @@ import AppDropdownMenu from '@/components/layout/AppDropdownMenu.vue'
 import AppDropdownMenuItem from '@/components/layout/AppDropdownMenuItem.vue'
 import AppAvatar from '@/components/ui/AppAvatar.vue'
 import AppButton from '@/components/ui/AppButton.vue'
-import { getBrandFromPath } from '@/data/brands'
+import { getBrandFromPath, type BrandId } from '@/data/brands'
 import { getErrorMessage } from '@/lib/http-errors'
 import { useAuthStore } from '@/stores/auth'
+import { useClickOutside } from '@/composables/useClickOutside'
 
 const notifications = [
   {
@@ -56,11 +57,13 @@ const notificationToneClasses = {
   slate: 'bg-slate-900 text-white',
 } as const
 
+interface BrandNavExpose { items: HeaderNavItem[] }
+
 const activeMenu = ref<HeaderNavItem | null>(null)
 const logoutError = ref('')
 const isBrandMenuOpen = ref(false)
 const isMobileMenuOpen = ref(false)
-const brandNavRef = ref<any>(null)
+const brandNavRef = ref<BrandNavExpose | null>(null)
 const accessibilityPanelRef = ref<{ open: () => void } | null>(null)
 const mobileNavItems = computed<HeaderNavItem[]>(() => brandNavRef.value?.items ?? [])
 const brandMenuRef = ref<HTMLElement | null>(null)
@@ -75,12 +78,12 @@ const authStore = useAuthStore()
 
 const currentBrand = computed(() => getBrandFromPath(route.path))
 const brandMenuItems = computed(() => currentBrand.value.switchMenu)
-const brandNavComponentById = {
+const brandNavComponentById: Record<BrandId, Component> = {
   statsio: StatsioAppHeaderNav,
   tvstats: TvstatsAppHeaderNav,
   medistats: MedistatsAppHeaderNav,
-} as const
-const currentBrandNavComponent = computed(() => brandNavComponentById[currentBrand.value.id])
+}
+const currentBrandNavComponent = computed(() => brandNavComponentById[currentBrand.value.id as BrandId])
 
 const userInitials = () => {
   const firstName = authStore.user?.profile?.first_name?.[0] ?? ''
@@ -113,7 +116,7 @@ watch(route, () => {
   closeMobileMenu()
 })
 
-watch(isMobileMenuOpen, (open) => {
+watch(isMobileMenuOpen, (open: boolean) => {
   if (typeof document !== 'undefined') {
     document.body.style.overflow = open ? 'hidden' : ''
   }
@@ -173,35 +176,11 @@ const closeUserMenu = () => {
   isUserMenuOpen.value = false
 }
 
-const handleDocumentClick = (event: MouseEvent) => {
-  const target = event.target
-
-  if (!(target instanceof Node)) {
-    closeBrandMenu()
-    closeNotifications()
-    closeUserMenu()
-    return
-  }
-
-  if (!brandMenuRef.value?.contains(target)) {
-    closeBrandMenu()
-  }
-
-  if (!notificationsRef.value?.contains(target)) {
-    closeNotifications()
-  }
-
-  if (!userMenuRef.value?.contains(target)) {
-    closeUserMenu()
-  }
-}
-
-onMounted(() => {
-  document.addEventListener('click', handleDocumentClick)
-})
+useClickOutside(brandMenuRef, closeBrandMenu, { escapeKey: false })
+useClickOutside(notificationsRef, closeNotifications, { escapeKey: false })
+useClickOutside(userMenuRef, closeUserMenu)
 
 onBeforeUnmount(() => {
-  document.removeEventListener('click', handleDocumentClick)
   document.body.style.overflow = ''
 })
 </script>

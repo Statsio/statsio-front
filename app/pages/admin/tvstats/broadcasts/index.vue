@@ -1,6 +1,7 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'admin', middleware: ['admin'], ssr: false })
 import { ref, watch } from 'vue'
+import { getErrorMessage } from '@/lib/http-errors'
 import { RouterLink } from 'vue-router'
 import { adminListBroadcasts, adminDeleteBroadcast, type AdminBroadcast } from '@/api/admin'
 import { TNT_CHANNELS } from '@/data/tnt-channels'
@@ -51,8 +52,8 @@ async function remove(b: AdminBroadcast) {
   try {
     await adminDeleteBroadcast(b.id)
     await load(currentPage.value)
-  } catch (e: any) {
-    alert(e?.response?.data?.message ?? 'Erreur lors de la suppression.')
+  } catch (e) {
+    alert(getErrorMessage(e, 'Erreur lors de la suppression.'))
   }
 }
 </script>

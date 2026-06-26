@@ -45,10 +45,10 @@ const tabs: { value: StatusFilter; label: string }[] = [
 const filtered = computed(() => {
   let list = activeTab.value === 'all'
     ? docs.value
-    : docs.value.filter((c) => (c.status ?? 'draft') === activeTab.value)
+    : docs.value.filter((c: StatsDataDocument) => (c.status ?? 'draft') === activeTab.value)
   if (searchQuery.value.trim()) {
     const q = searchQuery.value.toLowerCase()
-    list = list.filter((c) => c.title.toLowerCase().includes(q))
+    list = list.filter((c: StatsDataDocument) => c.title.toLowerCase().includes(q))
   }
   return list
 })
@@ -69,8 +69,8 @@ function formatDate(iso?: string) {
 
 const stats = computed(() => ({
   total:     docs.value.length,
-  published: docs.value.filter((c) => c.status === 'published').length,
-  draft:     docs.value.filter((c) => !c.status || c.status === 'draft').length,
+  published: docs.value.filter((c: StatsDataDocument) => c.status === 'published').length,
+  draft:     docs.value.filter((c: StatsDataDocument) => !c.status || c.status === 'draft').length,
 }))
 </script>
 

@@ -5,7 +5,7 @@ import { RouterLink, useRoute } from 'vue-router'
 import { fetchPublicStatsDataDocument } from '@/api/studio'
 import { useStudioStore } from '@/stores/studio'
 import { SECTION_LAYOUT_DEFINITIONS } from '@/types/studio'
-import type { StudioBlock } from '@/types/studio'
+import type { StudioBlock, StudioDocumentPage } from '@/types/studio'
 import BlockRenderer from '@/components/studio/blocks/BlockRenderer.vue'
 
 const route = useRoute()
@@ -34,7 +34,7 @@ function blocksInZone(sectionId: string, colIdx: number): StudioBlock[] {
 
 // Other (non-template) pages of the same doc for navigation
 const otherPages = computed(() =>
-  studio.pages.filter((p) => p.id !== studio.currentPageId && !p.isTemplate)
+  studio.pages.filter((p: StudioDocumentPage) => p.id !== studio.currentPageId && !p.isTemplate)
 )
 
 onMounted(async () => {
@@ -50,7 +50,7 @@ onMounted(async () => {
     )
 
     // Find the matching page by slug or id
-    const targetPage = studio.pages.find((p) => p.slug === pageSlug || p.id === pageSlug)
+    const targetPage = studio.pages.find((p: StudioDocumentPage) => p.slug === pageSlug || p.id === pageSlug)
     if (targetPage) {
       studio.switchPage(targetPage.id)
     }
@@ -73,7 +73,7 @@ onBeforeUnmount(() => {
   studio.clearPageParams()
 })
 
-const currentPage = computed(() => studio.pages.find((p) => p.id === studio.currentPageId))
+const currentPage = computed(() => studio.pages.find((p: StudioDocumentPage) => p.id === studio.currentPageId))
 
 const isCopied = ref(false)
 function copyLink() {
@@ -161,7 +161,7 @@ function copyLink() {
                 v-for="section in pageSections"
                 :key="section.id"
                 class="grid gap-4"
-                :style="{ gridTemplateColumns: sectionDef(section.layout).gridCols.map((n) => `${n}fr`).join(' ') }"
+                :style="{ gridTemplateColumns: sectionDef(section.layout).gridCols.map((n: number) => `${n}fr`).join(' ') }"
               >
                 <div
                   v-for="(_, colIdx) in sectionDef(section.layout).gridCols"

@@ -2,7 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import { useBlockData } from '@/composables/useBlockData'
 import { fetchBlockData } from '@/api/studio'
-import type { StudioBlock, BlockQueryResult } from '@/types/studio'
+import type { StudioBlock, BlockQueryResult, BlockFilter } from '@/types/studio'
 
 const props = defineProps<{ block: StudioBlock }>()
 
@@ -58,7 +58,7 @@ async function loadComparison() {
   compLoading.value = true
   compError.value   = null
   try {
-    const filters = (props.block.comparisonFilters ?? []).filter((f) => f.column && f.value)
+    const filters = (props.block.comparisonFilters ?? []).filter((f: BlockFilter) => f.column && f.value)
     compData.value = await fetchBlockData(props.block.datasetId, {
       columns: [col],
       limit: 500,

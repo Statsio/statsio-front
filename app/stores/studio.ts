@@ -80,7 +80,7 @@ export const useStudioStore = defineStore('studio', () => {
     pages.value = prev.pages
     sections.value = prev.sections
     blocks.value = prev.blocks
-    if (!pages.value.find((p) => p.id === currentPageId.value)) {
+    if (!pages.value.find((p: StudioDocumentPage) => p.id === currentPageId.value)) {
       currentPageId.value = pages.value[0]?.id ?? 'default'
     }
     selectedBlockId.value = null
@@ -99,7 +99,7 @@ export const useStudioStore = defineStore('studio', () => {
     pages.value = next.pages
     sections.value = next.sections
     blocks.value = next.blocks
-    if (!pages.value.find((p) => p.id === currentPageId.value)) {
+    if (!pages.value.find((p: StudioDocumentPage) => p.id === currentPageId.value)) {
       currentPageId.value = pages.value[0]?.id ?? 'default'
     }
     selectedBlockId.value = null
@@ -110,16 +110,16 @@ export const useStudioStore = defineStore('studio', () => {
   // ─── Computed ────────────────────────────────────────────────────────────────
 
   const currentPage = computed<StudioDocumentPage | undefined>(
-    () => pages.value.find((p) => p.id === currentPageId.value),
+    () => pages.value.find((p: StudioDocumentPage) => p.id === currentPageId.value),
   )
 
   const currentPageSections = computed<Section[]>(
-    () => sections.value.filter((s) => (s.pageId ?? 'default') === currentPageId.value),
+    () => sections.value.filter((s: Section) => (s.pageId ?? 'default') === currentPageId.value),
   )
 
   const selectedBlock = computed<StudioBlock | null>(() => {
     if (!selectedBlockId.value) return null
-    return blocks.value.find((b) => b.id === selectedBlockId.value) ?? null
+    return blocks.value.find((b: StudioBlock) => b.id === selectedBlockId.value) ?? null
   })
 
   // Zone IDs derived from sections: `${sectionId}-${colIndex}`
@@ -194,10 +194,10 @@ export const useStudioStore = defineStore('studio', () => {
 
   function removeSection(sectionId: string) {
     snapshot()
-    sections.value = sections.value.filter((s) => s.id !== sectionId)
-    blocks.value = blocks.value.filter((b) => !b.zoneId?.startsWith(`${sectionId}-`))
+    sections.value = sections.value.filter((s: Section) => s.id !== sectionId)
+    blocks.value = blocks.value.filter((b: StudioBlock) => !b.zoneId?.startsWith(`${sectionId}-`))
     if (selectedBlockId.value) {
-      const stillExists = blocks.value.find((b) => b.id === selectedBlockId.value)
+      const stillExists = blocks.value.find((b: StudioBlock) => b.id === selectedBlockId.value)
       if (!stillExists) {
         selectedBlockId.value = null
         isSidebarRightOpen.value = false
@@ -207,11 +207,11 @@ export const useStudioStore = defineStore('studio', () => {
   }
 
   function changeSectionLayout(sectionId: string, layout: SectionLayout) {
-    const section = sections.value.find((s) => s.id === sectionId)
+    const section = sections.value.find((s: Section) => s.id === sectionId)
     if (!section) return
     snapshot()
     const newCols = getColCount(layout)
-    blocks.value = blocks.value.map((b) => {
+    blocks.value = blocks.value.map((b: StudioBlock) => {
       if (!b.zoneId.startsWith(`${sectionId}-`)) return b
       const colIdx = parseInt(b.zoneId?.split('-').pop() ?? '0', 10)
       const safeIdx = Math.min(colIdx, newCols - 1)
@@ -229,7 +229,7 @@ export const useStudioStore = defineStore('studio', () => {
 
   function reorderCurrentPageSections(newPageOrder: Section[]) {
     snapshot()
-    const otherSections = sections.value.filter((s) => (s.pageId ?? 'default') !== currentPageId.value)
+    const otherSections = sections.value.filter((s: Section) => (s.pageId ?? 'default') !== currentPageId.value)
     sections.value = [...otherSections, ...newPageOrder]
     markDirty()
   }
@@ -256,7 +256,7 @@ export const useStudioStore = defineStore('studio', () => {
   }
 
   function updatePage(pageId: string, patch: Partial<Omit<StudioDocumentPage, 'id'>>) {
-    const page = pages.value.find((p) => p.id === pageId)
+    const page = pages.value.find((p: StudioDocumentPage) => p.id === pageId)
     if (!page) return
     snapshot()
     Object.assign(page, patch)
@@ -264,7 +264,7 @@ export const useStudioStore = defineStore('studio', () => {
   }
 
   function switchPage(pageId: string) {
-    if (!pages.value.find((p) => p.id === pageId)) return
+    if (!pages.value.find((p: StudioDocumentPage) => p.id === pageId)) return
     currentPageId.value = pageId
     pageParams.value = {}
     selectedBlockId.value = null
@@ -273,7 +273,7 @@ export const useStudioStore = defineStore('studio', () => {
 
   // Like switchPage but keeps existing pageParams (used when URL navigation already set them)
   function switchPageKeepParams(pageId: string) {
-    if (!pages.value.find((p) => p.id === pageId)) return
+    if (!pages.value.find((p: StudioDocumentPage) => p.id === pageId)) return
     currentPageId.value = pageId
     selectedBlockId.value = null
     isSidebarRightOpen.value = false
@@ -284,14 +284,14 @@ export const useStudioStore = defineStore('studio', () => {
     snapshot()
     // Remove blocks that belong to sections of this page
     const pageSectionIds = sections.value
-      .filter((s) => (s.pageId ?? 'default') === pageId)
-      .map((s) => s.id)
-    blocks.value = blocks.value.filter((b) => {
+      .filter((s: Section) => (s.pageId ?? 'default') === pageId)
+      .map((s: Section) => s.id)
+    blocks.value = blocks.value.filter((b: StudioBlock) => {
       const sectionId = b.zoneId?.split('-').slice(0, -1).join('-') ?? ''
       return !pageSectionIds.includes(sectionId)
     })
-    sections.value = sections.value.filter((s) => (s.pageId ?? 'default') !== pageId)
-    pages.value = pages.value.filter((p) => p.id !== pageId)
+    sections.value = sections.value.filter((s: Section) => (s.pageId ?? 'default') !== pageId)
+    pages.value = pages.value.filter((p: StudioDocumentPage) => p.id !== pageId)
     if (currentPageId.value === pageId) {
       currentPageId.value = pages.value[0]?.id ?? 'default'
       pageParams.value = {}
@@ -333,9 +333,9 @@ export const useStudioStore = defineStore('studio', () => {
     }
 
     if (atIndex !== undefined) {
-      const zoneBlockIds = blocks.value.filter((b) => b.zoneId === zoneId).map((b) => b.id)
+      const zoneBlockIds = blocks.value.filter((b: StudioBlock) => b.zoneId === zoneId).map((b: StudioBlock) => b.id)
       if (atIndex < zoneBlockIds.length) {
-        const flatIdx = blocks.value.findIndex((b) => b.id === zoneBlockIds[atIndex])
+        const flatIdx = blocks.value.findIndex((b: StudioBlock) => b.id === zoneBlockIds[atIndex])
         if (flatIdx >= 0) {
           blocks.value.splice(flatIdx, 0, block)
         } else {
@@ -356,7 +356,7 @@ export const useStudioStore = defineStore('studio', () => {
 
   function removeBlock(blockId: string) {
     snapshot()
-    blocks.value = blocks.value.filter((b) => b.id !== blockId)
+    blocks.value = blocks.value.filter((b: StudioBlock) => b.id !== blockId)
     if (selectedBlockId.value === blockId) {
       selectedBlockId.value = null
       isSidebarRightOpen.value = false
@@ -371,7 +371,7 @@ export const useStudioStore = defineStore('studio', () => {
 
   function moveBlock(blockId: string, toZoneId: string) {
     snapshot()
-    const block = blocks.value.find((b) => b.id === blockId)
+    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
     if (!block) return
     block.zoneId = toZoneId
     markDirty()
@@ -385,15 +385,15 @@ export const useStudioStore = defineStore('studio', () => {
       }
     }
     const zoneBlocks = blockIds
-      .map((id) => blocks.value.find((b) => b.id === id))
+      .map((id) => blocks.value.find((b: StudioBlock) => b.id === id))
       .filter(Boolean) as StudioBlock[]
-    const otherBlocks = blocks.value.filter((b) => !blockIds.includes(b.id) && b.zoneId !== zoneId)
+    const otherBlocks = blocks.value.filter((b: StudioBlock) => !blockIds.includes(b.id) && b.zoneId !== zoneId)
     blocks.value = [...otherBlocks, ...zoneBlocks]
     markDirty()
   }
 
   function updateBlockConfig(blockId: string, config: Partial<BlockConfig>) {
-    const block = blocks.value.find((b) => b.id === blockId)
+    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
     if (!block) return
     // Text content changes are handled by Tiptap's internal history — no structural snapshot
     const isTextOnly = Object.keys(config).length === 1 && 'content' in config
@@ -404,7 +404,7 @@ export const useStudioStore = defineStore('studio', () => {
 
   function updateBlockDataset(blockId: string, datasetId: string) {
     snapshot()
-    const block = blocks.value.find((b) => b.id === blockId)
+    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
     if (!block) return
     block.datasetId = datasetId
     block.fieldMapping = {}
@@ -413,7 +413,7 @@ export const useStudioStore = defineStore('studio', () => {
 
   function updateBlockFieldMapping(blockId: string, mapping: Partial<FieldMapping>) {
     snapshot()
-    const block = blocks.value.find((b) => b.id === blockId)
+    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
     if (!block) return
     block.fieldMapping = { ...block.fieldMapping, ...mapping }
     markDirty()
@@ -421,7 +421,7 @@ export const useStudioStore = defineStore('studio', () => {
 
   function updateBlockFilters(blockId: string, filters: import('@/types/studio').BlockFilter[]) {
     snapshot()
-    const block = blocks.value.find((b) => b.id === blockId)
+    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
     if (!block) return
     block.filters = filters
     markDirty()
@@ -429,7 +429,7 @@ export const useStudioStore = defineStore('studio', () => {
 
   function updateBlockComparisonFilters(blockId: string, filters: import('@/types/studio').BlockFilter[]) {
     snapshot()
-    const block = blocks.value.find((b) => b.id === blockId)
+    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
     if (!block) return
     block.comparisonFilters = filters
     markDirty()
@@ -437,7 +437,7 @@ export const useStudioStore = defineStore('studio', () => {
 
   function updateBlockJoins(blockId: string, joins: import('@/types/studio').BlockJoin[]) {
     snapshot()
-    const block = blocks.value.find((b) => b.id === blockId)
+    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
     if (!block) return
     block.joins = joins
     markDirty()
