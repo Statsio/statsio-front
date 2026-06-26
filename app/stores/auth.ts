@@ -16,14 +16,12 @@ const isValidUser = (user: Partial<AuthUser> | null | undefined): user is AuthUs
   typeof user?.id === 'number' && typeof user.email === 'string' && user.email.trim().length > 0
 
 export const useAuthStore = defineStore('auth', () => {
-  const storedToken = getStoredToken()
-
-  const token = ref(storedToken?.token ?? null)
-  const refreshToken = ref(storedToken?.refreshToken ?? null)
-  const tokenType = ref(storedToken?.type ?? null)
-  const expiresIn = ref(storedToken?.expiresIn ?? null)
-  const user = ref<AuthUser | null>(storedToken?.user ?? null)
-  const persistMode = ref<PersistMode>(storedToken?.mode ?? DEFAULT_PERSIST_MODE)
+  const token = ref<string | null>(null)
+  const refreshToken = ref<string | null>(null)
+  const tokenType = ref<string | null>(null)
+  const expiresIn = ref<number | null>(null)
+  const user = ref<AuthUser | null>(null)
+  const persistMode = ref<PersistMode>(DEFAULT_PERSIST_MODE)
   const isBootstrapping = ref(false)
   const isAuthenticating = ref(false)
   const isLoggingOut = ref(false)
@@ -60,6 +58,21 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
     persistMode.value = DEFAULT_PERSIST_MODE
     clearStoredToken()
+  }
+
+  const hydrateFromStorage = () => {
+    const stored = getStoredToken()
+
+    if (!stored) {
+      return
+    }
+
+    token.value = stored.token
+    refreshToken.value = stored.refreshToken ?? null
+    tokenType.value = stored.type
+    expiresIn.value = stored.expiresIn ?? null
+    user.value = stored.user
+    persistMode.value = stored.mode
   }
 
   const initialize = async () => {
@@ -184,5 +197,6 @@ export const useAuthStore = defineStore('auth', () => {
     refreshUser,
     logout,
     clearSession,
+    hydrateFromStorage,
   }
 })

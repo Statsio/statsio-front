@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import { ref } from 'vue'
+import { useScrollAnim } from '@/composables/useScrollAnim'
 import AppButton from '@/components/ui/AppButton.vue'
+import HomeSectionHeader from '@/components/home/HomeSectionHeader.vue'
 
 defineProps<{
   items: {
@@ -8,49 +11,121 @@ defineProps<{
     candidates: { name: string; score: string }[]
   }[]
 }>()
+
+function parsePct(score: string): number {
+  return parseInt(score, 10) || 0
+}
+
+function getBarWidth(score: string, allScores: string[]): string {
+  const maxPct = Math.max(...allScores.map((s) => parsePct(s)))
+  if (maxPct === 0) return '0%'
+  return `${Math.round((parsePct(score) / maxPct) * 100)}%`
+}
+
+const barColorClasses = [
+  'bg-[var(--color-primary)]',
+  'bg-[var(--color-accent)]',
+  'bg-slate-300',
+] as const
+
+function getBarColorClass(index: number): string {
+  return barColorClasses[index % barColorClasses.length] ?? 'bg-slate-300'
+}
+
+const sectionRef = ref<HTMLElement | null>(null)
+
+useScrollAnim(sectionRef, (gsap, ScrollTrigger) => {
+  return gsap.context(() => {
+    gsap.from('[data-anim="header"]', {
+      y: 20, opacity: 0, duration: 0.6, ease: 'power2.out',
+      scrollTrigger: { trigger: sectionRef.value, start: 'top 80%' },
+    })
+    gsap.from('[data-anim="poll-card"]', {
+      y: 36, opacity: 0, duration: 0.65, stagger: 0.14, ease: 'power2.out',
+      scrollTrigger: { trigger: sectionRef.value, start: 'top 78%' },
+    })
+    // Animate bars from 0 to target width via data-target-width attribute
+    const bars = sectionRef.value?.querySelectorAll<HTMLElement>('[data-target-width]') ?? []
+    bars.forEach((bar, i) => {
+      const targetWidth = bar.dataset.targetWidth ?? '0%'
+      gsap.fromTo(
+        bar,
+        { width: '0%' },
+        {
+          width: targetWidth,
+          duration: 0.75,
+          delay: 0.04 * i,
+          ease: 'power2.out',
+          scrollTrigger: { trigger: sectionRef.value, start: 'top 72%' },
+        },
+      )
+    })
+  }, sectionRef.value)
+})
 </script>
 
 <template>
-  <section class="section">
-    <div class="container">
-      <div class="flex flex-wrap items-end justify-between gap-6">
-        <div>
-          <p class="eyebrow">Sondages</p>
-          <h2 class="text-3xl font-semibold text-slate-900">
-            Intentions de vote et baromètres interactifs
-          </h2>
-        </div>
-        <AppButton variant="primary">Lancer un sondage</AppButton>
+  <section ref="sectionRef" class="bg-white">
+    <div class="container py-20">
+      <div data-anim="header">
+        <HomeSectionHeader eyebrow="Sondages" title="Opinions & baromètres en temps réel">
+          <AppButton variant="primary">Lancer un sondage</AppButton>
+        </HomeSectionHeader>
       </div>
 
-      <div class="mt-8 grid gap-6 lg:grid-cols-3">
-        <article v-for="item in items" :key="item.title" class="panel rounded-3xl p-6">
-          <div class="flex items-center justify-between">
+      <div class="mt-10 grid gap-5 lg:grid-cols-3">
+        <article
+          v-for="item in items"
+          :key="item.title"
+          data-anim="poll-card"
+          class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:shadow-md"
+        >
+          <!-- Poll header -->
+          <div class="flex items-start justify-between border-b border-slate-100 px-5 py-4">
             <div>
               <p class="eyebrow">{{ item.window }}</p>
-              <h3 class="mt-2 text-lg font-semibold text-slate-900">{{ item.title }}</h3>
+              <h3 class="mt-1 text-base font-semibold leading-tight text-slate-900">{{ item.title }}</h3>
             </div>
-            <span class="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-500">Live</span>
+            <span class="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+              <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" aria-hidden="true" />
+              Live
+            </span>
           </div>
-          <div class="mt-6 grid gap-3">
+
+          <!-- Candidates with percentage bars -->
+          <div class="space-y-4 px-5 py-5">
             <div
-              v-for="candidate in item.candidates"
+              v-for="(candidate, index) in item.candidates"
               :key="candidate.name"
-              class="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3"
+              class="space-y-2"
             >
-              <div class="flex items-center gap-3">
-                <div
-                  class="grid h-10 w-10 place-items-center rounded-full bg-[var(--color-secondary)] text-sm font-semibold text-slate-700"
-                >
-                  {{ candidate.name.slice(0, 2).toUpperCase() }}
+              <div class="flex items-center justify-between gap-3">
+                <div class="flex min-w-0 items-center gap-2">
+                  <div
+                    class="grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] font-bold text-white"
+                    :class="getBarColorClass(index)"
+                    aria-hidden="true"
+                  >
+                    {{ candidate.name.slice(0, 1) }}
+                  </div>
+                  <span class="truncate text-sm font-medium text-slate-700">{{ candidate.name }}</span>
                 </div>
-                <div>
-                  <p class="text-sm font-semibold text-slate-800">{{ candidate.name }}</p>
-                  <p class="text-xs text-slate-500">Échantillon 12k</p>
-                </div>
+                <span class="mono shrink-0 text-sm font-semibold text-slate-900">{{ candidate.score }}</span>
               </div>
-              <span class="text-sm font-semibold text-slate-800">{{ candidate.score }}</span>
+
+              <!-- Bar animated by GSAP via data-target-width -->
+              <div class="h-1.5 overflow-hidden rounded-full bg-slate-100">
+                <div
+                  :class="[getBarColorClass(index), 'h-full rounded-full']"
+                  :data-target-width="getBarWidth(candidate.score, item.candidates.map((c) => c.score))"
+                />
+              </div>
             </div>
+          </div>
+
+          <!-- Poll footer -->
+          <div class="border-t border-slate-100 px-5 py-3">
+            <p class="text-[11px] text-slate-400">Échantillon national représentatif · 2 000 répondants</p>
           </div>
         </article>
       </div>
