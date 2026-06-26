@@ -14,6 +14,8 @@ export function useScrollAnim(sectionRef: Ref<HTMLElement | null>, setup: AnimSe
       ])
       gsap.registerPlugin(ScrollTrigger)
       ctx = setup(gsap, ScrollTrigger)
+      // Recalculate positions after async setup so triggers already in viewport fire
+      requestAnimationFrame(() => ScrollTrigger.refresh())
     } catch {
       // GSAP not available — content visible without animation
     }

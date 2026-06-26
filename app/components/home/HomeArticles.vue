@@ -6,13 +6,7 @@ import AppButton from '@/components/ui/AppButton.vue'
 import HomeSectionHeader from '@/components/home/HomeSectionHeader.vue'
 
 defineProps<{
-  items: {
-    category: string
-    title: string
-    author: string
-    reads: string
-    trend: string
-  }[]
+  items: { category: string; title: string; author: string; reads: string; trend: string }[]
 }>()
 
 const sectionRef = ref<HTMLElement | null>(null)
@@ -20,16 +14,19 @@ const sectionRef = ref<HTMLElement | null>(null)
 useScrollAnim(sectionRef, (gsap) => {
   return gsap.context(() => {
     gsap.from('[data-anim="header"]', {
-      y: 20, opacity: 0, duration: 0.6, ease: 'power2.out',
-      scrollTrigger: { trigger: sectionRef.value, start: 'top 80%' },
+      y: 16, opacity: 0, duration: 0.55, ease: 'power2.out',
+      immediateRender: false,
+      scrollTrigger: { trigger: sectionRef.value, start: 'top 88%', once: true },
     })
     gsap.from('[data-anim="featured"]', {
-      x: -40, opacity: 0, duration: 0.8, ease: 'power3.out',
-      scrollTrigger: { trigger: '[data-anim="featured"]', start: 'top 80%' },
+      x: -32, opacity: 0, duration: 0.75, ease: 'power3.out',
+      immediateRender: false,
+      scrollTrigger: { trigger: sectionRef.value, start: 'top 82%', once: true },
     })
     gsap.from('[data-anim="article"]', {
-      x: 30, opacity: 0, duration: 0.65, stagger: 0.12, ease: 'power2.out',
-      scrollTrigger: { trigger: '[data-anim="featured"]', start: 'top 80%' },
+      x: 24, opacity: 0, duration: 0.6, stagger: 0.1, ease: 'power2.out',
+      immediateRender: false,
+      scrollTrigger: { trigger: sectionRef.value, start: 'top 82%', once: true },
     })
   }, sectionRef.value)
 })
@@ -45,7 +42,6 @@ useScrollAnim(sectionRef, (gsap) => {
       </div>
 
       <div class="mt-10 grid gap-5 lg:grid-cols-[1.4fr_1fr]">
-        <!-- Featured article -->
         <article
           v-if="items[0]"
           data-anim="featured"
@@ -68,9 +64,7 @@ useScrollAnim(sectionRef, (gsap) => {
               </span>
               <span class="text-sm font-semibold text-emerald-400">{{ items[0].trend }}</span>
             </div>
-            <h3 class="mt-6 flex-1 text-2xl font-semibold leading-tight text-white sm:text-3xl">
-              {{ items[0].title }}
-            </h3>
+            <h3 class="mt-6 flex-1 text-2xl font-semibold leading-tight text-white sm:text-3xl">{{ items[0].title }}</h3>
             <div class="mt-6 flex items-center justify-between border-t border-white/10 pt-5">
               <span class="text-sm text-slate-400">{{ items[0].author }}</span>
               <span class="mono text-sm text-slate-400">{{ items[0].reads }} lectures</span>
@@ -78,7 +72,6 @@ useScrollAnim(sectionRef, (gsap) => {
           </div>
         </article>
 
-        <!-- Secondary articles -->
         <div class="flex flex-col gap-5">
           <article
             v-for="item in items.slice(1)"

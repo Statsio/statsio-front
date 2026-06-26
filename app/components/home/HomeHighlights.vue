@@ -13,19 +13,14 @@ const sectionRef = ref<HTMLElement | null>(null)
 useScrollAnim(sectionRef, (gsap) => {
   return gsap.context(() => {
     gsap.from('[data-anim="header"]', {
-      y: 20,
-      opacity: 0,
-      duration: 0.6,
-      ease: 'power2.out',
-      scrollTrigger: { trigger: sectionRef.value, start: 'top 80%' },
+      y: 16, opacity: 0, duration: 0.55, ease: 'power2.out',
+      immediateRender: false,
+      scrollTrigger: { trigger: sectionRef.value, start: 'top 88%', once: true },
     })
     gsap.from('[data-anim="card"]', {
-      y: 44,
-      opacity: 0,
-      duration: 0.7,
-      stagger: 0.13,
-      ease: 'power2.out',
-      scrollTrigger: { trigger: sectionRef.value, start: 'top 75%' },
+      y: 36, opacity: 0, duration: 0.65, stagger: 0.1, ease: 'power2.out',
+      immediateRender: false,
+      scrollTrigger: { trigger: sectionRef.value, start: 'top 82%', once: true },
     })
   }, sectionRef.value)
 })
