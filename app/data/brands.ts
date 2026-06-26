@@ -10,6 +10,8 @@ export type BrandMenuItem = {
   name: string
   logo: string
   eyebrow: string
+  description: string
+  accentClass: string
 }
 
 export type BrandConfig = {
@@ -42,14 +44,18 @@ const brandConfigs: Record<BrandId, BrandConfig> = {
         to: '/tvstats',
         name: 'TVSTATS',
         logo: tvstatsLogo,
-        eyebrow: 'Sous-marque',
+        eyebrow: 'Audiences TV',
+        description: 'Programmes, grilles et audiences TV en temps réel.',
+        accentClass: 'bg-emerald-50 border-emerald-100',
       },
       {
         id: 'medistats',
         to: '/medistats',
         name: 'MEDISTATS',
         logo: medistatsLogo,
-        eyebrow: 'Sous-marque',
+        eyebrow: 'Médias & Presse',
+        description: 'Audiences presse, radio et digital consolidées.',
+        accentClass: 'bg-rose-50 border-rose-100',
       },
     ],
   },
@@ -67,16 +73,20 @@ const brandConfigs: Record<BrandId, BrandConfig> = {
       {
         id: 'statsio',
         to: '/',
-        name: 'Statsio',
+        name: 'STATSIO',
         logo: statsioLogo,
-        eyebrow: 'Marque principale',
+        eyebrow: 'Plateforme data',
+        description: 'Articles, datasets et sondages enrichis par la data.',
+        accentClass: 'bg-violet-50 border-violet-100',
       },
       {
         id: 'medistats',
         to: '/medistats',
         name: 'MEDISTATS',
         logo: medistatsLogo,
-        eyebrow: 'Sous-marque',
+        eyebrow: 'Médias & Presse',
+        description: 'Audiences presse, radio et digital consolidées.',
+        accentClass: 'bg-rose-50 border-rose-100',
       },
     ],
   },
@@ -94,16 +104,20 @@ const brandConfigs: Record<BrandId, BrandConfig> = {
       {
         id: 'statsio',
         to: '/',
-        name: 'Statsio',
+        name: 'STATSIO',
         logo: statsioLogo,
-        eyebrow: 'Marque principale',
+        eyebrow: 'Plateforme data',
+        description: 'Articles, datasets et sondages enrichis par la data.',
+        accentClass: 'bg-violet-50 border-violet-100',
       },
       {
         id: 'tvstats',
         to: '/tvstats',
         name: 'TVSTATS',
         logo: tvstatsLogo,
-        eyebrow: 'Sous-marque',
+        eyebrow: 'Audiences TV',
+        description: 'Programmes, grilles et audiences TV en temps réel.',
+        accentClass: 'bg-emerald-50 border-emerald-100',
       },
     ],
   },

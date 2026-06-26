@@ -61,6 +61,7 @@ const logoutError = ref('')
 const isBrandMenuOpen = ref(false)
 const isMobileMenuOpen = ref(false)
 const brandNavRef = ref<any>(null)
+const accessibilityPanelRef = ref<{ open: () => void } | null>(null)
 const mobileNavItems = computed<HeaderNavItem[]>(() => brandNavRef.value?.items ?? [])
 const brandMenuRef = ref<HTMLElement | null>(null)
 const isNotificationsOpen = ref(false)
@@ -101,6 +102,11 @@ const toggleMobileMenu = () => {
 
 const closeMobileMenu = () => {
   isMobileMenuOpen.value = false
+}
+
+const openAccessibilityPanel = () => {
+  closeMobileMenu()
+  setTimeout(() => accessibilityPanelRef.value?.open(), 50)
 }
 
 watch(route, () => {
@@ -206,7 +212,7 @@ onBeforeUnmount(() => {
     <div class="container flex items-center justify-between py-1">
       <div ref="brandMenuRef" class="relative flex items-center gap-2">
         <RouterLink :to="currentBrand.to"
-          class="flex items-center gap-4 rounded-full transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35">
+          class="flex items-center gap-2 sm:gap-4 rounded-full transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35">
           <img :src="currentBrand.logo" :alt="currentBrand.logoAlt" class="h-10 w-10 rounded-xl bg-white p-1" />
           <p :class="[currentBrand.wordmarkClass, 'text-xl font-bold uppercase font-mono']">
             {{ currentBrand.prefix }}<span :class="currentBrand.suffixClass">{{ currentBrand.suffix }}</span>
@@ -238,28 +244,59 @@ onBeforeUnmount(() => {
           </svg>
         </button>
 
-        <AppDropdownMenu v-if="isBrandMenuOpen" label="Menu des marques" align="left" width-class="min-w-[240px]">
-          <AppDropdownMenuItem
-            v-for="brandItem in brandMenuItems"
-            :key="brandItem.id"
-            :to="brandItem.to"
-            @click="closeBrandMenu"
+        <Transition
+          enter-active-class="transition duration-150 ease-out"
+          enter-from-class="opacity-0 scale-95 -translate-y-1"
+          enter-to-class="opacity-100 scale-100 translate-y-0"
+          leave-active-class="transition duration-100 ease-in"
+          leave-from-class="opacity-100 scale-100 translate-y-0"
+          leave-to-class="opacity-0 scale-95 -translate-y-1"
+        >
+          <div
+            v-if="isBrandMenuOpen"
+            class="absolute left-0 top-[calc(100%+0.75rem)] z-50 w-72 origin-top-left rounded-2xl border border-slate-200 bg-white shadow-[0_24px_64px_-32px_rgba(15,23,42,0.4)]"
+            role="menu"
+            aria-label="Changer d'univers"
           >
-            <template #leading>
-              <img :src="brandItem.logo" alt="" class="h-10 w-10 rounded-xl border border-slate-200 bg-white p-1.5" />
-            </template>
-            <span class="block text-left">
-              <span class="block text-sm font-semibold text-slate-900">{{ brandItem.name }}</span>
-              <span class="block text-xs font-medium uppercase tracking-[0.18em] text-slate-400">{{ brandItem.eyebrow }}</span>
-            </span>
-          </AppDropdownMenuItem>
-        </AppDropdownMenu>
+            <div class="border-b border-slate-100 px-4 py-3">
+              <p class="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-400">Changer d'univers</p>
+            </div>
+            <div class="p-2">
+              <RouterLink
+                v-for="brand in brandMenuItems"
+                :key="brand.id"
+                :to="brand.to"
+                class="group flex items-center gap-3.5 rounded-xl p-3 transition hover:bg-slate-50"
+                role="menuitem"
+                @click="closeBrandMenu"
+              >
+                <div
+                  class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border"
+                  :class="brand.accentClass"
+                >
+                  <img :src="brand.logo" :alt="brand.name" class="h-7 w-7" />
+                </div>
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm font-bold tracking-wide text-slate-900">{{ brand.name }}</p>
+                  <p class="mt-0.5 text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">{{ brand.eyebrow }}</p>
+                  <p class="mt-1 text-xs leading-relaxed text-slate-500">{{ brand.description }}</p>
+                </div>
+                <svg
+                  class="h-4 w-4 shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-slate-500"
+                  viewBox="0 0 20 20" fill="none"
+                >
+                  <path d="M7 10h6m0 0l-2.5-2.5M13 10l-2.5 2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+                </svg>
+              </RouterLink>
+            </div>
+          </div>
+        </Transition>
       </div>
 
       <component :is="currentBrandNavComponent" ref="brandNavRef" v-model="activeMenu" />
 
       <div class="flex items-center gap-3">
-        <AppAccessibilityPanel />
+        <AppAccessibilityPanel ref="accessibilityPanelRef" />
 
         <template v-if="authStore.isAuthenticated">
           <div ref="notificationsRef" class="relative">
@@ -594,6 +631,17 @@ onBeforeUnmount(() => {
               </AppButton>
             </div>
           </template>
+          <button
+            type="button"
+            class="mt-3 flex w-full items-center justify-center gap-1.5 text-xs text-slate-400 transition hover:text-slate-600"
+            @click="openAccessibilityPanel"
+          >
+            <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none">
+              <circle cx="12" cy="5" r="2.25" stroke="currentColor" stroke-width="1.8" />
+              <path d="M12 8.75V13.5M9 10.5L12 13.5L15 10.5M8 20L10.6 15.25M16 20L13.4 15.25" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            Préférences d'accessibilité
+          </button>
         </div>
       </div>
     </Transition>
