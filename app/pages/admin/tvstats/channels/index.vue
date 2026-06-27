@@ -65,11 +65,11 @@ async function remove(ch: AdminChannel) {
 
     <div class="mb-4 flex flex-wrap gap-3">
       <input v-model="searchInput" type="text" placeholder="Rechercher…" class="w-60 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400" />
-      <select v-model="activeFilter" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none">
-        <option value="all">Toutes</option>
-        <option value="active">Actives</option>
-        <option value="inactive">Inactives</option>
-      </select>
+      <AppSelect
+        v-model="activeFilter"
+        :options="[{ value: 'all', label: 'Toutes' }, { value: 'active', label: 'Actives' }, { value: 'inactive', label: 'Inactives' }]"
+        class="w-36"
+      />
     </div>
 
     <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">

@@ -153,9 +153,7 @@ onMounted(async () => {
           class="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400 min-w-48"
           @keydown.enter="create"
         />
-        <select v-model="createForm.color" class="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400">
-          <option v-for="c in COLORS" :key="c.value" :value="c.value">{{ c.label }}</option>
-        </select>
+        <AppSelect v-model="createForm.color" :options="COLORS" class="w-40" />
         <button
           class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-60"
           :disabled="creating || !createForm.name.trim()"
@@ -205,9 +203,7 @@ onMounted(async () => {
             </td>
             <td class="px-5 py-3">
               <template v-if="editingId === cat.id">
-                <select v-model="editForm.color" class="rounded-lg border border-slate-200 px-2 py-1 text-sm outline-none focus:border-slate-400">
-                  <option v-for="c in COLORS" :key="c.value" :value="c.value">{{ c.label }}</option>
-                </select>
+                <AppSelect v-model="editForm.color" :options="COLORS" size="sm" class="w-32" />
               </template>
               <template v-else>
                 <span class="text-slate-500 capitalize">{{ cat.color ?? '—' }}</span>

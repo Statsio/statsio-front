@@ -60,10 +60,12 @@ async function remove(p: AdminProgram) {
 
     <div class="mb-4 flex flex-wrap gap-3">
       <input v-model="searchInput" type="text" placeholder="Rechercher un titre…" class="w-64 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400" />
-      <select v-model="channelFilter" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none">
-        <option value="">Toutes les chaînes</option>
-        <option v-for="c in TNT_CHANNELS" :key="c.id" :value="c.id">{{ c.displayName }}</option>
-      </select>
+      <AppSelect
+        v-model="channelFilter"
+        :options="TNT_CHANNELS.map((c) => ({ value: c.id, label: c.displayName }))"
+        placeholder="Toutes les chaînes"
+        class="w-44"
+      />
     </div>
 
     <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">

@@ -376,13 +376,13 @@ watch(() => true, () => {
             <div>
               <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">URL <span class="text-red-400">*</span></label>
               <div class="flex gap-2">
-                <select
-                  v-model="apiForm.method"
-                  class="shrink-0 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400/20 focus:border-blue-400 transition-all"
-                >
-                  <option value="GET">GET</option>
-                  <option value="POST">POST</option>
-                </select>
+                <AppSelect
+                  :model-value="apiForm.method"
+                  :options="[{ value: 'GET', label: 'GET' }, { value: 'POST', label: 'POST' }]"
+                  class="shrink-0 w-24"
+                  teleport
+                  @update:model-value="apiForm.method = $event as string"
+                />
                 <input
                   v-model="apiForm.url"
                   type="url"
