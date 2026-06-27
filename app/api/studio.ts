@@ -48,18 +48,24 @@ export async function fetchBlockData(
   params: {
     columns?: string[]
     limit?: number
+    distinctColumn?: string | null
+    sortColumn?: string | null
+    sortDirection?: 'asc' | 'desc' | null
     filters?: import('@/types/studio').BlockFilter[]
     joins?: import('@/types/studio').BlockJoin[]
   } = {},
 ): Promise<BlockQueryResult> {
   const { data } = await apiHttp.get(STATSIO_API.datasets.query(datasetId), {
     params,
-    paramsSerializer: (p) => {
+    paramsSerializer: (p: typeof params) => {
       const parts: string[] = []
       if (p.columns?.length) {
         p.columns.forEach((c: string) => parts.push(`columns[]=${encodeURIComponent(c)}`))
       }
       if (p.limit !== undefined) parts.push(`limit=${p.limit}`)
+      if (p.distinctColumn) parts.push(`distinct_column=${encodeURIComponent(p.distinctColumn)}`)
+      if (p.sortColumn) parts.push(`sort_column=${encodeURIComponent(p.sortColumn)}`)
+      if (p.sortDirection) parts.push(`sort_direction=${p.sortDirection}`)
       if (p.filters?.length) {
         p.filters.forEach((f: import('@/types/studio').BlockFilter, i: number) => {
           parts.push(`filters[${i}][column]=${encodeURIComponent(f.column)}`)

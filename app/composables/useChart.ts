@@ -70,7 +70,7 @@ export function useChart(
   onBeforeUnmount(() => chart?.destroy())
 
   // Build chart when canvas appears in DOM (conditional rendering delay)
-  watch(canvasRef, (el) => { if (el) buildChart() })
+  watch(canvasRef, (el: HTMLCanvasElement | null) => { if (el) buildChart() })
 
   // Update chart data when source changes
   watch(dataGetter, () => {

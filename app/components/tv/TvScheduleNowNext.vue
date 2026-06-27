@@ -5,13 +5,8 @@ import type { ChannelSchedule, TvProgramme } from '@/types/tv-schedule'
 
 const props = defineProps<{
   schedules: ChannelSchedule[]
-  logoFailed: Record<string, boolean>
   referenceMinutes: number
   currentLabel: string
-}>()
-
-const emit = defineEmits<{
-  logoError: [channelId: string]
 }>()
 
 const router = useRouter()
@@ -35,7 +30,7 @@ function getNowNext(programmes: TvProgramme[]): NowNext {
 }
 
 const rows = computed(() =>
-  props.schedules.map((s) => ({ schedule: s, ...getNowNext(s.programmes) })),
+  props.schedules.map((s: ChannelSchedule) => ({ schedule: s, ...getNowNext(s.programmes) })),
 )
 
 function go(p: TvProgramme | null) {
@@ -58,23 +53,13 @@ function durationLabel(min: number) {
     >
       <!-- Channel identity -->
       <div class="flex w-20 shrink-0 flex-col items-center justify-center gap-1 border-r border-slate-100 py-3">
-        <div class="flex h-10 w-13 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-100 p-1.5">
-          <img
-            v-if="schedule.logoUrl && !logoFailed[schedule.channel.id]"
-            :src="schedule.logoUrl"
-            :alt="schedule.channel.displayName"
-            class="h-full w-full object-contain"
-            loading="lazy"
-            @error="emit('logoError', schedule.channel.id)"
-          />
-          <span
-            v-else
-            class="flex h-full w-full items-center justify-center rounded-lg text-[9px] font-bold text-white"
-            :class="schedule.channel.fallbackBg"
-          >
-            {{ schedule.channel.displayName.slice(0, 3).toUpperCase() }}
-          </span>
-        </div>
+        <TvChannelLogo
+          class="h-10 w-13 rounded-xl p-1.5"
+          :src="schedule.logoUrl"
+          :name="schedule.channel.displayName"
+          :fallback-bg="schedule.channel.fallbackBg"
+          :max-initials="3"
+        />
         <span class="text-[9px] font-semibold text-slate-400">{{ schedule.channel.number }}</span>
       </div>
 

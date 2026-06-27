@@ -1,17 +1,29 @@
-import { ref } from 'vue'
+import { ref, readonly } from 'vue'
 import type { Editor } from '@tiptap/core'
 
 // Module-level singletons so all components share the same active target
 const _editor = ref<Editor | null>(null)
 const _input  = ref<HTMLInputElement | HTMLTextAreaElement | null>(null)
+const _editorVersion = ref(0)
+
+function _onTransaction() { _editorVersion.value++ }
 
 export function useActiveEditor() {
   function setActiveEditor(editor: Editor) {
-    _editor.value = editor
-    _input.value  = null
+    if (_editor.value && _editor.value !== editor) {
+      try { _editor.value.off('transaction', _onTransaction) } catch {}
+    }
+    if (_editor.value !== editor) {
+      _editor.value = editor
+      editor.on('transaction', _onTransaction)
+    }
+    _input.value = null
   }
 
   function setActiveInput(el: HTMLInputElement | HTMLTextAreaElement) {
+    if (_editor.value) {
+      try { _editor.value.off('transaction', _onTransaction) } catch {}
+    }
     _input.value  = el
     _editor.value = null
   }
@@ -24,6 +36,15 @@ export function useActiveEditor() {
         _editor.value = null
       }
     })
+  }
+
+  // Call in onBeforeUnmount of the TextBlock that owns the editor
+  function clearActiveEditor(editorInstance?: Editor) {
+    if (editorInstance && _editor.value !== editorInstance) return
+    if (_editor.value) {
+      try { _editor.value.off('transaction', _onTransaction) } catch {}
+    }
+    _editor.value = null
   }
 
   function insertToken(name: string) {
@@ -56,5 +77,13 @@ export function useActiveEditor() {
     requestAnimationFrame(() => { el.setSelectionRange(cursor, cursor) })
   }
 
-  return { setActiveEditor, setActiveInput, clearActive, insertToken }
+  return {
+    activeEditor: readonly(_editor),
+    editorVersion: readonly(_editorVersion),
+    setActiveEditor,
+    setActiveInput,
+    clearActive,
+    clearActiveEditor,
+    insertToken,
+  }
 }

@@ -37,7 +37,7 @@ const promoItems = computed(() => (props.variant === 'tvstats' ? tvstatsPromoIte
 <template>
   <div :class="pageClass">
     <a href="#main-content" class="sr-skip-link">Passer au contenu principal</a>
-    <main id="main-content" tabindex="-1" class="pb-24 pt-32">
+    <main id="main-content" tabindex="-1" class="pb-0 pt-0">
       <HomeHero
         headline="Le média statistique nouvelle génération."
         subtitle="Statsio centralise les analyses, les sources et les signaux en temps réel pour créer des articles, des StatsData et des sondages à fort impact."

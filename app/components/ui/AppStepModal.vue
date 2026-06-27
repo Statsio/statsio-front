@@ -37,7 +37,7 @@ const emit = defineEmits<{
 }>()
 
 const currentStepIndex = computed(() =>
-  props.steps.findIndex(s => s.id === props.currentStepId)
+  props.steps.findIndex((s: ModalStep) => s.id === props.currentStepId)
 )
 
 const currentStep = computed(() => props.steps[currentStepIndex.value])
@@ -139,17 +139,17 @@ const sizeClasses = {
                     <div
                       class="flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold transition"
                       :class="
-                        index < currentStepIndex
+                        (index as number) < currentStepIndex
                           ? 'bg-primary text-white'
                           : index === currentStepIndex
                           ? 'bg-primary text-white ring-4 ring-primary/20'
                           : 'bg-slate-200 text-slate-500'
                       "
                     >
-                      <svg v-if="index < currentStepIndex" class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                      <svg v-if="(index as number) < currentStepIndex" class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                       </svg>
-                      <span v-else>{{ index + 1 }}</span>
+                      <span v-else>{{ (index as number) + 1 }}</span>
                     </div>
                     <span
                       class="ml-2 text-sm font-medium transition"
@@ -159,9 +159,9 @@ const sizeClasses = {
                     </span>
                   </div>
                   <div
-                    v-if="index < steps.length - 1"
+                    v-if="(index as number) < steps.length - 1"
                     class="mx-4 h-0.5 flex-1 transition"
-                    :class="index < currentStepIndex ? 'bg-primary' : 'bg-slate-200'"
+                    :class="(index as number) < currentStepIndex ? 'bg-primary' : 'bg-slate-200'"
                   />
                 </div>
               </div>

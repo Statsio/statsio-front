@@ -4,7 +4,7 @@ const { progress, isLoading } = useLoadingIndicator()
 const isVisible = ref(false)
 let hideTimer: ReturnType<typeof setTimeout> | null = null
 
-watch(isLoading, (loading) => {
+watch(isLoading, (loading: boolean) => {
   if (loading) {
     isVisible.value = true
     if (hideTimer) {

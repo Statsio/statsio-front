@@ -9,10 +9,8 @@ const props = defineProps<{
   maxPda: number
 }>()
 
-const logoFailed = defineModel<Record<string, boolean>>('logoFailed', { default: () => ({}) })
-
 const withRank = computed(() =>
-  props.data.map((d, idx) => ({ ...d, rank: idx + 1 }))
+  props.data.map((d: YearDataWithChannel, idx: number) => ({ ...d, rank: idx + 1 }))
 )
 </script>
 
@@ -38,23 +36,12 @@ const withRank = computed(() =>
         </span>
 
         <!-- Logo -->
-        <div class="flex h-8 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-100 p-1">
-          <img
-            v-if="!logoFailed[row.channelId]"
-            :src="row.channel.logoUrl"
-            :alt="row.channel.displayName"
-            class="h-full w-full object-contain"
-            loading="lazy"
-            @error="logoFailed[row.channelId] = true"
-          />
-          <span
-            v-else
-            class="flex h-full w-full items-center justify-center rounded text-[9px] font-bold text-white"
-            :class="row.channel.fallbackBg"
-          >
-            {{ row.channel.displayName.slice(0, 2).toUpperCase() }}
-          </span>
-        </div>
+        <TvChannelLogo
+          class="h-8 w-11 shrink-0 rounded-lg p-1"
+          :src="row.channel.logoUrl"
+          :name="row.channel.displayName"
+          :fallback-bg="row.channel.fallbackBg"
+        />
 
         <!-- Name + bar -->
         <div class="min-w-0 flex-1">

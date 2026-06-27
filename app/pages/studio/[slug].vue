@@ -7,6 +7,7 @@ import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import { useStudioAutosave } from '@/composables/useStudioAutosave'
 import { fetchStatsDataDocument } from '@/api/studio'
 import StudioHeader from '@/components/studio/StudioHeader.vue'
+import TextFormatToolbar from '@/components/studio/TextFormatToolbar.vue'
 import StudioSidebarLeft from '@/components/studio/StudioSidebarLeft.vue'
 import StudioSidebarRight from '@/components/studio/StudioSidebarRight.vue'
 import CanvasGrid from '@/components/studio/canvas/CanvasGrid.vue'
@@ -46,6 +47,16 @@ onBeforeUnmount(() => {
   <div class="h-screen w-screen flex flex-col overflow-hidden bg-[#f0f1f5]">
     <!-- Header -->
     <StudioHeader @save="saveNow" />
+
+    <!-- Floating overlays: no layout space, both absolute over the canvas -->
+    <div class="relative h-0 z-30">
+      <!-- Text format toolbar (centered pill, shown when a text block is active) -->
+      <div class="absolute top-3 w-full flex justify-center pointer-events-none">
+        <div class="pointer-events-auto">
+          <TextFormatToolbar />
+        </div>
+      </div>
+    </div>
 
     <!-- Body -->
     <div class="flex flex-1 min-h-0 overflow-hidden">

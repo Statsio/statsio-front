@@ -3,7 +3,7 @@ definePageMeta({ layout: 'default' })
 import { computed, ref } from 'vue'
 import PollCard from '@/components/polls/PollCard.vue'
 import AppButton from '@/components/ui/AppButton.vue'
-import { pollFilterLabels, pollSummaries } from '@/data/polls'
+import { pollFilterLabels, pollSummaries, type PollSummary } from '@/data/polls'
 
 const activeFilter = ref<(typeof pollFilterLabels)[number]>('Tous')
 
@@ -66,19 +66,19 @@ const editorialPoints = [
               <div class="rounded-[1.75rem] border border-slate-200 bg-white/85 px-5 py-4 shadow-[0_20px_60px_-42px_rgba(15,23,42,0.35)]">
                 <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Vagues actives</p>
                 <p class="mt-3 text-2xl font-semibold text-slate-950">
-                  {{ pollSummaries.filter((poll) => poll.status === 'open').length }}
+                  {{ pollSummaries.filter((poll: PollSummary) => poll.status === 'open').length }}
                 </p>
               </div>
               <div class="rounded-[1.75rem] border border-slate-200 bg-white/85 px-5 py-4 shadow-[0_20px_60px_-42px_rgba(15,23,42,0.35)]">
                 <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Avec échéance</p>
                 <p class="mt-3 text-2xl font-semibold text-slate-950">
-                  {{ pollSummaries.filter((poll) => poll.deadline).length }}
+                  {{ pollSummaries.filter((poll: PollSummary) => poll.deadline).length }}
                 </p>
               </div>
               <div class="rounded-[1.75rem] border border-slate-200 bg-white/85 px-5 py-4 shadow-[0_20px_60px_-42px_rgba(15,23,42,0.35)]">
                 <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Questions totales</p>
                 <p class="mt-3 text-2xl font-semibold text-slate-950">
-                  {{ pollSummaries.reduce((total, poll) => total + poll.questionCount, 0) }}
+                  {{ pollSummaries.reduce((total: number, poll: PollSummary) => total + poll.questionCount, 0) }}
                 </p>
               </div>
             </div>

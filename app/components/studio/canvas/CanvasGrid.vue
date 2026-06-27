@@ -4,7 +4,6 @@ import draggable from 'vuedraggable'
 import { useStudioStore } from '@/stores/studio'
 import { type SectionLayout, type Section } from '@/types/studio'
 import CanvasSection from './CanvasSection.vue'
-import CanvasPageTabs from './CanvasPageTabs.vue'
 
 const studio = useStudioStore()
 
@@ -59,9 +58,6 @@ function onCanvasClick(event: MouseEvent) {
 
 <template>
   <div class="min-h-full w-full max-w-5xl mx-auto flex flex-col">
-    <!-- Page tabs (multi-page navigation) -->
-    <CanvasPageTabs />
-
     <!-- Active params banner (shown when navigated from a search block) -->
     <div
       v-if="activeParams.length > 0"

@@ -115,7 +115,7 @@ export async function getChannelCategories(): Promise<ChannelCategoryItem[]> {
 export async function getMyChannels(): Promise<Channel[]> {
   const response = await apiHttp.get<{ success: boolean; data: { data: Channel[] } }>('/channels/my')
   // Filtrer les chaînes sans profil (données corrompues)
-  return response.data.data.data.filter((c) => c.profile !== null)
+  return response.data.data.data.filter((c: Channel) => c.profile !== null)
 }
 
 export async function getChannels(): Promise<Channel[]> {

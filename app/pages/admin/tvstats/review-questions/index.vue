@@ -1,6 +1,7 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'admin', middleware: ['admin'], ssr: false })
 import { ref, reactive, onMounted } from 'vue'
+import { getErrorMessage } from '@/lib/http-errors'
 import {
   adminListReviewQuestions,
   adminCreateReviewQuestion,
@@ -47,8 +48,8 @@ async function create() {
     createForm.description = ''
     createForm.category_slugs = ''
     showCreate.value = false
-  } catch (e: any) {
-    error.value = e?.response?.data?.message ?? 'Erreur lors de la création.'
+  } catch (e) {
+    error.value = getErrorMessage(e, 'Erreur lors de la création.')
   } finally {
     creating.value = false
   }
@@ -78,11 +79,11 @@ async function saveEdit(q: AdminReviewQuestion) {
       is_active: editForm.is_active,
       sort_order: editForm.sort_order,
     })
-    const idx = questions.value.findIndex((x) => x.id === q.id)
+    const idx = questions.value.findIndex((x: AdminReviewQuestion) => x.id === q.id)
     if (idx !== -1) questions.value[idx] = updated
     editingId.value = null
-  } catch (e: any) {
-    error.value = e?.response?.data?.message ?? 'Erreur lors de la mise à jour.'
+  } catch (e) {
+    error.value = getErrorMessage(e, 'Erreur lors de la mise à jour.')
   } finally {
     saving.value = false
   }
@@ -93,16 +94,16 @@ async function remove(q: AdminReviewQuestion) {
   error.value = null
   try {
     await adminDeleteReviewQuestion(q.id)
-    questions.value = questions.value.filter((x) => x.id !== q.id)
-  } catch (e: any) {
-    error.value = e?.response?.data?.message ?? 'Erreur lors de la suppression.'
+    questions.value = questions.value.filter((x: AdminReviewQuestion) => x.id !== q.id)
+  } catch (e) {
+    error.value = getErrorMessage(e, 'Erreur lors de la suppression.')
   }
 }
 
 async function toggleActive(q: AdminReviewQuestion) {
   try {
     const updated = await adminUpdateReviewQuestion(q.id, { is_active: !q.is_active })
-    const idx = questions.value.findIndex((x) => x.id === q.id)
+    const idx = questions.value.findIndex((x: AdminReviewQuestion) => x.id === q.id)
     if (idx !== -1) questions.value[idx] = updated
   } catch {
     // silent
@@ -185,7 +186,7 @@ onMounted(async () => {
         <template v-if="editingId !== q.id">
           <div class="flex items-start gap-4 px-5 py-4">
             <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-500">
-              {{ idx + 1 }}
+              {{ (idx as number) + 1 }}
             </div>
             <div class="flex-1 min-w-0">
               <p class="text-sm font-medium text-slate-900" :class="{ 'opacity-50 line-through': !q.is_active }">{{ q.label }}</p>

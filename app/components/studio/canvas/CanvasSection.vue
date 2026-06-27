@@ -101,7 +101,7 @@ const layoutIcons: Record<SectionLayout, string> = {
     <!-- Section card -->
     <div class="bg-white rounded-2xl border border-slate-200 shadow-sm group-hover/section:shadow-md transition-all">
       <!-- Section body: columns -->
-      <div class="grid gap-3 p-3" :style="{ gridTemplateColumns: def.gridCols.map((s) => `${s}fr`).join(' ') }">
+      <div class="grid gap-3 p-3" :style="{ gridTemplateColumns: def.gridCols.map((s: number) => `${s}fr`).join(' ') }">
         <CanvasZone
           v-for="(zoneId, i) in zoneIds"
           :key="zoneId"

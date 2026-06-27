@@ -1,6 +1,7 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'admin', middleware: ['admin'], ssr: false })
 import { ref, reactive, onMounted } from 'vue'
+import { getErrorMessage } from '@/lib/http-errors'
 import {
   adminListCategories,
   adminCreateCategory,
@@ -63,12 +64,12 @@ async function create() {
   try {
     const cat = await adminCreateCategory({ name: createForm.name.trim(), color: createForm.color })
     categories.value.push({ ...cat, programs_count: 0 })
-    categories.value.sort((a, b) => a.name.localeCompare(b.name))
+    categories.value.sort((a: AdminCategory, b: AdminCategory) => a.name.localeCompare(b.name))
     createForm.name = ''
     createForm.color = 'slate'
     showCreate.value = false
-  } catch (e: any) {
-    error.value = e?.response?.data?.message ?? 'Erreur lors de la création.'
+  } catch (e) {
+    error.value = getErrorMessage(e, 'Erreur lors de la création.')
   } finally {
     creating.value = false
   }
@@ -94,12 +95,12 @@ async function saveEdit(cat: AdminCategory) {
   error.value = null
   try {
     const updated = await adminUpdateCategory(cat.id, { name: editForm.name.trim(), color: editForm.color })
-    const idx = categories.value.findIndex((c) => c.id === cat.id)
+    const idx = categories.value.findIndex((c: AdminCategory) => c.id === cat.id)
     if (idx !== -1) categories.value[idx] = { ...updated, programs_count: cat.programs_count }
-    categories.value.sort((a, b) => a.name.localeCompare(b.name))
+    categories.value.sort((a: AdminCategory, b: AdminCategory) => a.name.localeCompare(b.name))
     editingId.value = null
-  } catch (e: any) {
-    error.value = e?.response?.data?.message ?? 'Erreur lors de la mise à jour.'
+  } catch (e) {
+    error.value = getErrorMessage(e, 'Erreur lors de la mise à jour.')
   } finally {
     saving.value = false
   }
@@ -110,9 +111,9 @@ async function remove(cat: AdminCategory) {
   error.value = null
   try {
     await adminDeleteCategory(cat.id)
-    categories.value = categories.value.filter((c) => c.id !== cat.id)
-  } catch (e: any) {
-    error.value = e?.response?.data?.message ?? 'Erreur lors de la suppression.'
+    categories.value = categories.value.filter((c: AdminCategory) => c.id !== cat.id)
+  } catch (e) {
+    error.value = getErrorMessage(e, 'Erreur lors de la suppression.')
   }
 }
 
@@ -152,9 +153,7 @@ onMounted(async () => {
           class="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400 min-w-48"
           @keydown.enter="create"
         />
-        <select v-model="createForm.color" class="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400">
-          <option v-for="c in COLORS" :key="c.value" :value="c.value">{{ c.label }}</option>
-        </select>
+        <AppSelect v-model="createForm.color" :options="COLORS" class="w-40" />
         <button
           class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-60"
           :disabled="creating || !createForm.name.trim()"
@@ -204,9 +203,7 @@ onMounted(async () => {
             </td>
             <td class="px-5 py-3">
               <template v-if="editingId === cat.id">
-                <select v-model="editForm.color" class="rounded-lg border border-slate-200 px-2 py-1 text-sm outline-none focus:border-slate-400">
-                  <option v-for="c in COLORS" :key="c.value" :value="c.value">{{ c.label }}</option>
-                </select>
+                <AppSelect v-model="editForm.color" :options="COLORS" size="sm" class="w-32" />
               </template>
               <template v-else>
                 <span class="text-slate-500 capitalize">{{ cat.color ?? '—' }}</span>

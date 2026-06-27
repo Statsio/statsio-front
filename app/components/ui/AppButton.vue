@@ -78,10 +78,10 @@ const forwardedAttrs = computed(() => {
 
 const classes = computed(() => [
   'group inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-full font-semibold transition duration-200 ease-out transform-gpu hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-none',
-  sizeClasses[props.size],
-  props.iconOnly ? iconSizeClasses[props.size] : '',
+  sizeClasses[props.size as ButtonSize],
+  props.iconOnly ? iconSizeClasses[props.size as ButtonSize] : '',
   props.fullWidth ? 'w-full' : '',
-  variantClasses[props.variant],
+  variantClasses[props.variant as ButtonVariant],
   attrs.class,
 ])
 

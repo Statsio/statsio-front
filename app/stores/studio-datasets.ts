@@ -1,8 +1,10 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { fetchDatasets, fetchDatasetSchema, fetchDatasetPreview, updateDataset, deleteDataset } from '@/api/studio'
 import type { DatasetMeta, DatasetWithSchema } from '@/types/studio'
 import type { DatasetPreview } from '@/api/studio'
+
+const POLL_INTERVAL_MS = 3000
 
 export const useStudioDatasetsStore = defineStore('studio-datasets', () => {
   const datasets = ref<DatasetMeta[]>([])
@@ -13,19 +15,55 @@ export const useStudioDatasetsStore = defineStore('studio-datasets', () => {
   const loadingSchemas = ref<Set<string>>(new Set())
   const loadingPreviews = ref<Set<string>>(new Set())
 
+  let pollTimer: ReturnType<typeof setTimeout> | null = null
+
+  const hasPending = computed(() =>
+    datasets.value.some((d: DatasetMeta) => d.status === 'pending'),
+  )
+
   const readyDatasets = computed(() =>
-    datasets.value.filter((d) => d.status === 'ready'),
+    datasets.value.filter((d: DatasetMeta) => d.status === 'ready'),
   )
 
   async function loadDatasets() {
     if (isLoading.value) return
     isLoading.value = true
     try {
+      const previous = new Map(datasets.value.map((d) => [d.id, d.status]))
       datasets.value = await fetchDatasets()
+
+      // Invalidate schema/preview cache for datasets that just became ready
+      for (const d of datasets.value) {
+        if (previous.get(d.id) === 'pending' && d.status === 'ready') {
+          schemas.value.delete(d.id)
+          previews.value.delete(d.id)
+          previewErrors.value.delete(d.id)
+        }
+      }
     } finally {
       isLoading.value = false
     }
   }
+
+  function stopPolling() {
+    if (pollTimer !== null) {
+      clearTimeout(pollTimer)
+      pollTimer = null
+    }
+  }
+
+  function scheduleNextPoll() {
+    stopPolling()
+    pollTimer = setTimeout(async () => {
+      await loadDatasets()
+      if (hasPending.value) scheduleNextPoll()
+    }, POLL_INTERVAL_MS)
+  }
+
+  watch(hasPending, (pending) => {
+    if (pending) scheduleNextPoll()
+    else stopPolling()
+  })
 
   async function loadSchema(datasetId: string): Promise<DatasetWithSchema | null> {
     if (schemas.value.has(datasetId)) {
@@ -88,13 +126,13 @@ export const useStudioDatasetsStore = defineStore('studio-datasets', () => {
 
   async function renameDataset(datasetId: string, name: string): Promise<void> {
     const updated = await updateDataset(datasetId, { name })
-    const idx = datasets.value.findIndex((d) => d.id === datasetId)
+    const idx = datasets.value.findIndex((d: DatasetMeta) => d.id === datasetId)
     if (idx !== -1) datasets.value[idx] = updated
   }
 
   async function removeDataset(datasetId: string): Promise<void> {
     await deleteDataset(datasetId)
-    datasets.value = datasets.value.filter((d) => d.id !== datasetId)
+    datasets.value = datasets.value.filter((d: DatasetMeta) => d.id !== datasetId)
     schemas.value.delete(datasetId)
     previews.value.delete(datasetId)
     previewErrors.value.delete(datasetId)
@@ -103,6 +141,7 @@ export const useStudioDatasetsStore = defineStore('studio-datasets', () => {
   return {
     datasets,
     readyDatasets,
+    hasPending,
     isLoading,
     loadDatasets,
     loadSchema,

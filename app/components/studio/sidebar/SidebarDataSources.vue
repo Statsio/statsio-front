@@ -86,7 +86,7 @@ function getSchema(id: string): DatasetWithSchema | undefined {
 const filteredDatasets = () => {
   const q = searchQuery.value.toLowerCase().trim()
   if (!q) return datasets.datasets
-  return datasets.datasets.filter((d) =>
+  return datasets.datasets.filter((d: DatasetMeta) =>
     d.name.toLowerCase().includes(q) || d.description?.toLowerCase().includes(q),
   )
 }

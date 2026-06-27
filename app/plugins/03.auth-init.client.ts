@@ -3,6 +3,8 @@ import axios from 'axios'
 export default defineNuxtPlugin(async () => {
   const authStore = useAuthStore()
 
+  authStore.hydrateFromStorage()
+
   try {
     await authStore.initialize()
   } catch (error) {

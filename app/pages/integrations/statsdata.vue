@@ -20,7 +20,7 @@ onMounted(async () => {
 const filtered = computed(() => {
   if (!searchQuery.value.trim()) return docs.value
   const q = searchQuery.value.toLowerCase()
-  return docs.value.filter((d) => d.title.toLowerCase().includes(q))
+  return docs.value.filter((d: StatsDataDocument) => d.title.toLowerCase().includes(q))
 })
 
 function formatDate(iso?: string) {

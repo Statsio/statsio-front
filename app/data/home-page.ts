@@ -14,17 +14,17 @@ export const statsStrip = [
   {
     label: 'Temps moyen',
     value: '4 min',
-    hint: 'pour générer un article enrichi',
+    hint: 'pour générer un article enrichi avec sources',
   },
   {
     label: 'Insights',
     value: '3.2M',
-    hint: 'tables et graphiques consultés',
+    hint: 'tables et graphiques consultés ce mois',
   },
   {
     label: 'Fiabilité',
     value: '98%',
-    hint: 'sources monitorées en continu',
+    hint: 'sources monitorées et vérifiées en continu',
   },
 ]
 
@@ -37,7 +37,7 @@ export const highlights = [
   },
   {
     title: 'Chaînes pro ultra visibles',
-    description: 'Créez votre chaîne, mettez en avant vos articles et mesurez l’audience.',
+    description: "Créez votre chaîne, mettez en avant vos articles et mesurez l'audience.",
     tag: 'Monétisation',
     icon: '📡',
   },
@@ -51,22 +51,22 @@ export const highlights = [
 
 export const articles = [
   {
-    category: 'Politique',
-    title: 'Présidentielle 2027 : cartographie des indécis',
+    category: 'Immobilier',
+    title: 'Crise du logement 2026 : la carte des marchés en tension',
     author: 'Équipe Statsio',
     reads: '48k',
-    trend: '+12%',
+    trend: '+22%',
   },
   {
     category: 'Santé',
-    title: 'Hôpitaux : l’impact des déserts médicaux',
+    title: "Hôpitaux : l'impact des déserts médicaux sur les inégalités",
     author: 'Camille B.',
     reads: '36k',
     trend: '+7%',
   },
   {
     category: 'Économie',
-    title: 'Inflation : qui perd vraiment du pouvoir d’achat ?',
+    title: "Inflation : qui perd vraiment du pouvoir d'achat ?",
     author: 'Julien L.',
     reads: '52k',
     trend: '+18%',
@@ -83,37 +83,43 @@ export const statsData = [
   {
     title: 'Santé mentale des 18-25 ans',
     scope: 'Santé publique',
-    updated: 'Actualisé 2h',
+    updated: 'Il y a 2h',
     metrics: ['Stress', 'Sommeil', 'Accès soins', 'Isolement', 'Prévention'],
+  },
+  {
+    title: "Marchés de l'emploi régionaux",
+    scope: 'Travail & économie',
+    updated: 'Quotidien',
+    metrics: ['Chômage', 'Offres', 'Salaires', 'Secteurs', 'Mobilité'],
   },
 ]
 
 export const polls = [
   {
-    title: 'Présidentielle : intentions de vote',
+    title: 'Énergie : priorité à la transition',
     window: 'Mars 2026',
     candidates: [
-      { name: 'Emmanuel Macron', score: '28%' },
-      { name: 'Marine Le Pen', score: '26%' },
-      { name: 'Jordan Bardella', score: '18%' },
+      { name: 'Priorité absolue', score: '64%' },
+      { name: 'Importante mais pas urgente', score: '28%' },
+      { name: 'Peut attendre', score: '8%' },
     ],
   },
   {
-    title: 'Réforme des retraites : opinion',
+    title: 'Télétravail : quel équilibre idéal ?',
     window: 'Février 2026',
     candidates: [
-      { name: 'Pour', score: '41%' },
-      { name: 'Contre', score: '52%' },
-      { name: 'Sans avis', score: '7%' },
+      { name: '2 à 3 jours/semaine', score: '52%' },
+      { name: 'Présentiel complet', score: '27%' },
+      { name: 'Full remote', score: '21%' },
     ],
   },
   {
-    title: 'Climat : priorité budgétaire',
+    title: "IA au travail : opportunité ou menace ?",
     window: 'Janvier 2026',
     candidates: [
-      { name: 'Oui', score: '64%' },
-      { name: 'Non', score: '29%' },
-      { name: 'NSP', score: '7%' },
+      { name: 'Opportunité nette', score: '48%' },
+      { name: "Menace pour l'emploi", score: '31%' },
+      { name: 'Neutre', score: '21%' },
     ],
   },
 ]

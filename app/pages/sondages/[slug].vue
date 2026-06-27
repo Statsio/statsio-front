@@ -4,7 +4,7 @@ import { computed, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import PollQuestionBlock from '@/components/polls/PollQuestionBlock.vue'
 import AppButton from '@/components/ui/AppButton.vue'
-import { pollDetails, type PollDetail, pollSummaries } from '@/data/polls'
+import { pollDetails, type PollDetail, type PollQuestion, pollSummaries } from '@/data/polls'
 
 const route = useRoute()
 
@@ -23,13 +23,13 @@ const isSubmitted = ref(false)
 const canRespond = computed(() => poll.value.status === 'open')
 
 const allQuestionsAnswered = computed(() =>
-  poll.value.questions.every((question) => (selectedAnswers.value[question.id] ?? []).length > 0),
+  poll.value.questions.every((question: PollQuestion) => (selectedAnswers.value[question.id] ?? []).length > 0),
 )
 
 const relatedPolls = computed(() => pollSummaries.filter((item) => item.slug !== poll.value.slug).slice(0, 2))
 
 const resetForm = () => {
-  selectedAnswers.value = Object.fromEntries(poll.value.questions.map((question) => [question.id, []]))
+  selectedAnswers.value = Object.fromEntries(poll.value.questions.map((question: PollQuestion) => [question.id, []]))
   isSubmitted.value = false
 }
 

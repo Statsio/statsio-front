@@ -50,7 +50,7 @@ onMounted(() => {
   startRotation()
 })
 
-watch(reducedMotion, (isReduced) => {
+watch(reducedMotion, (isReduced: boolean) => {
   if (isReduced) {
     stopRotation()
     return
@@ -105,7 +105,7 @@ onBeforeUnmount(() => {
           v-for="(item, index) in items"
           :key="item.title"
           type="button"
-          :aria-label="`Voir la mise en avant ${index + 1}`"
+          :aria-label="`Voir la mise en avant ${(index as number) + 1}`"
           :class="[
             'h-2 rounded-full transition-all duration-300',
             index === activeIndex

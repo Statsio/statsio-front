@@ -125,7 +125,7 @@ async function load() {
       fetchBroadcastReviews(broadcastId.value),
     ])
     broadcast.value = detail
-    dbLogoMap.value = new Map(channels.data.filter((c) => c.logo_url).map((c) => [c.slug, c.logo_url as string]))
+    dbLogoMap.value = new Map(channels.data.filter((c: { slug: string; logo_url: string | null }) => c.logo_url).map((c: { slug: string; logo_url: string | null }) => [c.slug, c.logo_url as string]))
     schedule.value = sched
     reviewsData.value = rev
   } catch {

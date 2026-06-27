@@ -1,6 +1,7 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'default', middleware: ['auth'], ssr: false })
 import { computed, onMounted, ref, watch } from 'vue'
+import { getErrorMessage } from '@/lib/http-errors'
 import { useRoute, useRouter } from 'vue-router'
 import AppButton from '@/components/ui/AppButton.vue'
 import AppSelect from '@/components/ui/AppSelect.vue'
@@ -8,6 +9,7 @@ import {
   getChannel, updateChannelProfile, updateChannelMedia, deleteChannel,
   getChannelMembers, getChannelSubscribers, getChannelCategories,
   type Channel, type ChannelMember, type ChannelSubscriber, type ChannelCategoryItem,
+  type ChannelCategory,
 } from '@/api/channels'
 
 const route = useRoute()
@@ -98,11 +100,11 @@ const roleLabel: Record<string, string> = {
 }
 
 const categoryOptions = computed(() =>
-  availableCategories.value.map(c => ({ value: c.slug, label: c.label }))
+  availableCategories.value.map((c: ChannelCategoryItem) => ({ value: c.slug, label: c.label }))
 )
 
 const getCategoryLabel = (slug: string) =>
-  availableCategories.value.find(c => c.slug === slug)?.label ?? slug
+  availableCategories.value.find((c: ChannelCategoryItem) => c.slug === slug)?.label ?? slug
 
 const inputClass = 'rounded-[1.25rem] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 transition focus:border-primary/30 focus:outline-none focus:ring-2 focus:ring-primary/20'
 
@@ -134,7 +136,7 @@ onMounted(async () => {
 })
 
 // Charger membres/abonnés à la demande
-watch(activeSection, async (section) => {
+watch(activeSection, async (section: Section) => {
   if (section === 'members' && members.value.length === 0) {
     membersLoading.value = true
     try { members.value = await getChannelMembers(channelId) } catch {}
@@ -177,8 +179,8 @@ const saveProfile = async () => {
     await reload()
     profileSuccess.value = true
     setTimeout(() => profileSuccess.value = false, 3000)
-  } catch (e: any) {
-    profileError.value = e?.response?.data?.message ?? 'Erreur lors de la sauvegarde.'
+  } catch (e) {
+    profileError.value = getErrorMessage(e, 'Erreur lors de la sauvegarde.')
   } finally { profileSaving.value = false }
 }
 
