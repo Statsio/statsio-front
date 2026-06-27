@@ -1280,7 +1280,7 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
                   teleport
                   @update:model-value="updateMappingWithJoinSync('comparisonColumn', $event as string)"
                 />
-                </select>
+                </AppSelect>
               </div>
             </div>
 
