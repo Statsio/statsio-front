@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'default', middleware: ['auth'], ssr: false })
+definePageMeta({ layout: 'default', middleware: ['auth'], ssr: false, title: "Fil d'actus", robots: 'noindex,nofollow' })
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { articleDetails, articleSummaries } from '@/data/articles'

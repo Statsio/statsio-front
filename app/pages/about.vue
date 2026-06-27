@@ -1,5 +1,9 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'default' })
+definePageMeta({
+  layout: 'default',
+  title: 'À propos',
+  description: 'Découvrez Statsio, la plateforme de data journalism qui centralise analyses, sources et signaux pour créer des contenus à fort impact.',
+})
 </script>
 
 <template>

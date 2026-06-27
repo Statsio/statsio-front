@@ -1,9 +1,9 @@
 import { ref, watch, computed } from 'vue'
-import { fetchBlockData } from '@/api/studio'
+import { fetchBlockData, fetchPublicBlockData } from '@/api/studio'
 import type { StudioBlock, BlockFilter, BlockQueryResult } from '@/types/studio'
 import { useStudioStore } from '@/stores/studio'
 
-export function useBlockData(block: () => StudioBlock | null) {
+export function useBlockData(block: () => StudioBlock | null, readonly = false) {
   const studio = useStudioStore()
 
   const data = ref<BlockQueryResult | null>(null)
@@ -33,19 +33,23 @@ export function useBlockData(block: () => StudioBlock | null) {
     }
 
     const columns = resolveColumns(b)
+    const params = {
+      columns,
+      limit: b.config.rowLimit ?? 500,
+      distinctColumn: b.config.distinctColumn ?? undefined,
+      sortColumn: b.config.sortColumn ?? undefined,
+      sortDirection: b.config.sortDirection ?? undefined,
+      filters: resolveFilters(b.filters ?? []),
+      joins: b.joins?.length ? b.joins : undefined,
+    }
 
     isLoading.value = true
     error.value = null
     try {
-      data.value = await fetchBlockData(b.datasetId, {
-        columns,
-        limit: b.config.rowLimit ?? 500,
-        distinctColumn: b.config.distinctColumn ?? undefined,
-        sortColumn: b.config.sortColumn ?? undefined,
-        sortDirection: b.config.sortDirection ?? undefined,
-        filters: resolveFilters(b.filters ?? []),
-        joins: b.joins?.length ? b.joins : undefined,
-      })
+      const docSlug = studio.content?.slug
+      data.value = readonly && docSlug
+        ? await fetchPublicBlockData(docSlug, b.datasetId, params)
+        : await fetchBlockData(b.datasetId, params)
     } catch (e) {
       error.value = 'Impossible de charger les données.'
       data.value = null

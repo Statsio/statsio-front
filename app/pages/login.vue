@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'studio', middleware: ['guest'], ssr: false })
+definePageMeta({ layout: 'studio', middleware: ['guest'], ssr: false, title: 'Connexion', robots: 'noindex,nofollow' })
 import AuthLayout from '@/components/login/AuthLayout.vue'
 import LoginFormCard from '@/components/login/LoginFormCard.vue'
 

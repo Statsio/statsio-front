@@ -20,6 +20,11 @@ const doc     = ref<ApiDoc | null>(null)
 const loading = ref(true)
 const error   = ref<string | null>(null)
 
+usePageSeo({
+  title: computed(() => doc.value?.title),
+  description: computed(() => doc.value?.description ?? undefined),
+})
+
 // Active page = the one matching pageSlug param, or first non-template
 const activePage = computed(() => {
   if (!studio.pages.length) return null
@@ -126,7 +131,7 @@ onMounted(async () => {
     const data = await fetchPublicStatsDataDocument(docSlug.value)
     doc.value = data
     studio.initPage(
-      { id: data.id, type: 'statsdata', title: data.title, status: data.status as 'draft' | 'published' },
+      { id: data.id, type: 'statsdata', title: data.title, status: data.status as 'draft' | 'published', slug: docSlug.value },
       data.sections, data.blocks, data.pages,
     )
     // Switch to the page matching pageSlug param, else first non-template
@@ -215,31 +220,31 @@ function copyLink() {
           </div>
 
           <!-- 2/3 + 1/3 layout -->
-          <div class="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(260px,380px)] lg:items-start">
+          <div class="grid grid-cols-1 w-full gap-6 overflow-x-hidden lg:grid-cols-[minmax(0,3fr)_minmax(260px,380px)] lg:items-start">
 
             <!-- LEFT — active page content -->
-            <div class="flex flex-col gap-4">
+            <div class="flex flex-col gap-4 min-w-0">
               <template v-if="pageSections.length > 0">
                 <div
                   v-for="section in pageSections"
                   :key="section.id"
-                  class="grid gap-4"
-                  :style="{ gridTemplateColumns: sectionDef(section.layout).gridCols.map((n: number) => `${n}fr`).join(' ') }"
+                  class="section-grid gap-3 sm:gap-4 min-w-0"
+                  :style="{ '--cols': sectionDef(section.layout).gridCols.map((n: number) => `${n}fr`).join(' ') }"
                 >
                   <div
                     v-for="(_, colIdx) in sectionDef(section.layout).gridCols"
                     :key="colIdx"
-                    class="flex flex-col gap-4 min-w-0"
+                    class="flex flex-col gap-3 sm:gap-4 min-w-0"
                   >
                     <div
                       v-for="block in blocksInZone(section.id, colIdx)"
                       :key="block.id"
-                      class="bg-white rounded-[1.5rem] border border-slate-200 shadow-sm overflow-hidden"
+                      class="min-w-0 bg-white rounded-[1.5rem] border border-slate-200 shadow-sm overflow-hidden"
                     >
-                      <div v-if="block.config.title" class="border-b border-slate-100 px-5 py-3">
+                      <div v-if="block.config.title" class="border-b border-slate-100 px-4 py-3 sm:px-5">
                         <p class="text-sm font-semibold text-slate-800">{{ resolveToken(block.config.title) }}</p>
                       </div>
-                      <div class="p-4">
+                      <div class="p-3 sm:p-4 min-w-0">
                         <BlockRenderer :block="block" :readonly="true" />
                       </div>
                     </div>
@@ -354,3 +359,15 @@ function copyLink() {
     </section>
   </main>
 </template>
+
+<style scoped>
+.section-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 640px) {
+  .section-grid {
+    grid-template-columns: var(--cols);
+  }
+}
+</style>

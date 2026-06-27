@@ -1,5 +1,9 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'default' })
+definePageMeta({
+  layout: 'default',
+  title: 'Chaînes éditoriales',
+  description: "Explorez les chaînes Statsio : sources officielles, experts indépendants et collectifs thématiques sur la politique, l'économie, la société et plus.",
+})
 import { computed, ref } from 'vue'
 import AppButton from '@/components/ui/AppButton.vue'
 import AppSelect from '@/components/ui/AppSelect.vue'

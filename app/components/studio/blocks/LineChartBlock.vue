@@ -5,11 +5,11 @@ import { useBlockData } from '@/composables/useBlockData'
 import { useStudioStore } from '@/stores/studio'
 import type { StudioBlock } from '@/types/studio'
 
-const props = defineProps<{ block: StudioBlock }>()
+const props = defineProps<{ block: StudioBlock; readonly?: boolean }>()
 
 const studio = useStudioStore()
 const canvasRef = ref<HTMLCanvasElement | null>(null)
-const { data, isLoading, error } = useBlockData(() => props.block)
+const { data, isLoading, error } = useBlockData(() => props.block, props.readonly)
 
 const chartData = computed(() => {
   const rows = data.value?.rows ?? []
@@ -40,7 +40,7 @@ watch(() => [studio.isPanelOpen, studio.selectedBlockId !== null], scheduleResiz
 </script>
 
 <template>
-  <div class="relative w-full h-full min-h-[200px] overflow-hidden">
+  <div class="relative w-full h-48 sm:h-64 overflow-hidden">
     <div v-if="isLoading" class="absolute inset-0 flex items-center justify-center bg-white/70">
       <span class="text-sm text-slate-400">Chargement…</span>
     </div>
@@ -56,6 +56,6 @@ watch(() => [studio.isPanelOpen, studio.selectedBlockId !== null], scheduleResiz
       <span class="text-xs">Configurer les données →</span>
     </div>
 
-    <canvas v-else ref="canvasRef" class="w-full h-full" />
+    <canvas v-else ref="canvasRef" class="w-full h-full max-w-full" />
   </div>
 </template>

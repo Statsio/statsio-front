@@ -29,6 +29,11 @@ const isToggling = ref(false)
 const dbLogoMap = ref<Map<string, string>>(new Map())
 const showReviewModal = ref(false)
 
+usePageSeo({
+  title: computed(() => broadcast.value?.program?.title),
+  description: computed(() => broadcast.value?.program?.description),
+})
+
 const broadcastId = computed(() => Number(route.params.id))
 
 const channel = computed(() =>

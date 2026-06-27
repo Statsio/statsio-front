@@ -17,6 +17,10 @@ const pageSlug = String(route.params.pageSlug ?? 'default')
 const loading = ref(true)
 const error   = ref<string | null>(null)
 
+usePageSeo({
+  title: computed(() => studio.content?.title),
+})
+
 // Sections of the current page
 const pageSections = computed(() => studio.currentPageSections)
 
@@ -160,8 +164,8 @@ function copyLink() {
               <div
                 v-for="section in pageSections"
                 :key="section.id"
-                class="grid gap-4"
-                :style="{ gridTemplateColumns: sectionDef(section.layout).gridCols.map((n: number) => `${n}fr`).join(' ') }"
+                class="section-grid gap-4"
+                :style="{ '--cols': sectionDef(section.layout).gridCols.map((n: number) => `${n}fr`).join(' ') }"
               >
                 <div
                   v-for="(_, colIdx) in sectionDef(section.layout).gridCols"
@@ -221,3 +225,15 @@ function copyLink() {
     </section>
   </main>
 </template>
+
+<style scoped>
+.section-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 640px) {
+  .section-grid {
+    grid-template-columns: var(--cols);
+  }
+}
+</style>

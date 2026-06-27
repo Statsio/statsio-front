@@ -1,5 +1,9 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'default' })
+definePageMeta({
+  layout: 'default',
+  title: 'StatsData',
+  description: 'Explorez et comparez des indicateurs clés avec StatsData : datasets interactifs, séries temporelles et pages analytiques créées par des experts Statsio.',
+})
 import { computed, ref, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import AppButton from '@/components/ui/AppButton.vue'

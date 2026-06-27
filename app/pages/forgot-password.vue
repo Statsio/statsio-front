@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'studio', ssr: false })
+definePageMeta({ layout: 'studio', ssr: false, title: 'Mot de passe oublié', robots: 'noindex,nofollow' })
 import AuthLayout from '@/components/login/AuthLayout.vue'
 import ForgotPasswordFormCard from '@/components/login/ForgotPasswordFormCard.vue'
 

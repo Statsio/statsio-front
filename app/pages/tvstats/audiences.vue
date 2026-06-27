@@ -1,5 +1,9 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'default' })
+definePageMeta({
+  layout: 'default',
+  title: 'Audiences TV',
+  description: 'Suivez les audiences TV en temps réel : classements, évolutions et analyses détaillées des chaînes de la TNT françaises avec TVStats.',
+})
 import { ref } from 'vue'
 import { useTvAudiences, CHANNEL_CHART_COLORS } from '@/composables/useTvAudiences'
 import { TNT_CHANNELS } from '@/data/tnt-channels'

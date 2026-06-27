@@ -17,6 +17,13 @@ const poll = computed<PollDetail>(() => {
   return pollDetails[slug] ?? fallbackPoll
 })
 
+usePageSeo({
+  title: computed(() => poll.value.title),
+  description: computed(() => poll.value.intro),
+  image: computed(() => poll.value.coverImage),
+  type: 'article',
+})
+
 const selectedAnswers = ref<Record<string, string[]>>({})
 const isSubmitted = ref(false)
 

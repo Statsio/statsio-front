@@ -138,3 +138,10 @@ export const http = createAuthenticatedClient(getAuthApiBaseUrl)
 
 /** Client pour le reste de l'API Laravel (`/api/*` hors auth). */
 export const apiHttp = createAuthenticatedClient(getApiBaseUrl)
+
+/** Client sans auth pour les endpoints publics (pas de redirect sur 401). */
+export const publicHttp = axios.create({ headers: { Accept: 'application/json' } })
+publicHttp.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  config.baseURL = getApiBaseUrl()
+  return config
+})

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'default', middleware: ['auth'], ssr: false })
+definePageMeta({ layout: 'default', middleware: ['auth'], ssr: false, title: 'Historique', robots: 'noindex,nofollow' })
 import AppButton from '@/components/ui/AppButton.vue'
 import { RouterLink } from 'vue-router'
 </script>

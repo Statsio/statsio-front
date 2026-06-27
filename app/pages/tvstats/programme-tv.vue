@@ -1,5 +1,9 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'default' })
+definePageMeta({
+  layout: 'default',
+  title: 'Programme TV',
+  description: 'Consultez le programme TV du jour et de la semaine : grille horaire complète des chaînes TNT avec détails et critiques des émissions.',
+})
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppButton from '@/components/ui/AppButton.vue'

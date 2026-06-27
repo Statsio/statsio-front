@@ -1,5 +1,9 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'default' })
+definePageMeta({
+  layout: 'default',
+  title: 'Sondages',
+  description: "Parcourez les sondages Statsio : baromètres d'opinion, enquêtes thématiques et comparaisons de vagues pour comprendre les dynamiques électorales et sociétales.",
+})
 import { computed, ref } from 'vue'
 import PollCard from '@/components/polls/PollCard.vue'
 import AppButton from '@/components/ui/AppButton.vue'

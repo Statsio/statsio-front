@@ -3,6 +3,8 @@ import { computed } from 'vue'
 
 const route = useRoute()
 const appTheme = computed(() => (route.path.startsWith('/tvstats') ? 'tvstats' : undefined))
+
+usePageSeo({ title: 'Studio', robots: 'noindex,nofollow' })
 </script>
 
 <template>

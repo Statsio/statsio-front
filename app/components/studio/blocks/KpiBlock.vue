@@ -4,11 +4,11 @@ import { useBlockData } from '@/composables/useBlockData'
 import { fetchBlockData } from '@/api/studio'
 import type { StudioBlock, BlockQueryResult, BlockFilter } from '@/types/studio'
 
-const props = defineProps<{ block: StudioBlock }>()
+const props = defineProps<{ block: StudioBlock; readonly?: boolean }>()
 
 // ─── Main value ───────────────────────────────────────────────────────────────
 
-const { data, isLoading, error } = useBlockData(() => props.block)
+const { data, isLoading, error } = useBlockData(() => props.block, props.readonly)
 
 const valueCol = computed(() => props.block.fieldMapping.valueColumn ?? props.block.fieldMapping.value)
 

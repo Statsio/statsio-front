@@ -20,6 +20,11 @@ const doc     = ref<ApiDoc | null>(null)
 const loading = ref(true)
 const error   = ref<string | null>(null)
 
+usePageSeo({
+  title: computed(() => doc.value?.title),
+  description: computed(() => doc.value?.description ?? undefined),
+})
+
 // Active page = the one matching pageSlug param, or first non-template
 const activePage = computed(() => {
   if (!studio.pages.length) return null
@@ -126,7 +131,7 @@ onMounted(async () => {
     const data = await fetchPublicStatsDataDocument(docSlug.value)
     doc.value = data
     studio.initPage(
-      { id: data.id, type: 'statsdata', title: data.title, status: data.status as 'draft' | 'published' },
+      { id: data.id, type: 'statsdata', title: data.title, status: data.status as 'draft' | 'published', slug: docSlug.value },
       data.sections, data.blocks, data.pages,
     )
     // Switch to the page matching pageSlug param, else first non-template
@@ -164,9 +169,9 @@ function copyLink() {
 </script>
 
 <template>
-  <main class="pb-24 pt-4">
-    <section class="py-8">
-      <div class="mx-auto w-full max-w-[1440px] px-4 sm:px-6 flex flex-col gap-6">
+  <main class="overflow-x-hidden pb-24 pt-4">
+    <section class="py-6 sm:py-8">
+      <div class="mx-auto w-full max-w-[1440px] px-4 sm:px-6 flex flex-col gap-5 sm:gap-6">
 
         <!-- Loading -->
         <div v-if="loading" class="flex items-center justify-center py-40">
@@ -184,20 +189,20 @@ function copyLink() {
 
         <template v-else-if="doc">
           <!-- Breadcrumb -->
-          <nav class="flex items-center gap-2 text-sm text-slate-400">
-            <RouterLink to="/statsdata" class="hover:text-primary transition-colors">StatsData</RouterLink>
+          <nav class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-400">
+            <RouterLink to="/statsdata" class="hover:text-primary transition-colors shrink-0">StatsData</RouterLink>
             <span>/</span>
-            <RouterLink :to="`/statsdata/${docSlug}`" class="hover:text-primary transition-colors">{{ doc.title }}</RouterLink>
+            <RouterLink :to="`/statsdata/${docSlug}`" class="hover:text-primary transition-colors min-w-0 truncate max-w-[180px] sm:max-w-xs">{{ doc.title }}</RouterLink>
             <template v-if="activePage && pageSlug">
               <span>/</span>
-              <span class="text-slate-600">{{ activePage.title }}</span>
+              <span class="text-slate-600 min-w-0 truncate max-w-[120px] sm:max-w-xs">{{ activePage.title }}</span>
             </template>
           </nav>
 
           <!-- Header -->
-          <div class="flex items-start justify-between gap-6 flex-wrap">
-            <div class="flex flex-col gap-2 max-w-3xl">
-              <h1 class="text-4xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-5xl">{{ doc.title }}</h1>
+          <div class="flex items-start justify-between gap-4 flex-wrap">
+            <div class="flex flex-col gap-2 min-w-0 max-w-3xl">
+              <h1 class="text-3xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-4xl lg:text-5xl">{{ doc.title }}</h1>
               <p v-if="activePage && pageSlug && activePage.title !== doc.title" class="text-lg font-medium text-primary">
                 {{ activePage.title }}
               </p>
@@ -215,31 +220,31 @@ function copyLink() {
           </div>
 
           <!-- 2/3 + 1/3 layout -->
-          <div class="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(260px,380px)] lg:items-start">
+          <div class="grid grid-cols-1 w-full gap-6 overflow-x-hidden lg:grid-cols-[minmax(0,3fr)_minmax(260px,380px)] lg:items-start">
 
             <!-- LEFT — active page content -->
-            <div class="flex flex-col gap-4">
+            <div class="flex flex-col gap-4 min-w-0">
               <template v-if="pageSections.length > 0">
                 <div
                   v-for="section in pageSections"
                   :key="section.id"
-                  class="grid gap-4"
-                  :style="{ gridTemplateColumns: sectionDef(section.layout).gridCols.map((n: number) => `${n}fr`).join(' ') }"
+                  class="section-grid gap-3 sm:gap-4 min-w-0"
+                  :style="{ '--cols': sectionDef(section.layout).gridCols.map((n: number) => `${n}fr`).join(' ') }"
                 >
                   <div
                     v-for="(_, colIdx) in sectionDef(section.layout).gridCols"
                     :key="colIdx"
-                    class="flex flex-col gap-4 min-w-0"
+                    class="flex flex-col gap-3 sm:gap-4 min-w-0"
                   >
                     <div
                       v-for="block in blocksInZone(section.id, colIdx)"
                       :key="block.id"
-                      class="bg-white rounded-[1.5rem] border border-slate-200 shadow-sm overflow-hidden"
+                      class="min-w-0 bg-white rounded-[1.5rem] border border-slate-200 shadow-sm overflow-hidden"
                     >
-                      <div v-if="block.config.title" class="border-b border-slate-100 px-5 py-3">
+                      <div v-if="block.config.title" class="border-b border-slate-100 px-4 py-3 sm:px-5">
                         <p class="text-sm font-semibold text-slate-800">{{ resolveToken(block.config.title) }}</p>
                       </div>
-                      <div class="p-4">
+                      <div class="p-3 sm:p-4 min-w-0">
                         <BlockRenderer :block="block" :readonly="true" />
                       </div>
                     </div>
@@ -354,3 +359,15 @@ function copyLink() {
     </section>
   </main>
 </template>
+
+<style scoped>
+.section-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 640px) {
+  .section-grid {
+    grid-template-columns: var(--cols);
+  }
+}
+</style>
