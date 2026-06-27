@@ -16,6 +16,13 @@ const article = computed<ArticleDetail>(() => {
   return articleDetails[slug] ?? fallbackArticle
 })
 
+usePageSeo({
+  title: computed(() => article.value.title),
+  description: computed(() => article.value.intro),
+  image: computed(() => article.value.image),
+  type: 'article',
+})
+
 const relatedArticles = [
   {
     slug: 'inflation-qui-retrouve-un-peu-dair-en-2026',

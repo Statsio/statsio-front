@@ -14,6 +14,11 @@ const channel = computed<ChannelEntry>(() => {
   return channels.find((item) => item.slug === slug) ?? fallbackChannel
 })
 
+usePageSeo({
+  title: computed(() => channel.value.name),
+  description: computed(() => channel.value.description),
+})
+
 const formatCompactNumber = (value: number) =>
   new Intl.NumberFormat('fr-FR', { notation: 'compact', maximumFractionDigits: 1 }).format(value)
 </script>

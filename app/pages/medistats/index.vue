@@ -1,5 +1,9 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'default' })
+definePageMeta({
+  layout: 'default',
+  title: 'MédiStats',
+  description: 'Analysez les médias en chiffres avec MédiStats : audiences presse, radio et TV, tendances de consommation et signaux éditoriaux.',
+})
 import HomePageFrame from '@/components/home/HomePageFrame.vue'
 import { articles, heroBullets, heroKpis, highlights, polls, statsData, statsStrip } from '@/data/home-page'
 </script>

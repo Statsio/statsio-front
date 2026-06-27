@@ -1,5 +1,8 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'default' })
+definePageMeta({
+  layout: 'default',
+  description: "Analysez les données qui font l'actualité. Articles, sondages, audiences TV et StatsData en temps réel.",
+})
 import HomePageFrame from '@/components/home/HomePageFrame.vue'
 import { articles, heroBullets, heroKpis, highlights, polls, statsData, statsStrip } from '@/data/home-page'
 </script>

@@ -1,5 +1,9 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'default' })
+definePageMeta({
+  layout: 'default',
+  title: 'Articles',
+  description: "Décryptages et analyses enrichies par les données. Retrouvez tous les articles Statsio sur l'actualité politique, économique et sociale.",
+})
 import { RouterLink } from 'vue-router'
 import { articleSummaries } from '@/data/articles'
 import AppButton from '@/components/ui/AppButton.vue'

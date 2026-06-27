@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'default', middleware: ['auth'], ssr: false })
+definePageMeta({ layout: 'default', middleware: ['auth'], ssr: false, title: 'Gérer la chaîne', robots: 'noindex,nofollow' })
 import { computed, onMounted, ref, watch } from 'vue'
 import { getErrorMessage } from '@/lib/http-errors'
 import { useRoute, useRouter } from 'vue-router'

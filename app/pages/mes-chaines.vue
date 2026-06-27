@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'default', middleware: ['auth'], ssr: false })
+definePageMeta({ layout: 'default', middleware: ['auth'], ssr: false, title: 'Mes chaînes', robots: 'noindex,nofollow' })
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppButton from '@/components/ui/AppButton.vue'

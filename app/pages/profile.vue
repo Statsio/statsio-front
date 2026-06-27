@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'default', middleware: ['auth'], ssr: false })
+definePageMeta({ layout: 'default', middleware: ['auth'], ssr: false, title: 'Mon profil', robots: 'noindex,nofollow' })
 import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import AppAvatar from '@/components/ui/AppAvatar.vue'

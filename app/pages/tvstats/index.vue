@@ -1,5 +1,9 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'default' })
+definePageMeta({
+  layout: 'default',
+  title: 'TVStats — Audiences & Programme TV',
+  description: 'Le tableau de bord TV de référence : audiences Médiamétrie en temps réel, programme TV complet et analyses des chaînes de la TNT française.',
+})
 import HomePageFrame from '@/components/home/HomePageFrame.vue'
 import { articles, heroBullets, heroKpis, highlights, polls, statsData, statsStrip } from '@/data/home-page'
 </script>

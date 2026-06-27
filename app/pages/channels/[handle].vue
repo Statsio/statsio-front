@@ -13,6 +13,11 @@ const otherChannels = ref<ChannelEntry[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
 
+usePageSeo({
+  title: computed(() => channel.value?.name),
+  description: computed(() => channel.value?.description),
+})
+
 onMounted(async () => {
   try {
     const handle = String(route.params.handle ?? '')

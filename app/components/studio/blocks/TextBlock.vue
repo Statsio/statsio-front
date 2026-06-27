@@ -85,7 +85,10 @@ const editor = useEditor({
     ...(props.readonly ? [] : [VariableHighlight]),
   ],
   editorProps: {
-    attributes: { class: 'outline-none' },
+    attributes: {
+      class: 'outline-none',
+      style: 'overflow-wrap: anywhere; word-break: break-word; max-width: 100%;',
+    },
     handleClick: props.readonly ? undefined : () => {
       studio.selectBlock(props.block.id)
       return false
@@ -152,7 +155,11 @@ onBeforeUnmount(() => {
 // Container style: size, line-height + letter-spacing via CSS variables
 // fontFamily is now handled per-selection via FontFamilyExtension (inline mark)
 const containerStyle = computed(() => ({
-  fontSize: props.block.config.fontSize ? `${props.block.config.fontSize}px` : undefined,
+  fontSize: props.block.config.fontSize
+    ? (props.readonly
+        ? `clamp(0.875rem, ${(props.block.config.fontSize / 1440) * 100}vw, ${props.block.config.fontSize}px)`
+        : `${props.block.config.fontSize}px`)
+    : undefined,
   '--block-lh': props.block.config.lineHeight ?? 1.7,
   '--block-ls': props.block.config.letterSpacing != null
     ? `${props.block.config.letterSpacing}em`
@@ -172,12 +179,13 @@ const containerClass = computed(() => {
 
 <template>
   <div
-    class="w-full px-3 py-2 cursor-text"
+    class="w-full min-w-0 overflow-hidden px-3 py-2 cursor-text"
     :class="containerClass"
     :style="containerStyle"
   >
-    <!-- Tiptap editor -->
-    <EditorContent :editor="editor" />
+    <div style="overflow-wrap: anywhere; word-break: break-word; overflow: hidden; min-width: 0; max-width: 100%;">
+      <EditorContent :editor="editor" />
+    </div>
   </div>
 </template>
 
@@ -185,16 +193,18 @@ const containerClass = computed(() => {
 :deep(.tiptap) {
   outline: none;
   min-height: 1.5em;
-
-  h1 { font-size: 2em; font-weight: 700; line-height: 1.2; color: #0f172a; }
-  h2 { font-size: 1.5em; font-weight: 700; line-height: 1.3; color: #0f172a; }
-  h3 { font-size: 1.25em; font-weight: 600; line-height: 1.4; color: #0f172a; }
-  p  { line-height: var(--block-lh, 1.7); letter-spacing: var(--block-ls, normal); color: #374151; }
-
-  ul { list-style-type: disc; padding-left: 1.5em; }
-  ol { list-style-type: decimal; padding-left: 1.5em; }
-  li { line-height: var(--block-lh, 1.7); letter-spacing: var(--block-ls, normal); }
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  min-width: 0;
+  max-width: 100%;
 }
+:deep(.tiptap h1) { font-size: 2em; font-weight: 700; line-height: 1.2; color: #0f172a; overflow-wrap: anywhere; word-break: break-word; }
+:deep(.tiptap h2) { font-size: 1.5em; font-weight: 700; line-height: 1.3; color: #0f172a; overflow-wrap: anywhere; word-break: break-word; }
+:deep(.tiptap h3) { font-size: 1.25em; font-weight: 600; line-height: 1.4; color: #0f172a; overflow-wrap: anywhere; word-break: break-word; }
+:deep(.tiptap p)  { line-height: var(--block-lh, 1.7); letter-spacing: var(--block-ls, normal); color: #374151; overflow-wrap: anywhere; }
+:deep(.tiptap ul) { list-style-type: disc; padding-left: 1.5em; }
+:deep(.tiptap ol) { list-style-type: decimal; padding-left: 1.5em; }
+:deep(.tiptap li) { line-height: var(--block-lh, 1.7); letter-spacing: var(--block-ls, normal); overflow-wrap: anywhere; }
 
 :deep(.tiptap p.is-empty:first-child::before) {
   content: 'Écrire ici…';

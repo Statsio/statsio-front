@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { fetchSearchRows } from '@/api/studio'
+import { fetchSearchRows, fetchPublicSearchRows } from '@/api/studio'
 import { useStudioStore } from '@/stores/studio'
 import type { StudioBlock, StudioDocumentPage, SearchSource, SearchJoin } from '@/types/studio'
 
@@ -96,7 +96,10 @@ async function doSearch(q: string) {
           const sourceJoins = (props.block.fieldMapping.searchJoins ?? [])
             .filter((j: SearchJoin) => j.sourceDatasetId === source.datasetId)
             .map((j: SearchJoin) => ({ datasetId: j.datasetId, leftColumn: j.leftColumn, rightColumn: j.rightColumn, columns: j.columns, type: j.type }))
-          const rows = await fetchSearchRows(source.datasetId, source.columns, q, 30, sourceJoins)
+          const docSlug = studio.content?.slug
+          const rows = (props.readonly && docSlug)
+            ? await fetchPublicSearchRows(docSlug, source.datasetId, source.columns, q, 30, sourceJoins)
+            : await fetchSearchRows(source.datasetId, source.columns, q, 30, sourceJoins)
           for (const row of rows) {
             // Use first matching column value as display value
             const primaryCol = source.columns.find(

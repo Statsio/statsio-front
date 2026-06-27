@@ -49,6 +49,8 @@ export const STATSIO_API = {
     one: (id: string) => `/studio/content/${encodeURIComponent(id)}`,
     publicCollection: '/studio/content/public',
     publicBySlug: (slug: string) => `/studio/content/public/${encodeURIComponent(slug)}`,
+    publicDatasetQuery: (slug: string, datasetId: string) =>
+      `/studio/content/public/${encodeURIComponent(slug)}/datasets/${encodeURIComponent(datasetId)}/query`,
   },
   pages: {
     blocks: (pageId: string) => `/pages/${encodeURIComponent(pageId)}/blocks`,

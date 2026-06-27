@@ -1,4 +1,4 @@
-import { ref, onMounted, onBeforeUnmount, watch, type Ref } from 'vue'
+import { ref, onMounted, onBeforeUnmount, nextTick, watch, type Ref } from 'vue'
 import {
   Chart,
   BarController,
@@ -66,11 +66,25 @@ export function useChart(
     chart.update('none')
   }
 
-  onMounted(() => buildChart())
+  onMounted(async () => {
+    // Wait for browser layout before reading container dimensions
+    await nextTick()
+    requestAnimationFrame(() => {
+      buildChart()
+      requestAnimationFrame(() => chart?.resize())
+    })
+  })
   onBeforeUnmount(() => chart?.destroy())
 
-  // Build chart when canvas appears in DOM (conditional rendering delay)
-  watch(canvasRef, (el: HTMLCanvasElement | null) => { if (el) buildChart() })
+  // Build chart when canvas appears in DOM (data loaded after mount)
+  watch(canvasRef, (el: HTMLCanvasElement | null) => {
+    if (!el) return
+    // Two rAF to ensure browser has fully laid out the new DOM before Chart.js reads dimensions
+    requestAnimationFrame(() => {
+      buildChart()
+      requestAnimationFrame(() => chart?.resize())
+    })
+  })
 
   // Update chart data when source changes
   watch(dataGetter, () => {

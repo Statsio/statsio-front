@@ -6,6 +6,8 @@ import { useAuthStore } from '@/stores/auth'
 const auth = useAuthStore()
 const sidebarOpen = ref(true)
 
+usePageSeo({ title: 'Administration', robots: 'noindex,nofollow' })
+
 async function logout() {
   await auth.logout()
   await navigateTo('/login')

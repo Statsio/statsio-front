@@ -1,4 +1,4 @@
-import { apiHttp } from '@/lib/http'
+import { apiHttp, publicHttp } from '@/lib/http'
 import { STATSIO_API } from './statsio-endpoints'
 import type { DatasetColumn, DatasetMeta, DatasetWithSchema, BlockQueryResult, StudioBlock } from '@/types/studio'
 
@@ -43,52 +43,90 @@ export async function deleteDataset(datasetId: string): Promise<void> {
   await apiHttp.delete(STATSIO_API.datasets.one(datasetId))
 }
 
+type BlockQueryParams = {
+  columns?: string[]
+  limit?: number
+  distinctColumn?: string | null
+  sortColumn?: string | null
+  sortDirection?: 'asc' | 'desc' | null
+  filters?: import('@/types/studio').BlockFilter[]
+  joins?: import('@/types/studio').BlockJoin[]
+}
+
+function buildParamsSerializer(p: BlockQueryParams): string {
+  const parts: string[] = []
+  if (p.columns?.length) {
+    p.columns.forEach((c: string) => parts.push(`columns[]=${encodeURIComponent(c)}`))
+  }
+  if (p.limit !== undefined) parts.push(`limit=${p.limit}`)
+  if (p.distinctColumn) parts.push(`distinct_column=${encodeURIComponent(p.distinctColumn)}`)
+  if (p.sortColumn) parts.push(`sort_column=${encodeURIComponent(p.sortColumn)}`)
+  if (p.sortDirection) parts.push(`sort_direction=${p.sortDirection}`)
+  if (p.filters?.length) {
+    p.filters.forEach((f: import('@/types/studio').BlockFilter, i: number) => {
+      parts.push(`filters[${i}][column]=${encodeURIComponent(f.column)}`)
+      parts.push(`filters[${i}][operator]=${encodeURIComponent(f.operator)}`)
+      parts.push(`filters[${i}][value]=${encodeURIComponent(f.value)}`)
+    })
+  }
+  if (p.joins?.length) {
+    p.joins.forEach((j: import('@/types/studio').BlockJoin, i: number) => {
+      parts.push(`joins[${i}][dataset_id]=${encodeURIComponent(j.datasetId)}`)
+      parts.push(`joins[${i}][left_column]=${encodeURIComponent(j.leftColumn)}`)
+      parts.push(`joins[${i}][right_column]=${encodeURIComponent(j.rightColumn)}`)
+      parts.push(`joins[${i}][type]=${j.type}`)
+      j.columns.forEach((c) => parts.push(`joins[${i}][columns][]=${encodeURIComponent(c)}`))
+    })
+  }
+  return parts.join('&')
+}
+
 export async function fetchBlockData(
   datasetId: string,
-  params: {
-    columns?: string[]
-    limit?: number
-    distinctColumn?: string | null
-    sortColumn?: string | null
-    sortDirection?: 'asc' | 'desc' | null
-    filters?: import('@/types/studio').BlockFilter[]
-    joins?: import('@/types/studio').BlockJoin[]
-  } = {},
+  params: BlockQueryParams = {},
 ): Promise<BlockQueryResult> {
   const { data } = await apiHttp.get(STATSIO_API.datasets.query(datasetId), {
     params,
-    paramsSerializer: (p: typeof params) => {
-      const parts: string[] = []
-      if (p.columns?.length) {
-        p.columns.forEach((c: string) => parts.push(`columns[]=${encodeURIComponent(c)}`))
-      }
-      if (p.limit !== undefined) parts.push(`limit=${p.limit}`)
-      if (p.distinctColumn) parts.push(`distinct_column=${encodeURIComponent(p.distinctColumn)}`)
-      if (p.sortColumn) parts.push(`sort_column=${encodeURIComponent(p.sortColumn)}`)
-      if (p.sortDirection) parts.push(`sort_direction=${p.sortDirection}`)
-      if (p.filters?.length) {
-        p.filters.forEach((f: import('@/types/studio').BlockFilter, i: number) => {
-          parts.push(`filters[${i}][column]=${encodeURIComponent(f.column)}`)
-          parts.push(`filters[${i}][operator]=${encodeURIComponent(f.operator)}`)
-          parts.push(`filters[${i}][value]=${encodeURIComponent(f.value)}`)
-        })
-      }
-      if (p.joins?.length) {
-        p.joins.forEach((j: import('@/types/studio').BlockJoin, i: number) => {
-          parts.push(`joins[${i}][dataset_id]=${encodeURIComponent(j.datasetId)}`)
-          parts.push(`joins[${i}][left_column]=${encodeURIComponent(j.leftColumn)}`)
-          parts.push(`joins[${i}][right_column]=${encodeURIComponent(j.rightColumn)}`)
-          parts.push(`joins[${i}][type]=${j.type}`)
-          j.columns.forEach((c) => parts.push(`joins[${i}][columns][]=${encodeURIComponent(c)}`))
-        })
-      }
-      return parts.join('&')
-    },
+    paramsSerializer: buildParamsSerializer,
   })
   return {
     columns: data.data?.columns ?? [],
     rows: data.data?.rows ?? [],
     totalRows: data.data?.total_rows ?? 0,
+  }
+}
+
+export async function fetchPublicBlockData(
+  docSlug: string,
+  datasetId: string,
+  params: BlockQueryParams = {},
+): Promise<BlockQueryResult> {
+  const { data } = await publicHttp.get(
+    STATSIO_API.studioContent.publicDatasetQuery(docSlug, datasetId),
+    { params, paramsSerializer: buildParamsSerializer },
+  )
+  return {
+    columns: data.data?.columns ?? [],
+    rows: data.data?.rows ?? [],
+    totalRows: data.data?.total_rows ?? 0,
+  }
+}
+
+function buildSearchParamsSerializer(columns: string[], searchQ: string, limit: number, joins: import('@/types/studio').BlockJoin[]): () => string {
+  return () => {
+    const parts = columns.map((c) => `search_columns[]=${encodeURIComponent(c)}`)
+    parts.push(`search_q=${encodeURIComponent(searchQ)}`)
+    parts.push(`limit=${limit}`)
+    if (joins.length) {
+      joins.forEach((j, i) => {
+        parts.push(`joins[${i}][dataset_id]=${encodeURIComponent(j.datasetId)}`)
+        parts.push(`joins[${i}][left_column]=${encodeURIComponent(j.leftColumn)}`)
+        parts.push(`joins[${i}][right_column]=${encodeURIComponent(j.rightColumn)}`)
+        parts.push(`joins[${i}][type]=${j.type}`)
+        j.columns.forEach((c) => parts.push(`joins[${i}][columns][]=${encodeURIComponent(c)}`))
+      })
+    }
+    return parts.join('&')
   }
 }
 
@@ -101,21 +139,22 @@ export async function fetchSearchRows(
 ): Promise<Record<string, unknown>[]> {
   const { data } = await apiHttp.get(STATSIO_API.datasets.query(datasetId), {
     params: {},
-    paramsSerializer: () => {
-      const parts = columns.map((c) => `search_columns[]=${encodeURIComponent(c)}`)
-      parts.push(`search_q=${encodeURIComponent(searchQ)}`)
-      parts.push(`limit=${limit}`)
-      if (joins.length) {
-        joins.forEach((j, i) => {
-          parts.push(`joins[${i}][dataset_id]=${encodeURIComponent(j.datasetId)}`)
-          parts.push(`joins[${i}][left_column]=${encodeURIComponent(j.leftColumn)}`)
-          parts.push(`joins[${i}][right_column]=${encodeURIComponent(j.rightColumn)}`)
-          parts.push(`joins[${i}][type]=${j.type}`)
-          j.columns.forEach((c) => parts.push(`joins[${i}][columns][]=${encodeURIComponent(c)}`))
-        })
-      }
-      return parts.join('&')
-    },
+    paramsSerializer: buildSearchParamsSerializer(columns, searchQ, limit, joins),
+  })
+  return data.data?.rows ?? []
+}
+
+export async function fetchPublicSearchRows(
+  docSlug: string,
+  datasetId: string,
+  columns: string[],
+  searchQ: string,
+  limit = 50,
+  joins: import('@/types/studio').BlockJoin[] = [],
+): Promise<Record<string, unknown>[]> {
+  const { data } = await publicHttp.get(STATSIO_API.studioContent.publicDatasetQuery(docSlug, datasetId), {
+    params: {},
+    paramsSerializer: buildSearchParamsSerializer(columns, searchQ, limit, joins),
   })
   return data.data?.rows ?? []
 }
@@ -176,7 +215,7 @@ export async function fetchStatsDataDocument(documentId: string): Promise<StatsD
 }
 
 export async function fetchPublicStatsDataDocument(slug: string): Promise<StatsDataDocument> {
-  const { data } = await apiHttp.get(STATSIO_API.studioContent.publicBySlug(slug))
+  const { data } = await publicHttp.get(STATSIO_API.studioContent.publicBySlug(slug))
   return data.data
 }
 
