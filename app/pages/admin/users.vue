@@ -110,16 +110,12 @@ async function saveEdit() {
         placeholder="Rechercher par email ou nom..."
         class="min-w-64 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm outline-none focus:border-slate-400"
       />
-      <select
+      <AppSelect
         v-model="statusFilter"
-        class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400"
-      >
-        <option value="">Tous les statuts</option>
-        <option value="active">Actif</option>
-        <option value="suspended">Suspendu</option>
-        <option value="banned">Banni</option>
-        <option value="deleted">Supprimé</option>
-      </select>
+        :options="[{ value: 'active', label: 'Actif' }, { value: 'suspended', label: 'Suspendu' }, { value: 'banned', label: 'Banni' }, { value: 'deleted', label: 'Supprimé' }]"
+        placeholder="Tous les statuts"
+        class="w-44"
+      />
     </div>
 
     <!-- Error -->
@@ -229,14 +225,11 @@ async function saveEdit() {
 
           <label class="mb-3 block">
             <span class="text-xs font-semibold text-slate-500">Statut</span>
-            <select
+            <AppSelect
               v-model="editUser.status"
-              class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none"
-            >
-              <option value="active">Actif</option>
-              <option value="suspended">Suspendu</option>
-              <option value="banned">Banni</option>
-            </select>
+              :options="[{ value: 'active', label: 'Actif' }, { value: 'suspended', label: 'Suspendu' }, { value: 'banned', label: 'Banni' }]"
+              class="mt-1"
+            />
           </label>
 
           <label class="mb-5 flex items-center gap-3">

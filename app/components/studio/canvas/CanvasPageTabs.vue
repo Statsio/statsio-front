@@ -75,19 +75,19 @@ const canRemove = computed(() => studio.pages.length > 1)
 </script>
 
 <template>
-  <div class="flex items-center gap-1 px-4 pt-3 pb-0 border-b border-slate-100 bg-white relative">
+  <div class="inline-flex items-center gap-0.5 px-1 py-1 bg-white rounded-xl border border-slate-200 shadow-md">
     <!-- Page tabs -->
     <div
       v-for="page in studio.pages"
       :key="page.id"
-      class="group relative flex items-center shrink-0"
+      class="group relative flex items-center"
     >
-      <!-- Tab button (or inline input when renaming) -->
+      <!-- Inline rename input -->
       <input
         v-if="editingId === page.id"
         :id="`tab-input-${page.id}`"
         v-model="editingTitle"
-        class="text-sm font-medium border-b-2 border-[var(--color-primary)] bg-transparent outline-none px-2 py-2 min-w-[80px] max-w-[180px]"
+        class="text-xs font-medium bg-[var(--color-primary)]/10 text-[var(--color-primary)] outline-none px-2.5 py-1 rounded-lg min-w-[80px] max-w-[160px]"
         @blur="commitRename(page.id)"
         @keydown.enter="commitRename(page.id)"
         @keydown.escape="editingId = null"
@@ -95,11 +95,11 @@ const canRemove = computed(() => studio.pages.length > 1)
       <button
         v-else
         type="button"
-        class="flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium rounded-t-lg border-b-2 transition-colors whitespace-nowrap"
+        class="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg transition-colors whitespace-nowrap"
         :class="
           studio.currentPageId === page.id
-            ? 'border-[var(--color-primary)] text-[var(--color-primary)] bg-white'
-            : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+            ? 'bg-[var(--color-primary)] text-white shadow-sm'
+            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
         "
         @click="studio.switchPage(page.id)"
         @dblclick.prevent="startRename(page.id, page.title)"
@@ -107,9 +107,10 @@ const canRemove = computed(() => studio.pages.length > 1)
         {{ page.title }}
         <span
           v-if="page.isTemplate"
-          class="text-[9px] font-bold uppercase tracking-wide px-1 py-0.5 rounded bg-amber-100 text-amber-600"
+          class="text-[9px] font-bold uppercase tracking-wide px-1 py-0.5 rounded"
+          :class="studio.currentPageId === page.id ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-600'"
         >
-          template
+          tpl
         </span>
       </button>
 
@@ -117,7 +118,7 @@ const canRemove = computed(() => studio.pages.length > 1)
       <button
         v-if="canRemove && studio.currentPageId !== page.id"
         type="button"
-        class="absolute -top-1 -right-1 hidden group-hover:flex items-center justify-center w-4 h-4 rounded-full bg-slate-200 hover:bg-red-100 hover:text-red-500 text-slate-500 text-[10px] z-10 transition-colors"
+        class="absolute -top-1 -right-1 hidden group-hover:flex items-center justify-center w-3.5 h-3.5 rounded-full bg-slate-300 hover:bg-red-100 hover:text-red-500 text-slate-600 text-[9px] z-10 transition-colors"
         title="Supprimer la page"
         @click.stop="confirmRemove(page.id, page.title)"
       >
@@ -125,14 +126,17 @@ const canRemove = computed(() => studio.pages.length > 1)
       </button>
     </div>
 
+    <!-- Divider -->
+    <div class="w-px h-4 bg-slate-200 mx-0.5" />
+
     <!-- Add page button -->
     <button
       type="button"
-      class="flex items-center justify-center w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors shrink-0 mb-0.5"
+      class="flex items-center justify-center w-6 h-6 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
       title="Ajouter une page"
       @click="openAddModal"
     >
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.5v15m7.5-7.5h-15" />
       </svg>
     </button>

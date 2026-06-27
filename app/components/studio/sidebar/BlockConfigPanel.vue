@@ -22,7 +22,7 @@ const isText = computed(() => block.value ? isTextBlock(block.value.type) : fals
 
 const DATA_TABS   = [{ id: 'data', label: 'Données' }, { id: 'filters', label: 'Filtres' }, { id: 'style', label: 'Style' }]
 const KPI_TABS    = [{ id: 'data', label: 'Données' }, { id: 'filters', label: 'Filtres' }, { id: 'comparison', label: 'Comparaison' }, { id: 'style', label: 'Style' }]
-const TEXT_TABS   = [{ id: 'texte', label: 'Texte' }, { id: 'apparence', label: 'Apparence' }]
+const TEXT_TABS   = [{ id: 'style', label: 'Style' }]
 const SEARCH_TABS = [{ id: 'config', label: 'Configuration' }]
 
 const isSearch = computed(() => block.value?.type === 'search')
@@ -37,7 +37,7 @@ const currentTabs = computed(() => {
 const activeTab = ref('data')
 
 watch([() => block.value?.id, isText, isSearch], () => {
-  if (isText.value) activeTab.value = 'texte'
+  if (isText.value) activeTab.value = 'style'
   else if (isSearch.value) activeTab.value = 'config'
   else activeTab.value = 'data'
 }, { immediate: true })
@@ -75,8 +75,59 @@ const blockMeta = computed(() => block.value ? BLOCK_META[block.value.type as Bl
 
 // ─── Dataset ──────────────────────────────────────────────────────────────────
 
+import type { AppSelectOption, AppSelectGroup } from '@/components/ui/AppSelect.vue'
+
 const schema      = computed(() => block.value?.datasetId ? (datasets.getSchema(block.value.datasetId) ?? null) : null)
 const columnNames = computed(() => schema.value?.columns.map((c: DatasetColumn) => c.name) ?? [])
+
+// Primary columns + ALL schema columns from each joined dataset
+const allColumnNames = computed(() => {
+  const cols = new Set<string>(columnNames.value)
+  joins.value.forEach((_: BlockJoin, i: number) => {
+    joinSchema(i)?.columns.forEach((c: DatasetColumn) => cols.add(c.name))
+  })
+  return Array.from(cols)
+})
+
+// Grouped column options: primary source + each join as a collapsible group
+const columnGroups = computed<AppSelectGroup[]>(() => {
+  const groups: AppSelectGroup[] = []
+  if (schema.value?.columns.length) {
+    groups.push({
+      label: schema.value.name ?? 'Source principale',
+      options: schema.value.columns.map((c: DatasetColumn) => ({ value: c.name, label: c.name })),
+    })
+  }
+  joins.value.forEach((j: BlockJoin, i: number) => {
+    const jSchema = joinSchema(i)
+    if (!jSchema?.columns.length) return
+    const ds = datasets.readyDatasets.find((d: DatasetMeta) => d.id === j.datasetId)
+    groups.push({
+      label: ds?.name ?? `Jointure ${i + 1}`,
+      collapsible: true,
+      defaultOpen: true,
+      options: jSchema.columns.map((c: DatasetColumn) => ({ value: c.name, label: c.name })),
+    })
+  })
+  return groups
+})
+
+// Flat column options (no groups) for selects where grouping doesn't add value
+const columnOptions = computed<AppSelectOption[]>(() =>
+  columnNames.value.map((c: string) => ({ value: c, label: c })),
+)
+
+// Like updateMapping but auto-adds the column to join.columns if it belongs to a join
+function updateMappingWithJoinSync(key: string, value: string) {
+  updateMapping(key, value)
+  if (!value || columnNames.value.includes(value)) return
+  joins.value.forEach((j: BlockJoin, i: number) => {
+    const jCols = joinSchema(i)?.columns.map((c: DatasetColumn) => c.name) ?? []
+    if (jCols.includes(value) && !j.columns.includes(value)) {
+      updateJoin(i, { columns: [...j.columns, value] })
+    }
+  })
+}
 
 watch(() => block.value?.datasetId, async (id: string | undefined) => { if (id) await datasets.loadSchema(id) }, { immediate: true })
 
@@ -107,14 +158,6 @@ const targetPageToken = computed(() => {
 
 // ─── Text formatting ──────────────────────────────────────────────────────────
 
-const FONT_FAMILIES = [
-  { value: '',                           label: 'Par défaut' },
-  { value: 'Georgia, serif',             label: 'Georgia' },
-  { value: '"Times New Roman", serif',   label: 'Times New Roman' },
-  { value: '"Courier New", monospace',   label: 'Courier New' },
-  { value: 'Impact, sans-serif',         label: 'Impact' },
-]
-const FONT_SIZES     = [12, 14, 16, 18, 20, 24, 28, 32, 40, 48]
 const CALLOUT_COLORS = [
   { value: '#eff6ff', label: 'Bleu' },   { value: '#f0fdf4', label: 'Vert' },
   { value: '#fef9c3', label: 'Jaune' },  { value: '#fff7ed', label: 'Orange' },
@@ -373,12 +416,13 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
               <!-- Page cible -->
               <div>
                 <label class="cfg-label">Page de destination</label>
-                <select class="cfg-select" :value="block.fieldMapping.targetPageId ?? ''" @change="updateMapping('targetPageId', ($event.target as HTMLSelectElement).value)">
-                  <option value="">— Aucune —</option>
-                  <option v-for="page in studio.pages.filter((p: StudioDocumentPage) => p.id !== studio.currentPageId)" :key="page.id" :value="page.id">
-                    {{ page.title }}{{ page.isTemplate ? ' (template)' : '' }}
-                  </option>
-                </select>
+                <AppSelect
+                  :model-value="block.fieldMapping.targetPageId ?? ''"
+                  :options="studio.pages.filter((p: StudioDocumentPage) => p.id !== studio.currentPageId).map((p: StudioDocumentPage) => ({ value: p.id, label: p.title + (p.isTemplate ? ' (template)' : '') }))"
+                  placeholder="— Aucune —"
+                  teleport
+                  @update:model-value="updateMapping('targetPageId', $event as string)"
+                />
               </div>
 
               <div class="border-t border-slate-100 pt-3">
@@ -421,10 +465,14 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
                   <!-- Dataset picker -->
                   <div>
                     <label class="cfg-label">Dataset</label>
-                    <select class="cfg-select" :value="src.datasetId" @change="updateSearchSource(si, { datasetId: ($event.target as HTMLSelectElement).value, columns: [] })">
-                      <option value="">— Choisir —</option>
-                      <option v-for="ds in datasets.readyDatasets" :key="ds.id" :value="ds.id">{{ ds.name }}</option>
-                    </select>
+                    <AppSelect
+                      :model-value="src.datasetId"
+                      :options="datasets.readyDatasets.map((ds: DatasetMeta) => ({ value: ds.id, label: ds.name }))"
+                      placeholder="— Choisir —"
+                      size="sm"
+                      teleport
+                      @update:model-value="updateSearchSource(si, { datasetId: $event as string, columns: [] })"
+                    />
                   </div>
 
                   <!-- Search columns: selected pills + add dropdown -->
@@ -442,15 +490,16 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
                         </button>
                       </span>
                       <!-- Add column via dropdown -->
-                      <select
+                      <AppSelect
                         v-if="searchSourceColumnNames(si).filter((c: string) => !src.columns.includes(c)).length > 0"
-                        class="pl-2 pr-6 py-0.5 rounded-full border border-dashed border-slate-300 text-[11px] text-slate-500 bg-white hover:border-cyan-300 hover:text-cyan-600 transition-colors appearance-none cursor-pointer"
-                        value=""
-                        @change="toggleSearchSourceColumn(si, ($event.target as HTMLSelectElement).value); ($event.target as HTMLSelectElement).value = ''"
-                      >
-                        <option value="" disabled>+ Ajouter…</option>
-                        <option v-for="col in searchSourceColumnNames(si).filter((c: string) => !src.columns.includes(c))" :key="col" :value="col">{{ col }}</option>
-                      </select>
+                        model-value=""
+                        :options="searchSourceColumnNames(si).filter((c: string) => !src.columns.includes(c)).map((c: string) => ({ value: c, label: c }))"
+                        placeholder="+ Ajouter…"
+                        size="sm"
+                        button-class="!rounded-full !border-dashed !border-slate-300 !text-slate-500 hover:!border-cyan-300 hover:!text-cyan-600 !bg-white !px-2.5 !py-0.5 !min-h-0 !text-[11px]"
+                        teleport
+                        @update:model-value="toggleSearchSourceColumn(si, $event as string)"
+                      />
                       <p v-else-if="searchSourceColumnNames(si).length === 0" class="text-[11px] text-slate-400">Chargement…</p>
                     </div>
                   </div>
@@ -523,14 +572,14 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
                   <!-- Source dataset -->
                   <div>
                     <label class="cfg-label">Pour les résultats de</label>
-                    <select class="cfg-select" :value="join.sourceDatasetId"
-                      @change="updateSearchJoin(ji, { sourceDatasetId: ($event.target as HTMLSelectElement).value, leftColumn: '' })"
-                    >
-                      <option value="">— Dataset source —</option>
-                      <option v-for="src in searchSources.filter((s: SearchSource) => s.datasetId)" :key="src.datasetId" :value="src.datasetId">
-                        {{ datasets.readyDatasets.find((d: DatasetMeta) => d.id === src.datasetId)?.name ?? src.datasetId }}
-                      </option>
-                    </select>
+                    <AppSelect
+                      :model-value="join.sourceDatasetId"
+                      :options="searchSources.filter((s: SearchSource) => s.datasetId).map((s: SearchSource) => ({ value: s.datasetId, label: datasets.readyDatasets.find((d: DatasetMeta) => d.id === s.datasetId)?.name ?? s.datasetId }))"
+                      placeholder="— Dataset source —"
+                      size="sm"
+                      teleport
+                      @update:model-value="updateSearchJoin(ji, { sourceDatasetId: $event as string, leftColumn: '' })"
+                    />
                   </div>
 
                   <!-- Type + secondary dataset on same row -->
@@ -544,12 +593,15 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
                           @click="updateSearchJoin(ji, { type: t.v as 'left' | 'inner' })"
                         >{{ t.l }}</button>
                       </div>
-                      <select class="cfg-select flex-1 min-w-0" :value="join.datasetId"
-                        @change="updateSearchJoin(ji, { datasetId: ($event.target as HTMLSelectElement).value, rightColumn: '', columns: [] })"
-                      >
-                        <option value="">— Dataset —</option>
-                        <option v-for="ds in datasets.readyDatasets.filter((d: DatasetMeta) => d.id !== join.sourceDatasetId)" :key="ds.id" :value="ds.id">{{ ds.name }}</option>
-                      </select>
+                      <AppSelect
+                        class="flex-1 min-w-0"
+                        :model-value="join.datasetId"
+                        :options="datasets.readyDatasets.filter((d: DatasetMeta) => d.id !== join.sourceDatasetId).map((d: DatasetMeta) => ({ value: d.id, label: d.name }))"
+                        placeholder="— Dataset —"
+                        size="sm"
+                        teleport
+                        @update:model-value="updateSearchJoin(ji, { datasetId: $event as string, rightColumn: '', columns: [] })"
+                      />
                     </div>
                   </div>
 
@@ -558,19 +610,25 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
                     <div>
                       <label class="cfg-label">Clé de jointure</label>
                       <div class="flex items-center gap-1.5">
-                        <select class="cfg-select flex-1 min-w-0 text-[11px]" :value="join.leftColumn"
-                          @change="updateSearchJoin(ji, { leftColumn: ($event.target as HTMLSelectElement).value })"
-                        >
-                          <option value="">source</option>
-                          <option v-for="col in searchJoinPrimaryColumns(ji)" :key="col" :value="col">{{ col }}</option>
-                        </select>
+                        <AppSelect
+                          class="flex-1 min-w-0"
+                          :model-value="join.leftColumn"
+                          :options="searchJoinPrimaryColumns(ji).map((c: string) => ({ value: c, label: c }))"
+                          placeholder="source"
+                          size="sm"
+                          teleport
+                          @update:model-value="updateSearchJoin(ji, { leftColumn: $event as string })"
+                        />
                         <span class="text-[12px] text-violet-400 font-bold shrink-0">=</span>
-                        <select class="cfg-select flex-1 min-w-0 text-[11px]" :value="join.rightColumn"
-                          @change="updateSearchJoin(ji, { rightColumn: ($event.target as HTMLSelectElement).value })"
-                        >
-                          <option value="">jointure</option>
-                          <option v-for="col in searchJoinSecondaryColumns(ji)" :key="col" :value="col">{{ col }}</option>
-                        </select>
+                        <AppSelect
+                          class="flex-1 min-w-0"
+                          :model-value="join.rightColumn"
+                          :options="searchJoinSecondaryColumns(ji).map((c: string) => ({ value: c, label: c }))"
+                          placeholder="jointure"
+                          size="sm"
+                          teleport
+                          @update:model-value="updateSearchJoin(ji, { rightColumn: $event as string })"
+                        />
                       </div>
                     </div>
 
@@ -586,15 +644,16 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
                             <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                           </button>
                         </span>
-                        <select
+                        <AppSelect
                           v-if="searchJoinSecondaryColumns(ji).filter((c: string) => !join.columns.includes(c)).length > 0"
-                          class="pl-2 pr-6 py-0.5 rounded-full border border-dashed border-violet-200 text-[11px] text-violet-400 bg-white hover:border-violet-400 transition-colors appearance-none cursor-pointer"
-                          value=""
-                          @change="toggleSearchJoinColumn(ji, ($event.target as HTMLSelectElement).value); ($event.target as HTMLSelectElement).value = ''"
-                        >
-                          <option value="" disabled>+ Ajouter…</option>
-                          <option v-for="col in searchJoinSecondaryColumns(ji).filter((c: string) => !join.columns.includes(c))" :key="col" :value="col">{{ col }}</option>
-                        </select>
+                          model-value=""
+                          :options="searchJoinSecondaryColumns(ji).filter((c: string) => !join.columns.includes(c)).map((c: string) => ({ value: c, label: c }))"
+                          placeholder="+ Ajouter…"
+                          size="sm"
+                          button-class="!rounded-full !border-dashed !border-violet-200 !text-violet-400 hover:!border-violet-400 !bg-white !px-2.5 !py-0.5 !min-h-0 !text-[11px]"
+                          teleport
+                          @update:model-value="toggleSearchJoinColumn(ji, $event as string)"
+                        />
                         <p v-else-if="searchJoinSecondaryColumns(ji).length === 0 && join.datasetId" class="text-[11px] text-violet-300">Chargement…</p>
                       </div>
                     </div>
@@ -665,15 +724,16 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
                       <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                     </button>
                   </span>
-                  <select
+                  <AppSelect
                     v-if="allSearchSourceColumns.filter((c: string) => !urlParams.includes(c)).length > 0"
-                    class="pl-2 pr-6 py-0.5 rounded-full border border-dashed border-slate-300 text-[11px] text-slate-500 bg-white hover:border-violet-300 hover:text-violet-600 transition-colors appearance-none cursor-pointer"
-                    value=""
-                    @change="toggleUrlParam(($event.target as HTMLSelectElement).value); ($event.target as HTMLSelectElement).value = ''"
-                  >
-                    <option value="" disabled>+ Ajouter…</option>
-                    <option v-for="col in allSearchSourceColumns.filter((c: string) => !urlParams.includes(c))" :key="col" :value="col">{{ col }}</option>
-                  </select>
+                    model-value=""
+                    :options="allSearchSourceColumns.filter((c: string) => !urlParams.includes(c)).map((c: string) => ({ value: c, label: c }))"
+                    placeholder="+ Ajouter…"
+                    size="sm"
+                    button-class="!rounded-full !border-dashed !border-slate-300 !text-slate-500 hover:!border-violet-300 hover:!text-violet-600 !bg-white !px-2.5 !py-0.5 !min-h-0 !text-[11px]"
+                    teleport
+                    @update:model-value="toggleUrlParam($event as string)"
+                  />
                 </div>
 
                 <div v-if="urlParams.length > 0" class="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2">
@@ -703,10 +763,13 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
               </svg>
             </button>
             <div v-show="open('source')" class="accordion-body">
-              <select class="cfg-select" :value="block.datasetId ?? ''" @change="updateDataset(($event.target as HTMLSelectElement).value)">
-                <option value="">— Choisir un dataset —</option>
-                <option v-for="ds in datasets.readyDatasets" :key="ds.id" :value="ds.id">{{ ds.name }} ({{ ds.rowCount.toLocaleString('fr-FR') }} lignes)</option>
-              </select>
+              <AppSelect
+                :model-value="block.datasetId ?? ''"
+                :options="datasets.readyDatasets.map((ds: DatasetMeta) => ({ value: ds.id, label: `${ds.name} (${ds.rowCount.toLocaleString('fr-FR')} lignes)` }))"
+                placeholder="— Choisir un dataset —"
+                teleport
+                @update:model-value="updateDataset($event as string)"
+              />
               <div v-if="!block.datasetId" class="flex flex-col items-center py-4 text-center mt-2">
                 <svg class="w-7 h-7 text-slate-200 mb-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375" />
@@ -762,10 +825,14 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
                 <div v-show="open(`dj-${ji}`)" class="p-3 flex flex-col gap-2.5">
                   <div>
                     <label class="cfg-label">Dataset secondaire</label>
-                    <select class="cfg-select" :value="join.datasetId" @change="updateJoin(ji, { datasetId: ($event.target as HTMLSelectElement).value, leftColumn: '', rightColumn: '', columns: [] })">
-                      <option value="">— Choisir —</option>
-                      <option v-for="ds in datasets.readyDatasets" :key="ds.id" :value="ds.id">{{ ds.name }}</option>
-                    </select>
+                    <AppSelect
+                      :model-value="join.datasetId"
+                      :options="datasets.readyDatasets.map((ds: DatasetMeta) => ({ value: ds.id, label: ds.name }))"
+                      placeholder="— Choisir —"
+                      size="sm"
+                      teleport
+                      @update:model-value="updateJoin(ji, { datasetId: $event as string, leftColumn: '', rightColumn: '', columns: [] })"
+                    />
                   </div>
 
                   <template v-if="join.datasetId">
@@ -783,15 +850,25 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
                     <div>
                       <label class="cfg-label">Clé de jointure</label>
                       <div class="flex items-center gap-1.5">
-                        <select class="cfg-select flex-1 min-w-0 text-[11px]" :value="join.leftColumn" @change="updateJoin(ji, { leftColumn: ($event.target as HTMLSelectElement).value })">
-                          <option value="">principal</option>
-                          <option v-for="col in columnNames" :key="col" :value="col">{{ col }}</option>
-                        </select>
+                        <AppSelect
+                          class="flex-1 min-w-0"
+                          :model-value="join.leftColumn"
+                          :options="columnOptions"
+                          placeholder="principal"
+                          size="sm"
+                          teleport
+                          @update:model-value="updateJoin(ji, { leftColumn: $event as string })"
+                        />
                         <span class="text-[12px] text-violet-400 font-bold shrink-0">=</span>
-                        <select class="cfg-select flex-1 min-w-0 text-[11px]" :value="join.rightColumn" @change="updateJoin(ji, { rightColumn: ($event.target as HTMLSelectElement).value })">
-                          <option value="">secondaire</option>
-                          <option v-for="col in joinColumnNames(ji)" :key="col" :value="col">{{ col }}</option>
-                        </select>
+                        <AppSelect
+                          class="flex-1 min-w-0"
+                          :model-value="join.rightColumn"
+                          :options="joinColumnNames(ji).map((c: string) => ({ value: c, label: c }))"
+                          placeholder="secondaire"
+                          size="sm"
+                          teleport
+                          @update:model-value="updateJoin(ji, { rightColumn: $event as string })"
+                        />
                       </div>
                     </div>
 
@@ -806,15 +883,16 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
                             <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                           </button>
                         </span>
-                        <select
+                        <AppSelect
                           v-if="joinColumnNames(ji).filter((c: string) => !join.columns.includes(c)).length > 0"
-                          class="pl-2 pr-6 py-0.5 rounded-full border border-dashed border-violet-200 text-[11px] text-violet-400 bg-white hover:border-violet-400 transition-colors appearance-none cursor-pointer"
-                          value=""
-                          @change="toggleJoinColumn(ji, ($event.target as HTMLSelectElement).value); ($event.target as HTMLSelectElement).value = ''"
-                        >
-                          <option value="" disabled>+ Ajouter…</option>
-                          <option v-for="col in joinColumnNames(ji).filter((c: string) => !join.columns.includes(c))" :key="col" :value="col">{{ col }}</option>
-                        </select>
+                          model-value=""
+                          :options="joinColumnNames(ji).filter((c: string) => !join.columns.includes(c)).map((c: string) => ({ value: c, label: c }))"
+                          placeholder="+ Ajouter…"
+                          size="sm"
+                          button-class="!rounded-full !border-dashed !border-violet-200 !text-violet-400 hover:!border-violet-400 !bg-white !px-2.5 !py-0.5 !min-h-0 !text-[11px]"
+                          teleport
+                          @update:model-value="toggleJoinColumn(ji, $event as string)"
+                        />
                         <p v-else-if="joinColumnNames(ji).length === 0" class="text-[11px] text-slate-400 mt-0.5">Chargement…</p>
                       </div>
                     </div>
@@ -847,17 +925,25 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
               <div v-show="open('axes')" class="accordion-body flex flex-col gap-3">
                 <div>
                   <label class="cfg-label">Axe X <span class="text-slate-400 font-normal normal-case tracking-normal">catégories</span></label>
-                  <select class="cfg-select" :value="block.fieldMapping.xAxis ?? ''" @change="updateMapping('xAxis', ($event.target as HTMLSelectElement).value)">
-                    <option value="">— Choisir une colonne —</option>
-                    <option v-for="col in columnNames" :key="col" :value="col">{{ col }}</option>
-                  </select>
+                  <AppSelect
+                    :model-value="block.fieldMapping.xAxis ?? ''"
+                    :groups="columnGroups"
+                    placeholder="— Choisir une colonne —"
+                    size="sm"
+                    teleport
+                    @update:model-value="updateMappingWithJoinSync('xAxis', $event as string)"
+                  />
                 </div>
                 <div>
                   <label class="cfg-label">Axe Y <span class="text-slate-400 font-normal normal-case tracking-normal">valeurs</span></label>
-                  <select class="cfg-select" :value="block.fieldMapping.yAxis ?? ''" @change="updateMapping('yAxis', ($event.target as HTMLSelectElement).value)">
-                    <option value="">— Choisir une colonne —</option>
-                    <option v-for="col in columnNames" :key="col" :value="col">{{ col }}</option>
-                  </select>
+                  <AppSelect
+                    :model-value="block.fieldMapping.yAxis ?? ''"
+                    :groups="columnGroups"
+                    placeholder="— Choisir une colonne —"
+                    size="sm"
+                    teleport
+                    @update:model-value="updateMappingWithJoinSync('yAxis', $event as string)"
+                  />
                 </div>
               </div>
             </div>
@@ -875,17 +961,25 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
               <div v-show="open('segments')" class="accordion-body flex flex-col gap-3">
                 <div>
                   <label class="cfg-label">Étiquettes</label>
-                  <select class="cfg-select" :value="block.fieldMapping.label ?? ''" @change="updateMapping('label', ($event.target as HTMLSelectElement).value)">
-                    <option value="">— Choisir une colonne —</option>
-                    <option v-for="col in columnNames" :key="col" :value="col">{{ col }}</option>
-                  </select>
+                  <AppSelect
+                    :model-value="block.fieldMapping.label ?? ''"
+                    :groups="columnGroups"
+                    placeholder="— Choisir une colonne —"
+                    size="sm"
+                    teleport
+                    @update:model-value="updateMappingWithJoinSync('label', $event as string)"
+                  />
                 </div>
                 <div>
                   <label class="cfg-label">Valeurs</label>
-                  <select class="cfg-select" :value="block.fieldMapping.value ?? ''" @change="updateMapping('value', ($event.target as HTMLSelectElement).value)">
-                    <option value="">— Choisir une colonne —</option>
-                    <option v-for="col in columnNames" :key="col" :value="col">{{ col }}</option>
-                  </select>
+                  <AppSelect
+                    :model-value="block.fieldMapping.value ?? ''"
+                    :groups="columnGroups"
+                    placeholder="— Choisir une colonne —"
+                    size="sm"
+                    teleport
+                    @update:model-value="updateMappingWithJoinSync('value', $event as string)"
+                  />
                 </div>
               </div>
             </div>
@@ -903,10 +997,14 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
               <div v-show="open('value')" class="accordion-body flex flex-col gap-3">
                 <div>
                   <label class="cfg-label">Colonne</label>
-                  <select class="cfg-select" :value="block.fieldMapping.valueColumn ?? ''" @change="updateMapping('valueColumn', ($event.target as HTMLSelectElement).value)">
-                    <option value="">— Choisir une colonne —</option>
-                    <option v-for="col in columnNames" :key="col" :value="col">{{ col }}</option>
-                  </select>
+                  <AppSelect
+                    :model-value="block.fieldMapping.valueColumn ?? ''"
+                    :groups="columnGroups"
+                    placeholder="— Choisir une colonne —"
+                    size="sm"
+                    teleport
+                    @update:model-value="updateMappingWithJoinSync('valueColumn', $event as string)"
+                  />
                 </div>
                 <div>
                   <label class="cfg-label">Format</label>
@@ -989,12 +1087,21 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
                       </button>
                     </div>
                     <div v-show="open(`f-${i}`)" class="p-3 flex flex-col gap-1.5">
-                      <select class="cfg-select-sm" :value="filter.column" @change="updateFilter(i, { column: ($event.target as HTMLSelectElement).value })">
-                        <option v-for="col in columnNames" :key="col" :value="col">{{ col }}</option>
-                      </select>
-                      <select class="cfg-select-sm" :value="filter.operator" @change="updateFilter(i, { operator: ($event.target as HTMLSelectElement).value as FilterOperator })">
-                        <option v-for="op in OPERATORS" :key="op.value" :value="op.value">{{ op.label }}</option>
-                      </select>
+                      <AppSelect
+                        :model-value="filter.column"
+                        :options="columnOptions"
+                        placeholder="— Colonne —"
+                        size="sm"
+                        teleport
+                        @update:model-value="updateFilter(i, { column: $event as string })"
+                      />
+                      <AppSelect
+                        :model-value="filter.operator"
+                        :options="OPERATORS.map((o: { value: FilterOperator; label: string }) => ({ value: o.value, label: o.label }))"
+                        size="sm"
+                        teleport
+                        @update:model-value="updateFilter(i, { operator: $event as FilterOperator })"
+                      />
                       <div>
                         <input
                           type="text"
@@ -1017,6 +1124,136 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
               </template>
             </div>
           </div>
+
+          <!-- ── Limite ── -->
+          <div class="accordion-item">
+            <button class="accordion-header" @click="toggle('limit')">
+              <span>Limite</span>
+              <div class="flex items-center gap-2">
+                <span v-if="block.config.rowLimit" class="text-xs font-bold text-[var(--color-primary)]">
+                  {{ block.config.rowLimit }} lignes
+                </span>
+                <span v-else-if="block.config.distinctColumn" class="text-xs font-bold text-[var(--color-primary)]">
+                  distinct
+                </span>
+                <svg class="chevron" :class="open('limit') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                </svg>
+              </div>
+            </button>
+            <div v-show="open('limit')" class="accordion-body flex flex-col gap-1.5">
+              <div class="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="1"
+                  max="100000"
+                  placeholder="Illimité"
+                  class="cfg-input flex-1 [appearance:textfield]"
+                  :value="block.config.rowLimit ?? ''"
+                  @input="updateConfig('rowLimit', ($event.target as HTMLInputElement).value ? Number(($event.target as HTMLInputElement).value) : null)"
+                />
+                <button
+                  v-if="block.config.rowLimit"
+                  class="text-[11px] text-slate-400 hover:text-red-400 transition-colors shrink-0"
+                  @click="updateConfig('rowLimit', null)"
+                >↺</button>
+              </div>
+              <p class="text-[11px] text-slate-400 leading-relaxed">Tronque les résultats au nombre de lignes souhaité.</p>
+            </div>
+          </div>
+
+          <!-- ── Distinct ── -->
+          <div class="accordion-item">
+            <button class="accordion-header" @click="toggle('distinct')">
+              <span>Distinct</span>
+              <div class="flex items-center gap-2">
+                <span v-if="block.config.distinctColumn" class="text-xs font-bold text-[var(--color-primary)] truncate max-w-[80px]">
+                  {{ block.config.distinctColumn }}
+                </span>
+                <svg class="chevron" :class="open('distinct') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                </svg>
+              </div>
+            </button>
+            <div v-show="open('distinct')" class="accordion-body flex flex-col gap-1.5">
+              <AppSelect
+                :model-value="block.config.distinctColumn ?? ''"
+                :groups="columnGroups"
+                placeholder="— Aucun —"
+                size="sm"
+                teleport
+                @update:model-value="updateConfig('distinctColumn', ($event as string) || null)"
+              />
+              <p class="text-[11px] text-slate-400 leading-relaxed">Garde une seule ligne par valeur unique de la colonne sélectionnée.</p>
+            </div>
+          </div>
+
+          <!-- ── Ordre d'affichage ── -->
+          <div class="accordion-item">
+            <button class="accordion-header" @click="toggle('sort')">
+              <span>Ordre d'affichage</span>
+              <div class="flex items-center gap-2">
+                <span v-if="block.config.sortColumn" class="text-xs font-bold text-[var(--color-primary)] truncate max-w-[80px]">
+                  {{ block.config.sortColumn }} {{ block.config.sortDirection === 'desc' ? '↓' : '↑' }}
+                </span>
+                <svg class="chevron" :class="open('sort') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                </svg>
+              </div>
+            </button>
+            <div v-show="open('sort')" class="accordion-body flex flex-col gap-3">
+
+              <!-- Colonne de tri -->
+              <div class="flex flex-col gap-1.5">
+                <label class="text-xs font-semibold text-slate-600">Colonne</label>
+                <div class="flex items-center gap-2">
+                  <AppSelect
+                    class="flex-1"
+                    :model-value="block.config.sortColumn ?? ''"
+                    :groups="columnGroups"
+                    placeholder="— Aucun tri —"
+                    size="sm"
+                    teleport
+                    @update:model-value="updateConfig('sortColumn', ($event as string) || null)"
+                  />
+                  <button
+                    v-if="block.config.sortColumn"
+                    class="text-[11px] text-slate-400 hover:text-red-400 transition-colors shrink-0"
+                    @click="updateConfig('sortColumn', null); updateConfig('sortDirection', null)"
+                  >↺</button>
+                </div>
+              </div>
+
+              <!-- Direction -->
+              <div v-if="block.config.sortColumn" class="flex flex-col gap-1.5">
+                <label class="text-xs font-semibold text-slate-600">Direction</label>
+                <div class="grid grid-cols-2 gap-1.5">
+                  <button
+                    class="flex items-center justify-center gap-1.5 py-2 rounded-xl border text-xs font-semibold transition-colors"
+                    :class="(block.config.sortDirection ?? 'asc') === 'asc' ? 'cfg-active' : 'cfg-inactive'"
+                    @click="updateConfig('sortDirection', 'asc')"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M3 4.5h14.25M3 9h9.75M3 13.5h5.25m5.25-.75L17.25 9m0 0L21 12.75M17.25 9v12" />
+                    </svg>
+                    Croissant
+                  </button>
+                  <button
+                    class="flex items-center justify-center gap-1.5 py-2 rounded-xl border text-xs font-semibold transition-colors"
+                    :class="block.config.sortDirection === 'desc' ? 'cfg-active' : 'cfg-inactive'"
+                    @click="updateConfig('sortDirection', 'desc')"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M3 4.5h14.25M3 9h9.75M3 13.5h9.75m4.5-4.5v12m0 0-3.75-3.75M17.25 21l3.75-3.75" />
+                    </svg>
+                    Décroissant
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
         </template>
 
         <!-- ── Tab: Comparaison (KPI) ── -->
@@ -1035,9 +1272,14 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
               </button>
               <div v-show="open('comp-ref')" class="accordion-body">
                 <p class="text-[11px] text-slate-400 mb-2 leading-relaxed">Par défaut, même colonne que la valeur principale.</p>
-                <select class="cfg-select" :value="block.fieldMapping.comparisonColumn ?? ''" @change="updateMapping('comparisonColumn', ($event.target as HTMLSelectElement).value)">
-                  <option value="">— Même que la valeur principale —</option>
-                  <option v-for="col in columnNames" :key="col" :value="col">{{ col }}</option>
+                <AppSelect
+                  :model-value="block.fieldMapping.comparisonColumn ?? ''"
+                  :groups="columnGroups"
+                  placeholder="— Même que la valeur principale —"
+                  size="sm"
+                  teleport
+                  @update:model-value="updateMappingWithJoinSync('comparisonColumn', $event as string)"
+                />
                 </select>
               </div>
             </div>
@@ -1075,12 +1317,21 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
                       </button>
                     </div>
                     <div v-show="open(`cf-${i}`)" class="p-3 flex flex-col gap-1.5">
-                      <select class="cfg-select-sm" :value="f.column" @change="updateCompFilter(i, { column: ($event.target as HTMLSelectElement).value })">
-                        <option v-for="col in columnNames" :key="col" :value="col">{{ col }}</option>
-                      </select>
-                      <select class="cfg-select-sm" :value="f.operator" @change="updateCompFilter(i, { operator: ($event.target as HTMLSelectElement).value as FilterOperator })">
-                        <option v-for="op in OPERATORS" :key="op.value" :value="op.value">{{ op.label }}</option>
-                      </select>
+                      <AppSelect
+                        :model-value="f.column"
+                        :options="columnOptions"
+                        placeholder="— Colonne —"
+                        size="sm"
+                        teleport
+                        @update:model-value="updateCompFilter(i, { column: $event as string })"
+                      />
+                      <AppSelect
+                        :model-value="f.operator"
+                        :options="OPERATORS.map((o: { value: FilterOperator; label: string }) => ({ value: o.value, label: o.label }))"
+                        size="sm"
+                        teleport
+                        @update:model-value="updateCompFilter(i, { operator: $event as FilterOperator })"
+                      />
                       <div>
                         <input
                           type="text"
@@ -1130,6 +1381,7 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
             </div>
 
           </template>
+
         </template>
 
         <!-- ── Tab: Style ── -->
@@ -1248,11 +1500,9 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
 
       <!-- ══════════════ TEXT BLOCKS ══════════════ -->
       <template v-else>
+        <template v-if="activeTab === 'style'">
 
-        <!-- ── Tab: Texte ── -->
-        <template v-if="activeTab === 'texte'">
-
-          <!-- Niveau (heading) -->
+          <!-- Niveau (heading only) -->
           <div v-if="block.type === 'heading'" class="accordion-item">
             <button class="accordion-header" @click="toggle('heading-level')">
               <span>Niveau</span>
@@ -1273,82 +1523,7 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
             </div>
           </div>
 
-          <!-- Alignement -->
-          <div class="accordion-item">
-            <button class="accordion-header" @click="toggle('alignment')">
-              <span>Alignement</span>
-              <svg class="chevron" :class="open('alignment') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-              </svg>
-            </button>
-            <div v-show="open('alignment')" class="accordion-body">
-              <div class="grid grid-cols-4 gap-1.5">
-                <button v-for="align in [
-                  { v: 'left',    icon: 'M3.75 6.75h16.5M3.75 12H12m-8.25 5.25h16.5',  title: 'Gauche' },
-                  { v: 'center',  icon: 'M3.75 6.75h16.5M8.25 12h7.5M3.75 17.25h16.5', title: 'Centre' },
-                  { v: 'right',   icon: 'M3.75 6.75h16.5M12 12h8.25M3.75 17.25h16.5',  title: 'Droite' },
-                  { v: 'justify', icon: 'M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5',title: 'Justifié' },
-                ]" :key="align.v"
-                  class="py-2.5 rounded-xl border flex items-center justify-center transition-colors"
-                  :class="(block.config.textAlign ?? 'left') === align.v ? 'cfg-active' : 'cfg-inactive'"
-                  :title="align.title"
-                  @click="updateConfig('textAlign', align.v)">
-                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-                    <path stroke-linecap="round" stroke-linejoin="round" :d="align.icon" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </div>
-
-        </template>
-
-        <!-- ── Tab: Apparence ── -->
-        <template v-if="activeTab === 'apparence'">
-
-          <!-- Police -->
-          <div class="accordion-item">
-            <button class="accordion-header" @click="toggle('font-family')">
-              <span>Police</span>
-              <div class="flex items-center gap-2">
-                <span class="text-[11px] text-slate-400 truncate max-w-20">{{ FONT_FAMILIES.find((f: { value: string; label: string }) => f.value === (block?.config.fontFamily ?? ''))?.label ?? 'Par défaut' }}</span>
-                <svg class="chevron shrink-0" :class="open('font-family') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                </svg>
-              </div>
-            </button>
-            <div v-show="open('font-family')" class="accordion-body">
-              <select class="cfg-select" :value="block.config.fontFamily ?? ''" @change="updateConfig('fontFamily', ($event.target as HTMLSelectElement).value)">
-                <option v-for="f in FONT_FAMILIES" :key="f.value" :value="f.value" :style="{ fontFamily: f.value || undefined }">{{ f.label }}</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- Taille -->
-          <div class="accordion-item">
-            <button class="accordion-header" @click="toggle('font-size')">
-              <span>Taille</span>
-              <div class="flex items-center gap-2">
-                <span class="text-[11px] text-slate-400">{{ block.config.fontSize ? `${block.config.fontSize}px` : 'Auto' }}</span>
-                <svg class="chevron" :class="open('font-size') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                </svg>
-              </div>
-            </button>
-            <div v-show="open('font-size')" class="accordion-body">
-              <div class="grid grid-cols-5 gap-1.5">
-                <button v-for="size in FONT_SIZES" :key="size"
-                  class="py-1.5 rounded-xl border text-xs font-semibold transition-colors"
-                  :class="(block.config.fontSize ?? 0) === size ? 'cfg-active' : 'cfg-inactive'"
-                  @click="updateConfig('fontSize', size)">{{ size }}</button>
-              </div>
-              <button v-if="block.config.fontSize"
-                class="mt-2 text-[11px] text-slate-400 hover:text-red-400 transition-colors"
-                @click="updateConfig('fontSize', null)">↺ Réinitialiser</button>
-            </div>
-          </div>
-
-          <!-- Fond (callout) -->
+          <!-- Couleur de fond (callout only) -->
           <div v-if="block.type === 'callout'" class="accordion-item">
             <button class="accordion-header" @click="toggle('bg-color')">
               <span>Couleur de fond</span>
@@ -1369,6 +1544,15 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
                   @click="updateConfig('calloutColor', c.value)" />
               </div>
             </div>
+          </div>
+
+          <!-- Info when no block-specific options -->
+          <div v-if="block.type !== 'heading' && block.type !== 'callout'" class="flex flex-col items-center justify-center py-10 px-4 text-center">
+            <svg class="w-8 h-8 text-slate-200 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5" />
+            </svg>
+            <p class="text-xs font-semibold text-slate-400">Mise en forme disponible</p>
+            <p class="text-[11px] text-slate-300 mt-1 leading-relaxed">Utilisez la barre d'outils<br>en haut de la page</p>
           </div>
 
         </template>

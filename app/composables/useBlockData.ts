@@ -39,7 +39,10 @@ export function useBlockData(block: () => StudioBlock | null) {
     try {
       data.value = await fetchBlockData(b.datasetId, {
         columns,
-        limit: 500,
+        limit: b.config.rowLimit ?? 500,
+        distinctColumn: b.config.distinctColumn ?? undefined,
+        sortColumn: b.config.sortColumn ?? undefined,
+        sortDirection: b.config.sortDirection ?? undefined,
         filters: resolveFilters(b.filters ?? []),
         joins: b.joins?.length ? b.joins : undefined,
       })
@@ -56,7 +59,7 @@ export function useBlockData(block: () => StudioBlock | null) {
     () => {
       const b = block()
       return b
-        ? `${b.datasetId}|${JSON.stringify(b.fieldMapping)}|${JSON.stringify(b.filters ?? [])}|${JSON.stringify(b.joins ?? [])}|${JSON.stringify(studio.pageParams)}`
+        ? `${b.datasetId}|${JSON.stringify(b.fieldMapping)}|${JSON.stringify(b.filters ?? [])}|${JSON.stringify(b.joins ?? [])}|${JSON.stringify(studio.pageParams)}|${b.config.rowLimit ?? ''}|${b.config.distinctColumn ?? ''}|${b.config.sortColumn ?? ''}|${b.config.sortDirection ?? ''}`
         : null
     },
     (key: string | null, prev: string | null) => {

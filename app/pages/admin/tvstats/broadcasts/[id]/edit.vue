@@ -127,10 +127,7 @@ async function submitAudience() {
         <div class="space-y-4">
           <div>
             <label class="mb-1 block text-xs font-medium text-slate-600">Type de diffusion</label>
-            <select v-model="form.broadcast_type" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400 bg-white">
-              <option value="">— Non renseigné —</option>
-              <option v-for="bt in BROADCAST_TYPES" :key="bt.value" :value="bt.value">{{ bt.label }}</option>
-            </select>
+            <AppSelect v-model="form.broadcast_type" :options="BROADCAST_TYPES" placeholder="— Non renseigné —" />
           </div>
           <div class="grid grid-cols-2 gap-4">
             <div>

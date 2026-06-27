@@ -74,6 +74,10 @@ export interface BlockConfig {
   sortable?: boolean
   showPagination?: boolean
   pageSize?: number
+  rowLimit?: number | null
+  distinctColumn?: string | null
+  sortColumn?: string | null
+  sortDirection?: 'asc' | 'desc' | null
   orientation?: 'vertical' | 'horizontal'
   // KPI comparison
   comparisonFormat?: 'percent' | 'number' | 'currency'
@@ -83,6 +87,8 @@ export interface BlockConfig {
   content?: string
   fontFamily?: string
   fontSize?: number
+  lineHeight?: number
+  letterSpacing?: number
   textAlign?: 'left' | 'center' | 'right' | 'justify'
   headingLevel?: 1 | 2 | 3
   calloutColor?: string
