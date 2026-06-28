@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useActiveEditor } from '@/composables/useActiveEditor'
 import { useStudioStore } from '@/stores/studio'
 import { TEXT_BLOCK_TYPES } from '@/types/studio'
+import ColumnPickerModal from './ui/ColumnPickerModal.vue'
 
 const { activeEditor, editorVersion } = useActiveEditor()
 const studio = useStudioStore()
@@ -183,6 +184,16 @@ function onLineHeightInput(e: Event) {
   if (!isNaN(val) && val > 0 && selectedBlock.value) {
     studio.updateBlockConfig(selectedBlock.value.id, { lineHeight: val })
   }
+}
+
+// ── Insert dynamic value modal ─────────────────────────────────────────────────
+
+const showCodeModal = ref(false)
+
+function onPickValue(value: string) {
+  const cleaned = value.replace(/\{\{/g, '').replace(/\}\}/g, '')
+  activeEditor.value?.chain().focus().insertContent(`{{${cleaned}}}`).run()
+  showCodeModal.value = false
 }
 
 // ── Copy format ───────────────────────────────────────────────────────────────
@@ -576,6 +587,16 @@ function handleCopyFormat() {
 
     <div class="w-px h-5 bg-[var(--color-secondary)] mx-1.5 flex-shrink-0" />
 
+    <!-- Insert dynamic value -->
+    <button
+      class="h-7 px-2 flex items-center gap-1 rounded-lg text-xs font-mono font-semibold transition-colors flex-shrink-0"
+      :class="showCodeModal ? 'bg-[var(--color-primary)]/15 text-[var(--color-primary)]' : 'text-slate-500 hover:bg-[var(--color-primary)]/8 hover:text-[var(--color-primary)]'"
+      title="Insérer une valeur dynamique"
+      @mousedown.prevent="showCodeModal = true"
+    >{ }</button>
+
+    <div class="w-px h-5 bg-[var(--color-secondary)] mx-1.5 flex-shrink-0" />
+
     <!-- Copy format -->
     <button
       class="h-7 px-2 flex items-center gap-1 rounded-lg text-xs transition-colors flex-shrink-0"
@@ -592,4 +613,13 @@ function handleCopyFormat() {
       <span>{{ isCopyMode ? 'Coller' : 'Copier' }}</span>
     </button>
   </div>
+
+  <!-- Code / dynamic value modal -->
+  <ColumnPickerModal
+    :show="showCodeModal"
+    :block="selectedBlock!"
+    mode="expression"
+    @update:model-value="onPickValue"
+    @close="showCodeModal = false"
+  />
 </template>

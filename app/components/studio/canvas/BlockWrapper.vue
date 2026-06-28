@@ -14,6 +14,7 @@ const isText = computed(() => isTextBlock(props.block.type))
 const blockLabel: Record<string, string> = {
   bar: 'Barres', line: 'Lignes', table: 'Tableau', kpi: 'KPI', pie: 'Camembert',
   heading: 'Titre', paragraph: 'Paragraphe', quote: 'Citation', callout: 'Encadré',
+  image: 'Image', video: 'Vidéo', button: 'Bouton', 'link-card': 'Lien', retenir: 'À retenir',
 }
 </script>
 

@@ -1,18 +1,11 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import { useStudioStore } from '@/stores/studio'
-import type { SidebarLeftTab, StudioBlock } from '@/types/studio'
+import type { SidebarLeftTab } from '@/types/studio'
 import SidebarBlocks from './sidebar/SidebarBlocks.vue'
 import SidebarLayouts from './sidebar/SidebarLayouts.vue'
 import SidebarDataSources from './sidebar/SidebarDataSources.vue'
-import SidebarVariables from './sidebar/SidebarVariables.vue'
 
 const studio = useStudioStore()
-
-// Show a badge on Variables tab when on a template page with configured search blocks
-const hasVariables = computed(() =>
-  studio.blocks.some((b: StudioBlock) => b.type === 'search' && !!b.fieldMapping.targetPageId),
-)
 
 const tabs: { id: SidebarLeftTab; label: string; icon: string }[] = [
   {
@@ -29,11 +22,6 @@ const tabs: { id: SidebarLeftTab; label: string; icon: string }[] = [
     id: 'sources',
     label: 'Données',
     icon: 'M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 5.625c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125',
-  },
-  {
-    id: 'variables',
-    label: 'Variables',
-    icon: 'M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5',
   },
 ]
 </script>
@@ -55,11 +43,6 @@ const tabs: { id: SidebarLeftTab; label: string; icon: string }[] = [
         <path stroke-linecap="round" stroke-linejoin="round" :d="tab.icon" />
       </svg>
       <span class="text-[9px] font-semibold tracking-wide">{{ tab.label }}</span>
-      <!-- Badge dot for Variables when search blocks exist -->
-      <span
-        v-if="tab.id === 'variables' && hasVariables"
-        class="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-amber-400"
-      />
     </button>
   </nav>
 
@@ -89,7 +72,6 @@ const tabs: { id: SidebarLeftTab; label: string; icon: string }[] = [
         <SidebarBlocks     v-if="studio.activeLeftTab === 'blocks'" />
         <SidebarLayouts    v-else-if="studio.activeLeftTab === 'layouts'" />
         <SidebarDataSources v-else-if="studio.activeLeftTab === 'sources'" />
-        <SidebarVariables  v-else-if="studio.activeLeftTab === 'variables'" />
       </div>
     </div>
   </aside>

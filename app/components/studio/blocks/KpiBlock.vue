@@ -29,13 +29,12 @@ const formattedValue = computed(() => {
   return new Intl.NumberFormat('fr-FR').format(num)
 })
 
-// ─── Comparison value (separate query with its own filters) ───────────────────
+// ─── Comparison value ─────────────────────────────────────────────────────────
 
-const compData  = ref<BlockQueryResult | null>(null)
-const compError = ref<string | null>(null)
+const compData    = ref<BlockQueryResult | null>(null)
+const compError   = ref<string | null>(null)
 const compLoading = ref(false)
 
-// || instead of ?? so that empty string ("same as main") falls back to valueCol
 const compCol = computed(() => props.block.fieldMapping.comparisonColumn || valueCol.value)
 
 const hasComparisonSetup = computed(() =>
@@ -50,36 +49,23 @@ async function loadComparison() {
     return
   }
   const col = compCol.value
-  if (!col) {
-    compData.value = null
-    return
-  }
+  if (!col) { compData.value = null; return }
 
   compLoading.value = true
   compError.value   = null
   try {
     const filters = (props.block.comparisonFilters ?? []).filter((f: BlockFilter) => f.column && f.value)
-    compData.value = await fetchBlockData(props.block.datasetId, {
-      columns: [col],
-      limit: 500,
-      filters,
-    })
-  } catch (e) {
-    console.error('[KPI comparison] fetch error:', e)
-    compError.value = 'Erreur de chargement de la comparaison'
+    compData.value = await fetchBlockData(props.block.datasetId, { columns: [col], limit: 500, filters })
+  } catch {
+    compError.value = 'Erreur de chargement'
     compData.value  = null
   } finally {
     compLoading.value = false
   }
 }
 
-// Use deep watch + array form so Vue reliably tracks nested comparisonFilters mutations
 watch(
-  [
-    () => props.block.datasetId,
-    () => props.block.fieldMapping.comparisonColumn,
-    () => props.block.comparisonFilters,
-  ],
+  [() => props.block.datasetId, () => props.block.fieldMapping.comparisonColumn, () => props.block.comparisonFilters],
   loadComparison,
   { immediate: true, deep: true },
 )
@@ -105,9 +91,8 @@ const delta = computed(() => {
 const trendLabel = computed(() => {
   const d = delta.value
   if (!d) return null
-  const fmt = props.block.config.comparisonFormat ?? 'percent'
+  const fmt  = props.block.config.comparisonFormat ?? 'percent'
   const sign = d.diff >= 0 ? '+' : ''
-
   if (fmt === 'percent') {
     if (d.prev === 0) return `${sign}${d.diff > 0 ? '∞' : '0'} %`
     const pct = (d.diff / Math.abs(d.prev)) * 100
@@ -124,16 +109,26 @@ const isPositive = computed(() => (delta.value?.diff ?? 0) >= 0)
 </script>
 
 <template>
-  <div class="h-full flex flex-col justify-center p-4">
-    <div v-if="isLoading" class="flex items-center justify-center">
+  <div class="relative h-full flex flex-col justify-between overflow-hidden p-5 sm:p-6">
+    <!-- Accent bar top (trend indicator) -->
+    <div
+      v-if="hasComparisonSetup && trendLabel"
+      class="absolute inset-x-0 top-0 h-0.5 rounded-t"
+      :class="isPositive ? 'bg-emerald-400' : 'bg-red-400'"
+    />
+
+    <!-- Loading -->
+    <div v-if="isLoading" class="flex items-center justify-center h-full py-6">
       <span class="text-sm text-slate-400">Chargement…</span>
     </div>
 
-    <div v-else-if="error" class="flex items-center justify-center">
+    <!-- Error -->
+    <div v-else-if="error" class="flex items-center justify-center h-full py-6">
       <span class="text-sm text-red-500">{{ error }}</span>
     </div>
 
-    <div v-else-if="!block.datasetId || !valueCol" class="flex flex-col items-center justify-center gap-2 text-slate-400 h-full">
+    <!-- Empty state -->
+    <div v-else-if="!block.datasetId || !valueCol" class="flex flex-col items-center justify-center gap-2 h-full py-6 text-slate-400">
       <svg class="w-8 h-8 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5.25 8.25h15m-16.5 7.5h15m-1.8-13.5-3.9 19.5m-2.1-19.5-3.9 19.5" />
       </svg>
@@ -141,24 +136,26 @@ const isPositive = computed(() => (delta.value?.diff ?? 0) >= 0)
     </div>
 
     <template v-else>
-      <p v-if="block.config.title" class="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-2">
+      <!-- Label -->
+      <p v-if="block.config.title" class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400 mb-3">
         {{ block.config.title }}
       </p>
 
+      <!-- Main value -->
       <div class="flex items-end gap-3 flex-wrap">
-        <span class="text-4xl font-bold text-slate-900 tabular-nums leading-none">
+        <span class="mono text-4xl font-bold text-slate-900 tabular-nums leading-none sm:text-5xl">
           {{ block.config.prefix }}{{ formattedValue }}{{ block.config.suffix }}
         </span>
 
         <template v-if="hasComparisonSetup">
-          <span v-if="compLoading" class="mb-1 text-xs text-slate-400">…</span>
+          <span v-if="compLoading" class="mb-1 text-xs text-slate-400 animate-pulse">…</span>
           <span v-else-if="compError" class="mb-1 text-xs text-red-400">!</span>
           <span
             v-else-if="trendLabel"
-            class="mb-1 text-sm font-semibold flex items-center gap-1"
-            :class="isPositive ? 'text-emerald-600' : 'text-red-500'"
+            class="mb-1 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-sm font-semibold"
+            :class="isPositive ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'"
           >
-            <svg class="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <svg class="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
               <path v-if="isPositive" d="M10.293 3.293a1 1 0 0 1 1.414 0l6 6a1 1 0 0 1-1.414 1.414L11 5.414V17a1 1 0 1 1-2 0V5.414L4.707 10.707a1 1 0 0 1-1.414-1.414l6-6z" />
               <path v-else d="M9.707 16.707a1 1 0 0 1-1.414 0l-6-6a1 1 0 0 1 1.414-1.414L9 14.586V3a1 1 0 0 1 2 0v11.586l4.293-4.293a1 1 0 0 1 1.414 1.414l-6 6z" />
             </svg>
@@ -167,6 +164,9 @@ const isPositive = computed(() => (delta.value?.diff ?? 0) >= 0)
           <span v-else class="mb-1 text-xs text-slate-400">— %</span>
         </template>
       </div>
+
+      <!-- Bottom gradient rule -->
+      <div class="mt-4 h-px bg-gradient-to-r from-slate-100 to-transparent" />
     </template>
   </div>
 </template>

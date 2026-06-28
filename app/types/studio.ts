@@ -12,10 +12,12 @@ export interface StudioContent {
 
 // ─── Blocks ───────────────────────────────────────────────────────────────────
 
-export type BlockType = 'bar' | 'line' | 'pie' | 'table' | 'kpi' | 'heading' | 'paragraph' | 'quote' | 'callout' | 'search'
+export type BlockType = 'bar' | 'line' | 'pie' | 'table' | 'kpi' | 'heading' | 'paragraph' | 'quote' | 'callout' | 'search' | 'image' | 'video' | 'button' | 'link-card' | 'retenir'
 
 export const TEXT_BLOCK_TYPES: BlockType[] = ['heading', 'paragraph', 'quote', 'callout']
+export const EDITORIAL_BLOCK_TYPES: BlockType[] = ['image', 'video', 'button', 'link-card', 'retenir']
 export function isTextBlock(type: BlockType) { return TEXT_BLOCK_TYPES.includes(type) }
+export function isEditorialBlock(type: BlockType) { return EDITORIAL_BLOCK_TYPES.includes(type) }
 
 export interface BlockDefinition {
   type: BlockType
@@ -93,6 +95,31 @@ export interface BlockConfig {
   textAlign?: 'left' | 'center' | 'right' | 'justify'
   headingLevel?: 1 | 2 | 3
   calloutColor?: string
+  // Image block config
+  imageUrl?: string
+  imageAlt?: string
+  imageCaption?: string
+  imageAlign?: 'left' | 'center' | 'right'
+  imageWidth?: 'sm' | 'md' | 'lg' | 'full'
+  // Video block config
+  videoUrl?: string
+  videoCaption?: string
+  // Button block config
+  buttonLabel?: string
+  buttonUrl?: string
+  buttonVariant?: 'primary' | 'secondary' | 'outline'
+  buttonAlign?: 'left' | 'center' | 'right'
+  buttonSize?: 'sm' | 'md' | 'lg'
+  // Link card block config
+  linkUrl?: string
+  linkTitle?: string
+  linkDescription?: string
+  linkImage?: string
+  linkDomain?: string
+  // Retenir block config
+  retenirTitle?: string
+  retenirItems?: string[]
+  retenirColor?: 'violet' | 'emerald' | 'amber' | 'blue'
 }
 
 export type FilterOperator = '=' | '!=' | '>' | '>=' | '<' | '<=' | 'contains' | 'not_contains'
@@ -233,7 +260,7 @@ export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 // ─── Sidebar tabs ─────────────────────────────────────────────────────────────
 
-export type SidebarLeftTab = 'blocks' | 'layouts' | 'sources' | 'variables'
+export type SidebarLeftTab = 'blocks' | 'layouts' | 'sources'
 
 // ─── Sections (canvas model) ──────────────────────────────────────────────────
 
@@ -307,6 +334,17 @@ export const BLOCK_CATEGORIES: BlockCategoryDef[] = [
       { type: 'table', label: 'Tableau', description: 'Données tabulaires paginées',   iconPath: 'M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-1.5A1.125 1.125 0 0 1 18 18.375' },
       { type: 'kpi',    label: 'KPI',      description: 'Indicateur clé avec tendance', iconPath: 'M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z' },
       { type: 'search', label: 'Recherche', description: 'Barre de recherche drill-down', iconPath: 'M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z' },
+    ],
+  },
+  {
+    id: 'editorial',
+    label: 'Éditorial',
+    blocks: [
+      { type: 'image',     label: 'Image',     description: 'Image avec légende',              iconPath: 'M2.25 15.75l5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0z' },
+      { type: 'video',     label: 'Vidéo',     description: 'YouTube, Vimeo, Dailymotion',     iconPath: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0zM15.91 11.672a.375.375 0 0 1 0 .656l-5.603 3.113a.375.375 0 0 1-.557-.328V8.887c0-.286.307-.466.557-.328l5.603 3.113z' },
+      { type: 'button',    label: 'Bouton',    description: 'Bouton CTA cliquable',             iconPath: 'M15.042 21.672 13.684 16.6m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672zm-7.518-.267A8.25 8.25 0 1 1 20.25 10.5M8.288 14.212A5.25 5.25 0 1 1 17.25 10.5' },
+      { type: 'link-card', label: 'Lien',      description: 'Carte de prévisualisation de lien', iconPath: 'M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244' },
+      { type: 'retenir',   label: 'À retenir', description: 'Bloc de points clés mis en avant', iconPath: 'M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5z' },
     ],
   },
 ]

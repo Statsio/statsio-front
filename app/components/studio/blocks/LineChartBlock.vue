@@ -98,6 +98,7 @@ const chartData = computed(() => {
 })
 
 const { scheduleResize } = useChart(canvasRef, 'line', () => chartData.value, () => ({
+  indexAxis: props.block.config.orientation === 'horizontal' ? 'y' : 'x',
   plugins: {
     legend: { display: hasMultipleSeries.value, position: 'bottom' as const },
     tooltip: { mode: 'index' as const, intersect: false },
