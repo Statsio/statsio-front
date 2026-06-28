@@ -5,6 +5,7 @@ import AuthGoogleButton from '@/components/auth/AuthGoogleButton.vue'
 import AuthInputField from '@/components/login/AuthInputField.vue'
 import AppButton from '@/components/ui/AppButton.vue'
 import { getErrorMessage, getValidationErrors, isUnauthorizedError } from '@/lib/http-errors'
+import { AUTH_REDIRECT_KEY } from '@/lib/auth-storage'
 import { useAuthStore } from '@/stores/auth'
 
 const email = ref('')
@@ -18,8 +19,6 @@ const authStore = useAuthStore()
 
 const isFormValid = computed(() => email.value.trim().length > 0 && password.value.trim().length > 0)
 
-const REDIRECT_KEY = 'statsio.auth.redirectAfterLogin'
-
 function normalizeRedirectTarget(raw: unknown): string | null {
   const target = typeof raw === 'string' ? raw : ''
   if (!target || !target.startsWith('/') || target.startsWith('//')) return null
@@ -28,18 +27,18 @@ function normalizeRedirectTarget(raw: unknown): string | null {
 
 const redirectTarget = computed(() => {
   try {
-    const fromSession = normalizeRedirectTarget(window.sessionStorage.getItem(REDIRECT_KEY))
+    const fromSession = normalizeRedirectTarget(window.sessionStorage.getItem(AUTH_REDIRECT_KEY))
     if (fromSession) return fromSession
   } catch {}
   try {
-    return normalizeRedirectTarget(window.localStorage.getItem(REDIRECT_KEY))
+    return normalizeRedirectTarget(window.localStorage.getItem(AUTH_REDIRECT_KEY))
   } catch {}
   return null
 })
 
 const clearStoredRedirect = () => {
-  try { window.sessionStorage.removeItem(REDIRECT_KEY) } catch {}
-  try { window.localStorage.removeItem(REDIRECT_KEY) } catch {}
+  try { window.sessionStorage.removeItem(AUTH_REDIRECT_KEY) } catch {}
+  try { window.localStorage.removeItem(AUTH_REDIRECT_KEY) } catch {}
 }
 
 const handleGoogleSuccess = async () => {

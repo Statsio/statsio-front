@@ -27,7 +27,7 @@ Chart.register(
   Legend,
 )
 
-const PALETTE = [
+export const PALETTE = [
   '#8b5cf6', '#3b82f6', '#10b981', '#f59e0b',
   '#ef4444', '#06b6d4', '#ec4899', '#84cc16',
 ]
@@ -62,6 +62,11 @@ export function useChart(
   function updateChart() {
     if (!chart) return
     const newData = dataGetter()
+    // Rebuild when dataset count changes so options (legend, etc.) are re-applied
+    if (chart.data.datasets.length !== newData.datasets.length) {
+      buildChart()
+      return
+    }
     chart.data = newData
     chart.update('none')
   }

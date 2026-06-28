@@ -130,6 +130,9 @@ onMounted(async () => {
   try {
     const data = await fetchPublicStatsDataDocument(docSlug.value)
     doc.value = data
+    // Save params that may have been set by SearchBlock's onSelect before initPage clears them
+    // (e.g. when navigating from index.vue → [pageSlug].vue)
+    const savedParams = { ...studio.pageParams }
     studio.initPage(
       { id: data.id, type: 'statsdata', title: data.title, status: data.status as 'draft' | 'published', slug: docSlug.value },
       data.sections, data.blocks, data.pages,
@@ -140,13 +143,19 @@ onMounted(async () => {
       : (studio.pages.find((p: StudioDocumentPage) => !p.isTemplate) ?? studio.pages[0])
     if (target) {
       const urlParams = queryToParams(route.query)
+      const hasSavedParams = Object.keys(savedParams).length > 0
       // Template accessed directly without URL params → redirect to default page
-      if (target.isTemplate && !Object.keys(urlParams).length) {
+      if (target.isTemplate && !Object.keys(urlParams).length && !hasSavedParams) {
         redirectToDefault()
         return
       }
-      studio.switchPage(target.id)
-      studio.setPageParams(urlParams)
+      if (target.isTemplate && hasSavedParams) {
+        studio.switchPageKeepParams(target.id)
+        studio.setPageParams({ ...savedParams, ...urlParams })
+      } else {
+        studio.switchPage(target.id)
+        studio.setPageParams(urlParams)
+      }
     }
   } catch {
     error.value = 'Document introuvable ou non publié.'

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { useChart } from '@/composables/useChart'
+import { useChart, PALETTE } from '@/composables/useChart'
 import { useBlockData } from '@/composables/useBlockData'
 import { useStudioStore } from '@/stores/studio'
 import type { StudioBlock } from '@/types/studio'
@@ -11,19 +11,84 @@ const studio = useStudioStore()
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const { data, isLoading, error } = useBlockData(() => props.block, props.readonly)
 
+/** Resolved list of Y columns — prefers yAxes (multi), falls back to single yAxis */
+const yColumns = computed(() => {
+  const axes = props.block.fieldMapping.yAxes
+  if (axes?.length) return axes
+  const single = props.block.fieldMapping.yAxis
+  return single ? [single] : []
+})
+
+const hasMultipleSeries = computed(
+  () => Boolean(props.block.fieldMapping.series) || yColumns.value.length >= 2,
+)
+
 const chartData = computed(() => {
   const rows = data.value?.rows ?? []
   const xKey = props.block.fieldMapping.xAxis ?? ''
-  const yKey = props.block.fieldMapping.yAxis ?? ''
+  const seriesKey = props.block.fieldMapping.series
+  const yCols = yColumns.value
 
+  // ── Long format: group by series column ──
+  if (seriesKey && rows.length > 0) {
+    const groupLimit = props.block.config.rowLimit ?? 500
+    const allLabels = [...new Set(rows.map((r: Record<string, unknown>) => String(r[xKey] ?? '')))]
+    const labels = allLabels.slice(0, groupLimit)
+    const uniqueSeries = [...new Set(rows.map((r: Record<string, unknown>) => String(r[seriesKey] ?? '')))]
+    const yKey = yCols[0] ?? ''
+
+    return {
+      labels,
+      datasets: uniqueSeries.map((seriesVal, i) => {
+        const color = PALETTE[i % PALETTE.length]
+        return {
+          label: seriesVal,
+          data: labels.map((label) => {
+            const row = rows.find(
+              (r: Record<string, unknown>) => String(r[xKey]) === label && String(r[seriesKey]) === seriesVal,
+            )
+            return Number(row?.[yKey] ?? 0)
+          }),
+          borderColor: color,
+          backgroundColor: color + '22',
+          tension: props.block.config.smooth ? 0.4 : 0,
+          fill: false,
+          pointRadius: 3,
+        }
+      }),
+    }
+  }
+
+  // ── Wide format: one dataset per Y column ──
+  if (yCols.length >= 2) {
+    return {
+      labels: rows.map((r: Record<string, unknown>) => String(r[xKey] ?? '')),
+      datasets: yCols.map((col, i) => {
+        const color = PALETTE[i % PALETTE.length]
+        return {
+          label: col,
+          data: rows.map((r: Record<string, unknown>) => Number(r[col] ?? 0)),
+          borderColor: color,
+          backgroundColor: color + '22',
+          tension: props.block.config.smooth ? 0.4 : 0,
+          fill: false,
+          pointRadius: 3,
+        }
+      }),
+    }
+  }
+
+  // ── Single Y column ──
+  const yKey = yCols[0] ?? ''
+  const color = props.block.config.colors?.[0] ?? PALETTE[0]
   return {
     labels: rows.map((r: Record<string, unknown>) => String(r[xKey] ?? '')),
     datasets: [
       {
         label: props.block.config.title ?? yKey,
         data: rows.map((r: Record<string, unknown>) => Number(r[yKey] ?? 0)),
-        borderColor: props.block.config.colors?.[0] ?? '#8b5cf6',
-        backgroundColor: (props.block.config.colors?.[0] ?? '#8b5cf6') + '22',
+        borderColor: color,
+        backgroundColor: color + '22',
         tension: props.block.config.smooth ? 0.4 : 0,
         fill: true,
         pointRadius: 3,
@@ -33,14 +98,20 @@ const chartData = computed(() => {
 })
 
 const { scheduleResize } = useChart(canvasRef, 'line', () => chartData.value, () => ({
-  plugins: { legend: { display: false } },
+  plugins: {
+    legend: { display: hasMultipleSeries.value, position: 'bottom' as const },
+    tooltip: { mode: 'index' as const, intersect: false },
+  },
 }))
 
 watch(() => [studio.isPanelOpen, studio.selectedBlockId !== null], scheduleResize)
 </script>
 
 <template>
-  <div class="relative w-full h-48 sm:h-64 overflow-hidden">
+  <div
+    class="relative w-full overflow-hidden"
+    :class="hasMultipleSeries ? 'h-64 sm:h-80' : 'h-48 sm:h-64'"
+  >
     <div v-if="isLoading" class="absolute inset-0 flex items-center justify-center bg-white/70">
       <span class="text-sm text-slate-400">Chargement…</span>
     </div>
