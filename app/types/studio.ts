@@ -48,6 +48,7 @@ export interface SearchJoin {
 export interface FieldMapping {
   xAxis?: string
   yAxis?: string
+  yAxes?: string[]
   label?: string
   value?: string
   series?: string

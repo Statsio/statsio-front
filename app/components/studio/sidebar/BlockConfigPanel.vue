@@ -137,6 +137,33 @@ function updateDataset(id: string)                  { if (!block.value) return; 
 
 const needsXY       = computed(() => block.value?.type === 'bar' || block.value?.type === 'line')
 const needsLabelVal = computed(() => block.value?.type === 'pie')
+
+// ─── Y-axes management (multi-column for bar/line) ────────────────────────────
+
+const yAxes = computed<string[]>(() => {
+  const axes = block.value?.fieldMapping.yAxes
+  if (axes?.length) return axes
+  const single = block.value?.fieldMapping.yAxis
+  return single ? [single] : []
+})
+
+const availableYColumns = computed(() =>
+  allColumnNames.value
+    .filter((c: string) => !yAxes.value.includes(c))
+    .map((c: string) => ({ value: c, label: c })),
+)
+
+function addYAxis(col: string) {
+  if (!block.value || !col) return
+  const updated = [...yAxes.value, col]
+  studio.updateBlockFieldMapping(block.value.id, { yAxes: updated, yAxis: updated[0] ?? '' })
+}
+
+function removeYAxis(col: string) {
+  if (!block.value) return
+  const updated = yAxes.value.filter((c: string) => c !== col)
+  studio.updateBlockFieldMapping(block.value.id, { yAxes: updated, yAxis: updated[0] ?? '' })
+}
 const needsValue    = computed(() => block.value?.type === 'kpi')
 const isTable       = computed(() => block.value?.type === 'table')
 
@@ -935,15 +962,53 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
                   />
                 </div>
                 <div>
-                  <label class="cfg-label">Axe Y <span class="text-slate-400 font-normal normal-case tracking-normal">valeurs</span></label>
+                  <label class="cfg-label">
+                    Axe Y <span class="text-slate-400 font-normal normal-case tracking-normal">valeurs</span>
+                    <span v-if="yAxes.length >= 2" class="ml-1.5 min-w-4 h-4 px-1 rounded-full bg-blue-500 text-white text-[9px] flex items-center justify-center font-bold">{{ yAxes.length }}</span>
+                  </label>
+                  <div class="flex flex-wrap gap-1 mt-1">
+                    <span
+                      v-for="col in yAxes" :key="col"
+                      class="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-[11px] font-medium text-blue-700"
+                    >
+                      {{ col }}
+                      <button
+                        class="flex items-center justify-center w-3.5 h-3.5 rounded-full hover:bg-blue-200 transition-colors"
+                        @click="removeYAxis(col)"
+                      >
+                        <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </span>
+                    <AppSelect
+                      v-if="availableYColumns.length > 0"
+                      model-value=""
+                      :options="availableYColumns"
+                      :placeholder="yAxes.length === 0 ? '— Choisir une colonne —' : '+ Ajouter une colonne…'"
+                      size="sm"
+                      :button-class="yAxes.length > 0 ? '!rounded-full !border-dashed !border-blue-200 !text-blue-500 hover:!border-blue-400 !bg-white !px-2.5 !py-0.5 !min-h-0 !text-[11px]' : undefined"
+                      teleport
+                      @update:model-value="addYAxis($event as string)"
+                    />
+                  </div>
+                  <p v-if="yAxes.length >= 2" class="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
+                    Chaque colonne devient une ligne distincte avec sa propre couleur.
+                  </p>
+                </div>
+                <div v-if="!block.fieldMapping.yAxes?.length || block.fieldMapping.yAxes.length < 2">
+                  <label class="cfg-label">Série <span class="text-slate-400 font-normal normal-case tracking-normal">groupement</span></label>
                   <AppSelect
-                    :model-value="block.fieldMapping.yAxis ?? ''"
+                    :model-value="block.fieldMapping.series ?? ''"
                     :groups="columnGroups"
-                    placeholder="— Choisir une colonne —"
+                    placeholder="— Série unique —"
                     size="sm"
                     teleport
-                    @update:model-value="updateMappingWithJoinSync('yAxis', $event as string)"
+                    @update:model-value="updateMappingWithJoinSync('series', $event as string)"
                   />
+                  <p v-if="block.fieldMapping.series" class="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
+                    Chaque valeur unique de cette colonne devient une série.
+                  </p>
                 </div>
               </div>
             </div>
@@ -1176,14 +1241,28 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
               </div>
             </button>
             <div v-show="open('distinct')" class="accordion-body flex flex-col gap-1.5">
-              <AppSelect
-                :model-value="block.config.distinctColumn ?? ''"
-                :groups="columnGroups"
-                placeholder="— Aucun —"
-                size="sm"
-                teleport
-                @update:model-value="updateConfig('distinctColumn', ($event as string) || null)"
-              />
+              <div class="flex items-center gap-1.5">
+                <div class="flex-1 min-w-0">
+                  <AppSelect
+                    :model-value="block.config.distinctColumn ?? ''"
+                    :groups="columnGroups"
+                    placeholder="— Aucun —"
+                    size="sm"
+                    teleport
+                    @update:model-value="updateConfig('distinctColumn', ($event as string) || null)"
+                  />
+                </div>
+                <button
+                  v-if="block.config.distinctColumn"
+                  class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:border-red-200 hover:bg-red-50 hover:text-red-500 transition-colors"
+                  title="Supprimer le distinct"
+                  @click="updateConfig('distinctColumn', null)"
+                >
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
               <p class="text-[11px] text-slate-400 leading-relaxed">Garde une seule ligne par valeur unique de la colonne sélectionnée.</p>
             </div>
           </div>
@@ -1472,8 +1551,8 @@ function setUrlParamMapping(urlKey: string, sourceCol: string) {
             </div>
           </div>
 
-          <!-- Couleur principale (non table) -->
-          <div v-if="!isTable" class="accordion-item">
+          <!-- Couleur principale (non table, non multi-séries) -->
+          <div v-if="!isTable && !block.fieldMapping.series" class="accordion-item">
             <button class="accordion-header" @click="toggle('color')">
               <span>Couleur principale</span>
               <div class="flex items-center gap-2">

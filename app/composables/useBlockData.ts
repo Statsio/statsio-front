@@ -33,9 +33,13 @@ export function useBlockData(block: () => StudioBlock | null, readonly = false) 
     }
 
     const columns = resolveColumns(b)
+    const groupLimit = b.config.rowLimit ?? 500
+    // When series grouping is active, each X-group produces N rows (one per series value).
+    // Fetch up to 5000 rows so the chart can slice to groupLimit unique X labels.
+    const fetchLimit = b.fieldMapping.series ? Math.min(groupLimit * 100, 5000) : groupLimit
     const params = {
       columns,
-      limit: b.config.rowLimit ?? 500,
+      limit: fetchLimit,
       distinctColumn: b.config.distinctColumn ?? undefined,
       sortColumn: b.config.sortColumn ?? undefined,
       sortDirection: b.config.sortDirection ?? undefined,
@@ -81,7 +85,9 @@ function resolveColumns(block: StudioBlock): string[] {
   const cols = new Set<string>()
 
   if (m.xAxis) cols.add(m.xAxis)
-  if (m.yAxis) cols.add(m.yAxis)
+  if (m.yAxes?.length) m.yAxes.forEach((c) => cols.add(c))
+  else if (m.yAxis) cols.add(m.yAxis)
+  if (m.series) cols.add(m.series)
   if (m.label) cols.add(m.label)
   if (m.value) cols.add(m.value)
   if (m.valueColumn) cols.add(m.valueColumn)

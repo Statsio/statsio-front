@@ -1,5 +1,7 @@
 import type { AuthSession, AuthUser, PersistMode } from '@/types/auth'
 
+export const AUTH_REDIRECT_KEY = 'statsio.auth.redirectAfterLogin'
+
 const AUTH_ACCESS_TOKEN_KEY = 'statsio.auth.accessToken'
 const AUTH_REFRESH_TOKEN_KEY = 'statsio.auth.refreshToken'
 const AUTH_TOKEN_TYPE_KEY = 'statsio.auth.tokenType'

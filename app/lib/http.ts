@@ -1,5 +1,5 @@
 import axios, { type AxiosInstance, type InternalAxiosRequestConfig, type AxiosResponse } from 'axios'
-import { clearStoredToken, getStoredToken, storeSession } from '@/lib/auth-storage'
+import { AUTH_REDIRECT_KEY, clearStoredToken, getStoredToken, storeSession } from '@/lib/auth-storage'
 import type { ApiAuthResponse, AuthSession, PersistMode } from '@/types/auth'
 
 let _authApiBaseUrl = 'http://localhost:8080/api/auth'
@@ -21,7 +21,6 @@ const AUTHLESS_ENDPOINTS = new Set(['/login', '/register', '/google', REFRESH_EN
 
 let refreshSessionPromise: Promise<AuthSession | null> | null = null
 let didRedirectToLogin = false
-const REDIRECT_KEY = 'statsio.auth.redirectAfterLogin'
 
 const redirectToLogin = () => {
   if (!import.meta.client) return
@@ -30,8 +29,8 @@ const redirectToLogin = () => {
   if (path.startsWith('/login')) return
   didRedirectToLogin = true
   const redirect = `${window.location.pathname}${window.location.search}${window.location.hash}`
-  try { window.sessionStorage.setItem(REDIRECT_KEY, redirect) } catch { /* ignore */ }
-  try { window.localStorage.setItem(REDIRECT_KEY, redirect) } catch { /* ignore */ }
+  try { window.sessionStorage.setItem(AUTH_REDIRECT_KEY, redirect) } catch { /* ignore */ }
+  try { window.localStorage.setItem(AUTH_REDIRECT_KEY, redirect) } catch { /* ignore */ }
   window.location.assign('/login')
 }
 
