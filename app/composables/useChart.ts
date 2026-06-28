@@ -97,6 +97,11 @@ export function useChart(
     else buildChart()
   }, { deep: true })
 
+  // Rebuild chart when options change (orientation, legend visibility, etc.)
+  if (optionsGetter) {
+    watch(optionsGetter, () => buildChart(), { deep: true })
+  }
+
   // Force resize after sidebar transitions complete (200ms = transition duration)
   function scheduleResize() {
     setTimeout(() => chart?.resize(), 220)

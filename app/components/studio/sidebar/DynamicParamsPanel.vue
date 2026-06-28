@@ -65,7 +65,7 @@ function tokenDisplay(name: string) {
 </script>
 
 <template>
-  <div v-if="isTemplate && availableTokens.length > 0 && studio.activeLeftTab !== 'variables'" class="border-t border-slate-100 px-3 py-2.5 shrink-0">
+  <div v-if="isTemplate && availableTokens.length > 0" class="border-t border-slate-100 px-3 py-2.5 shrink-0">
     <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Variables disponibles</p>
     <div class="flex flex-wrap gap-1">
       <button

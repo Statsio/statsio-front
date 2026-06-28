@@ -29,7 +29,7 @@ const VariableHighlight = Extension.create({
             type PmState = { doc: PmDoc }
             const st = state as PmState
             const decos: Decoration[] = []
-            const re = /\{\{(\w+)\}\}/g
+            const re = /\{\{.+?\}\}/g
             st.doc.descendants((node: PmNode, pos: number) => {
               if (!node.isText || !node.text) return
               re.lastIndex = 0
@@ -53,7 +53,12 @@ const { setActiveEditor, clearActiveEditor } = useActiveEditor()
 // Substituted content: {{variable}} → pageParams value
 const resolvedContent = computed(() => {
   const raw = props.block.config.content || '<p></p>'
-  return raw.replace(/\{\{(\w+)\}\}/g, (match: string, key: string) => studio.pageParams[key] ?? match)
+  return raw.replace(/\{\{(.+?)\}\}/g, (match: string, key: string) => {
+    const direct = studio.pageParams[key]
+    if (direct !== undefined) return direct
+    // Fallback: resolve known pageParams names within the expression text
+    return key.replace(/\w+/g, (name) => studio.pageParams[name] ?? name)
+  })
 })
 
 const hasSubstitution = computed(() => resolvedContent.value !== (props.block.config.content || '<p></p>'))

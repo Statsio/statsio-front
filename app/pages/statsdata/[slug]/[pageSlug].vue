@@ -1,11 +1,11 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'default' })
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { fetchPublicStatsDataDocument } from '@/api/studio'
 import type { StatsDataDocument as ApiDoc } from '@/api/studio'
 import { useStudioStore } from '@/stores/studio'
-import { SECTION_LAYOUT_DEFINITIONS } from '@/types/studio'
+import { SECTION_LAYOUT_DEFINITIONS, isTextBlock, isEditorialBlock } from '@/types/studio'
 import type { StudioBlock, StudioDocumentPage } from '@/types/studio'
 import BlockRenderer from '@/components/studio/blocks/BlockRenderer.vue'
 
@@ -165,8 +165,41 @@ onMounted(async () => {
 })
 
 function resolveToken(str: string): string {
-  return str.replace(/\{\{(\w+)\}\}/g, (match, key) => studio.pageParams[key] ?? match)
+  return str.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
+    const direct = studio.pageParams[key]
+    if (direct !== undefined) return direct
+    // Fallback: resolve known pageParams names within the expression text
+    // e.g. {{SUM(annee, code_postal)}} → SUM(2025, 75000)
+    return key.replace(/\w+/g, (name) => studio.pageParams[name] ?? name)
+  })
 }
+
+// ─── GSAP scroll animations ───────────────────────────────────────────────────
+
+watch(loading, async (isLoading: boolean) => {
+  if (isLoading || error.value) return
+  if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  await nextTick()
+  try {
+    const [{ default: gsap }, { ScrollTrigger }] = await Promise.all([
+      import('gsap'),
+      import('gsap/ScrollTrigger'),
+    ])
+    gsap.registerPlugin(ScrollTrigger)
+    const els = document.querySelectorAll<HTMLElement>('[data-block-anim]')
+    els.forEach((el) => {
+      gsap.from(el, {
+        y: 28,
+        opacity: 0,
+        duration: 0.65,
+        ease: 'power2.out',
+        immediateRender: false,
+        scrollTrigger: { trigger: el, start: 'top 92%', once: true },
+      })
+    })
+    requestAnimationFrame(() => ScrollTrigger.refresh())
+  } catch { /* GSAP unavailable — content stays visible */ }
+})
 
 const isCopied = ref(false)
 function copyLink() {
@@ -245,18 +278,40 @@ function copyLink() {
                     :key="colIdx"
                     class="flex flex-col gap-3 sm:gap-4 min-w-0"
                   >
-                    <div
+                    <template
                       v-for="block in blocksInZone(section.id, colIdx)"
                       :key="block.id"
-                      class="min-w-0 bg-white rounded-[1.5rem] border border-slate-200 shadow-sm overflow-hidden"
                     >
-                      <div v-if="block.config.title" class="border-b border-slate-100 px-4 py-3 sm:px-5">
-                        <p class="text-sm font-semibold text-slate-800">{{ resolveToken(block.config.title) }}</p>
-                      </div>
-                      <div class="p-3 sm:p-4 min-w-0">
+                      <!-- Text blocks (heading, paragraph, quote, callout): no card wrapper -->
+                      <div
+                        v-if="isTextBlock(block.type)"
+                        data-block-anim
+                        class="min-w-0"
+                      >
                         <BlockRenderer :block="block" :readonly="true" />
                       </div>
-                    </div>
+
+                      <!-- Editorial blocks (image, video, button, link-card, retenir): no outer card -->
+                      <div
+                        v-else-if="isEditorialBlock(block.type)"
+                        data-block-anim
+                        class="min-w-0"
+                      >
+                        <BlockRenderer :block="block" :readonly="true" />
+                      </div>
+
+                      <!-- Data / chart blocks: white card with optional title header -->
+                      <div
+                        v-else
+                        data-block-anim
+                        class="min-w-0 bg-white rounded-[1.75rem] border border-slate-200 shadow-sm overflow-hidden"
+                      >
+                        <div v-if="block.config.title && block.type !== 'kpi'" class="border-b border-slate-100 px-5 py-3.5">
+                          <p class="text-sm font-semibold text-slate-800">{{ resolveToken(block.config.title) }}</p>
+                        </div>
+                        <BlockRenderer :block="block" :readonly="true" />
+                      </div>
+                    </template>
                   </div>
                 </div>
               </template>

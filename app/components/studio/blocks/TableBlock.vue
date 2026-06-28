@@ -59,16 +59,22 @@ function sortBy(col: string) {
 
     <template v-else>
       <div class="overflow-x-auto">
-        <table class="w-full min-w-[480px] text-xs border-collapse">
-          <thead class="sticky top-0 bg-white z-10">
+        <table class="w-full min-w-[480px] border-collapse">
+          <thead class="sticky top-0 z-10 bg-slate-50/80 backdrop-blur-sm">
             <tr>
               <th
                 v-for="col in visibleColumns"
                 :key="col"
-                class="px-3 py-2 text-left font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-200 cursor-pointer hover:text-slate-900 whitespace-nowrap"
+                class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400 border-b border-slate-100 whitespace-nowrap select-none"
+                :class="block.config.sortable ? 'cursor-pointer hover:text-slate-700 transition-colors' : ''"
                 @click="block.config.sortable && sortBy(col)"
               >
-                {{ col }}
+                <span class="flex items-center gap-1">
+                  {{ col }}
+                  <svg v-if="block.config.sortable" class="w-3 h-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15 12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" />
+                  </svg>
+                </span>
               </th>
             </tr>
           </thead>
@@ -76,12 +82,13 @@ function sortBy(col: string) {
             <tr
               v-for="(row, i) in pagedRows"
               :key="i"
-              class="hover:bg-slate-50 border-b border-slate-100 last:border-0"
+              class="group border-b border-slate-100 last:border-0 transition-colors hover:bg-[var(--color-primary)]/[0.025]"
             >
               <td
                 v-for="col in visibleColumns"
                 :key="col"
-                class="px-3 py-2 text-slate-700 font-mono whitespace-nowrap"
+                class="px-4 py-3.5 text-xs whitespace-nowrap"
+                :class="typeof row[col] === 'number' ? 'mono font-semibold text-slate-800' : 'text-slate-600'"
               >
                 {{ row[col] ?? '—' }}
               </td>
@@ -90,11 +97,19 @@ function sortBy(col: string) {
         </table>
       </div>
 
-      <div v-if="block.config.showPagination && totalPages > 1" class="flex items-center justify-between px-3 py-2 border-t border-slate-200 bg-white">
-        <span class="text-xs text-slate-400">Page {{ page + 1 }} / {{ totalPages }}</span>
-        <div class="flex gap-1">
-          <button class="px-2 py-1 text-xs rounded border border-slate-200 disabled:opacity-40 hover:bg-slate-50" :disabled="page === 0" @click="page--">←</button>
-          <button class="px-2 py-1 text-xs rounded border border-slate-200 disabled:opacity-40 hover:bg-slate-50" :disabled="page >= totalPages - 1" @click="page++">→</button>
+      <div v-if="block.config.showPagination && totalPages > 1" class="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-slate-50/50">
+        <span class="text-xs text-slate-400">Page <span class="font-semibold text-slate-600">{{ page + 1 }}</span> / {{ totalPages }}</span>
+        <div class="flex gap-1.5">
+          <button
+            class="px-2.5 py-1 text-xs font-medium rounded-lg border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 disabled:opacity-30 transition-colors"
+            :disabled="page === 0"
+            @click="page--"
+          >←</button>
+          <button
+            class="px-2.5 py-1 text-xs font-medium rounded-lg border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 disabled:opacity-30 transition-colors"
+            :disabled="page >= totalPages - 1"
+            @click="page++"
+          >→</button>
         </div>
       </div>
     </template>
