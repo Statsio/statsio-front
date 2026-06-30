@@ -11,6 +11,8 @@ export default defineNuxtConfig({
   app: {
     head: {
       script: [
+        // Chargé en synchrone avant Klaro pour que les traductions FR soient disponibles
+        { src: '/klaro-config.js' },
         {
           src: 'https://api.kiprotect.com/v1/privacy-managers/318f49b2787f2e172489c52c11662e61/klaro.js',
           async: true,
@@ -29,6 +31,7 @@ export default defineNuxtConfig({
     '~/assets/main.css',
     '~/assets/theme.scss',
     '~/assets/accessibility.css',
+    '~/assets/klaro.css',
   ],
 
   vite: {
