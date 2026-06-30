@@ -11,11 +11,13 @@ export default defineNuxtConfig({
   app: {
     head: {
       script: [
-        // Chargé en synchrone avant Klaro pour que les traductions FR soient disponibles
-        { src: '/klaro-config.js' },
         {
-          src: 'https://api.kiprotect.com/v1/privacy-managers/318f49b2787f2e172489c52c11662e61/klaro.js',
-          async: true,
+          innerHTML: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','GTM-5J28CWLR');`,
+        },
+      ],
+      bodyAppend: [
+        {
+          innerHTML: `<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-5J28CWLR" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>`,
         },
       ],
     },
