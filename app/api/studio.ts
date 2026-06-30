@@ -199,8 +199,18 @@ export async function fetchUserStatsDataDocuments(): Promise<StatsDataDocument[]
   return data.data ?? []
 }
 
-export async function createStatsDataDocument(title: string): Promise<StatsDataDocument> {
-  const { data } = await apiHttp.post(STATSIO_API.studioContent.collection, { title })
+export interface CreateStatsDataPayload {
+  title: string
+  categories?: string[]
+  coverage_type?: string
+  coverage_data?: string[]
+  visibility?: 'private' | 'public'
+  published_as?: 'user' | 'channel'
+  channel_id?: number
+}
+
+export async function createStatsDataDocument(payload: CreateStatsDataPayload): Promise<StatsDataDocument> {
+  const { data } = await apiHttp.post(STATSIO_API.studioContent.collection, payload)
   return data.data
 }
 

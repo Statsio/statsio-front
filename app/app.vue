@@ -4,7 +4,10 @@ import { useBootstrapError } from '@/lib/app-bootstrap'
 import { useFavicon } from '@/composables/useFavicon'
 
 const bootstrapError = useBootstrapError()
-const showCreateFab = computed(() => !useRoute().meta.studio)
+const showCreateFab = computed(() => {
+  const path = useRoute().path
+  return !['/login', '/register', '/forgot-password', '/verify-email', '/studio', '/tvstats/studio'].some(p => path.startsWith(p))
+})
 
 useFavicon()
 

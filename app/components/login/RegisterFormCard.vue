@@ -42,7 +42,7 @@ const handleSubmit = async () => {
   fieldErrors.value = {}
 
   try {
-    await authStore.register({
+    const result = await authStore.register({
       first_name: firstName.value.trim(),
       last_name: lastName.value.trim(),
       birthday: birthday.value,
@@ -50,7 +50,7 @@ const handleSubmit = async () => {
       password: password.value,
     })
 
-    await router.push('/')
+    await router.push({ path: '/verify-email', query: { email: result.email } })
   } catch (error) {
     fieldErrors.value = getValidationErrors(error)
 

@@ -3,11 +3,15 @@ import type {
   ApiAuthPayload,
   ApiAuthResponse,
   ApiAuthUserResponse,
+  ApiRegisterPendingResponse,
   AuthSession,
   AuthUserPayload,
   GoogleAuthPayload,
   LoginPayload,
   RegisterPayload,
+  RegisterPendingData,
+  ResendVerificationPayload,
+  VerifyEmailPayload,
 } from '@/types/auth'
 
 const toAuthSession = (payload: ApiAuthPayload): AuthSession => ({
@@ -24,10 +28,20 @@ export const loginRequest = async (payload: LoginPayload) => {
   return toAuthSession(data.data)
 }
 
-export const registerRequest = async (payload: RegisterPayload) => {
-  const { data } = await http.post<ApiAuthResponse>('/register', payload)
+export const registerRequest = async (payload: RegisterPayload): Promise<RegisterPendingData> => {
+  const { data } = await http.post<ApiRegisterPendingResponse>('/register', payload)
+
+  return data.data
+}
+
+export const verifyEmailRequest = async (payload: VerifyEmailPayload): Promise<AuthSession> => {
+  const { data } = await http.post<ApiAuthResponse>('/verify-email', payload)
 
   return toAuthSession(data.data)
+}
+
+export const resendVerificationRequest = async (payload: ResendVerificationPayload): Promise<void> => {
+  await http.post('/verify-email/resend', payload)
 }
 
 export const googleAuthRequest = async (payload: GoogleAuthPayload) => {

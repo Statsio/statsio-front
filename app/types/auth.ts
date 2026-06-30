@@ -76,4 +76,23 @@ export interface RegisterPayload {
   password: string
 }
 
+export interface RegisterPendingData {
+  email: string
+}
+
+export interface ApiRegisterPendingResponse {
+  success: boolean
+  message: string
+  data: RegisterPendingData
+}
+
+export interface VerifyEmailPayload {
+  email: string
+  code: string
+}
+
+export interface ResendVerificationPayload {
+  email: string
+}
+
 export type PersistMode = 'local' | 'session'
