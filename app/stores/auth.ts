@@ -2,13 +2,22 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { clearStoredToken, getStoredToken, storeSession, storeUser } from '@/lib/auth-storage'
 import { isUnauthorizedError } from '@/lib/http-errors'
-import { googleAuthRequest, loginRequest, logoutRequest, meRequest, registerRequest } from '@/services/auth'
+import {
+  googleAuthRequest,
+  loginRequest,
+  logoutRequest,
+  meRequest,
+  registerRequest,
+  resendVerificationRequest,
+  verifyEmailRequest,
+} from '@/services/auth'
 import type {
   AuthSession,
   AuthUser,
   LoginPayload,
   PersistMode,
   RegisterPayload,
+  VerifyEmailPayload,
 } from '@/types/auth'
 
 const DEFAULT_PERSIST_MODE: PersistMode = 'local'
@@ -113,16 +122,30 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  const register = async (payload: RegisterPayload, mode: PersistMode = DEFAULT_PERSIST_MODE) => {
+  const register = async (payload: RegisterPayload) => {
     isAuthenticating.value = true
 
     try {
-      const session = await registerRequest(payload)
+      return await registerRequest(payload)
+    } finally {
+      isAuthenticating.value = false
+    }
+  }
+
+  const verifyEmail = async (payload: VerifyEmailPayload, mode: PersistMode = DEFAULT_PERSIST_MODE) => {
+    isAuthenticating.value = true
+
+    try {
+      const session = await verifyEmailRequest(payload)
       applySession(session, mode)
       return session.user
     } finally {
       isAuthenticating.value = false
     }
+  }
+
+  const resendVerification = async (email: string) => {
+    await resendVerificationRequest({ email })
   }
 
   const authenticateWithGoogle = async (idToken: string, mode: PersistMode = DEFAULT_PERSIST_MODE) => {
@@ -193,6 +216,8 @@ export const useAuthStore = defineStore('auth', () => {
     initialize,
     login,
     register,
+    verifyEmail,
+    resendVerification,
     authenticateWithGoogle,
     refreshUser,
     logout,

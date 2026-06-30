@@ -1,5 +1,11 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'studio', middleware: ['guest'], ssr: false })
+definePageMeta({
+  layout: 'studio',
+  middleware: ['guest'],
+  ssr: false,
+  title: 'Inscription',
+  description: 'Créez votre compte Statsio pour accéder à vos contenus, souscrire à vos services et naviguer dans une expérience personnalisée.',
+})
 import AuthLayout from '@/components/login/AuthLayout.vue'
 import RegisterFormCard from '@/components/login/RegisterFormCard.vue'
 

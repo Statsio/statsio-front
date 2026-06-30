@@ -1,5 +1,10 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'studio', ssr: false })
+definePageMeta({
+  layout: 'studio',
+  ssr: false,
+  title: 'Mot de passe oublié',
+  description: 'Réinitialisez votre mot de passe Statsio et reprenez l\'accès à vos contenus, abonnements et services.',
+})
 import AuthLayout from '@/components/login/AuthLayout.vue'
 import ForgotPasswordFormCard from '@/components/login/ForgotPasswordFormCard.vue'
 

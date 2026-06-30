@@ -1,5 +1,11 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'studio', middleware: ['guest'], ssr: false })
+definePageMeta({
+  layout: 'studio',
+  middleware: ['guest'],
+  ssr: false,
+  title: 'Connexion',
+  description: 'Connectez-vous à votre compte Statsio pour retrouver vos contenus, abonnements et services personnalisés.',
+})
 import AuthLayout from '@/components/login/AuthLayout.vue'
 import LoginFormCard from '@/components/login/LoginFormCard.vue'
 

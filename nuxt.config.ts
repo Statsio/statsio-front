@@ -8,6 +8,17 @@ export default defineNuxtConfig({
 
   ssr: true,
 
+  app: {
+    head: {
+      script: [
+        {
+          src: 'https://api.kiprotect.com/v1/privacy-managers/318f49b2787f2e172489c52c11662e61/klaro.js',
+          async: true,
+        },
+      ],
+    },
+  },
+
   nitro: {
     preset: 'cloudflare_module',
   },

@@ -14,7 +14,7 @@ const isCreating = ref(false)
 async function createNew() {
   isCreating.value = true
   try {
-    const doc = await createStatsDataDocument('Nouveau StatsData')
+    const doc = await createStatsDataDocument({ title: 'Nouveau StatsData' })
     router.push(`/studio/${doc.slug}`)
   } finally {
     isCreating.value = false

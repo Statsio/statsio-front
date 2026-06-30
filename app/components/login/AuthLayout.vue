@@ -4,13 +4,14 @@ import LoginIntroPanel from '@/components/login/LoginIntroPanel.vue'
 
 withDefaults(
   defineProps<{
-    signals: { label: string; value: string; detail: string }[]
+    signals?: { label: string; value: string; detail: string }[]
     badgeLabel?: string
     title?: string
     description?: string
     formWidthClass?: string
   }>(),
   {
+    signals: () => [],
     badgeLabel: 'Espace sécurisé',
     title: 'Connectez-vous à votre espace Statsio.',
     description: 'Retrouvez vos contenus, vos abonnements et vos accès depuis une interface claire, rapide et sécurisée.',
