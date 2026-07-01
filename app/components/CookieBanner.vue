@@ -52,6 +52,29 @@ const serviceGroups = computed(() => {
   return groups
 })
 
+// ── Google Consent Mode v2 ─────────────────────────────────────────────────
+type GcmConsent = 'granted' | 'denied'
+interface GcmUpdate {
+  analytics_storage: GcmConsent
+  functionality_storage: GcmConsent
+  ad_storage: GcmConsent
+  ad_user_data: GcmConsent
+  ad_personalization: GcmConsent
+}
+
+function pushGcmConsent(consents: Record<string, boolean>) {
+  const w = window as typeof window & { gtag?: (...args: unknown[]) => void }
+  if (!w.gtag) return
+  const update: GcmUpdate = {
+    analytics_storage: consents['google-tag-manager'] ? 'granted' : 'denied',
+    functionality_storage: consents['youtube'] ? 'granted' : 'denied',
+    ad_storage: 'denied',
+    ad_user_data: 'denied',
+    ad_personalization: 'denied',
+  }
+  w.gtag('consent', 'update', update)
+}
+
 function syncLocalConsents() {
   for (const service of klaroConfig.services) {
     if (!service.required) {
@@ -76,12 +99,14 @@ onMounted(() => {
 function acceptAll() {
   manager.value?.changeAll(true)
   manager.value?.saveAndApplyConsents()
+  pushGcmConsent(Object.fromEntries(klaroConfig.services.map(s => [s.name, true])))
   visible.value = false
 }
 
 function declineAll() {
   manager.value?.changeAll(false)
   manager.value?.saveAndApplyConsents()
+  pushGcmConsent(Object.fromEntries(klaroConfig.services.map(s => [s.name, false])))
   visible.value = false
 }
 
@@ -99,6 +124,7 @@ function saveSelection() {
     manager.value?.updateConsent(name, value)
   }
   manager.value?.saveAndApplyConsents()
+  pushGcmConsent(localConsents)
   visible.value = false
   showModal.value = false
 }
