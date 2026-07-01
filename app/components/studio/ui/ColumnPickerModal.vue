@@ -17,15 +17,18 @@ interface TokenGroup {
 const props = defineProps<{
   show: boolean
   block: StudioBlock
-  /** single: pick one column and close. expression: formula bar + operators. */
-  mode?: 'single' | 'expression'
+  /** single: pick one column and close. expression: formula bar + operators. multi: toggle multiple columns, emit 'toggle'. */
+  mode?: 'single' | 'expression' | 'multi'
   modelValue?: string | null
+  /** For multi mode: currently selected column names. */
+  selectedValues?: string[]
   /** Override column groups (e.g. for join key pickers). If omitted, derives from block. */
   customGroups?: ColumnGroup[]
 }>()
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: string): void
+  (e: 'toggle', value: string): void
   (e: 'close'): void
 }>()
 
@@ -36,6 +39,7 @@ const formula = ref('')
 const activeSection = ref('')
 
 const isExpression = computed(() => props.mode === 'expression')
+const isMulti      = computed(() => props.mode === 'multi')
 
 // ─── Column groups (the block's own sources) ───────────────────────────────────
 
@@ -143,6 +147,8 @@ function filteredTokens(tokens: string[]): string[] {
 function pickColumn(name: string) {
   if (isExpression.value) {
     formula.value += name
+  } else if (isMulti.value) {
+    emit('toggle', name)
   } else {
     emit('update:modelValue', name)
     emit('close')
@@ -239,7 +245,7 @@ const OPERATORS = [
         <!-- Header -->
         <div class="flex shrink-0 items-center justify-between gap-4 border-b border-slate-100 px-5 py-3.5">
           <h3 class="shrink-0 text-[13px] font-semibold text-slate-800">
-            {{ isExpression ? 'Expression / colonne' : 'Choisir une colonne' }}
+            {{ isExpression ? 'Expression / colonne' : isMulti ? 'Choisir des colonnes' : 'Choisir une colonne' }}
           </h3>
 
           <!-- Search -->
@@ -359,16 +365,28 @@ const OPERATORS = [
                 <button
                   v-for="col in filteredCols(currentColGroup.columns)"
                   :key="col.name"
-                  class="group flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 transition-all hover:border-[var(--color-primary)] hover:bg-[var(--color-primary)]/5"
+                  class="group flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 transition-all"
+                  :class="isMulti && selectedValues?.includes(col.name)
+                    ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/8 hover:bg-[var(--color-primary)]/12'
+                    : 'border-slate-200 bg-white hover:border-[var(--color-primary)] hover:bg-[var(--color-primary)]/5'"
                   @click="pickColumn(col.name)"
                 >
                   <span
                     class="min-w-[20px] shrink-0 rounded px-1 text-center text-[9px] font-bold uppercase leading-[18px]"
                     :class="TYPE_BADGE[col.type]?.cls ?? 'bg-slate-100 text-slate-500'"
                   >{{ TYPE_BADGE[col.type]?.label ?? '?' }}</span>
-                  <span class="font-mono text-[12px] text-slate-700 transition-colors group-hover:text-[var(--color-primary)]">
+                  <span class="font-mono text-[12px] text-slate-700 transition-colors group-hover:text-[var(--color-primary)]"
+                    :class="isMulti && selectedValues?.includes(col.name) ? 'text-[var(--color-primary)]' : ''"
+                  >
                     {{ col.name }}
                   </span>
+                  <svg
+                    v-if="isMulti && selectedValues?.includes(col.name)"
+                    class="ml-auto h-3.5 w-3.5 shrink-0 text-[var(--color-primary)]"
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"
+                  >
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  </svg>
                 </button>
               </div>
               <p v-else class="py-6 text-center text-xs italic text-slate-400">Aucun résultat pour "{{ searchQuery }}"</p>
@@ -387,7 +405,7 @@ const OPERATORS = [
                   :title="studio.pageParams[token] ? `Valeur active : ${studio.pageParams[token]}` : undefined"
                   @click="pickToken(token)"
                 >
-                  <span class="min-w-[20px] shrink-0 rounded bg-amber-200 px-1 text-center text-[9px] font-bold leading-[18px] text-amber-700">{{}}</span>
+                  <span class="min-w-[20px] shrink-0 rounded bg-amber-200 px-1 text-center text-[9px] font-bold leading-[18px] text-amber-700">&#123;&#123;&#125;&#125;</span>
                   <span class="font-mono text-[12px] text-amber-900">{{ token }}</span>
                   <span v-if="studio.pageParams[token]" class="ml-0.5 text-[10px] text-amber-600 font-sans max-w-[80px] truncate">
                     = {{ studio.pageParams[token] }}
@@ -413,8 +431,19 @@ const OPERATORS = [
           </div>
         </div>
 
+        <!-- Footer (multi mode) -->
+        <div v-if="isMulti" class="flex shrink-0 items-center justify-between border-t border-slate-100 px-5 py-3">
+          <span class="text-[11px] text-slate-400">
+            {{ selectedValues?.length ?? 0 }} colonne{{ (selectedValues?.length ?? 0) !== 1 ? 's' : '' }} sélectionnée{{ (selectedValues?.length ?? 0) !== 1 ? 's' : '' }}
+          </span>
+          <button
+            class="rounded-xl bg-[var(--color-primary)] px-4 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90"
+            @click="emit('close')"
+          >Terminé</button>
+        </div>
+
         <!-- Footer (expression mode) -->
-        <div v-if="isExpression" class="flex shrink-0 items-center justify-between border-t border-slate-100 px-5 py-3">
+        <div v-else-if="isExpression" class="flex shrink-0 items-center justify-between border-t border-slate-100 px-5 py-3">
           <button
             v-if="formula"
             class="text-[11px] text-slate-400 transition-colors hover:text-red-500"

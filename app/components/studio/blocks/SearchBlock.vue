@@ -24,10 +24,13 @@ const searchSources = computed(() => {
   return []
 })
 
-const targetPageId  = computed(() => props.block.fieldMapping.targetPageId)
-const placeholder   = computed(() => props.block.config.searchPlaceholder || 'Rechercher…')
-const isConfigured  = computed(() => searchSources.value.some((s: SearchSource) => s.datasetId && s.columns.length > 0))
-const urlParamCols  = computed(() => props.block.fieldMapping.urlParams ?? [])
+const targetPageId        = computed(() => props.block.fieldMapping.targetPageId)
+const placeholder         = computed(() => props.block.config.searchPlaceholder || 'Rechercher…')
+const isConfigured        = computed(() => searchSources.value.some((s: SearchSource) => s.datasetId && s.columns.length > 0))
+const urlParamCols        = computed(() => props.block.fieldMapping.urlParams ?? [])
+const resultTitleColumn      = computed(() => props.block.fieldMapping.resultTitleColumn ?? '')
+const resultDescColumns      = computed(() => props.block.fieldMapping.resultDescColumns ?? [])
+const resultDescColumnLabels = computed(() => props.block.fieldMapping.resultDescColumnLabels ?? {})
 
 // For URL navigation: doc slug from route, target page slug from store
 const docSlug = computed(() => String(route.params.slug ?? ''))
@@ -101,18 +104,34 @@ async function doSearch(q: string) {
             ? await fetchPublicSearchRows(docSlug, source.datasetId, source.columns, q, 30, sourceJoins)
             : await fetchSearchRows(source.datasetId, source.columns, q, 30, sourceJoins)
           for (const row of rows) {
-            // Use first matching column value as display value
-            const primaryCol = source.columns.find(
-              (c: string) => String(row[c] ?? '').toLowerCase().includes(q.toLowerCase()),
-            ) ?? source.columns[0]!
-            const displayValue = String(row[primaryCol] ?? '')
+            const titleCol = resultTitleColumn.value
+            const descCols = resultDescColumns.value
+
+            // Determine display value (title)
+            let displayValue: string
+            let primaryCol: string
+            if (titleCol && String(row[titleCol] ?? '') !== '') {
+              displayValue = String(row[titleCol])
+              primaryCol = titleCol
+            } else {
+              primaryCol = source.columns.find(
+                (c: string) => String(row[c] ?? '').toLowerCase().includes(q.toLowerCase()),
+              ) ?? source.columns[0]!
+              displayValue = String(row[primaryCol] ?? '')
+            }
+
             if (!displayValue || seen.has(displayValue)) continue
             seen.add(displayValue)
 
-            // Other column values shown as sub-info
-            const subValues = source.columns
-              .filter((c: string) => c !== primaryCol && row[c] != null && row[c] !== '')
-              .map((c: string) => ({ label: c, value: String(row[c]) }))
+            // Determine sub-info (description)
+            const labels = resultDescColumnLabels.value
+            const subValues = descCols.length > 0
+              ? descCols
+                  .filter((c: string) => row[c] != null && String(row[c]) !== '')
+                  .map((c: string) => ({ label: labels[c] || c, value: String(row[c]) }))
+              : source.columns
+                  .filter((c: string) => c !== primaryCol && row[c] != null && row[c] !== '')
+                  .map((c: string) => ({ label: c, value: String(row[c]) }))
 
             allRows.push({
               key: `${source.datasetId}:${displayValue}`,
