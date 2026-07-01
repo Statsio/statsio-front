@@ -1,3 +1,5 @@
+import type { KlaroManager } from '../lib/klaro'
+
 declare module '#app' {
   interface PageMeta {
     title?: string
@@ -5,6 +7,9 @@ declare module '#app' {
     ogImage?: string
     ogType?: string
     robots?: string
+  }
+  interface NuxtApp {
+    $klaroManager: KlaroManager
   }
 }
 

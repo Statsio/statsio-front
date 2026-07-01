@@ -30,4 +30,5 @@ const retry = () => {
       <AppNotificationStack />
     </StagingGate>
   </ComingSoonGate>
+  <CookieBanner />
 </template>

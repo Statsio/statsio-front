@@ -37,6 +37,7 @@
     "axios": "^1.13.6",
     "chart.js": "^4.5.1",
     "gsap": "^3.12.5",
+    "klaro": "^0.7.21",
     "nuxt": "^3.17.0",
     "pinia": "^3.0.4",
     "tailwindcss": "^4.2.1",
@@ -44,9 +45,9 @@
     "vuedraggable": "^4.1.0"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "^6.0.4",
     "@types/jsdom": "^28.0.0",
     "@types/node": "^24.11.0",
+    "@vitejs/plugin-vue": "^6.0.4",
     "@vitest/eslint-plugin": "^1.6.9",
     "@vue/eslint-config-typescript": "^14.7.0",
     "@vue/test-utils": "^2.4.6",
