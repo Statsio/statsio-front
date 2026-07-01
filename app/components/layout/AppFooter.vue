@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
+
+const openCookieBanner = useCookieBanner()
 </script>
 
 <template>
@@ -31,6 +33,20 @@ import { RouterLink } from 'vue-router'
         <a class="block hover:text-slate-700" href="#">Guides</a>
         <a class="block hover:text-slate-700" href="#">Centre d'aide</a>
         <a class="block hover:text-slate-700" href="#">Contact</a>
+      </div>
+    </div>
+    <div class="container flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 py-4">
+      <p class="text-[0.8125rem] text-slate-400">© {{ new Date().getFullYear() }} Statsio</p>
+      <div class="flex flex-wrap gap-4 text-[0.8125rem] text-slate-400">
+        <RouterLink to="/politique-de-confidentialite" class="hover:text-slate-600 transition-colors">
+          Politique de confidentialité
+        </RouterLink>
+        <button
+          class="hover:text-slate-600 transition-colors"
+          @click="openCookieBanner = true"
+        >
+          Gérer les cookies
+        </button>
       </div>
     </div>
   </footer>
