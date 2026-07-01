@@ -63,6 +63,9 @@ export interface FieldMapping {
   targetPageId?: string
   urlParams?: string[]
   urlParamMapping?: Record<string, string>
+  resultTitleColumn?: string
+  resultDescColumns?: string[]
+  resultDescColumnLabels?: Record<string, string>
 }
 
 export interface BlockConfig {
