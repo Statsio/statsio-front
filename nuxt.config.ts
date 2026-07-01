@@ -33,7 +33,6 @@ export default defineNuxtConfig({
     '~/assets/main.css',
     '~/assets/theme.scss',
     '~/assets/accessibility.css',
-    '~/assets/klaro.css',
   ],
 
   vite: {
