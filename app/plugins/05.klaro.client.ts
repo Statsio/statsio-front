@@ -10,7 +10,7 @@ export default defineNuxtPlugin((nuxtApp) => {
     const w = window as typeof window & { gtag?: (...args: unknown[]) => void }
     if (w.gtag) {
       w.gtag('consent', 'update', {
-        analytics_storage: manager.consents['google-tag-manager'] ? 'granted' : 'denied',
+        analytics_storage: manager.consents['google-analytics'] ? 'granted' : 'denied',
         functionality_storage: manager.consents['youtube'] ? 'granted' : 'denied',
         ad_storage: 'denied',
         ad_user_data: 'denied',

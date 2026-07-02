@@ -24,9 +24,9 @@ export const klaroConfig = {
   services: [
     // ── Statistiques ──────────────────────────────────────────────────────────
     {
-      name: 'google-tag-manager',
-      title: 'Google Tag Manager',
-      description: "Mesure d'audience et suivi des interactions utilisateurs (pages vues, clics, parcours).",
+      name: 'google-analytics',
+      title: 'Google Analytics',
+      description: "Mesure d'audience et suivi des interactions utilisateurs (pages vues, clics, parcours). Données envoyées à Google.",
       purposes: ['analytics'],
       default: false,
       required: false,
@@ -68,6 +68,16 @@ export const klaroConfig = {
       required: true,
     },
 
+    // ── Technique ─────────────────────────────────────────────────────────────
+    {
+      name: 'google-tag-manager',
+      title: 'Google Tag Manager',
+      description: 'Gestionnaire de balises utilisé pour déployer les scripts tiers. Ne collecte aucune donnée par lui-même. Nécessaire au fonctionnement du consentement.',
+      purposes: ['technical'],
+      default: true,
+      required: true,
+    },
+
     // ── Sécurité ──────────────────────────────────────────────────────────────
     {
       name: 'cloudflare-turnstile',
@@ -96,5 +106,9 @@ export const purposeMeta: Record<string, { label: string; description: string }>
   security: {
     label: 'Sécurité',
     description: 'Services essentiels à la protection du site et de ses utilisateurs.',
+  },
+  technical: {
+    label: 'Technique',
+    description: 'Infrastructure nécessaire au fonctionnement du site et du consentement.',
   },
 }
