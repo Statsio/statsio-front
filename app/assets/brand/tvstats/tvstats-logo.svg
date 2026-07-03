@@ -4,14 +4,17 @@
   <defs>
     <style>
       .green-dark     { fill: #166534; }
-      .green-medium   { fill: #86EFAC; }
-      .green-light    { fill: #BBF7D0; }
-      .green-darker   { fill: #0F4526; } 
-      .diag-line      { stroke: #86EFAC; stroke-width: 2.8; stroke-linecap: round; }
+      .green-medium   { fill: #23dea3; }
+      .green-light    { fill: #bbf7d0cd; }
+      .diag-line      { stroke: #23dea3; stroke-width: 2.8; stroke-linecap: round; }
     </style>
 
     <clipPath id="clip-top-small" clipPathUnits="userSpaceOnUse">
       <path d="M14 -1 L121 -1 L121 49 L14 49 Z"/>
+    </clipPath>
+
+    <clipPath id="clip-left" clipPathUnits="userSpaceOnUse">
+      <path d="M14 106 L14 -1 L121 -1 L106 14 Z"/>
     </clipPath>
 
     <clipPath id="clip-right" clipPathUnits="userSpaceOnUse">
@@ -19,10 +22,14 @@
     </clipPath>
   </defs>
 
-  <g transform="translate(60,50) rotate(-45) translate(-50,-35) translate(-6,-6)" clip-path="url(#clip-top-small)">
-    <rect x="20" y="20" width="60" height="40" rx="8" ry="8" class="green-light" stroke="#166534" stroke-width="2"/>
-    <rect x="24" y="24" width="52" height="32" rx="6" ry="6" class="green-medium"/>
-    <rect x="74" y="28" width="8" height="24" rx="4" ry="4" class="green-darker"/>
+  <g clip-path="url(#clip-left)">
+    <circle class="green-light" cx="60" cy="60" r="40"/>
+  </g>
+
+  <g transform="translate(60,50) rotate(-45) translate(-50,-35) translate(-6,-6) translate(50,40) scale(0.85) translate(-50,-40)" clip-path="url(#clip-top-small)">
+    <rect x="20" y="20" width="60" height="40" rx="8" ry="8" class="green-dark"/>
+    <rect x="28" y="28" width="44" height="24" rx="5" ry="5" class="green-medium"/>
+    <rect x="74" y="28" width="8" height="24" rx="4" ry="4" class="green-dark"/>
     <circle cx="78" cy="34" r="2" class="green-light"/>
     <circle cx="78" cy="40" r="2" class="green-light"/>
     <circle cx="78" cy="46" r="2" class="green-light"/>
