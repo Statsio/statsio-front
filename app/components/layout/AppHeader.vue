@@ -15,47 +15,7 @@ import { getErrorMessage } from '@/lib/http-errors'
 import { useAuthStore } from '@/stores/auth'
 import { useClickOutside } from '@/composables/useClickOutside'
 
-const notifications = [
-  {
-    type: 'Nouvel article',
-    title: 'Camille Bernard a publié un nouvel article',
-    detail: 'Inflation : qui retrouve un peu d’air en 2026 ?',
-    href: '/articles/inflation-qui-retrouve-un-peu-dair-en-2026',
-    tone: 'primary',
-    time: 'Il y a 12 min',
-  },
-  {
-    type: 'Performance',
-    title: 'Votre article gagne en visibilité',
-    detail: 'Présidentielle 2027 dépasse +18% d’engagement sur les 24 dernières heures.',
-    href: '/articles/presidentielle-2027-bassins-indecision',
-    tone: 'accent',
-    time: 'Il y a 38 min',
-  },
-  {
-    type: 'Nouveau sondage',
-    title: 'Un abonnement a lancé un nouveau sondage',
-    detail: 'Baromètre municipal: intentions de vote et priorités locales.',
-    href: '/profile',
-    tone: 'secondary',
-    time: 'Il y a 1 h',
-  },
-  {
-    type: 'Statsio',
-    title: 'Suivez en direct les résultats des municipales 2026',
-    detail: 'Statsio centralise les signaux, cartes et bascules clés de la soirée.',
-    href: '/fil-actus',
-    tone: 'slate',
-    time: 'Alerte éditoriale',
-  },
-] as const
-
-const notificationToneClasses = {
-  primary: 'bg-primary/12 text-primary',
-  accent: 'bg-accent/15 text-slate-900',
-  secondary: 'bg-secondary/70 text-slate-900',
-  slate: 'bg-slate-900 text-white',
-} as const
+const notificationCount = 4
 
 interface BrandNavExpose { items: HeaderNavItem[] }
 
@@ -67,8 +27,6 @@ const brandNavRef = ref<BrandNavExpose | null>(null)
 const accessibilityPanelRef = ref<{ open: () => void } | null>(null)
 const mobileNavItems = computed<HeaderNavItem[]>(() => brandNavRef.value?.items ?? [])
 const brandMenuRef = ref<HTMLElement | null>(null)
-const isNotificationsOpen = ref(false)
-const notificationsRef = ref<HTMLElement | null>(null)
 const isUserMenuOpen = ref(false)
 const userMenuRef = ref<HTMLElement | null>(null)
 
@@ -97,7 +55,6 @@ const toggleMobileMenu = () => {
   isMobileMenuOpen.value = !isMobileMenuOpen.value
   if (isMobileMenuOpen.value) {
     isBrandMenuOpen.value = false
-    isNotificationsOpen.value = false
     isUserMenuOpen.value = false
     activeMenu.value = null
   }
@@ -125,7 +82,6 @@ watch(isMobileMenuOpen, (open: boolean) => {
 const handleLogout = async () => {
   logoutError.value = ''
   isBrandMenuOpen.value = false
-  isNotificationsOpen.value = false
   isUserMenuOpen.value = false
   closeMobileMenu()
 
@@ -141,7 +97,6 @@ const toggleBrandMenu = () => {
   isBrandMenuOpen.value = !isBrandMenuOpen.value
 
   if (isBrandMenuOpen.value) {
-    isNotificationsOpen.value = false
     isUserMenuOpen.value = false
   }
 }
@@ -150,25 +105,11 @@ const closeBrandMenu = () => {
   isBrandMenuOpen.value = false
 }
 
-const toggleNotifications = () => {
-  isNotificationsOpen.value = !isNotificationsOpen.value
-
-  if (isNotificationsOpen.value) {
-    isBrandMenuOpen.value = false
-    isUserMenuOpen.value = false
-  }
-}
-
-const closeNotifications = () => {
-  isNotificationsOpen.value = false
-}
-
 const toggleUserMenu = () => {
   isUserMenuOpen.value = !isUserMenuOpen.value
 
   if (isUserMenuOpen.value) {
     isBrandMenuOpen.value = false
-    isNotificationsOpen.value = false
   }
 }
 
@@ -177,7 +118,6 @@ const closeUserMenu = () => {
 }
 
 useClickOutside(brandMenuRef, closeBrandMenu, { escapeKey: false })
-useClickOutside(notificationsRef, closeNotifications, { escapeKey: false })
 useClickOutside(userMenuRef, closeUserMenu)
 
 onBeforeUnmount(() => {
@@ -278,65 +218,18 @@ onBeforeUnmount(() => {
         <AppAccessibilityPanel ref="accessibilityPanelRef" />
 
         <template v-if="authStore.isAuthenticated">
-          <div ref="notificationsRef" class="relative">
-            <button type="button"
-              class="relative inline-flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-              :aria-expanded="isNotificationsOpen" aria-haspopup="menu" aria-label="Notifications"
-              @click="toggleNotifications">
-              <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path
-                  d="M14.857 18H9.143M18 16.5714V10.8571C18 7.30459 15.5525 4.28571 12 4.28571C8.44752 4.28571 6 7.30459 6 10.8571V16.5714L4.28571 18.2857V19.1429H19.7143V18.2857L18 16.5714Z"
-                  stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                <path d="M10.2856 19.1428C10.2856 20.0896 11.0531 20.8571 11.9999 20.8571C12.9467 20.8571 13.7142 20.0896 13.7142 19.1428"
-                  stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-              </svg>
-              <span
-                class="absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-white">
-                {{ notifications.length }}
-              </span>
-            </button>
-
-            <div v-if="isNotificationsOpen"
-              class="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-[min(92vw,380px)] rounded-[1.5rem] border border-slate-200 bg-white p-2 shadow-[0_24px_70px_-40px_rgba(15,23,42,0.35)]"
-              role="menu" aria-label="Notifications">
-              <div class="flex items-center justify-between px-4 py-3">
-                <div>
-                  <p class="text-sm font-semibold text-slate-950">Notifications</p>
-                  <p class="text-xs text-slate-500">Activité éditoriale et alertes Statsio</p>
-                </div>
-                <span
-                  class="inline-flex rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                  {{ notifications.length }} nouvelles
-                </span>
-              </div>
-
-              <div class="flex max-h-[420px] flex-col gap-2 overflow-y-auto pb-1">
-                <RouterLink v-for="notification in notifications" :key="notification.title" :to="notification.href"
-                  class="flex w-full items-start gap-4 rounded-[1.25rem] px-4 py-4 text-left transition hover:bg-slate-50"
-                  role="menuitem" @click="closeNotifications">
-                  <span
-                    class="mt-0.5 inline-flex shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]"
-                    :class="notificationToneClasses[notification.tone]">
-                    {{ notification.type }}
-                  </span>
-                  <span class="min-w-0 flex-1">
-                    <span class="block text-sm font-semibold text-slate-900">{{ notification.title }}</span>
-                    <span class="mt-1 block text-sm leading-6 text-slate-500">{{ notification.detail }}</span>
-                    <span class="mt-3 block text-xs font-medium uppercase tracking-[0.18em] text-slate-400">
-                      {{ notification.time }}
-                    </span>
-                  </span>
-                </RouterLink>
-              </div>
-            </div>
-          </div>
-
           <div ref="userMenuRef" class="relative">
             <button type="button"
-              class="inline-flex items-center rounded-full border border-slate-200 bg-white md:pl-0 p-1 md:p-3 text-left transition hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 md:gap-3 md:py-0 md:pr-3"
+              class="inline-flex items-center rounded-full md:border md:border-slate-200 md:bg-white md:pl-0 p-1 md:p-3 text-left transition hover:md:border-slate-300 hover:md:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 md:gap-3 md:py-0 md:pr-3"
               :aria-expanded="isUserMenuOpen" aria-haspopup="menu" aria-label="Mon compte" @click="toggleUserMenu">
-              <AppAvatar :initials="userInitials()" size="sm" />
-              <span class="hidden min-w-0 md:block">
+              <span class="relative shrink-0">
+                <AppAvatar :initials="userInitials()" size="sm" />
+                <span v-if="notificationCount > 0"
+                  class="absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-red-500 px-1 text-[10px] font-semibold text-white">
+                  {{ notificationCount }}
+                </span>
+              </span>
+              <span class="hidden min-w-0 max-w-[90px] md:block lg:max-w-[130px]">
                 <span class="block truncate text-sm font-semibold text-slate-900">{{ authStore.displayName }}</span>
                 <span class="block truncate text-xs text-slate-500">{{ authStore.user?.email }}</span>
               </span>
@@ -576,7 +469,7 @@ onBeforeUnmount(() => {
           <template v-if="authStore.isAuthenticated">
             <div class="mb-4 flex items-center gap-3">
               <AppAvatar :initials="userInitials()" size="sm" />
-              <div class="min-w-0 flex-1">
+              <div class="min-w-0 max-w-full flex-1">
                 <p class="truncate text-sm font-semibold text-slate-900">{{ authStore.displayName }}</p>
                 <p class="truncate text-xs text-slate-500">{{ authStore.user?.email }}</p>
               </div>
