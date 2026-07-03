@@ -66,7 +66,7 @@ function pushGcmConsent(consents: Record<string, boolean>) {
   const w = window as typeof window & { gtag?: (...args: unknown[]) => void }
   if (!w.gtag) return
   const update: GcmUpdate = {
-    analytics_storage: consents['google-tag-manager'] ? 'granted' : 'denied',
+    analytics_storage: consents['google-analytics'] ? 'granted' : 'denied',
     functionality_storage: consents['youtube'] ? 'granted' : 'denied',
     ad_storage: 'denied',
     ad_user_data: 'denied',
