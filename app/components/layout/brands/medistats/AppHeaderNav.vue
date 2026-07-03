@@ -43,7 +43,7 @@ const items: HeaderNavItem[] = [
     links: ['Médicaments remboursés', 'Essais cliniques', 'Interactions', 'Génériques'],
   },
   {
-    label: 'Services médicaux',
+    label: 'Soins',
     href: '/medistats/services',
     icon: 'medical-service',
     eyebrow: 'Offre de soins',

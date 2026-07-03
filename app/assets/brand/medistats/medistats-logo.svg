@@ -18,10 +18,10 @@
 
   <!-- Top-left: medical cross on circle -->
   <g clip-path="url(#medi-clip-left)">
-    <circle class="red-light" cx="58" cy="56" r="38"/>
-    <rect class="red-dark" x="50" y="32" width="16" height="48" rx="5"/>
-    <rect class="red-dark" x="32" y="48" width="52" height="16" rx="5"/>
-    <circle class="red-medium" cx="58" cy="56" r="9"/>
+    <circle class="red-light" cx="60" cy="60" r="40"/>
+    <rect class="red-dark" x="52" y="36" width="16" height="48" rx="5"/>
+    <rect class="red-dark" x="34" y="52" width="52" height="16" rx="5"/>
+    <circle class="red-medium" cx="60" cy="60" r="9"/>
   </g>
 
   <!-- Bottom-right: diagonal bar charts -->
