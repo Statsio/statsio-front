@@ -83,7 +83,7 @@ const sidebarItems = [
           <aside class="flex flex-col gap-4">
             <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)]">
               <div class="flex flex-col items-center gap-4">
-                <AppAvatar :initials="userInitials" size="lg" />
+                <AppAvatar :src="authStore.user?.profile?.avatar ?? undefined" :initials="userInitials" size="lg" />
                 <div class="text-center">
                   <p class="text-lg font-semibold text-slate-950">{{ authStore.displayName }}</p>
                   <p class="text-sm text-slate-500">{{ authStore.user?.email }}</p>
