@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import type { StudioBlock } from '@/types/studio'
 import BarChartBlock from './BarChartBlock.vue'
 import LineChartBlock from './LineChartBlock.vue'
+import PieChartBlock from './PieChartBlock.vue'
 import TableBlock from './TableBlock.vue'
 import KpiBlock from './KpiBlock.vue'
 import TextBlock from './TextBlock.vue'
@@ -19,6 +20,7 @@ const component = computed(() => {
   switch (props.block.type) {
     case 'bar':       return BarChartBlock
     case 'line':      return LineChartBlock
+    case 'pie':       return PieChartBlock
     case 'table':     return TableBlock
     case 'kpi':       return KpiBlock
     case 'search':    return SearchBlock

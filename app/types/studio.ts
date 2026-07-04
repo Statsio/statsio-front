@@ -48,6 +48,8 @@ export interface SearchJoin {
   type: 'inner' | 'left'
 }
 
+export type AggregateFunction = 'sum' | 'avg' | 'count' | 'min' | 'max'
+
 export interface FieldMapping {
   xAxis?: string
   yAxis?: string
@@ -58,6 +60,8 @@ export interface FieldMapping {
   columns?: string[]
   valueColumn?: string
   comparisonColumn?: string
+  /** Aggregation applied to the value column(s) — shared by kpi/pie/bar/line, grouped by xAxis/label/series */
+  aggregate?: AggregateFunction
   searchColumn?: string    // legacy – kept for backward compat
   searchSources?: SearchSource[]
   searchJoins?: SearchJoin[]

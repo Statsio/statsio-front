@@ -2,7 +2,7 @@
 import { computed, watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
-import type { StudioBlock, DatasetColumn, BlockJoin } from '@/types/studio'
+import type { StudioBlock, DatasetColumn, BlockJoin, AggregateFunction } from '@/types/studio'
 import type { ColumnGroup } from '@/components/studio/ui/ColumnPickerModal.vue'
 
 const props = defineProps<{
@@ -67,6 +67,10 @@ function updateMapping(key: string, value: string) {
       studio.updateBlockJoins(props.block.id, joins.value.map((jj, ii) => ii === i ? { ...jj, columns: [...jj.columns, value] } : jj))
     }
   })
+}
+
+function updateAggregate(value: AggregateFunction | undefined) {
+  studio.updateBlockFieldMapping(props.block.id, { aggregate: value })
 }
 
 function addYAxis(col: string) {
@@ -180,6 +184,13 @@ const TYPE_BADGE: Record<string, { label: string; cls: string }> = {
               :placeholder="yAxes.length === 0 ? '— Choisir une colonne —' : '+ Ajouter une colonne Y…'"
               @update:model-value="addYAxis($event as string)"
             />
+
+            <p class="mt-3 mb-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">Agrégation</p>
+            <p class="mb-2 text-[10px] text-slate-400">Regroupe les lignes par axe X{{ block.fieldMapping.series ? ' et série' : '' }}, calcule la fonction sur la/les colonne(s) Y</p>
+            <AggregationSelect
+              :model-value="block.fieldMapping.aggregate"
+              @update:model-value="updateAggregate"
+            />
           </div>
 
           <div class="border-t border-slate-100" />
@@ -212,6 +223,17 @@ const TYPE_BADGE: Record<string, { label: string; cls: string }> = {
             <p class="mb-2 text-[10px] text-slate-400">Taille des segments (colonne numérique)</p>
             <ColumnButton :model-value="block.fieldMapping.value ?? null" :block="block" @update:model-value="updateMapping('value', $event as string)" />
           </div>
+
+          <div class="border-t border-slate-100" />
+
+          <div>
+            <p class="mb-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">Agrégation</p>
+            <p class="mb-2 text-[10px] text-slate-400">Regroupe les lignes par étiquette, calcule la fonction sur la colonne Valeurs</p>
+            <AggregationSelect
+              :model-value="block.fieldMapping.aggregate"
+              @update:model-value="updateAggregate"
+            />
+          </div>
         </div>
 
         <!-- Body: kpi -->
@@ -220,6 +242,17 @@ const TYPE_BADGE: Record<string, { label: string; cls: string }> = {
             <p class="mb-1 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">Valeur principale</p>
             <p class="mb-2 text-[10px] text-slate-400">Colonne numérique affichée en grand</p>
             <ColumnButton :model-value="block.fieldMapping.valueColumn ?? null" :block="block" @update:model-value="updateMapping('valueColumn', $event as string)" />
+          </div>
+
+          <div class="border-t border-slate-100" />
+
+          <div>
+            <p class="mb-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">Agrégation</p>
+            <p class="mb-2 text-[10px] text-slate-400">Calcule la fonction sur toutes les lignes filtrées, au lieu d'afficher la première ligne</p>
+            <AggregationSelect
+              :model-value="block.fieldMapping.aggregate"
+              @update:model-value="updateAggregate"
+            />
           </div>
 
           <div class="border-t border-slate-100" />
