@@ -223,7 +223,7 @@ onBeforeUnmount(() => {
               class="inline-flex items-center rounded-full md:border md:border-slate-200 md:bg-white md:pl-0 p-1 md:p-3 text-left transition hover:md:border-slate-300 hover:md:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 md:gap-3 md:py-0 md:pr-3"
               :aria-expanded="isUserMenuOpen" aria-haspopup="menu" aria-label="Mon compte" @click="toggleUserMenu">
               <span class="relative shrink-0">
-                <AppAvatar :initials="userInitials()" size="sm" />
+                <AppAvatar :src="authStore.user?.profile?.avatar ?? undefined" :initials="userInitials()" size="sm" />
                 <span v-if="notificationCount > 0"
                   class="absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-red-500 px-1 text-[10px] font-semibold text-white">
                   {{ notificationCount }}
