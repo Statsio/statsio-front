@@ -729,7 +729,9 @@ function setResultDescColumnLabel(col: string, label: string) {
                       <span v-else>Configurer étiquettes et valeurs →</span>
                     </template>
                     <template v-else-if="needsValue">
-                      <span v-if="block.fieldMapping.valueColumn"><strong class="font-mono font-normal text-slate-600">{{ block.fieldMapping.valueColumn }}</strong> — {{ block.config.format ?? 'number' }}</span>
+                      <span v-if="block.fieldMapping.valueColumn">
+                        <span v-if="block.fieldMapping.aggregate" class="font-semibold text-[var(--color-primary)] uppercase">{{ block.fieldMapping.aggregate }}</span>(<strong class="font-mono font-normal text-slate-600">{{ block.fieldMapping.valueColumn }}</strong>) — {{ block.config.format ?? 'number' }}
+                      </span>
                       <span v-else>Configurer la valeur →</span>
                     </template>
                     <template v-else>Toutes les colonnes affichées</template>
@@ -1068,8 +1070,8 @@ function setResultDescColumnLabel(col: string, label: string) {
             </div>
           </div>
 
-          <!-- Couleur principale (non table, non multi-séries) -->
-          <div v-if="!isTable && !block.fieldMapping.series" class="accordion-item">
+          <!-- Couleur principale (bar/line non multi-séries) -->
+          <div v-if="(block.type === 'bar' || block.type === 'line') && !block.fieldMapping.series" class="accordion-item">
             <button class="accordion-header" @click="toggle('color')">
               <span>Couleur principale</span>
               <div class="flex items-center gap-2">

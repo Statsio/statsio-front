@@ -1,6 +1,6 @@
 import { ref, watch, computed } from 'vue'
 import { fetchBlockData, fetchPublicBlockData } from '@/api/studio'
-import type { StudioBlock, BlockFilter, BlockQueryResult } from '@/types/studio'
+import type { StudioBlock, BlockFilter, BlockQueryResult, AggregateFunction } from '@/types/studio'
 import { useStudioStore } from '@/stores/studio'
 
 export function useBlockData(block: () => StudioBlock | null, readonly = false) {
@@ -45,6 +45,7 @@ export function useBlockData(block: () => StudioBlock | null, readonly = false) 
       sortDirection: b.config.sortDirection ?? undefined,
       filters: resolveFilters(b.filters ?? []),
       joins: b.joins?.length ? b.joins : undefined,
+      ...resolveAggregationParams(b),
     }
 
     isLoading.value = true
@@ -77,6 +78,32 @@ export function useBlockData(block: () => StudioBlock | null, readonly = false) 
   )
 
   return { data, isLoading, error, canFetch, reload: load }
+}
+
+/**
+ * Derives the aggregation query params from a block's type + fieldMapping.
+ * Shared by the main fetch above and by KpiBlock's comparison fetch, so both
+ * the primary value and the comparison value use the exact same aggregation.
+ */
+export function resolveAggregationParams(block: StudioBlock): { aggregate?: AggregateFunction; aggregateColumns?: string[]; groupBy?: string[] } {
+  const m = block.fieldMapping
+  if (!m.aggregate) return {}
+
+  if (block.type === 'kpi') {
+    if (!m.valueColumn) return {}
+    return { aggregate: m.aggregate, aggregateColumns: [m.valueColumn], groupBy: [] }
+  }
+  if (block.type === 'pie') {
+    if (!m.value) return {}
+    return { aggregate: m.aggregate, aggregateColumns: [m.value], groupBy: m.label ? [m.label] : [] }
+  }
+  if (block.type === 'bar' || block.type === 'line') {
+    const yCols = m.yAxes?.length ? m.yAxes : (m.yAxis ? [m.yAxis] : [])
+    if (!yCols.length) return {}
+    const groupBy = [m.xAxis, m.series].filter((c): c is string => Boolean(c))
+    return { aggregate: m.aggregate, aggregateColumns: yCols, groupBy }
+  }
+  return {}
 }
 
 // resolveColumns is module-level since it doesn't need store access

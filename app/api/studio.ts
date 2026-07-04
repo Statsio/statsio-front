@@ -51,6 +51,9 @@ type BlockQueryParams = {
   sortDirection?: 'asc' | 'desc' | null
   filters?: import('@/types/studio').BlockFilter[]
   joins?: import('@/types/studio').BlockJoin[]
+  aggregate?: import('@/types/studio').AggregateFunction
+  aggregateColumns?: string[]
+  groupBy?: string[]
 }
 
 function buildParamsSerializer(p: BlockQueryParams): string {
@@ -77,6 +80,11 @@ function buildParamsSerializer(p: BlockQueryParams): string {
       parts.push(`joins[${i}][type]=${j.type}`)
       j.columns.forEach((c) => parts.push(`joins[${i}][columns][]=${encodeURIComponent(c)}`))
     })
+  }
+  if (p.aggregate && p.aggregateColumns?.length) {
+    parts.push(`aggregate=${encodeURIComponent(p.aggregate)}`)
+    p.aggregateColumns.forEach((c) => parts.push(`aggregate_columns[]=${encodeURIComponent(c)}`))
+    p.groupBy?.forEach((c) => parts.push(`group_by[]=${encodeURIComponent(c)}`))
   }
   return parts.join('&')
 }
