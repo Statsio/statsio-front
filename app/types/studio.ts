@@ -8,6 +8,7 @@ export interface StudioContent {
   title: string
   slug?: string
   status?: 'draft' | 'published'
+  categories?: string[]
 }
 
 // ─── Blocks ───────────────────────────────────────────────────────────────────
@@ -243,6 +244,8 @@ export interface DatasetMeta {
   rowCount: number
   status: 'pending' | 'ready' | 'failed'
   createdAt?: string
+  /** False when attached from the public catalog rather than owned — see SidebarDataSources delete/detach. */
+  isOwner?: boolean
 }
 
 export interface DatasetWithSchema extends DatasetMeta {

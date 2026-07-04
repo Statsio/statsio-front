@@ -192,6 +192,7 @@ export interface StatsDataDocument {
   pages?: import('@/types/studio').StudioDocumentPage[]
   sections?: import('@/types/studio').Section[]
   blocks?: StudioBlock[]
+  categories?: string[]
 }
 
 export async function fetchUserStatsDataDocuments(): Promise<StatsDataDocument[]> {
@@ -261,5 +262,6 @@ function mapDatasetMeta(raw: Record<string, unknown>): DatasetMeta {
     rowCount: Number(raw.row_count ?? 0),
     status: (raw.status as DatasetMeta['status']) ?? 'pending',
     createdAt: raw.created_at ? String(raw.created_at) : undefined,
+    isOwner: raw.is_owner !== false,
   }
 }
