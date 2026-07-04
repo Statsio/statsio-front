@@ -34,6 +34,14 @@ export const STATSIO_API = {
     test: (id: string) => `/api-sources/${encodeURIComponent(id)}/test`,
     preview: (id: string) => `/api-sources/${encodeURIComponent(id)}/preview`,
   },
+  dataSources: {
+    upload: '/data-sources/upload',
+    public: '/data-sources/public',
+    attach: (id: string | number) => `/data-sources/${encodeURIComponent(String(id))}/attach`,
+  },
+  sourceProvenances: {
+    collection: '/source-provenances',
+  },
   datasets: {
     collection: '/datasets',
     one: (id: string) => `/datasets/${encodeURIComponent(id)}`,

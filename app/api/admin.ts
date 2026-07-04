@@ -173,6 +173,37 @@ export async function adminDeleteCategory(id: number): Promise<void> {
   await apiHttp.delete(`/admin/tv/categories/${id}`)
 }
 
+// ---- Source provenances ----
+
+export type AdminSourceProvenance = {
+  id: number
+  name: string
+  slug: string
+  position: number
+  data_sources_count?: number
+  created_at: string
+  updated_at: string
+}
+
+export async function adminListSourceProvenances(): Promise<AdminSourceProvenance[]> {
+  const { data } = await apiHttp.get<AdminSourceProvenance[]>('/admin/source-provenances')
+  return data
+}
+
+export async function adminCreateSourceProvenance(payload: { name: string }): Promise<AdminSourceProvenance> {
+  const { data } = await apiHttp.post<AdminSourceProvenance>('/admin/source-provenances', payload)
+  return data
+}
+
+export async function adminUpdateSourceProvenance(id: number, payload: { name?: string }): Promise<AdminSourceProvenance> {
+  const { data } = await apiHttp.patch<AdminSourceProvenance>(`/admin/source-provenances/${id}`, payload)
+  return data
+}
+
+export async function adminDeleteSourceProvenance(id: number): Promise<void> {
+  await apiHttp.delete(`/admin/source-provenances/${id}`)
+}
+
 // ---- Programs ----
 
 export type AdminProgram = {

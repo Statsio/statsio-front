@@ -180,7 +180,9 @@ const statusConfig: Record<SourceStatus, { label: string; dot: string; badge: st
             <svg class="w-4 h-4 text-red-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
             </svg>
-            <p class="text-xs text-red-700 font-medium flex-1">Supprimer cette source ?</p>
+            <p class="text-xs text-red-700 font-medium flex-1">
+              {{ dataset.isOwner === false ? 'Retirer cette source de vos sources ?' : 'Supprimer cette source ?' }}
+            </p>
             <button
               class="text-xs font-semibold text-slate-500 hover:text-slate-700 px-2 py-1 rounded transition-colors"
               @click="deletingId = null; deleteError = ''"
@@ -194,7 +196,7 @@ const statusConfig: Record<SourceStatus, { label: string; dot: string; badge: st
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
-              Supprimer
+              {{ dataset.isOwner === false ? 'Retirer' : 'Supprimer' }}
             </button>
           </div>
           <p v-if="deleteError" class="text-[11px] text-red-600 pl-6">{{ deleteError }}</p>
@@ -239,6 +241,7 @@ const statusConfig: Record<SourceStatus, { label: string; dot: string; badge: st
           <!-- Action buttons (visible on hover) -->
           <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
             <button
+              v-if="dataset.isOwner !== false"
               class="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
               title="Renommer"
               @click="startEdit(dataset, $event)"
@@ -249,7 +252,7 @@ const statusConfig: Record<SourceStatus, { label: string; dot: string; badge: st
             </button>
             <button
               class="p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-              title="Supprimer"
+              :title="dataset.isOwner === false ? 'Retirer de mes sources' : 'Supprimer'"
               @click="confirmDelete(dataset, $event)"
             >
               <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
