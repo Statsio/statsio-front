@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import AppStepModal from '@/components/ui/AppStepModal.vue'
 import AppModal from '@/components/ui/AppModal.vue'
 import StepTitle from '@/components/create/steps/StepTitle.vue'
@@ -8,36 +8,45 @@ import StepCoverage from '@/components/create/steps/StepCoverage.vue'
 import StepPublication from '@/components/create/steps/StepPublication.vue'
 import StepSuccess from '@/components/create/steps/StepSuccess.vue'
 import { useCreateContentWizard, CONTENT_WIZARD_STEPS } from '@/composables/useCreateContentWizard'
+import { createStudioContent } from '@/api/studio'
+import type { StatsDataDocument } from '@/api/studio'
+import type { ContentType } from '@/types/content-creation'
 
-const props = defineProps<{ open: boolean }>()
+const CONTENT_TYPE_CONFIG: Record<ContentType, { modalTitle: string; label: string; successTitle: string }> = {
+  statsdata: { modalTitle: 'Nouveau StatsData', label: 'StatsData', successTitle: 'StatsData créé' },
+  article:   { modalTitle: 'Nouvel article',    label: 'article',   successTitle: 'Article créé' },
+  survey:    { modalTitle: 'Nouveau sondage',   label: 'sondage',   successTitle: 'Sondage créé' },
+}
+
+const props = defineProps<{ open: boolean; type: ContentType }>()
 const emit = defineEmits<{
   'update:open': [boolean]
   close: []
 }>()
 
+const config = computed(() => CONTENT_TYPE_CONFIG[props.type])
+
 const submitting = ref(false)
-const created = ref(false)
+const createdDoc = ref<StatsDataDocument | null>(null)
 
 const {
   title, categories, coverageType, coverageValues,
   visibility, publishedAs, channelId,
   currentStepId, canGoNext,
-  reset,
+  reset, buildPayload,
 } = useCreateContentWizard()
 
 watch(() => props.open, (v) => {
   if (!v) {
     setTimeout(reset, 300)
-    created.value = false
+    createdDoc.value = null
   }
 })
 
 async function handleSubmit() {
   submitting.value = true
   try {
-    // TODO: wire up sondage creation API when available
-    await new Promise((r) => setTimeout(r, 600))
-    created.value = true
+    createdDoc.value = await createStudioContent(buildPayload(props.type))
   } finally {
     submitting.value = false
   }
@@ -47,14 +56,16 @@ function handleClose() {
   emit('update:open', false)
   emit('close')
 }
+
+const studioPath = () => createdDoc.value ? `/studio/${props.type}/${createdDoc.value.slug ?? createdDoc.value.id}` : '/studio'
 </script>
 
 <template>
   <!-- Success state -->
-  <AppModal v-if="created" :open="open" title="Sondage créé" size="sm" @update:open="handleClose" @close="handleClose">
+  <AppModal v-if="createdDoc" :open="open" :title="config.successTitle" size="sm" @update:open="handleClose" @close="handleClose">
     <StepSuccess
-      content-type-label="sondage"
-      studio-path="/sondages"
+      :content-type-label="config.label"
+      :studio-path="studioPath()"
       @close="handleClose"
     />
   </AppModal>
@@ -63,7 +74,7 @@ function handleClose() {
   <AppStepModal
     v-else
     :open="open"
-    title="Nouveau sondage"
+    :title="config.modalTitle"
     :steps="CONTENT_WIZARD_STEPS"
     v-model:current-step-id="currentStepId"
     :can-go-next="canGoNext"
@@ -77,7 +88,7 @@ function handleClose() {
       <StepTitle
         v-if="step.id === 'title'"
         v-model="title"
-        content-type-label="sondage"
+        :content-type-label="config.label"
       />
       <StepCategories
         v-else-if="step.id === 'categories'"

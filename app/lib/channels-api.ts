@@ -84,6 +84,10 @@ function mapApiChannelToEntry(apiChannel: ApiChannel): ChannelEntry {
     subscriptionPrice: undefined,
     logoUrl: profile?.logo_url || null,
     bannerUrl: profile?.banner_url || null,
+    ageRestriction: profile?.age_restriction ? Number(profile.age_restriction) || undefined : undefined,
+    createdAt: apiChannel.created_at,
+    country: profile?.country || null,
+    viewCount: profile?.view_count || 0,
   }
 }
 

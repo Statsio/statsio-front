@@ -1,6 +1,7 @@
 import { apiHttp, publicHttp } from '@/lib/http'
 import { STATSIO_API } from './statsio-endpoints'
 import type { DatasetColumn, DatasetMeta, DatasetWithSchema, BlockQueryResult, StudioBlock } from '@/types/studio'
+import type { ContentType } from '@/types/content-creation'
 
 // ─── Datasets ─────────────────────────────────────────────────────────────────
 
@@ -190,6 +191,7 @@ export async function fetchDistinctValues(datasetId: string, column: string, sea
 export interface StatsDataDocument {
   id: string
   title: string
+  type?: ContentType
   description?: string | null
   slug?: string
   status?: string
@@ -203,13 +205,14 @@ export interface StatsDataDocument {
   categories?: string[]
 }
 
-export async function fetchUserStatsDataDocuments(): Promise<StatsDataDocument[]> {
-  const { data } = await apiHttp.get(STATSIO_API.studioContent.collection)
+export async function fetchUserStudioContents(type?: ContentType): Promise<StatsDataDocument[]> {
+  const { data } = await apiHttp.get(STATSIO_API.studioContent.collection, { params: type ? { type } : {} })
   return data.data ?? []
 }
 
-export interface CreateStatsDataPayload {
+export interface CreateStudioContentPayload {
   title: string
+  type: ContentType
   categories?: string[]
   coverage_type?: string
   coverage_data?: string[]
@@ -218,13 +221,18 @@ export interface CreateStatsDataPayload {
   channel_id?: number
 }
 
-export async function createStatsDataDocument(payload: CreateStatsDataPayload): Promise<StatsDataDocument> {
+export async function createStudioContent(payload: CreateStudioContentPayload): Promise<StatsDataDocument> {
   const { data } = await apiHttp.post(STATSIO_API.studioContent.collection, payload)
   return data.data
 }
 
 export async function fetchPublicStatsDataCatalog(): Promise<StatsDataDocument[]> {
-  const { data } = await apiHttp.get(STATSIO_API.studioContent.publicCollection)
+  const { data } = await apiHttp.get(STATSIO_API.studioContent.publicCollection, { params: { type: 'statsdata' } })
+  return data.data ?? []
+}
+
+export async function fetchPublicSurveys(): Promise<StatsDataDocument[]> {
+  const { data } = await apiHttp.get(STATSIO_API.studioContent.publicCollection, { params: { type: 'survey' } })
   return data.data ?? []
 }
 
@@ -271,5 +279,10 @@ function mapDatasetMeta(raw: Record<string, unknown>): DatasetMeta {
     status: (raw.status as DatasetMeta['status']) ?? 'pending',
     createdAt: raw.created_at ? String(raw.created_at) : undefined,
     isOwner: raw.is_owner !== false,
+    dataSourceId: raw.data_source_id != null ? String(raw.data_source_id) : undefined,
+    sourceKind: raw.source_kind === 'api' ? 'api' : undefined,
+    refreshFrequency: raw.refresh_frequency as DatasetMeta['refreshFrequency'],
+    lastRefreshedAt: raw.last_refreshed_at ? String(raw.last_refreshed_at) : null,
+    nextRefreshAt: raw.next_refresh_at ? String(raw.next_refresh_at) : null,
   }
 }

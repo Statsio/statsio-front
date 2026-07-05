@@ -6,6 +6,7 @@ import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import { useStudioAutosave } from '@/composables/useStudioAutosave'
 import { fetchStatsDataDocument } from '@/api/studio'
+import type { ContentType } from '@/types/content-creation'
 import StudioHeader from '@/components/studio/StudioHeader.vue'
 import TextFormatToolbar from '@/components/studio/TextFormatToolbar.vue'
 import StudioSidebarLeft from '@/components/studio/StudioSidebarLeft.vue'
@@ -19,22 +20,23 @@ const { saveNow } = useStudioAutosave()
 
 onMounted(async () => {
   const documentId = route.params.slug as string | undefined
+  const routeType = (route.params.type as ContentType | undefined) ?? 'statsdata'
   datasets.loadDatasets()
 
   if (documentId) {
     try {
       const doc = await fetchStatsDataDocument(documentId)
       studio.initPage(
-        { id: doc.id, type: 'statsdata', title: doc.title, status: doc.status as 'draft' | 'published', categories: doc.categories ?? [] },
+        { id: doc.id, type: doc.type ?? routeType, title: doc.title, status: doc.status as 'draft' | 'published', categories: doc.categories ?? [] },
         doc.sections,
         doc.blocks,
         doc.pages,
       )
     } catch {
-      studio.initPage({ id: documentId, type: 'statsdata', title: 'Nouveau dashboard' })
+      studio.initPage({ id: documentId, type: routeType, title: 'Nouveau dashboard' })
     }
   } else {
-    studio.initPage({ id: 'demo', type: 'statsdata', title: 'Mon dashboard' })
+    studio.initPage({ id: 'demo', type: routeType, title: 'Mon dashboard' })
   }
 })
 

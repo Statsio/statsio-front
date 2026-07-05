@@ -20,6 +20,9 @@ export type ChannelEntry = {
   logoUrl?: string | null
   bannerUrl?: string | null
   ageRestriction?: number
+  createdAt?: string
+  country?: string | null
+  viewCount?: number
 }
 
 export const channels: ChannelEntry[] = [

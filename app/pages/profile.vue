@@ -54,7 +54,7 @@ const handleDeleteAccount = () => {
 }
 
 const handleCreateChannel = () => {
-  router.push('/channels/create')
+  router.push('/mes-chaines?create=1')
 }
 
 const sidebarItems = [

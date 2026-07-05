@@ -4,29 +4,41 @@ definePageMeta({
   title: 'Sondages',
   description: "Parcourez les sondages Statsio : baromètres d'opinion, enquêtes thématiques et comparaisons de vagues pour comprendre les dynamiques électorales et sociétales.",
 })
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import PollCard from '@/components/polls/PollCard.vue'
 import AppButton from '@/components/ui/AppButton.vue'
-import { pollFilterLabels, pollSummaries, type PollSummary } from '@/data/polls'
+import { fetchPublicSurveys, type StatsDataDocument } from '@/api/studio'
+import { isFormBlock } from '@/types/studio'
 
-const activeFilter = ref<(typeof pollFilterLabels)[number]>('Tous')
+const filterLabels = ['Tous', 'Question unique', 'Multi-questions'] as const
+const activeFilter = ref<(typeof filterLabels)[number]>('Tous')
+
+const loading = ref(true)
+const polls = ref<StatsDataDocument[]>([])
+
+onMounted(async () => {
+  try {
+    polls.value = await fetchPublicSurveys()
+  } finally {
+    loading.value = false
+  }
+})
+
+function questionCount(poll: StatsDataDocument) {
+  return (poll.blocks ?? []).filter((block) => isFormBlock(block.type)).length
+}
+
+const totalQuestions = computed(() => polls.value.reduce((total, poll) => total + questionCount(poll), 0))
+const multiQuestionCount = computed(() => polls.value.filter((poll) => questionCount(poll) > 1).length)
 
 const filteredPolls = computed(() =>
-  pollSummaries.filter((poll) => {
-    if (activeFilter.value === 'Ouverts') {
-      return poll.status === 'open'
-    }
-
-    if (activeFilter.value === 'Fermés') {
-      return poll.status === 'closed'
-    }
-
-    if (activeFilter.value === 'Avec date limite') {
-      return Boolean(poll.deadline)
+  polls.value.filter((poll) => {
+    if (activeFilter.value === 'Question unique') {
+      return questionCount(poll) === 1
     }
 
     if (activeFilter.value === 'Multi-questions') {
-      return poll.questionCount > 1
+      return questionCount(poll) > 1
     }
 
     return true
@@ -39,8 +51,8 @@ const editorialPoints = [
     detail: 'Le listing sert à comparer les vagues, pas à répondre directement.',
   },
   {
-    title: 'États lisibles',
-    detail: 'Un sondage peut être ouvert ou fermé, avec ou sans date limite.',
+    title: 'Résultats en direct',
+    detail: 'Chaque réponse met à jour immédiatement les résultats agrégés du sondage.',
   },
   {
     title: 'Questions flexibles',
@@ -61,35 +73,35 @@ const editorialPoints = [
                 Une page sondages pensée pour comparer les vagues et répondre au bon niveau.
               </h1>
               <p class="max-w-3xl text-lg leading-8 text-slate-600">
-                Parcourez les consultations ouvertes ou archivées, identifiez les dates limites, puis ouvrez le détail pour répondre question par question.
+                Parcourez les consultations publiées par la rédaction, puis ouvrez le détail pour répondre question par question.
               </p>
             </div>
           </div>
 
             <div class="grid gap-4 sm:grid-cols-3">
               <div class="rounded-[1.75rem] border border-slate-200 bg-white/85 px-5 py-4 shadow-[0_20px_60px_-42px_rgba(15,23,42,0.35)]">
-                <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Vagues actives</p>
+                <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Sondages publiés</p>
                 <p class="mt-3 text-2xl font-semibold text-slate-950">
-                  {{ pollSummaries.filter((poll: PollSummary) => poll.status === 'open').length }}
-                </p>
-              </div>
-              <div class="rounded-[1.75rem] border border-slate-200 bg-white/85 px-5 py-4 shadow-[0_20px_60px_-42px_rgba(15,23,42,0.35)]">
-                <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Avec échéance</p>
-                <p class="mt-3 text-2xl font-semibold text-slate-950">
-                  {{ pollSummaries.filter((poll: PollSummary) => poll.deadline).length }}
+                  {{ polls.length }}
                 </p>
               </div>
               <div class="rounded-[1.75rem] border border-slate-200 bg-white/85 px-5 py-4 shadow-[0_20px_60px_-42px_rgba(15,23,42,0.35)]">
                 <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Questions totales</p>
                 <p class="mt-3 text-2xl font-semibold text-slate-950">
-                  {{ pollSummaries.reduce((total: number, poll: PollSummary) => total + poll.questionCount, 0) }}
+                  {{ totalQuestions }}
+                </p>
+              </div>
+              <div class="rounded-[1.75rem] border border-slate-200 bg-white/85 px-5 py-4 shadow-[0_20px_60px_-42px_rgba(15,23,42,0.35)]">
+                <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Multi-questions</p>
+                <p class="mt-3 text-2xl font-semibold text-slate-950">
+                  {{ multiQuestionCount }}
                 </p>
               </div>
             </div>
 
             <div class="flex flex-wrap gap-2">
               <button
-                v-for="filter in pollFilterLabels"
+                v-for="filter in filterLabels"
                 :key="filter"
                 type="button"
                 class="rounded-full border px-4 py-2 text-sm font-semibold transition"
@@ -119,7 +131,7 @@ const editorialPoints = [
             <div class="rounded-[2rem] border border-slate-200 bg-white p-6">
               <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Créer un sondage</p>
               <p class="mt-4 text-sm leading-7 text-slate-600">
-                Le FAB et la navigation peuvent désormais pointer vers cette surface pour préparer les prochains parcours créateur.
+                Le Studio permet de publier vos propres sondages et de suivre les réponses en direct.
               </p>
               <div class="mt-5">
                 <AppButton as="router-link" to="/profile" variant="secondary" size="md" full-width>
@@ -138,13 +150,24 @@ const editorialPoints = [
             <p class="eyebrow">Catalogue</p>
             <h2 class="text-3xl font-semibold text-slate-950">Tous les sondages disponibles</h2>
           </div>
-          <p class="text-sm text-slate-500">
+          <p v-if="!loading" class="text-sm text-slate-500">
             {{ filteredPolls.length }} sondage<span v-if="filteredPolls.length > 1">s</span>
           </p>
         </div>
 
-        <div class="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
+        <div v-if="loading" class="flex items-center justify-center py-24">
+          <svg class="h-8 w-8 animate-spin text-primary" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+        </div>
+
+        <div v-else-if="filteredPolls.length > 0" class="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
           <PollCard v-for="poll in filteredPolls" :key="poll.slug" :poll="poll" />
+        </div>
+
+        <div v-else class="py-20 text-center text-slate-400">
+          <p class="text-sm">Aucun sondage publié pour le moment.</p>
         </div>
       </div>
     </section>

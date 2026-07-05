@@ -21,30 +21,35 @@ const isText   = computed(() => block.value ? isTextBlock(block.value.type) : fa
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
 const EDITORIAL_TYPES = ['image', 'video', 'button', 'link-card', 'retenir'] as const
+const FORM_TYPES = ['choice', 'checkboxes', 'dropdown', 'scale', 'rating'] as const
 
 const DATA_TABS      = [{ id: 'data', label: 'Données' }, { id: 'filters', label: 'Filtres' }, { id: 'style', label: 'Style' }]
 const KPI_TABS       = [{ id: 'data', label: 'Données' }, { id: 'filters', label: 'Filtres' }, { id: 'comparison', label: 'Comparaison' }, { id: 'style', label: 'Style' }]
 const TEXT_TABS      = [{ id: 'style', label: 'Style' }]
 const SEARCH_TABS    = [{ id: 'config', label: 'Configuration' }]
 const EDITORIAL_TABS = [{ id: 'editorial', label: 'Contenu' }]
+const FORM_TABS      = [{ id: 'form', label: 'Question' }]
 
 const isSearch    = computed(() => block.value?.type === 'search')
 const isEditorial = computed(() => EDITORIAL_TYPES.includes(block.value?.type as typeof EDITORIAL_TYPES[number]))
+const isForm      = computed(() => FORM_TYPES.includes(block.value?.type as typeof FORM_TYPES[number]))
 
 const currentTabs = computed(() => {
   if (isText.value) return TEXT_TABS
   if (isSearch.value) return SEARCH_TABS
   if (isEditorial.value) return EDITORIAL_TABS
+  if (isForm.value) return FORM_TABS
   if (block.value?.type === 'kpi') return KPI_TABS
   return DATA_TABS
 })
 
 const activeTab = ref('data')
 
-watch([() => block.value?.id, isText, isSearch, isEditorial], () => {
+watch([() => block.value?.id, isText, isSearch, isEditorial, isForm], () => {
   if (isText.value) activeTab.value = 'style'
   else if (isSearch.value) activeTab.value = 'config'
   else if (isEditorial.value) activeTab.value = 'editorial'
+  else if (isForm.value) activeTab.value = 'form'
   else activeTab.value = 'data'
 }, { immediate: true })
 
@@ -81,6 +86,11 @@ const BLOCK_META: Record<BlockType, { label: string; colorClass: string; iconPat
   button:    { label: 'Bouton',     colorClass: 'bg-violet-100 text-violet-600',   iconPath: 'M15.042 21.672 13.684 16.6m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672zm-7.518-.267A8.25 8.25 0 1 1 20.25 10.5M8.288 14.212A5.25 5.25 0 1 1 17.25 10.5' },
   'link-card': { label: 'Lien',    colorClass: 'bg-blue-100 text-blue-600',       iconPath: 'M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244' },
   retenir:   { label: 'À retenir', colorClass: 'bg-emerald-100 text-emerald-600', iconPath: 'M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5z' },
+  choice:     { label: 'Choix unique',      colorClass: 'bg-indigo-100 text-indigo-600', iconPath: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-5.25a3.75 3.75 0 1 0 0-7.5 3.75 3.75 0 0 0 0 7.5Z' },
+  checkboxes: { label: 'Cases à cocher',    colorClass: 'bg-indigo-100 text-indigo-600', iconPath: 'M9 12.75 11.25 15 15 9.75M3.75 12c0-4.556 3.694-8.25 8.25-8.25s8.25 3.694 8.25 8.25-3.694 8.25-8.25 8.25S3.75 16.556 3.75 12Z' },
+  dropdown:   { label: 'Liste déroulante', colorClass: 'bg-indigo-100 text-indigo-600', iconPath: 'M8.25 15 12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9' },
+  scale:      { label: 'Échelle linéaire', colorClass: 'bg-indigo-100 text-indigo-600', iconPath: 'M3 6.75h18M3 12h18M3 17.25h18M6 6.75v0M12 12v0M18 17.25v0' },
+  rating:     { label: 'Avis',              colorClass: 'bg-amber-100 text-amber-600',   iconPath: 'M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5z' },
 }
 const blockMeta = computed(() => block.value ? BLOCK_META[block.value.type as BlockType] : null)
 
@@ -145,6 +155,14 @@ watch(() => block.value?.datasetId, async (id: string | undefined) => { if (id) 
 
 function updateConfig(key: string, value: unknown)  { if (!block.value) return; studio.updateBlockConfig(block.value.id, { [key]: value }) }
 function updateMapping(key: string, value: string)  { if (!block.value) return; studio.updateBlockFieldMapping(block.value.id, { [key]: value }) }
+
+// ─── Form block config (choice / checkboxes / dropdown / scale / rating) ──────
+
+const formOptions = computed<string[]>(() => block.value?.config.formOptions ?? [])
+function updateFormOption(idx: number, val: string) { updateConfig('formOptions', formOptions.value.map((o, i) => (i === idx ? val : o))) }
+function addFormOption() { updateConfig('formOptions', [...formOptions.value, `Option ${formOptions.value.length + 1}`]) }
+function removeFormOption(idx: number) { updateConfig('formOptions', formOptions.value.filter((_, i) => i !== idx)) }
+const RATING_MAX_CHOICES = [3, 5, 10]
 
 const needsXY       = computed(() => block.value?.type === 'bar' || block.value?.type === 'line')
 const needsLabelVal = computed(() => block.value?.type === 'pie')
@@ -434,6 +452,40 @@ function setResultDescColumnLabel(col: string, label: string) {
       <template v-if="isSearch">
         <template v-if="activeTab === 'config'">
 
+          <!-- Section: Titre & description -->
+          <div class="accordion-item">
+            <button class="accordion-header" @click="toggle('search-title')">
+              <span>Titre &amp; description</span>
+              <svg class="chevron" :class="open('search-title') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+              </svg>
+            </button>
+            <div v-show="open('search-title')" class="accordion-body flex flex-col gap-2">
+              <div>
+                <label class="cfg-label">Titre</label>
+                <input
+                  type="text"
+                  class="cfg-input"
+                  placeholder="Ex : Rechercher une commune"
+                  :value="block.config.title ?? ''"
+                  @focus="setActiveInput($event.target as HTMLInputElement)"
+                  @input="updateConfig('title', ($event.target as HTMLInputElement).value)"
+                />
+              </div>
+              <div>
+                <label class="cfg-label">Description</label>
+                <textarea
+                  rows="2"
+                  class="cfg-input resize-none"
+                  placeholder="Ex : Tapez le nom d'une commune pour voir ses résultats"
+                  :value="block.config.description ?? ''"
+                  @focus="setActiveInput($event.target as HTMLTextAreaElement)"
+                  @input="updateConfig('description', ($event.target as HTMLTextAreaElement).value)"
+                ></textarea>
+              </div>
+            </div>
+          </div>
+
           <!-- Section: Sources & jointures → modal -->
           <div class="px-3 pt-2.5 pb-1">
             <button
@@ -671,8 +723,100 @@ function setResultDescColumnLabel(col: string, label: string) {
         </template>
       </template>
 
+      <!-- ══════════════ FORM BLOCKS (choice / checkboxes / dropdown / scale / rating) ══════════════ -->
+      <template v-if="isForm && block">
+        <template v-if="activeTab === 'form'">
+
+          <!-- Section: Question -->
+          <div class="accordion-item">
+            <button class="accordion-header" @click="toggle('form-question')">
+              <span>Question</span>
+              <svg class="chevron" :class="open('form-question') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
+            </button>
+            <div v-show="open('form-question')" class="accordion-body flex flex-col gap-2">
+              <div>
+                <label class="cfg-label">Intitulé</label>
+                <input
+                  type="text"
+                  class="cfg-input"
+                  placeholder="Ex : Que pensez-vous de…"
+                  :value="block.config.title ?? ''"
+                  @focus="setActiveInput($event.target as HTMLInputElement)"
+                  @input="updateConfig('title', ($event.target as HTMLInputElement).value)"
+                />
+              </div>
+              <label class="flex items-center gap-2 text-xs font-medium text-slate-600">
+                <input type="checkbox" :checked="block.config.formRequired ?? false" @change="updateConfig('formRequired', ($event.target as HTMLInputElement).checked)" />
+                Question obligatoire
+              </label>
+            </div>
+          </div>
+
+          <!-- Section: Options (choice / checkboxes / dropdown) -->
+          <div v-if="['choice', 'checkboxes', 'dropdown'].includes(block.type)" class="accordion-item">
+            <button class="accordion-header" @click="toggle('form-options')">
+              <span>Options</span>
+              <svg class="chevron" :class="open('form-options') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
+            </button>
+            <div v-show="open('form-options')" class="accordion-body flex flex-col gap-2">
+              <div v-for="(opt, idx) in formOptions" :key="idx" class="flex items-center gap-2">
+                <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-slate-100 text-[10px] font-semibold text-slate-500">{{ idx + 1 }}</span>
+                <input type="text" class="cfg-input" :value="opt" @input="updateFormOption(idx, ($event.target as HTMLInputElement).value)" />
+                <button class="shrink-0 p-1 text-slate-300 hover:text-rose-500" @click="removeFormOption(idx)">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+              <button class="mt-1 self-start text-xs font-semibold text-[var(--color-primary)] hover:underline" @click="addFormOption">+ Ajouter une option</button>
+            </div>
+          </div>
+
+          <!-- Section: Échelle (scale) -->
+          <div v-if="block.type === 'scale'" class="accordion-item">
+            <button class="accordion-header" @click="toggle('form-scale')">
+              <span>Échelle</span>
+              <svg class="chevron" :class="open('form-scale') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
+            </button>
+            <div v-show="open('form-scale')" class="accordion-body flex flex-col gap-3">
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="cfg-label">Min</label>
+                  <input type="number" class="cfg-input" :value="block.config.scaleMin ?? 1" @input="updateConfig('scaleMin', Number(($event.target as HTMLInputElement).value))" />
+                </div>
+                <div>
+                  <label class="cfg-label">Max</label>
+                  <input type="number" class="cfg-input" :value="block.config.scaleMax ?? 5" @input="updateConfig('scaleMax', Number(($event.target as HTMLInputElement).value))" />
+                </div>
+              </div>
+              <div>
+                <label class="cfg-label">Libellé côté min <span class="text-slate-400 font-normal normal-case">(facultatif)</span></label>
+                <input type="text" class="cfg-input" :value="block.config.scaleMinLabel ?? ''" @input="updateConfig('scaleMinLabel', ($event.target as HTMLInputElement).value)" />
+              </div>
+              <div>
+                <label class="cfg-label">Libellé côté max <span class="text-slate-400 font-normal normal-case">(facultatif)</span></label>
+                <input type="text" class="cfg-input" :value="block.config.scaleMaxLabel ?? ''" @input="updateConfig('scaleMaxLabel', ($event.target as HTMLInputElement).value)" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Section: Étoiles (rating) -->
+          <div v-if="block.type === 'rating'" class="accordion-item">
+            <button class="accordion-header" @click="toggle('form-rating')">
+              <span>Notation</span>
+              <svg class="chevron" :class="open('form-rating') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
+            </button>
+            <div v-show="open('form-rating')" class="accordion-body">
+              <label class="cfg-label">Nombre d'étoiles</label>
+              <div class="grid grid-cols-3 gap-1.5">
+                <button v-for="n in RATING_MAX_CHOICES" :key="n" class="rounded-lg border py-1.5 text-[11px] font-semibold transition-colors" :class="(block.config.ratingMax ?? 5) === n ? 'cfg-active' : 'cfg-inactive'" @click="updateConfig('ratingMax', n)">{{ n }}</button>
+              </div>
+            </div>
+          </div>
+
+        </template>
+      </template>
+
       <!-- ══════════════ DATA BLOCKS ══════════════ -->
-      <template v-if="!isText && !isSearch && !isEditorial">
+      <template v-if="!isText && !isSearch && !isEditorial && !isForm">
 
         <!-- ── Tab: Données ── -->
         <template v-if="activeTab === 'data'">
