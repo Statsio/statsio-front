@@ -1,81 +1,95 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'default' })
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import PollQuestionBlock from '@/components/polls/PollQuestionBlock.vue'
+import BlockRenderer from '@/components/studio/blocks/BlockRenderer.vue'
 import AppButton from '@/components/ui/AppButton.vue'
-import { pollDetails, type PollDetail, type PollQuestion, pollSummaries } from '@/data/polls'
+import { fetchPublicStatsDataDocument, fetchPublicSurveys, type StatsDataDocument } from '@/api/studio'
+import { useStudioStore } from '@/stores/studio'
+import { isFormBlock } from '@/types/studio'
+import type { StudioBlock } from '@/types/studio'
 
 const route = useRoute()
+const studio = useStudioStore()
 
-const fallbackSlug = 'barometre-municipales-priorites-locales'
-const fallbackPoll = pollDetails[fallbackSlug] as PollDetail
+const slug = computed(() => String(route.params.slug ?? ''))
 
-const poll = computed<PollDetail>(() => {
-  const slug = String(route.params.slug ?? fallbackSlug)
-
-  return pollDetails[slug] ?? fallbackPoll
-})
+const poll = ref<StatsDataDocument | null>(null)
+const relatedPolls = ref<StatsDataDocument[]>([])
+const loading = ref(true)
+const error = ref<string | null>(null)
 
 usePageSeo({
-  title: computed(() => poll.value.title),
-  description: computed(() => poll.value.intro),
-  image: computed(() => poll.value.coverImage),
+  title: computed(() => poll.value?.title),
+  description: computed(() => poll.value?.description ?? undefined),
   type: 'article',
 })
 
-const selectedAnswers = ref<Record<string, string[]>>({})
-const isSubmitted = ref(false)
+const category = computed(() => {
+  const first = poll.value?.categories?.[0]
+  return first ? first.charAt(0).toUpperCase() + first.slice(1) : 'Sondage'
+})
 
-const canRespond = computed(() => poll.value.status === 'open')
+const questionBlocks = computed(() => (studio.blocks ?? []).filter((block: StudioBlock) => isFormBlock(block.type)))
+const otherBlocks = computed(() => (studio.blocks ?? []).filter((block: StudioBlock) => !isFormBlock(block.type)))
 
-const allQuestionsAnswered = computed(() =>
-  poll.value.questions.every((question: PollQuestion) => (selectedAnswers.value[question.id] ?? []).length > 0),
-)
-
-const relatedPolls = computed(() => pollSummaries.filter((item) => item.slug !== poll.value.slug).slice(0, 2))
-
-const resetForm = () => {
-  selectedAnswers.value = Object.fromEntries(poll.value.questions.map((question: PollQuestion) => [question.id, []]))
-  isSubmitted.value = false
+function formatDate(iso?: string) {
+  if (!iso) return null
+  return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
 }
 
-const updateAnswer = (questionId: string, value: string[]) => {
-  selectedAnswers.value = {
-    ...selectedAnswers.value,
-    [questionId]: value,
+onMounted(async () => {
+  try {
+    const [doc, surveys] = await Promise.all([
+      fetchPublicStatsDataDocument(slug.value),
+      fetchPublicSurveys(),
+    ])
+
+    poll.value = doc
+    relatedPolls.value = surveys.filter((item) => item.slug !== doc.slug).slice(0, 2)
+
+    studio.initPage(
+      { id: doc.id, type: 'survey', title: doc.title, status: doc.status as 'draft' | 'published', slug: slug.value },
+      doc.sections,
+      doc.blocks,
+      doc.pages,
+    )
+  } catch {
+    error.value = 'Sondage introuvable ou non publié.'
+  } finally {
+    loading.value = false
   }
-}
-
-const handleSubmit = () => {
-  if (!canRespond.value || !allQuestionsAnswered.value) {
-    return
-  }
-
-  isSubmitted.value = true
-}
-
-watch(
-  () => poll.value.slug,
-  () => {
-    resetForm()
-  },
-  { immediate: true },
-)
+})
 </script>
 
 <template>
   <main class="pb-24 pt-4">
+    <!-- Loading -->
+    <section v-if="loading" class="section">
+      <div class="container flex items-center justify-center py-40">
+        <svg class="h-8 w-8 animate-spin text-primary" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        </svg>
+      </div>
+    </section>
+
+    <!-- Error -->
+    <section v-else-if="error" class="section">
+      <div class="container py-24 text-center text-slate-500">
+        <p class="text-lg font-medium">{{ error }}</p>
+        <RouterLink to="/sondages" class="mt-4 inline-block text-sm text-primary underline">← Retour au listing</RouterLink>
+      </div>
+    </section>
+
+    <template v-else-if="poll">
       <section class="section pb-10">
         <div class="container flex flex-col gap-10">
           <div class="flex flex-col gap-5">
             <div class="flex flex-wrap items-center gap-3">
-              <p class="eyebrow text-primary">{{ poll.category }}</p>
-              <span
-                class="inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]"
-                :class="poll.status === 'closed' ? 'bg-slate-900 text-white' : 'bg-emerald-100 text-emerald-700'"
-              >
-                {{ poll.status === 'closed' ? 'Fermé' : 'Ouvert' }}
+              <p class="eyebrow text-primary">{{ category }}</p>
+              <span class="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                Ouvert
               </span>
             </div>
 
@@ -83,93 +97,63 @@ watch(
               <h1 class="text-4xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-5xl lg:text-6xl">
                 {{ poll.title }}
               </h1>
-              <p class="max-w-3xl text-lg leading-8 text-slate-600">
-                {{ poll.intro }}
+              <p v-if="poll.description" class="max-w-3xl text-lg leading-8 text-slate-600">
+                {{ poll.description }}
               </p>
             </div>
 
             <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-slate-500">
-              <span>{{ poll.author }}</span>
-              <span>{{ poll.publishedAt }}</span>
-              <span>{{ poll.estimatedTime }}</span>
-              <span v-if="poll.deadline">Réponse jusqu’au {{ poll.deadline }}</span>
-              <span v-else>Sans date limite</span>
+              <span>{{ poll.author?.name ?? 'Anonyme' }}</span>
+              <span v-if="formatDate(poll.updated_at)">Mis à jour le {{ formatDate(poll.updated_at) }}</span>
             </div>
-          </div>
-
-          <div
-            v-if="poll.coverImage"
-            class="overflow-hidden rounded-[2.25rem] border border-slate-200 bg-white shadow-[0_36px_110px_-62px_rgba(15,23,42,0.45)]"
-          >
-            <img :src="poll.coverImage" :alt="poll.title" class="h-[280px] w-full object-cover sm:h-[360px] lg:h-[420px]" />
           </div>
 
           <div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
             <div class="flex flex-col gap-6">
               <div
-                v-if="isSubmitted"
-                class="rounded-[1.75rem] border border-emerald-200 bg-emerald-50 px-6 py-5 text-emerald-800"
+                v-for="block in otherBlocks"
+                :key="block.id"
+                class="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_24px_80px_-56px_rgba(15,23,42,0.35)]"
               >
-                <p class="text-sm font-semibold uppercase tracking-[0.18em]">Réponse enregistrée</p>
-                <p class="mt-2 text-sm leading-6">
-                  Votre participation a bien été prise en compte pour cette maquette. Les sélections restent visibles tant que vous restez sur la page.
-                </p>
+                <BlockRenderer :block="block" :readonly="true" />
               </div>
+
+              <section
+                v-for="block in questionBlocks"
+                :key="block.id"
+                class="rounded-[2rem] border border-slate-200 bg-white p-2 shadow-[0_24px_80px_-56px_rgba(15,23,42,0.35)] sm:p-3"
+              >
+                <BlockRenderer :block="block" :readonly="true" />
+              </section>
 
               <div
-                v-else-if="!canRespond"
-                class="rounded-[1.75rem] border border-slate-200 bg-slate-100 px-6 py-5 text-slate-700"
+                v-if="questionBlocks.length === 0 && otherBlocks.length === 0"
+                class="rounded-[2rem] border border-dashed border-slate-200 bg-slate-50 py-20 text-center text-slate-400"
               >
-                <p class="text-sm font-semibold uppercase tracking-[0.18em]">Sondage fermé</p>
-                <p class="mt-2 text-sm leading-6">
-                  Ce sondage n’accepte plus de réponses. La structure du questionnaire reste consultable à titre de référence.
-                </p>
+                <p class="text-sm">Ce sondage ne contient aucune question pour le moment.</p>
               </div>
-
-              <PollQuestionBlock
-                v-for="question in poll.questions"
-                :key="question.id"
-                :question="question"
-                :model-value="selectedAnswers[question.id] ?? []"
-                :disabled="!canRespond || isSubmitted"
-                @update:model-value="updateAnswer(question.id, $event)"
-              />
 
               <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_24px_80px_-56px_rgba(15,23,42,0.35)]">
                 <div class="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Validation</p>
+                    <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Participation</p>
                     <p class="mt-2 text-sm leading-6 text-slate-600">
-                      {{ canRespond ? 'Toutes les questions doivent être complétées avant envoi.' : 'Le formulaire est verrouillé pour cette vague.' }}
+                      Chaque question peut être répondue indépendamment et les résultats se mettent à jour en direct.
                     </p>
                   </div>
-                  <div class="flex flex-wrap gap-3">
-                    <AppButton as="router-link" to="/sondages" variant="secondary" size="md">
-                      Retour au listing
-                    </AppButton>
-                    <AppButton
-                      variant="primary"
-                      size="md"
-                      :disabled="!canRespond || isSubmitted || !allQuestionsAnswered"
-                      @click="handleSubmit"
-                    >
-                      {{ isSubmitted ? 'Déjà envoyé' : 'Envoyer mes réponses' }}
-                    </AppButton>
-                  </div>
+                  <AppButton as="router-link" to="/sondages" variant="secondary" size="md">
+                    Retour au listing
+                  </AppButton>
                 </div>
               </div>
             </div>
 
             <aside class="flex flex-col gap-5">
               <div class="rounded-[2rem] border border-slate-200 bg-white p-6">
-                <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-                  <div class="rounded-[1.5rem] bg-slate-50 px-4 py-4">
-                    <p class="text-[11px] uppercase tracking-[0.16em] text-slate-400">Réponses</p>
-                    <p class="mt-2 text-2xl font-semibold text-slate-950">{{ poll.responseCount }}</p>
-                  </div>
+                <div class="grid gap-3">
                   <div class="rounded-[1.5rem] bg-slate-50 px-4 py-4">
                     <p class="text-[11px] uppercase tracking-[0.16em] text-slate-400">Questions</p>
-                    <p class="mt-2 text-2xl font-semibold text-slate-950">{{ poll.questionCount }}</p>
+                    <p class="mt-2 text-2xl font-semibold text-slate-950">{{ questionBlocks.length }}</p>
                   </div>
                 </div>
               </div>
@@ -177,9 +161,13 @@ watch(
               <div class="rounded-[2rem] border border-slate-200 bg-slate-950 p-6 text-white">
                 <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">À retenir</p>
                 <ul class="mt-5 flex flex-col gap-3 text-sm leading-7 text-slate-300">
-                  <li v-for="highlight in poll.highlights" :key="highlight" class="flex items-start gap-3">
+                  <li class="flex items-start gap-3">
                     <span class="mt-2 h-2 w-2 rounded-full bg-primary"></span>
-                    <span>{{ highlight }}</span>
+                    <span>Les réponses sont anonymes et rattachées à un identifiant visiteur.</span>
+                  </li>
+                  <li class="flex items-start gap-3">
+                    <span class="mt-2 h-2 w-2 rounded-full bg-primary"></span>
+                    <span>Vous pouvez modifier votre réponse tant que le sondage reste publié.</span>
                   </li>
                 </ul>
               </div>
@@ -188,7 +176,7 @@ watch(
         </div>
       </section>
 
-      <section class="section pt-0">
+      <section v-if="relatedPolls.length > 0" class="section pt-0">
         <div class="container flex flex-col gap-8">
           <div class="flex flex-col gap-2">
             <p class="eyebrow">À consulter aussi</p>
@@ -204,18 +192,17 @@ watch(
             >
               <div class="flex flex-col gap-4">
                 <span class="inline-flex w-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-slate-600">
-                  {{ item.category }}
+                  {{ item.categories?.[0] ?? 'Sondage' }}
                 </span>
                 <h3 class="text-2xl font-semibold leading-tight tracking-[-0.03em] text-slate-950">
                   {{ item.title }}
                 </h3>
-                <span class="text-sm font-semibold text-primary">
-                  {{ item.status === 'closed' ? 'Voir le détail' : 'Voir et répondre' }}
-                </span>
+                <span class="text-sm font-semibold text-primary">Voir et répondre</span>
               </div>
             </RouterLink>
           </div>
         </div>
       </section>
+    </template>
   </main>
 </template>

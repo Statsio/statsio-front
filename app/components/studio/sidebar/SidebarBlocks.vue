@@ -2,15 +2,24 @@
 import { ref, computed } from 'vue'
 import { BLOCK_CATEGORIES } from '@/types/studio'
 import type { BlockType } from '@/types/studio'
+import { useStudioStore } from '@/stores/studio'
 
+const studio = useStudioStore()
 const search = ref('')
 const collapsedCategories = ref<Set<string>>(new Set())
 
+// Les blocs de formulaire (choix, échelle, notation…) ne concernent que les sondages.
+const availableCategories = computed(() =>
+  studio.content?.type === 'survey'
+    ? BLOCK_CATEGORIES
+    : BLOCK_CATEGORIES.filter((cat) => cat.id !== 'form'),
+)
+
 const filteredCategories = computed(() => {
   const q = search.value.toLowerCase().trim()
-  if (!q) return BLOCK_CATEGORIES
+  if (!q) return availableCategories.value
 
-  return BLOCK_CATEGORIES.map((cat) => ({
+  return availableCategories.value.map((cat) => ({
     ...cat,
     blocks: cat.blocks.filter(
       (b) => b.label.toLowerCase().includes(q) || b.description.toLowerCase().includes(q),

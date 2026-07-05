@@ -4,6 +4,7 @@ import type {
   ContentVisibility,
   ContentPublishedAs,
   CreateContentPayload,
+  ContentType,
 } from '@/types/content-creation'
 import { ALL_CONTINENT_VALUES } from '@/types/content-creation'
 import type { ModalStep } from '@/components/ui/AppStepModal.vue'
@@ -53,9 +54,10 @@ export function useCreateContentWizard() {
     currentStepId.value = CONTENT_WIZARD_STEPS[0].id
   }
 
-  function buildPayload(): CreateContentPayload {
+  function buildPayload(type: ContentType): CreateContentPayload {
     return {
       title: title.value.trim(),
+      type,
       categories: categories.value,
       coverage_type: coverageType.value,
       coverage_data: coverageValues.value,

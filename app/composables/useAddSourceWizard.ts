@@ -1,9 +1,43 @@
 import { ref, computed } from 'vue'
 import type { ModalStep } from '@/components/ui/AppStepModal.vue'
+import type { PaginationStyle, RefreshFrequency } from '@/api/data-sources'
+import { mapPaginationToApi } from '@/api/data-sources'
 
 export type SourceType = 'file' | 'api' | 'catalog'
 export type AuthType = 'none' | 'api_key' | 'bearer'
 export type HttpMethod = 'GET' | 'POST'
+
+export interface ApiFormPagination {
+  style: PaginationStyle
+  paramName: string
+  paramStart: number
+  sizeParam: string
+  pageSize: number
+  totalPath: string
+  totalMode: 'items' | 'pages'
+  cursorParam: string
+  cursorPath: string
+  nextLinkSource: 'body' | 'header'
+  nextLinkPath: string
+  maxPages: number | null
+}
+
+export function defaultPagination(): ApiFormPagination {
+  return {
+    style: 'none',
+    paramName: 'page',
+    paramStart: 1,
+    sizeParam: '',
+    pageSize: 100,
+    totalPath: '',
+    totalMode: 'items',
+    cursorParam: 'cursor',
+    cursorPath: 'next_cursor',
+    nextLinkSource: 'body',
+    nextLinkPath: 'next_page_url',
+    maxPages: null,
+  }
+}
 
 /** number = a real source_provenances.id, 'other' = free-text website field. */
 export type ProvenanceSelection = number | 'other' | null
@@ -32,6 +66,8 @@ export function useAddSourceWizard() {
     apiKeyValue: '',
     bearerToken: '',
     dataPath: '',
+    refreshFrequency: 'none' as RefreshFrequency,
+    pagination: defaultPagination(),
   })
 
   // ─── Provenance ──────────────────────────────────────────────────────────
@@ -73,6 +109,8 @@ export function useAddSourceWizard() {
       apiKeyValue: '',
       bearerToken: '',
       dataPath: '',
+      refreshFrequency: 'none',
+      pagination: defaultPagination(),
     }
     provenanceId.value = null
     provenanceOtherLabel.value = ''
@@ -106,6 +144,8 @@ export function useAddSourceWizard() {
       auth_type: apiForm.value.authType,
       headers,
       data_path: apiForm.value.dataPath || null,
+      pagination: mapPaginationToApi(apiForm.value.pagination),
+      refresh_frequency: apiForm.value.refreshFrequency,
       ...buildMetadataPayload(),
     }
   }

@@ -3,6 +3,7 @@ import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { publishStatsDataDocument } from '@/api/studio'
 import AppButton from '@/components/ui/AppButton.vue'
+import studioLogo from '@/assets/brand/statsio-studio.svg'
 
 const emit = defineEmits<{ save: [] }>()
 const studio = useStudioStore()
@@ -165,11 +166,14 @@ const saveDotClass = computed(() => {
 </script>
 
 <template>
-  <header class="h-12 shrink-0 flex items-center px-4 gap-3 border-b border-slate-200 bg-white z-20">
+  <header
+    class="h-14 shrink-0 flex items-center px-4 gap-3 border-b border-slate-200 z-20"
+    style="background: linear-gradient(90deg, var(--color-studio-header-start), var(--color-studio-header-mid), var(--color-studio-header-end))"
+  >
     <!-- Left: nav toggle + logo -->
     <div class="flex items-center gap-3 shrink-0">
       <button
-        class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"
+        class="p-1.5 rounded-lg hover:bg-white/60 text-slate-500 transition-colors"
         title="Basculer la sidebar"
         @click="studio.setLeftTab('blocks')"
       >
@@ -179,8 +183,8 @@ const saveDotClass = computed(() => {
       </button>
 
       <a href="/" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
-        <span class="w-6 h-6 rounded bg-[var(--color-primary)] flex items-center justify-center text-white text-[10px] font-black">S</span>
-        <span class="text-sm font-bold text-slate-800 hidden sm:block">Studio</span>
+        <img :src="studioLogo" alt="Statsio Studio" class="h-8 w-8 rounded-xl shrink-0" />
+        <span class="text-sm font-bold uppercase tracking-wide text-slate-800 font-mono hidden sm:block">Studio</span>
       </a>
     </div>
 
@@ -188,7 +192,7 @@ const saveDotClass = computed(() => {
     <div class="flex items-center gap-0.5 shrink-0">
       <button
         class="p-1.5 rounded-lg transition-colors"
-        :class="studio.canUndo ? 'hover:bg-slate-100 text-slate-600' : 'text-slate-300 cursor-not-allowed'"
+        :class="studio.canUndo ? 'hover:bg-white/60 text-slate-600' : 'text-slate-300 cursor-not-allowed'"
         title="Annuler (Ctrl+Z)"
         :disabled="!studio.canUndo"
         @click="studio.undo()"
@@ -199,7 +203,7 @@ const saveDotClass = computed(() => {
       </button>
       <button
         class="p-1.5 rounded-lg transition-colors"
-        :class="studio.canRedo ? 'hover:bg-slate-100 text-slate-600' : 'text-slate-300 cursor-not-allowed'"
+        :class="studio.canRedo ? 'hover:bg-white/60 text-slate-600' : 'text-slate-300 cursor-not-allowed'"
         title="Rétablir (Ctrl+Y)"
         :disabled="!studio.canRedo"
         @click="studio.redo()"
@@ -210,15 +214,15 @@ const saveDotClass = computed(() => {
       </button>
     </div>
 
-    <div class="w-px h-5 bg-slate-200 shrink-0" />
+    <div class="w-px h-5 bg-slate-300/60 shrink-0" />
 
     <!-- Pages dropdown -->
     <div ref="pagesDropdownRef" class="relative shrink-0">
       <button
-        class="flex items-center gap-1.5 h-7 px-2.5 rounded-xl text-xs font-semibold transition-colors border"
+        class="flex items-center gap-1.5 h-7 px-3 rounded-full text-xs font-semibold transition-colors border"
         :class="pagesOpen
           ? 'bg-[var(--color-primary)]/10 text-[var(--color-primary)] border-[var(--color-primary)]/20'
-          : 'text-slate-600 hover:bg-slate-100 border-slate-200'"
+          : 'text-slate-600 bg-white/50 hover:bg-white/80 border-slate-200'"
         @click="pagesOpen = !pagesOpen"
       >
         <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -344,7 +348,7 @@ const saveDotClass = computed(() => {
 
       <!-- Manual save -->
       <button
-        class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"
+        class="p-1.5 rounded-lg hover:bg-white/60 text-slate-500 transition-colors"
         title="Enregistrer (⌘S)"
         @click="emit('save')"
       >

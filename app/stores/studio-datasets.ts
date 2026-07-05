@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
-import { fetchDatasets, fetchDatasetSchema, fetchDatasetPreview, updateDataset, deleteDataset } from '@/api/studio'
+import { fetchDatasets, fetchDatasetSchema, fetchDatasetPreview, deleteDataset } from '@/api/studio'
 import type { DatasetMeta, DatasetWithSchema } from '@/types/studio'
 import type { DatasetPreview } from '@/api/studio'
 
@@ -124,12 +124,6 @@ export const useStudioDatasetsStore = defineStore('studio-datasets', () => {
     return loadingPreviews.value.has(datasetId)
   }
 
-  async function renameDataset(datasetId: string, name: string): Promise<void> {
-    const updated = await updateDataset(datasetId, { name })
-    const idx = datasets.value.findIndex((d: DatasetMeta) => d.id === datasetId)
-    if (idx !== -1) datasets.value[idx] = updated
-  }
-
   async function removeDataset(datasetId: string): Promise<void> {
     await deleteDataset(datasetId)
     datasets.value = datasets.value.filter((d: DatasetMeta) => d.id !== datasetId)
@@ -151,7 +145,6 @@ export const useStudioDatasetsStore = defineStore('studio-datasets', () => {
     getPreview,
     getPreviewError,
     isLoadingPreview,
-    renameDataset,
     removeDataset,
   }
 })

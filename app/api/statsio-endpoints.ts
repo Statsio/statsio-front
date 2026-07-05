@@ -37,7 +37,9 @@ export const STATSIO_API = {
   dataSources: {
     upload: '/data-sources/upload',
     public: '/data-sources/public',
+    one: (id: string | number) => `/data-sources/${encodeURIComponent(String(id))}`,
     attach: (id: string | number) => `/data-sources/${encodeURIComponent(String(id))}/attach`,
+    refresh: (id: string | number) => `/data-sources/${encodeURIComponent(String(id))}/refresh`,
   },
   sourceProvenances: {
     collection: '/source-provenances',
@@ -59,6 +61,8 @@ export const STATSIO_API = {
     publicBySlug: (slug: string) => `/studio/content/public/${encodeURIComponent(slug)}`,
     publicDatasetQuery: (slug: string, datasetId: string) =>
       `/studio/content/public/${encodeURIComponent(slug)}/datasets/${encodeURIComponent(datasetId)}/query`,
+    blockResponse: (slug: string, blockId: string) =>
+      `/studio/content/public/${encodeURIComponent(slug)}/blocks/${encodeURIComponent(blockId)}/response`,
   },
   pages: {
     blocks: (pageId: string) => `/pages/${encodeURIComponent(pageId)}/blocks`,

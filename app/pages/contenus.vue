@@ -4,7 +4,8 @@ import { computed, ref, onMounted } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import AppButton from '@/components/ui/AppButton.vue'
 import { useAuthStore } from '@/stores/auth'
-import { fetchUserStatsDataDocuments, createStatsDataDocument, type StatsDataDocument } from '@/api/studio'
+import { fetchUserStudioContents, createStudioContent, type StatsDataDocument } from '@/api/studio'
+import studioLogo from '@/assets/brand/statsio-studio.svg'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -14,8 +15,8 @@ const isCreating = ref(false)
 async function createNew() {
   isCreating.value = true
   try {
-    const doc = await createStatsDataDocument({ title: 'Nouveau StatsData' })
-    router.push(`/studio/${doc.slug}`)
+    const doc = await createStudioContent({ title: 'Nouveau StatsData', type: 'statsdata' })
+    router.push(`/studio/statsdata/${doc.slug}`)
   } finally {
     isCreating.value = false
   }
@@ -30,7 +31,7 @@ const docs = ref<StatsDataDocument[]>([])
 
 onMounted(async () => {
   try {
-    docs.value = await fetchUserStatsDataDocuments()
+    docs.value = await fetchUserStudioContents()
   } finally {
     loading.value = false
   }
@@ -172,7 +173,7 @@ const stats = computed(() => ({
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 flex-wrap">
                   <RouterLink
-                    :to="content.slug ? `/statsdata/${content.slug}` : `/studio/${content.slug ?? content.id}`"
+                    :to="content.slug ? `/statsdata/${content.slug}` : `/studio/${content.type ?? 'statsdata'}/${content.slug ?? content.id}`"
                     class="text-sm font-semibold text-slate-900 hover:text-primary transition-colors truncate"
                   >
                     {{ content.title }}
@@ -195,9 +196,10 @@ const stats = computed(() => ({
               <!-- Actions -->
               <div class="flex items-center gap-2 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                 <RouterLink
-                  :to="`/studio/${content.slug ?? content.id}`"
-                  class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+                  :to="`/studio/${content.type ?? 'statsdata'}/${content.slug ?? content.id}`"
+                  class="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
                 >
+                  <img :src="studioLogo" alt="" class="h-3 w-3 rounded" />
                   Studio
                 </RouterLink>
                 <RouterLink

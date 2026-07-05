@@ -45,7 +45,7 @@ const items: HeaderNavItem[] = [
   },
   {
     label: 'Programme TV',
-    href: 'tvstats/programme-tv',
+    href: '/tvstats/programme-tv',
     icon: 'remote',
     eyebrow: 'Programmation',
     title: 'Pilotez vos rendez-vous de diffusion avec une lecture claire des dynamiques par créneau.',

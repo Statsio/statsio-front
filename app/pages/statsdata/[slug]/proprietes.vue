@@ -4,6 +4,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppButton from '@/components/ui/AppButton.vue'
 import { fetchStatsDataDocument, saveStatsDataDocument, deleteStatsDataDocument } from '@/api/studio'
+import studioLogo from '@/assets/brand/statsio-studio.svg'
 
 const route = useRoute()
 const router = useRouter()
@@ -169,7 +170,10 @@ const visibilityOptions = [
               <p class="text-sm font-semibold text-slate-800">Éditer dans le Studio</p>
               <p class="text-xs text-slate-500 mt-0.5">Construisez les pages de visualisation avec l'interface drag & drop.</p>
             </div>
-            <AppButton as="router-link" :to="`/studio/${id}`" variant="secondary" size="sm">
+            <AppButton as="router-link" :to="`/studio/statsdata/${id}`" variant="secondary" size="sm">
+              <template #icon>
+                <img :src="studioLogo" alt="" class="h-3.5 w-3.5 rounded" />
+              </template>
               Ouvrir le Studio
             </AppButton>
           </div>

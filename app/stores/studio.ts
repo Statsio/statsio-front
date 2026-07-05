@@ -322,6 +322,14 @@ export const useStudioStore = defineStore('studio', () => {
     callout:   { content: '<p></p>', textAlign: 'left', calloutColor: '#eff6ff' },
   }
 
+  const FORM_DEFAULTS: Partial<Record<BlockType, object>> = {
+    choice:     { formOptions: ['Option 1', 'Option 2'] },
+    checkboxes: { formOptions: ['Option 1', 'Option 2'] },
+    dropdown:   { formOptions: ['Option 1', 'Option 2'] },
+    scale:      { scaleMin: 1, scaleMax: 5 },
+    rating:     { ratingMax: 5 },
+  }
+
   function addBlock(type: BlockType, zoneId: string, atIndex?: number): StudioBlock {
     snapshot()
     const block: StudioBlock = {
@@ -329,7 +337,7 @@ export const useStudioStore = defineStore('studio', () => {
       type,
       zoneId,
       fieldMapping: {},
-      config: { title: '', ...(TEXT_DEFAULTS[type] ?? {}) },
+      config: { title: '', ...TEXT_DEFAULTS[type], ...FORM_DEFAULTS[type] },
     }
 
     if (atIndex !== undefined) {

@@ -5,7 +5,7 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { fetchPublicStatsDataDocument } from '@/api/studio'
 import type { StatsDataDocument as ApiDoc } from '@/api/studio'
 import { useStudioStore } from '@/stores/studio'
-import { SECTION_LAYOUT_DEFINITIONS } from '@/types/studio'
+import { SECTION_LAYOUT_DEFINITIONS, isFormBlock } from '@/types/studio'
 import type { StudioBlock, StudioDocumentPage } from '@/types/studio'
 import BlockRenderer from '@/components/studio/blocks/BlockRenderer.vue'
 
@@ -250,8 +250,9 @@ function copyLink() {
                       :key="block.id"
                       class="min-w-0 bg-white rounded-[1.5rem] border border-slate-200 shadow-sm overflow-hidden"
                     >
-                      <div v-if="block.config.title" class="border-b border-slate-100 px-4 py-3 sm:px-5">
+                      <div v-if="block.config.title && !isFormBlock(block.type)" class="border-b border-slate-100 px-4 py-3 sm:px-5">
                         <p class="text-sm font-semibold text-slate-800">{{ resolveToken(block.config.title) }}</p>
+                        <p v-if="block.config.description" class="mt-1 text-xs text-slate-500">{{ resolveToken(block.config.description) }}</p>
                       </div>
                       <div class="p-3 sm:p-4 min-w-0">
                         <BlockRenderer :block="block" :readonly="true" />

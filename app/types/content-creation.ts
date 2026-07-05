@@ -14,8 +14,11 @@ export type ContentCoverage = {
 export type ContentVisibility = 'private' | 'public'
 export type ContentPublishedAs = 'user' | 'channel'
 
+export type ContentType = 'statsdata' | 'article' | 'survey'
+
 export type CreateContentPayload = {
   title: string
+  type: ContentType
   categories: string[]
   coverage_type?: CoverageType
   coverage_data?: string[]
@@ -23,8 +26,6 @@ export type CreateContentPayload = {
   published_as?: ContentPublishedAs
   channel_id?: number
 }
-
-export type ContentType = 'statsdata' | 'article' | 'sondage'
 
 export const CONTINENTS = [
   { value: 'europe',          label: 'Europe' },

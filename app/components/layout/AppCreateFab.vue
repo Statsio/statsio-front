@@ -5,9 +5,8 @@ import { getBrandFromPath } from '@/data/brands'
 import { useAuthStore } from '@/stores/auth'
 import { useClickOutside } from '@/composables/useClickOutside'
 import AppNavIcon from '@/components/layout/AppNavIcon.vue'
-import CreateStatsDataModal from '@/components/create/CreateStatsDataModal.vue'
-import CreateArticleModal from '@/components/create/CreateArticleModal.vue'
-import CreateSondageModal from '@/components/create/CreateSondageModal.vue'
+import CreateContentModal from '@/components/create/CreateContentModal.vue'
+import type { ContentType } from '@/types/content-creation'
 
 const authStore = useAuthStore()
 const route = useRoute()
@@ -15,10 +14,8 @@ const route = useRoute()
 const isOpen = ref(false)
 const fabRef = ref<HTMLElement | null>(null)
 
-const activeModal = ref<'statsdata' | 'article' | 'sondage' | null>(null)
-const statsDataOpen = computed({ get: () => activeModal.value === 'statsdata', set: (v) => { if (!v) activeModal.value = null } })
-const articleOpen   = computed({ get: () => activeModal.value === 'article',   set: (v) => { if (!v) activeModal.value = null } })
-const sondageOpen   = computed({ get: () => activeModal.value === 'sondage',   set: (v) => { if (!v) activeModal.value = null } })
+const activeModal = ref<ContentType | null>(null)
+const modalOpen = computed({ get: () => activeModal.value !== null, set: (v) => { if (!v) activeModal.value = null } })
 
 const currentBrand = computed(() => getBrandFromPath(route.path))
 const isTvstats = computed(() => currentBrand.value.id === 'tvstats')
@@ -37,7 +34,7 @@ const menuItems = [
     icon: 'articles' as const,
   },
   {
-    id: 'sondage' as const,
+    id: 'survey' as const,
     label: 'Sondage',
     description: 'Créez et publiez un nouveau sondage.',
     icon: 'polls' as const,
@@ -170,8 +167,6 @@ watch(() => route.fullPath, closeMenu)
     </div>
   </div>
 
-  <!-- Modals (teleported to body via AppStepModal) -->
-  <CreateStatsDataModal v-model:open="statsDataOpen" @close="activeModal = null" />
-  <CreateArticleModal   v-model:open="articleOpen"   @close="activeModal = null" />
-  <CreateSondageModal   v-model:open="sondageOpen"   @close="activeModal = null" />
+  <!-- Modal (teleported to body via AppStepModal) -->
+  <CreateContentModal :type="activeModal ?? 'statsdata'" v-model:open="modalOpen" @close="activeModal = null" />
 </template>
