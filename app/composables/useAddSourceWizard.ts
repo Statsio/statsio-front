@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue'
 import type { ModalStep } from '@/components/ui/AppStepModal.vue'
-import type { PaginationStyle, RefreshFrequency } from '@/api/data-sources'
+import type { Materialization, PaginationStyle, RefreshFrequency } from '@/api/data-sources'
 import { mapPaginationToApi } from '@/api/data-sources'
 
 export type SourceType = 'file' | 'api' | 'catalog'
@@ -68,6 +68,7 @@ export function useAddSourceWizard() {
     dataPath: '',
     refreshFrequency: 'none' as RefreshFrequency,
     pagination: defaultPagination(),
+    materialization: 'snapshot' as Materialization,
   })
 
   // ─── Provenance ──────────────────────────────────────────────────────────
@@ -111,6 +112,7 @@ export function useAddSourceWizard() {
       dataPath: '',
       refreshFrequency: 'none',
       pagination: defaultPagination(),
+      materialization: 'snapshot',
     }
     provenanceId.value = null
     provenanceOtherLabel.value = ''
@@ -137,6 +139,8 @@ export function useAddSourceWizard() {
       headers['Authorization'] = `Bearer ${apiForm.value.bearerToken}`
     }
 
+    const isLive = apiForm.value.materialization === 'live'
+
     return {
       name: apiForm.value.name,
       url: apiForm.value.url,
@@ -145,7 +149,10 @@ export function useAddSourceWizard() {
       headers,
       data_path: apiForm.value.dataPath || null,
       pagination: mapPaginationToApi(apiForm.value.pagination),
-      refresh_frequency: apiForm.value.refreshFrequency,
+      materialization: apiForm.value.materialization,
+      // Une source live n'a pas de cycle de re-fetch (les données sont toujours
+      // à jour) — refresh_frequency n'est envoyé que pour le mode snapshot.
+      ...(isLive ? {} : { refresh_frequency: apiForm.value.refreshFrequency }),
       ...buildMetadataPayload(),
     }
   }

@@ -20,11 +20,6 @@ const doc     = ref<ApiDoc | null>(null)
 const loading = ref(true)
 const error   = ref<string | null>(null)
 
-usePageSeo({
-  title: computed(() => doc.value?.title),
-  description: computed(() => doc.value?.description ?? undefined),
-})
-
 // Active page = the one matching pageSlug param, or first non-template
 const activePage = computed(() => {
   if (!studio.pages.length) return null
@@ -35,6 +30,14 @@ const activePage = computed(() => {
     if (match) return match
   }
   return studio.pages.find((p: StudioDocumentPage) => !p.isTemplate) ?? studio.pages[0] ?? null
+})
+
+usePageSeo({
+  title: computed(() => {
+    const title = activePage.value?.title ?? doc.value?.title
+    return title ? resolveToken(title) : title
+  }),
+  description: computed(() => doc.value?.description ?? undefined),
 })
 
 const publicPages = computed(() => studio.pages.filter((p: StudioDocumentPage) => !p.isTemplate))
@@ -211,10 +214,7 @@ function copyLink() {
           <!-- Header -->
           <div class="flex items-start justify-between gap-6 flex-wrap">
             <div class="flex flex-col gap-2 max-w-3xl">
-              <h1 class="text-4xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-5xl">{{ doc.title }}</h1>
-              <p v-if="activePage && pageSlug && activePage.title !== doc.title" class="text-lg font-medium text-primary">
-                {{ activePage.title }}
-              </p>
+              <h1 class="text-4xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-5xl">{{ resolveToken(activePage?.title ?? doc.title ?? '') }}</h1>
               <p v-if="doc.description" class="text-base text-slate-500 leading-7">{{ doc.description }}</p>
             </div>
             <button

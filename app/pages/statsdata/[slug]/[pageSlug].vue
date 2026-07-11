@@ -2,7 +2,7 @@
 definePageMeta({ layout: 'default' })
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { fetchPublicStatsDataDocument } from '@/api/studio'
+import { fetchPublicStatsDataDocument, fetchPublicSearchRows } from '@/api/studio'
 import type { StatsDataDocument as ApiDoc } from '@/api/studio'
 import { useStudioStore } from '@/stores/studio'
 import { SECTION_LAYOUT_DEFINITIONS, isTextBlock, isEditorialBlock, isFormBlock } from '@/types/studio'
@@ -20,11 +20,6 @@ const doc     = ref<ApiDoc | null>(null)
 const loading = ref(true)
 const error   = ref<string | null>(null)
 
-usePageSeo({
-  title: computed(() => doc.value?.title),
-  description: computed(() => doc.value?.description ?? undefined),
-})
-
 // Active page = the one matching pageSlug param, or first non-template
 const activePage = computed(() => {
   if (!studio.pages.length) return null
@@ -35,6 +30,14 @@ const activePage = computed(() => {
     if (match) return match
   }
   return studio.pages.find((p: StudioDocumentPage) => !p.isTemplate) ?? studio.pages[0] ?? null
+})
+
+usePageSeo({
+  title: computed(() => {
+    const title = activePage.value?.title ?? doc.value?.title
+    return title ? resolveToken(title) : title
+  }),
+  description: computed(() => doc.value?.description ?? undefined),
 })
 
 const publicPages = computed(() => studio.pages.filter((p: StudioDocumentPage) => !p.isTemplate))
@@ -60,6 +63,54 @@ function redirectToDefault() {
   if (!fallback) return
   const ps = fallback.slug ?? fallback.id
   router.replace(`/statsdata/${route.params.slug}/${ps}`)
+}
+
+// Direct URL access only carries the columns configured as "Paramètres URL" (e.g. code_commune).
+// SearchBlock's onSelect normally stores every row column (e.g. nom_commune) in memory, but that
+// memory doesn't exist on a fresh load — so we re-fetch the matching row from whichever search
+// block feeds this page and merge its columns into pageParams to resolve the rest of the tokens.
+async function hydrateRowParams(targetPageId: string, urlParams: Record<string, string>) {
+  if (!Object.keys(urlParams).length) return
+
+  const searchBlock = studio.blocks.find(
+    (b: StudioBlock) => b.type === 'search' && b.fieldMapping.targetPageId === targetPageId,
+  )
+  if (!searchBlock) return
+
+  const urlParamCols = searchBlock.fieldMapping.urlParams ?? []
+  const mapping = searchBlock.fieldMapping.urlParamMapping ?? {}
+  if (!urlParamCols.length || !urlParamCols.every((c) => urlParams[c])) return
+
+  const sources = searchBlock.fieldMapping.searchSources?.length
+    ? searchBlock.fieldMapping.searchSources
+    : (searchBlock.datasetId && searchBlock.fieldMapping.searchColumn
+        ? [{ datasetId: searchBlock.datasetId, columns: [searchBlock.fieldMapping.searchColumn] }]
+        : [])
+
+  const searchValue = urlParams[urlParamCols[0]!]!
+
+  for (const source of sources) {
+    if (!source.datasetId || !source.columns.length) continue
+    const joins = (searchBlock.fieldMapping.searchJoins ?? [])
+      .filter((j) => j.sourceDatasetId === source.datasetId)
+      .map((j) => ({ datasetId: j.datasetId, leftColumn: j.leftColumn, rightColumn: j.rightColumn, columns: j.columns, type: j.type }))
+
+    try {
+      const rows = await fetchPublicSearchRows(docSlug.value, source.datasetId, source.columns, searchValue, 30, joins)
+      const match = rows.find((row) =>
+        urlParamCols.every((key) => String(row[mapping[key] ?? key] ?? '') === urlParams[key]),
+      )
+      if (!match) continue
+      const rowParams: Record<string, string> = {}
+      for (const [col, val] of Object.entries(match)) {
+        if (val !== null && val !== undefined && val !== '') rowParams[col] = String(val)
+      }
+      studio.setPageParams({ ...rowParams, ...urlParams })
+      return
+    } catch {
+      // best effort — direct navigation still works with the raw URL params
+    }
+  }
 }
 
 // When pageSlug URL param changes, switch the active page
@@ -89,6 +140,7 @@ watch(pageSlug, (slug: string | undefined) => {
   // Normal navigation: full reset + restore URL params
   studio.switchPage(target.id)
   studio.setPageParams(urlParams)
+  void hydrateRowParams(target.id, urlParams)
 })
 
 // When only query changes (same template page, new result selected via URL)
@@ -155,6 +207,7 @@ onMounted(async () => {
       } else {
         studio.switchPage(target.id)
         studio.setPageParams(urlParams)
+        void hydrateRowParams(target.id, urlParams)
       }
     }
   } catch {
@@ -237,17 +290,14 @@ function copyLink() {
             <RouterLink :to="`/statsdata/${docSlug}`" class="hover:text-primary transition-colors min-w-0 truncate max-w-[180px] sm:max-w-xs">{{ doc.title }}</RouterLink>
             <template v-if="activePage && pageSlug">
               <span>/</span>
-              <span class="text-slate-600 min-w-0 truncate max-w-[120px] sm:max-w-xs">{{ activePage.title }}</span>
+              <span class="text-slate-600 min-w-0 truncate max-w-[120px] sm:max-w-xs">{{ resolveToken(activePage.title) }}</span>
             </template>
           </nav>
 
           <!-- Header -->
           <div class="flex items-start justify-between gap-4 flex-wrap">
             <div class="flex flex-col gap-2 min-w-0 max-w-3xl">
-              <h1 class="text-3xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-4xl lg:text-5xl">{{ doc.title }}</h1>
-              <p v-if="activePage && pageSlug && activePage.title !== doc.title" class="text-lg font-medium text-primary">
-                {{ activePage.title }}
-              </p>
+              <h1 class="text-3xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-4xl lg:text-5xl">{{ resolveToken(activePage?.title ?? doc.title ?? '') }}</h1>
               <p v-if="doc.description" class="text-base text-slate-500 leading-7">{{ doc.description }}</p>
             </div>
             <button

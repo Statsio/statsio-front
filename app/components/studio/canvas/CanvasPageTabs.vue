@@ -1,8 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, nextTick } from 'vue'
 import { useStudioStore } from '@/stores/studio'
+import ColumnPickerModal from '@/components/studio/ui/ColumnPickerModal.vue'
+import type { StudioBlock } from '@/types/studio'
 
 const studio = useStudioStore()
+
+// Stub block passed to ColumnPickerModal so it only exposes page template variables (no dataset columns)
+const PAGE_TITLE_TOKEN_BLOCK: StudioBlock = { id: '__page-title__', type: 'heading', zoneId: '', fieldMapping: {}, config: {} }
 
 // ─── Add page modal ───────────────────────────────────────────────────────────
 
@@ -57,10 +62,25 @@ function startRename(id: string, title: string) {
 }
 
 function commitRename(id: string) {
+  if (showTokenModal.value) return
   if (editingTitle.value.trim()) {
     studio.updatePage(id, { title: editingTitle.value.trim() })
   }
   editingId.value = null
+}
+
+// ─── Insert dynamic page variable (template pages) ────────────────────────────
+
+const showTokenModal = ref(false)
+
+function closeTokenModal() {
+  showTokenModal.value = false
+  nextTick(() => (document.getElementById(`tab-input-${editingId.value}`) as HTMLInputElement)?.focus())
+}
+
+function onPickTitleToken(value: string) {
+  editingTitle.value = value
+  if (editingId.value && value.trim()) studio.updatePage(editingId.value, { title: value.trim() })
 }
 
 // ─── Remove page ─────────────────────────────────────────────────────────────
@@ -83,15 +103,25 @@ const canRemove = computed(() => studio.pages.length > 1)
       class="group relative flex items-center"
     >
       <!-- Inline rename input -->
-      <input
-        v-if="editingId === page.id"
-        :id="`tab-input-${page.id}`"
-        v-model="editingTitle"
-        class="text-xs font-medium bg-[var(--color-primary)]/10 text-[var(--color-primary)] outline-none px-2.5 py-1 rounded-lg min-w-[80px] max-w-[160px]"
-        @blur="commitRename(page.id)"
-        @keydown.enter="commitRename(page.id)"
-        @keydown.escape="editingId = null"
-      />
+      <div v-if="editingId === page.id" class="relative min-w-[80px] max-w-[160px]">
+        <input
+          :id="`tab-input-${page.id}`"
+          v-model="editingTitle"
+          class="w-full text-xs font-medium bg-[var(--color-primary)]/10 text-[var(--color-primary)] outline-none px-2.5 py-1 rounded-lg"
+          :class="page.isTemplate ? 'pr-6' : ''"
+          @blur="commitRename(page.id)"
+          @keydown.enter="commitRename(page.id)"
+          @keydown.escape="editingId = null"
+        />
+        <button
+          v-if="page.isTemplate"
+          type="button"
+          class="absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center w-4 h-4 rounded text-[10px] font-mono font-semibold text-[var(--color-primary)]/60 hover:text-[var(--color-primary)] hover:bg-[var(--color-primary)]/15 transition-colors"
+          title="Insérer une variable dynamique"
+          @mousedown.prevent="showTokenModal = true"
+          @click.stop
+        >{ }</button>
+      </div>
       <button
         v-else
         type="button"
@@ -221,4 +251,16 @@ const canRemove = computed(() => studio.pages.length > 1)
       </div>
     </Teleport>
   </div>
+
+  <!-- Insert dynamic page variable (template pages) -->
+  <ColumnPickerModal
+    :show="showTokenModal"
+    :block="PAGE_TITLE_TOKEN_BLOCK"
+    mode="expression"
+    hide-operators
+    :page-id="editingId ?? undefined"
+    :model-value="editingTitle"
+    @update:model-value="onPickTitleToken"
+    @close="closeTokenModal"
+  />
 </template>

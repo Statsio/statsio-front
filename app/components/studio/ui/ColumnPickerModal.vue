@@ -24,6 +24,10 @@ const props = defineProps<{
   selectedValues?: string[]
   /** Override column groups (e.g. for join key pickers). If omitted, derives from block. */
   customGroups?: ColumnGroup[]
+  /** Page whose template variables should be listed. Defaults to studio.currentPageId. */
+  pageId?: string
+  /** Hide the "Formule" (math operators) nav section — irrelevant outside chart/value expressions. */
+  hideOperators?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -39,6 +43,7 @@ const formula = ref('')
 const activeSection = ref('')
 
 const isExpression = computed(() => props.mode === 'expression')
+const showOperators = computed(() => isExpression.value && !props.hideOperators)
 const isMulti      = computed(() => props.mode === 'multi')
 
 // ─── Column groups (the block's own sources) ───────────────────────────────────
@@ -65,14 +70,18 @@ const activeGroups = computed(() => props.customGroups ?? derivedGroups.value)
 // ─── Dynamic variable groups from search blocks ────────────────────────────────
 
 const tokenGroups = computed((): TokenGroup[] => {
-  const currentPage = studio.pages.find((p: StudioDocumentPage) => p.id === studio.currentPageId)
+  const pageId = props.pageId ?? studio.currentPageId
+  const currentPage = studio.pages.find((p: StudioDocumentPage) => p.id === pageId)
   if (!currentPage?.isTemplate) return []
 
   const groups: TokenGroup[] = []
+  if (currentPage.paramName) {
+    groups.push({ label: 'Paramètre de la page', tokens: [currentPage.paramName] })
+  }
   const seenDatasets = new Set<string>()
 
   for (const block of studio.blocks) {
-    if (block.type !== 'search' || block.fieldMapping.targetPageId !== studio.currentPageId) continue
+    if (block.type !== 'search' || block.fieldMapping.targetPageId !== pageId) continue
 
     for (const src of (block.fieldMapping.searchSources ?? []) as SearchSource[]) {
       if (!src.datasetId || seenDatasets.has(src.datasetId)) continue
@@ -108,7 +117,7 @@ const tokenGroups = computed((): TokenGroup[] => {
 function defaultSection(): string {
   if (activeGroups.value.length > 0) return 'col-0'
   if (tokenGroups.value.length > 0) return 'var-0'
-  return 'operators'
+  return showOperators.value ? 'operators' : ''
 }
 
 const activeSectionSafe = computed(() => {
@@ -116,7 +125,7 @@ const activeSectionSafe = computed(() => {
   if (!s) return defaultSection()
   if (s.startsWith('col-') && activeGroups.value[Number(s.slice(4))]) return s
   if (s.startsWith('var-') && tokenGroups.value[Number(s.slice(4))]) return s
-  if (s === 'operators' && isExpression.value) return s
+  if (s === 'operators' && showOperators.value) return s
   return defaultSection()
 })
 
@@ -190,6 +199,10 @@ watch(
       activeSection.value = defaultSection()
       for (const block of studio.blocks) {
         if (block.type !== 'search') continue
+        for (const src of (block.fieldMapping.searchSources ?? []) as SearchSource[]) {
+          if (src.datasetId) datasets.loadSchema(src.datasetId)
+        }
+        if (block.datasetId) datasets.loadSchema(block.datasetId)
         for (const join of (block.joins ?? []) as BlockJoin[]) {
           if (join.datasetId) datasets.loadSchema(join.datasetId)
         }
@@ -333,7 +346,7 @@ const OPERATORS = [
             </template>
 
             <!-- Operators (expression mode) -->
-            <template v-if="isExpression">
+            <template v-if="showOperators">
               <p class="px-4 pb-1 pt-3 text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Formule</p>
               <button
                 class="flex w-full items-center gap-2 rounded-lg mx-2 px-3 py-2 text-left text-xs transition-all"
@@ -351,7 +364,7 @@ const OPERATORS = [
             </template>
 
             <!-- Empty fallback -->
-            <div v-if="!activeGroups.length && !tokenGroups.length && !isExpression" class="px-4 py-6 text-center">
+            <div v-if="!activeGroups.length && !tokenGroups.length && !showOperators" class="px-4 py-6 text-center">
               <p class="text-[11px] text-slate-400">Aucune source configurée</p>
             </div>
           </nav>

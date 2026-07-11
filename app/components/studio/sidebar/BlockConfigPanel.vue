@@ -878,6 +878,10 @@ function setResultDescColumnLabel(col: string, label: string) {
                       </span>
                       <span v-else>Configurer la valeur →</span>
                     </template>
+                    <template v-else-if="isTable">
+                      <span v-if="block.fieldMapping.columns?.length">{{ block.fieldMapping.columns.length }} colonne{{ block.fieldMapping.columns.length > 1 ? 's' : '' }} sélectionnée{{ block.fieldMapping.columns.length > 1 ? 's' : '' }}</span>
+                      <span v-else>Toutes les colonnes affichées</span>
+                    </template>
                     <template v-else>Toutes les colonnes affichées</template>
                   </p>
                 </div>

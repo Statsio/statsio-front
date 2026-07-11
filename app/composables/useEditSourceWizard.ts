@@ -31,6 +31,8 @@ export function useEditSourceWizard(source: DataSourceDetail) {
     dataPath: source.apiConfig?.dataPath ?? '',
     refreshFrequency: source.refreshFrequency as RefreshFrequency,
     pagination: toApiFormPagination(source.apiConfig?.pagination),
+    // Non modifiable après création (voir StepSourceConfigure) — passé tel quel pour l'affichage.
+    materialization: source.materialization,
   })
 
   const existingFileLabel = source.originalFilename
@@ -85,7 +87,9 @@ export function useEditSourceWizard(source: DataSourceDetail) {
       payload.headers = headers
       payload.data_path = apiForm.value.dataPath || null
       payload.pagination = mapPaginationToApi(apiForm.value.pagination)
-      payload.refresh_frequency = apiForm.value.refreshFrequency
+      if (apiForm.value.materialization !== 'live') {
+        payload.refresh_frequency = apiForm.value.refreshFrequency
+      }
     }
 
     return payload

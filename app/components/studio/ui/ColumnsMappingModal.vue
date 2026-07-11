@@ -73,6 +73,58 @@ function updateAggregate(value: AggregateFunction | undefined) {
   studio.updateBlockFieldMapping(props.block.id, { aggregate: value })
 }
 
+// ─── Table: column selection + labels ──────────────────────────────────────
+
+const showTableColumnPicker = ref(false)
+
+const isColumnsCustomized = computed(() => (props.block.fieldMapping.columns?.length ?? 0) > 0)
+
+const tableColumns = computed<string[]>(() => {
+  const cols = props.block.fieldMapping.columns
+  if (cols && cols.length > 0) return cols
+  return columnNames.value
+})
+
+const columnLabels = computed<Record<string, string>>(() => props.block.fieldMapping.columnLabels ?? {})
+
+function toggleTableColumn(col: string) {
+  const current = tableColumns.value
+  if (current.includes(col)) {
+    if (current.length <= 1) return
+    const next = current.filter(c => c !== col)
+    const labels = { ...columnLabels.value }
+    delete labels[col]
+    studio.updateBlockFieldMapping(props.block.id, {
+      columns: next,
+      columnLabels: Object.keys(labels).length ? labels : undefined,
+    })
+  } else {
+    studio.updateBlockFieldMapping(props.block.id, { columns: [...current, col] })
+  }
+}
+
+function moveColumn(col: string, dir: -1 | 1) {
+  const current = [...tableColumns.value]
+  const i = current.indexOf(col)
+  const j = i + dir
+  if (i < 0 || j < 0 || j >= current.length) return
+  const tmp = current[i]!
+  current[i] = current[j]!
+  current[j] = tmp
+  studio.updateBlockFieldMapping(props.block.id, { columns: current })
+}
+
+function setColumnLabel(col: string, label: string) {
+  const labels = { ...columnLabels.value }
+  if (label && label !== col) labels[col] = label
+  else delete labels[col]
+  studio.updateBlockFieldMapping(props.block.id, { columnLabels: Object.keys(labels).length ? labels : undefined })
+}
+
+function resetTableColumns() {
+  studio.updateBlockFieldMapping(props.block.id, { columns: undefined, columnLabels: undefined })
+}
+
 function addYAxis(col: string) {
   if (!col || yAxes.value.includes(col)) return
   const next = [...yAxes.value, col]
@@ -98,14 +150,6 @@ const FORMAT_OPTIONS = [
   { v: 'currency', l: '€',   desc: 'Devise' },
 ]
 
-const TYPE_BADGE: Record<string, { label: string; cls: string }> = {
-  integer:  { label: '#',  cls: 'bg-amber-100 text-amber-700' },
-  float:    { label: '~',  cls: 'bg-amber-100 text-amber-700' },
-  string:   { label: 'T',  cls: 'bg-blue-100 text-blue-600' },
-  date:     { label: 'd',  cls: 'bg-emerald-100 text-emerald-700' },
-  datetime: { label: 'dt', cls: 'bg-emerald-100 text-emerald-700' },
-  boolean:  { label: '?',  cls: 'bg-violet-100 text-violet-700' },
-}
 </script>
 
 <template>
@@ -280,21 +324,73 @@ const TYPE_BADGE: Record<string, { label: string; cls: string }> = {
           </div>
         </div>
 
-        <!-- Body: table info -->
-        <div v-else-if="isTable" class="flex-1 overflow-y-auto px-5 py-5">
-          <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-500 leading-relaxed">
-            Toutes les colonnes du dataset sont affichées dans le tableau. Pour personnaliser l'ordre, la largeur ou le format de chaque colonne, utilisez l'onglet <strong>Style</strong>.
+        <!-- Body: table -->
+        <div v-else-if="isTable" class="flex-1 min-h-0 overflow-y-auto px-5 py-5">
+          <div class="flex items-center justify-between mb-1">
+            <p class="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">Colonnes affichées</p>
+            <button
+              v-if="isColumnsCustomized"
+              class="text-[11px] text-slate-400 hover:text-red-500 transition-colors"
+              @click="resetTableColumns"
+            >Réinitialiser</button>
           </div>
-          <div v-if="schema" class="mt-4">
-            <p class="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">Colonnes disponibles ({{ schema.columns.length }})</p>
-            <div class="flex flex-wrap gap-1.5">
-              <span v-for="col in schema.columns.slice(0, 30)" :key="col.name" class="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1">
-                <span class="min-w-[18px] shrink-0 rounded px-1 text-center text-[9px] font-bold uppercase leading-[16px]" :class="TYPE_BADGE[col.type]?.cls ?? 'bg-slate-100 text-slate-500'">{{ TYPE_BADGE[col.type]?.label ?? '?' }}</span>
-                <span class="font-mono text-[11px] text-slate-600">{{ col.name }}</span>
-              </span>
-              <span v-if="schema.columns.length > 30" class="flex items-center rounded-lg border border-dashed border-slate-200 px-2 py-1 text-[11px] text-slate-400">+{{ schema.columns.length - 30 }}</span>
+          <p class="mb-3 text-[10px] text-slate-400">Choisissez les colonnes à afficher, leur ordre et leur label</p>
+
+          <!-- Rows -->
+          <div class="flex flex-col gap-2 mb-3">
+            <div
+              v-for="(col, i) in tableColumns" :key="col"
+              class="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2"
+            >
+              <div class="flex flex-col shrink-0 -my-1">
+                <button
+                  class="flex items-center justify-center w-4 h-4 text-slate-300 hover:text-slate-600 disabled:opacity-20 disabled:hover:text-slate-300 transition-colors"
+                  :disabled="i === 0"
+                  @click="moveColumn(col, -1)"
+                ><svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5" /></svg></button>
+                <button
+                  class="flex items-center justify-center w-4 h-4 text-slate-300 hover:text-slate-600 disabled:opacity-20 disabled:hover:text-slate-300 transition-colors"
+                  :disabled="i === tableColumns.length - 1"
+                  @click="moveColumn(col, 1)"
+                ><svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg></button>
+              </div>
+              <span class="shrink-0 font-mono text-[10px] bg-white border border-slate-200 rounded px-1.5 py-0.5 text-slate-500 max-w-[100px] truncate" :title="col">{{ col }}</span>
+              <svg class="shrink-0 w-3 h-3 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+              <input
+                type="text"
+                class="flex-1 min-w-0 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700 placeholder-slate-300 focus:border-[var(--color-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]/30 transition-colors"
+                :placeholder="col"
+                :value="columnLabels[col] ?? ''"
+                @change="setColumnLabel(col, ($event.target as HTMLInputElement).value)"
+              />
+              <button
+                class="shrink-0 flex items-center justify-center w-5 h-5 rounded hover:bg-red-50 text-slate-300 hover:text-red-400 disabled:opacity-20 disabled:hover:bg-transparent disabled:hover:text-slate-300 transition-colors"
+                :disabled="tableColumns.length <= 1"
+                @click="toggleTableColumn(col)"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+              </button>
             </div>
           </div>
+
+          <!-- Open column picker -->
+          <button
+            class="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-slate-300 text-slate-500 hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary)]/5 bg-white px-3 py-1.5 text-[11px] font-medium transition-colors"
+            @click="showTableColumnPicker = true"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+            Ajouter / retirer des colonnes…
+          </button>
+
+          <ColumnPickerModal
+            :show="showTableColumnPicker"
+            :block="block"
+            mode="multi"
+            :custom-groups="allColumnGroups"
+            :selected-values="tableColumns"
+            @toggle="toggleTableColumn"
+            @close="showTableColumnPicker = false"
+          />
         </div>
 
         <!-- Footer -->

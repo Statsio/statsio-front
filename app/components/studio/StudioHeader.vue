@@ -3,7 +3,12 @@ import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { publishStatsDataDocument } from '@/api/studio'
 import AppButton from '@/components/ui/AppButton.vue'
+import ColumnPickerModal from '@/components/studio/ui/ColumnPickerModal.vue'
+import type { StudioBlock } from '@/types/studio'
 import studioLogo from '@/assets/brand/statsio-studio.svg'
+
+// Stub block passed to ColumnPickerModal so it only exposes page template variables (no dataset columns)
+const PAGE_TITLE_TOKEN_BLOCK: StudioBlock = { id: '__page-title__', type: 'heading', zoneId: '', fieldMapping: {}, config: {} }
 
 const emit = defineEmits<{ save: [] }>()
 const studio = useStudioStore()
@@ -29,8 +34,23 @@ function startRename(id: string, title: string) {
 }
 
 function commitRename(id: string) {
+  if (showPageTokenModal.value) return
   if (editingPageTitle.value.trim()) studio.updatePage(id, { title: editingPageTitle.value.trim() })
   editingPageId.value = null
+}
+
+// ─── Insert dynamic page variable (template pages) ────────────────────────────
+
+const showPageTokenModal = ref(false)
+
+function closePageTokenModal() {
+  showPageTokenModal.value = false
+  nextTick(() => (document.getElementById(`hdr-rename-${editingPageId.value}`) as HTMLInputElement)?.focus())
+}
+
+function onPickPageTitleToken(value: string) {
+  editingPageTitle.value = value
+  if (editingPageId.value && value.trim()) studio.updatePage(editingPageId.value, { title: value.trim() })
 }
 
 function removePage(id: string, title: string) {
@@ -129,9 +149,13 @@ function onKeydown(e: KeyboardEvent) {
 }
 
 function onDocMousedown(e: MouseEvent) {
+  // The token picker is teleported to <body>, so clicks inside it look like
+  // "outside" clicks here — ignore them or we'd wipe editingPageId before
+  // its own update:modelValue/close handlers get a chance to commit.
+  if (showPageTokenModal.value) return
   if (pagesDropdownRef.value && !pagesDropdownRef.value.contains(e.target as Node)) {
     pagesOpen.value = false
-    if (editingPageId.value) editingPageId.value = null
+    if (editingPageId.value) commitRename(editingPageId.value)
   }
 }
 
@@ -251,15 +275,26 @@ const saveDotClass = computed(() => {
           @click="studio.switchPage(page.id); pagesOpen = false"
         >
           <template v-if="editingPageId === page.id">
-            <input
-              :id="`hdr-rename-${page.id}`"
-              v-model="editingPageTitle"
-              class="flex-1 text-xs font-medium text-slate-800 bg-slate-100 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30"
-              @click.stop
-              @blur="commitRename(page.id)"
-              @keydown.enter.stop="commitRename(page.id)"
-              @keydown.escape.stop="editingPageId = null"
-            />
+            <div class="relative flex-1">
+              <input
+                :id="`hdr-rename-${page.id}`"
+                v-model="editingPageTitle"
+                class="w-full text-xs font-medium text-slate-800 bg-slate-100 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30"
+                :class="page.isTemplate ? 'pr-6' : ''"
+                @click.stop
+                @blur="commitRename(page.id)"
+                @keydown.enter.stop="commitRename(page.id)"
+                @keydown.escape.stop="editingPageId = null"
+              />
+              <button
+                v-if="page.isTemplate"
+                type="button"
+                class="absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center w-4 h-4 rounded text-[10px] font-mono font-semibold text-slate-400 hover:text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 transition-colors"
+                title="Insérer une variable dynamique"
+                @mousedown.prevent="showPageTokenModal = true"
+                @click.stop
+              >{ }</button>
+            </div>
           </template>
           <template v-else>
             <span
@@ -277,7 +312,7 @@ const saveDotClass = computed(() => {
             >
               <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
             </svg>
-            <div v-else class="hidden group-hover:flex items-center gap-0.5 flex-shrink-0">
+            <div class="hidden group-hover:flex items-center gap-0.5 flex-shrink-0">
               <button
                 class="p-1 rounded-md hover:bg-slate-200 text-slate-400 hover:text-slate-700 transition-colors"
                 title="Renommer"
@@ -443,4 +478,16 @@ const saveDotClass = computed(() => {
       </div>
     </div>
   </Teleport>
+
+  <!-- Insert dynamic page variable (template pages) -->
+  <ColumnPickerModal
+    :show="showPageTokenModal"
+    :block="PAGE_TITLE_TOKEN_BLOCK"
+    mode="expression"
+    hide-operators
+    :page-id="editingPageId ?? undefined"
+    :model-value="editingPageTitle"
+    @update:model-value="onPickPageTitleToken"
+    @close="closePageTokenModal"
+  />
 </template>

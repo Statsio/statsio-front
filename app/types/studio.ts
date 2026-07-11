@@ -60,6 +60,8 @@ export interface FieldMapping {
   value?: string
   series?: string
   columns?: string[]
+  /** Custom display label per column name — used by the table block */
+  columnLabels?: Record<string, string>
   valueColumn?: string
   comparisonColumn?: string
   /** Aggregation applied to the value column(s) — shared by kpi/pie/bar/line, grouped by xAxis/label/series */

@@ -16,6 +16,10 @@ const visibleColumns = computed(() => {
   return data.value?.columns ?? []
 })
 
+function columnLabel(col: string) {
+  return props.block.fieldMapping.columnLabels?.[col] ?? col
+}
+
 const pagedRows = computed(() => {
   const rows = data.value?.rows ?? []
   if (!props.block.config.showPagination) return rows.slice(0, 50)
@@ -70,7 +74,7 @@ function sortBy(col: string) {
                 @click="block.config.sortable && sortBy(col)"
               >
                 <span class="flex items-center gap-1">
-                  {{ col }}
+                  {{ columnLabel(col) }}
                   <svg v-if="block.config.sortable" class="w-3 h-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15 12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" />
                   </svg>
