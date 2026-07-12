@@ -277,6 +277,7 @@ function mapDatasetMeta(raw: Record<string, unknown>): DatasetMeta {
     description: raw.description ? String(raw.description) : null,
     rowCount: Number(raw.row_count ?? 0),
     status: (raw.status as DatasetMeta['status']) ?? 'pending',
+    progress: raw.progress != null ? Number(raw.progress) : undefined,
     createdAt: raw.created_at ? String(raw.created_at) : undefined,
     isOwner: raw.is_owner !== false,
     dataSourceId: raw.data_source_id != null ? String(raw.data_source_id) : undefined,

@@ -91,6 +91,8 @@ export interface BlockConfig {
   showPagination?: boolean
   pageSize?: number
   rowLimit?: number | null
+  /** Nombre max de séries distinctes affichées sur un bar/line chart avec regroupement — garde-fou contre une colonne de série à forte cardinalité (voir Line/BarChartBlock.vue). */
+  seriesLimit?: number | null
   distinctColumn?: string | null
   sortColumn?: string | null
   sortDirection?: 'asc' | 'desc' | null
@@ -260,6 +262,8 @@ export interface DatasetMeta {
   description?: string | null
   rowCount: number
   status: 'pending' | 'ready' | 'failed'
+  /** Pourcentage d'avancement du pipeline d'ingestion (0-100), uniquement pertinent tant que status === 'pending'. */
+  progress?: number
   createdAt?: string
   /** False when attached from the public catalog rather than owned — see SidebarDataSources delete/detach. */
   isOwner?: boolean

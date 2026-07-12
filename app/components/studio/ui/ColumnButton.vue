@@ -7,7 +7,7 @@
  * and does NOT allow arbitrary raw values.
  */
 import { ref } from 'vue'
-import type { StudioBlock } from '@/types/studio'
+import type { StudioBlock, AggregateFunction } from '@/types/studio'
 import type { ColumnGroup } from './ColumnPickerModal.vue'
 import ColumnPickerModal from './ColumnPickerModal.vue'
 
@@ -18,10 +18,14 @@ const props = defineProps<{
   clearable?: boolean
   /** Override column groups shown in the picker (e.g. primary-only for join keys). */
   customGroups?: ColumnGroup[]
+  /** Show the "Agrégation" tab in the picker (for value columns that support sum/avg/count/min/max). */
+  showAggregation?: boolean
+  aggregateValue?: AggregateFunction
 }>()
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: string | null): void
+  (e: 'update:aggregate', value: AggregateFunction | undefined): void
 }>()
 
 const showModal = ref(false)
@@ -63,7 +67,10 @@ function clear(e: MouseEvent) {
       mode="single"
       :model-value="modelValue ?? null"
       :custom-groups="customGroups"
+      :show-aggregation="showAggregation"
+      :aggregate-value="aggregateValue"
       @update:model-value="emit('update:modelValue', $event)"
+      @update:aggregate="emit('update:aggregate', $event)"
       @close="showModal = false"
     />
   </div>

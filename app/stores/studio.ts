@@ -372,6 +372,21 @@ export const useStudioStore = defineStore('studio', () => {
     markDirty()
   }
 
+  function duplicateBlock(blockId: string): StudioBlock | null {
+    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
+    if (!block) return null
+
+    snapshot()
+    const clone: StudioBlock = { ...deepClone(block), id: uid() }
+    const originalIdx = blocks.value.findIndex((b: StudioBlock) => b.id === blockId)
+    blocks.value.splice(originalIdx + 1, 0, clone)
+
+    selectedBlockId.value = clone.id
+    isSidebarRightOpen.value = true
+    markDirty()
+    return clone
+  }
+
   function selectBlock(blockId: string | null) {
     selectedBlockId.value = blockId
     isSidebarRightOpen.value = blockId !== null
@@ -527,6 +542,7 @@ export const useStudioStore = defineStore('studio', () => {
     reorderCurrentPageSections,
     addBlock,
     removeBlock,
+    duplicateBlock,
     selectBlock,
     moveBlock,
     setZoneBlocks,

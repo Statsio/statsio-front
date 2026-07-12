@@ -226,14 +226,10 @@ const FORMAT_OPTIONS = [
               :model-value="null"
               :block="block"
               :placeholder="yAxes.length === 0 ? '— Choisir une colonne —' : '+ Ajouter une colonne Y…'"
+              show-aggregation
+              :aggregate-value="block.fieldMapping.aggregate"
               @update:model-value="addYAxis($event as string)"
-            />
-
-            <p class="mt-3 mb-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">Agrégation</p>
-            <p class="mb-2 text-[10px] text-slate-400">Regroupe les lignes par axe X{{ block.fieldMapping.series ? ' et série' : '' }}, calcule la fonction sur la/les colonne(s) Y</p>
-            <AggregationSelect
-              :model-value="block.fieldMapping.aggregate"
-              @update:model-value="updateAggregate"
+              @update:aggregate="updateAggregate"
             />
           </div>
 
@@ -265,17 +261,13 @@ const FORMAT_OPTIONS = [
           <div>
             <p class="mb-1 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">Valeurs</p>
             <p class="mb-2 text-[10px] text-slate-400">Taille des segments (colonne numérique)</p>
-            <ColumnButton :model-value="block.fieldMapping.value ?? null" :block="block" @update:model-value="updateMapping('value', $event as string)" />
-          </div>
-
-          <div class="border-t border-slate-100" />
-
-          <div>
-            <p class="mb-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">Agrégation</p>
-            <p class="mb-2 text-[10px] text-slate-400">Regroupe les lignes par étiquette, calcule la fonction sur la colonne Valeurs</p>
-            <AggregationSelect
-              :model-value="block.fieldMapping.aggregate"
-              @update:model-value="updateAggregate"
+            <ColumnButton
+              :model-value="block.fieldMapping.value ?? null"
+              :block="block"
+              show-aggregation
+              :aggregate-value="block.fieldMapping.aggregate"
+              @update:model-value="updateMapping('value', $event as string)"
+              @update:aggregate="updateAggregate"
             />
           </div>
         </div>
@@ -285,17 +277,13 @@ const FORMAT_OPTIONS = [
           <div>
             <p class="mb-1 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">Valeur principale</p>
             <p class="mb-2 text-[10px] text-slate-400">Colonne numérique affichée en grand</p>
-            <ColumnButton :model-value="block.fieldMapping.valueColumn ?? null" :block="block" @update:model-value="updateMapping('valueColumn', $event as string)" />
-          </div>
-
-          <div class="border-t border-slate-100" />
-
-          <div>
-            <p class="mb-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">Agrégation</p>
-            <p class="mb-2 text-[10px] text-slate-400">Calcule la fonction sur toutes les lignes filtrées, au lieu d'afficher la première ligne</p>
-            <AggregationSelect
-              :model-value="block.fieldMapping.aggregate"
-              @update:model-value="updateAggregate"
+            <ColumnButton
+              :model-value="block.fieldMapping.valueColumn ?? null"
+              :block="block"
+              show-aggregation
+              :aggregate-value="block.fieldMapping.aggregate"
+              @update:model-value="updateMapping('valueColumn', $event as string)"
+              @update:aggregate="updateAggregate"
             />
           </div>
 

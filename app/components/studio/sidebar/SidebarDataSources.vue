@@ -228,7 +228,8 @@ const statusConfig: Record<SourceStatus, { label: string; dot: string; badge: st
             <div class="flex items-center gap-1.5 mt-0.5">
               <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="statusConfig[dataset.status].dot" />
               <span class="text-[10px] text-slate-400">
-                {{ statusConfig[dataset.status].label }}
+                <template v-if="dataset.status === 'pending' && dataset.progress != null">{{ dataset.progress }}%</template>
+                <template v-else>{{ statusConfig[dataset.status].label }}</template>
                 <template v-if="dataset.status === 'ready'"> · {{ formatRows(dataset.rowCount) }} lignes</template>
               </span>
             </div>
