@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useClickOutside } from '@/composables/useClickOutside'
 import AppNavIcon from '@/components/layout/AppNavIcon.vue'
 import CreateContentModal from '@/components/create/CreateContentModal.vue'
+import { CONTENT_CREATION_MENU_ITEMS as menuItems } from '@/data/content-creation-menu'
 import type { ContentType } from '@/types/content-creation'
 
 const authStore = useAuthStore()
@@ -19,27 +20,6 @@ const modalOpen = computed({ get: () => activeModal.value !== null, set: (v) => 
 
 const currentBrand = computed(() => getBrandFromPath(route.path))
 const isTvstats = computed(() => currentBrand.value.id === 'tvstats')
-
-const menuItems = [
-  {
-    id: 'statsdata' as const,
-    label: 'StatsData',
-    description: 'Graphiques, blocs et tableaux dans le studio.',
-    icon: 'stats' as const,
-  },
-  {
-    id: 'article' as const,
-    label: 'Article',
-    description: 'Format éditorial enrichi par les données.',
-    icon: 'articles' as const,
-  },
-  {
-    id: 'survey' as const,
-    label: 'Sondage',
-    description: 'Créez et publiez un nouveau sondage.',
-    icon: 'polls' as const,
-  },
-]
 
 function closeMenu() { isOpen.value = false }
 function openModal(id: typeof menuItems[number]['id']) {

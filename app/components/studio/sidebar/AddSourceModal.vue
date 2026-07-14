@@ -6,6 +6,7 @@ import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import { useStudioStore } from '@/stores/studio'
 import AppStepModal from '@/components/ui/AppStepModal.vue'
 import { useAddSourceWizard, ADD_SOURCE_WIZARD_STEPS } from '@/composables/useAddSourceWizard'
+import { createApiDataSource, type QueryMapping } from '@/api/data-sources'
 import StepSourceType from './add-source-steps/StepSourceType.vue'
 import StepSourceConfigure from './add-source-steps/StepSourceConfigure.vue'
 import StepProvenance from './add-source-steps/StepProvenance.vue'
@@ -33,21 +34,26 @@ const activeSteps = computed(() =>
 const submitting = ref(false)
 const submitStatus = ref<'idle' | 'success' | 'error'>('idle')
 const errorMessage = ref('')
+/** Mapping de filtres auto-détecté, affiché en relecture avant de fermer une source live nouvellement créée. */
+const detectedQueryMapping = ref<QueryMapping | null>(null)
 
 async function handleSubmit() {
   submitting.value = true
   submitStatus.value = 'idle'
   errorMessage.value = ''
+  detectedQueryMapping.value = null
 
   try {
+    let isLive = false
     if (sourceType.value === 'file') {
       await submitFile()
     } else if (sourceType.value === 'api') {
-      await submitApi()
+      isLive = await submitApi()
     }
     submitStatus.value = 'success'
     await datasets.loadDatasets()
-    setTimeout(() => emit('close'), 800)
+    // Pour une source live, on laisse le temps de relire le mapping détecté avant de fermer.
+    setTimeout(() => emit('close'), isLive ? 4000 : 800)
   } catch (e: unknown) {
     submitStatus.value = 'error'
     const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message
@@ -73,8 +79,14 @@ async function submitFile() {
   })
 }
 
-async function submitApi() {
-  await apiHttp.post(STATSIO_API.apiSources.collection, buildApiPayload())
+/** @returns true si la source créée est en direct (live). */
+async function submitApi(): Promise<boolean> {
+  const created = await createApiDataSource(buildApiPayload())
+  if (created.materialization === 'live') {
+    detectedQueryMapping.value = created.queryMapping
+    return true
+  }
+  return false
 }
 
 async function handleAttached() {
@@ -99,11 +111,42 @@ async function handleAttached() {
       <p v-if="submitStatus === 'error'" class="mb-3 rounded-xl bg-red-50 px-4 py-2 text-xs text-red-600">
         {{ errorMessage }}
       </p>
-      <div v-if="submitStatus === 'success'" class="mb-3 flex items-center justify-center gap-2 rounded-xl bg-emerald-50 px-4 py-2 text-sm text-emerald-600 font-semibold">
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m4.5 12.75 6 6 9-13.5" />
-        </svg>
-        Source ajoutée — traitement en cours
+      <div v-if="submitStatus === 'success'" class="mb-3 flex flex-col gap-3">
+        <div class="flex items-center justify-center gap-2 rounded-xl bg-emerald-50 px-4 py-2 text-sm text-emerald-600 font-semibold">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m4.5 12.75 6 6 9-13.5" />
+          </svg>
+          <template v-if="detectedQueryMapping">Source en direct créée</template>
+          <template v-else>Source ajoutée — traitement en cours</template>
+        </div>
+
+        <div v-if="detectedQueryMapping" class="rounded-xl border border-slate-200 p-3">
+          <p class="text-xs font-semibold text-slate-600 mb-2">Filtres détectés automatiquement</p>
+          <table v-if="Object.keys(detectedQueryMapping.filters).length" class="w-full text-xs">
+            <thead>
+              <tr class="text-left text-slate-400">
+                <th class="font-medium pb-1">Colonne</th>
+                <th class="font-medium pb-1">Paramètre upstream</th>
+                <th class="font-medium pb-1">Opérateurs</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(f, col) in detectedQueryMapping.filters" :key="col" class="border-t border-slate-100">
+                <td class="py-1 font-mono text-slate-700">{{ col }}</td>
+                <td class="py-1 font-mono text-slate-500">
+                  {{ f.param ?? `${f.range?.gteParam} / ${f.range?.lteParam}` }}
+                </td>
+                <td class="py-1 text-slate-500">{{ f.operators.join(', ') }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p v-else class="text-xs text-slate-400">
+            Aucun filtre n'a pu être détecté automatiquement — modifiez la source pour en déclarer manuellement.
+          </p>
+          <p class="text-[11px] text-slate-400 mt-2">
+            Vous pouvez corriger ce mapping à tout moment depuis "Modifier la source".
+          </p>
+        </div>
       </div>
 
       <StepSourceType

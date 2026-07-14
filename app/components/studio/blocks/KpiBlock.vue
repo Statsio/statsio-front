@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import { useBlockData, resolveAggregationParams } from '@/composables/useBlockData'
 import { fetchBlockData } from '@/api/studio'
+import { formatDisplayValue } from '@/utils/statsDataFormat'
 import type { StudioBlock, BlockQueryResult, BlockFilter } from '@/types/studio'
 
 const props = defineProps<{ block: StudioBlock; readonly?: boolean }>()
@@ -22,7 +23,7 @@ const formattedValue = computed(() => {
   const v = rawValue.value
   if (v === null || v === undefined) return '—'
   const num = Number(v)
-  if (isNaN(num)) return String(v)
+  if (isNaN(num)) return formatDisplayValue(v)
   const fmt = props.block.config.format ?? 'number'
   if (fmt === 'percent') return `${num.toFixed(1)} %`
   if (fmt === 'currency') return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(num)
@@ -113,7 +114,7 @@ const isPositive = computed(() => (delta.value?.diff ?? 0) >= 0)
 </script>
 
 <template>
-  <div class="relative h-full flex flex-col justify-between overflow-hidden p-5 sm:p-6">
+  <div class="relative h-full flex flex-col justify-between overflow-hidden p-4 sm:p-5">
     <!-- Accent bar top (trend indicator) -->
     <div
       v-if="hasComparisonSetup && trendLabel"
@@ -141,13 +142,13 @@ const isPositive = computed(() => (delta.value?.diff ?? 0) >= 0)
 
     <template v-else>
       <!-- Label -->
-      <p v-if="block.config.title" class="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400 mb-3">
+      <p v-if="block.config.title" class="text-[11px] font-medium uppercase tracking-wider text-[#18181f]/50 mb-2.5">
         {{ block.config.title }}
       </p>
 
       <!-- Main value -->
       <div class="flex items-end gap-3 flex-wrap">
-        <span class="mono text-4xl font-bold text-slate-900 tabular-nums leading-none sm:text-5xl">
+        <span class="mono text-3xl font-bold text-[#18181f] tabular-nums leading-none sm:text-4xl">
           {{ block.config.prefix }}{{ formattedValue }}{{ block.config.suffix }}
         </span>
 
@@ -168,9 +169,6 @@ const isPositive = computed(() => (delta.value?.diff ?? 0) >= 0)
           <span v-else class="mb-1 text-xs text-slate-400">— %</span>
         </template>
       </div>
-
-      <!-- Bottom gradient rule -->
-      <div class="mt-4 h-px bg-gradient-to-r from-slate-100 to-transparent" />
     </template>
   </div>
 </template>

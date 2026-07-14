@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import { apiHttp } from '@/lib/http'
 import { STATSIO_API } from '@/api/statsio-endpoints'
 import type { SourceType, AuthType, HttpMethod, ApiFormPagination } from '@/composables/useAddSourceWizard'
-import type { RefreshFrequency } from '@/api/data-sources'
+import type { Materialization, RefreshFrequency } from '@/api/data-sources'
 
 interface ApiFormShape {
   name: string
@@ -16,6 +16,7 @@ interface ApiFormShape {
   dataPath: string
   refreshFrequency: RefreshFrequency
   pagination: ApiFormPagination
+  materialization: Materialization
 }
 
 const PAGINATION_STYLE_OPTIONS: { v: ApiFormPagination['style']; l: string }[] = [
@@ -260,6 +261,35 @@ async function testConnection() {
       </div>
     </div>
 
+    <div v-if="!isEditingApi">
+      <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+        Mode de récupération
+      </label>
+      <div class="flex rounded-xl border border-slate-200 overflow-hidden">
+        <button
+          v-for="opt in [{ v: 'snapshot', l: 'Instantané (Parquet)' }, { v: 'live', l: 'En direct' }]"
+          :key="opt.v"
+          type="button"
+          class="flex-1 py-2 text-xs font-semibold transition-colors"
+          :class="apiForm.materialization === opt.v
+            ? 'bg-blue-500 text-white'
+            : 'text-slate-500 hover:bg-slate-50'"
+          @click="updateApiForm({ materialization: opt.v as Materialization })"
+        >
+          {{ opt.l }}
+        </button>
+      </div>
+      <p class="text-[11px] text-slate-400 mt-1">
+        <template v-if="apiForm.materialization === 'live'">
+          Chaque consultation interroge l'API en direct — aucune donnée n'est stockée. Adapté aux sources
+          trop volumineuses pour être copiées (des millions de lignes). Pas de jointures ni d'agrégations.
+        </template>
+        <template v-else>
+          Les données sont récupérées une fois et converties en Parquet, puis actualisées selon la fréquence choisie.
+        </template>
+      </p>
+    </div>
+
     <div>
       <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Authentification</label>
       <div class="flex rounded-xl border border-slate-200 overflow-hidden">
@@ -433,7 +463,7 @@ async function testConnection() {
         />
       </div>
 
-      <div v-if="apiForm.pagination.style !== 'none'" class="mt-3">
+      <div v-if="apiForm.pagination.style !== 'none' && apiForm.materialization !== 'live'" class="mt-3">
         <input
           :value="apiForm.pagination.maxPages ?? ''"
           type="number"
@@ -444,7 +474,7 @@ async function testConnection() {
       </div>
     </div>
 
-    <div>
+    <div v-if="apiForm.materialization !== 'live'">
       <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
         Actualisation automatique
       </label>
@@ -472,7 +502,11 @@ async function testConnection() {
       Ajoutez des filtres à l'URL ou augmentez le nombre max. de pages pour récupérer davantage de données.
     </p>
 
-    <div v-if="isEditingApi" class="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
+    <p v-if="isEditingApi && apiForm.materialization === 'live'" class="rounded-xl bg-blue-50 px-4 py-2 text-xs text-blue-700">
+      Source en direct — toujours à jour, aucune actualisation nécessaire.
+    </p>
+
+    <div v-if="isEditingApi && apiForm.materialization !== 'live'" class="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
       <button
         type="button"
         class="shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all"

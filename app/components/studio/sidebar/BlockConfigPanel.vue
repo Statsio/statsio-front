@@ -513,27 +513,6 @@ function setResultDescColumnLabel(col: string, label: string) {
             <DataSourceModal :show="showDataSourceModal" :block="block" @close="showDataSourceModal = false" />
           </div>
 
-          <!-- Section: Page de destination (ex-inside Sources) -->
-          <div class="accordion-item">
-            <button class="accordion-header" @click="toggle('search-target-page')">
-              <span>Page de destination</span>
-              <svg class="chevron" :class="open('search-target-page') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-              </svg>
-            </button>
-            <div v-show="open('search-target-page')" class="accordion-body flex flex-col gap-3">
-
-              <AppSelect
-                :model-value="block.fieldMapping.targetPageId ?? ''"
-                :options="studio.pages.filter((p: StudioDocumentPage) => p.id !== studio.currentPageId).map((p: StudioDocumentPage) => ({ value: p.id, label: p.title + (p.isTemplate ? ' (template)' : '') }))"
-                placeholder="— Aucune —"
-                teleport
-                @update:model-value="updateMapping('targetPageId', $event as string)"
-              />
-
-            </div>
-          </div>
-
           <!-- Section: Placeholder -->
           <div class="accordion-item">
             <button class="accordion-header" @click="toggle('search-placeholder')">
@@ -878,6 +857,10 @@ function setResultDescColumnLabel(col: string, label: string) {
                       </span>
                       <span v-else>Configurer la valeur →</span>
                     </template>
+                    <template v-else-if="isTable">
+                      <span v-if="block.fieldMapping.columns?.length">{{ block.fieldMapping.columns.length }} colonne{{ block.fieldMapping.columns.length > 1 ? 's' : '' }} sélectionnée{{ block.fieldMapping.columns.length > 1 ? 's' : '' }}</span>
+                      <span v-else>Toutes les colonnes affichées</span>
+                    </template>
                     <template v-else>Toutes les colonnes affichées</template>
                   </p>
                 </div>
@@ -1172,6 +1155,38 @@ function setResultDescColumnLabel(col: string, label: string) {
             </div>
           </div>
 
+          <!-- Options barre (bar) -->
+          <div v-if="block.type === 'bar'" class="accordion-item">
+            <button class="accordion-header" @click="toggle('bar-opts')">
+              <span>Options</span>
+              <svg class="chevron" :class="open('bar-opts') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+              </svg>
+            </button>
+            <div v-show="open('bar-opts')" class="accordion-body flex flex-col gap-3">
+              <div class="toggle-row" @click="updateConfig('showValueLabels', !block.config.showValueLabels)">
+                <span class="text-sm text-slate-700">Afficher les valeurs sur les barres</span>
+                <div class="toggle" :class="block.config.showValueLabels ? 'toggle-on' : 'toggle-off'">
+                  <div class="toggle-knob" :class="block.config.showValueLabels ? 'translate-x-3.5' : 'translate-x-0.5'" />
+                </div>
+              </div>
+              <div>
+                <label class="text-xs font-semibold text-slate-500 mb-1.5 block">Style d'affichage</label>
+                <div class="grid grid-cols-2 gap-2">
+                  <button v-for="o in [
+                    { v: 'chart',    l: 'Graphique' },
+                    { v: 'progress', l: 'Liste de progression' },
+                  ]" :key="o.v"
+                    class="py-2.5 rounded-xl border text-[11px] font-semibold transition-colors"
+                    :class="(block.config.barStyle ?? 'chart') === o.v ? 'cfg-active' : 'cfg-inactive'"
+                    @click="updateConfig('barStyle', o.v)">
+                    {{ o.l }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Options ligne (line) -->
           <div v-if="block.type === 'line'" class="accordion-item">
             <button class="accordion-header" @click="toggle('line-opts')">
@@ -1180,12 +1195,33 @@ function setResultDescColumnLabel(col: string, label: string) {
                 <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
               </svg>
             </button>
-            <div v-show="open('line-opts')" class="accordion-body">
+            <div v-show="open('line-opts')" class="accordion-body flex flex-col gap-3">
               <div class="toggle-row" @click="updateConfig('smooth', !block.config.smooth)">
                 <span class="text-sm text-slate-700">Courbe lisse</span>
                 <div class="toggle" :class="block.config.smooth ? 'toggle-on' : 'toggle-off'">
                   <div class="toggle-knob" :class="block.config.smooth ? 'translate-x-3.5' : 'translate-x-0.5'" />
                 </div>
+              </div>
+              <div>
+                <label class="text-xs font-semibold text-slate-500 mb-1.5 block">Pastille de tendance (optionnel)</label>
+                <input
+                  :value="block.config.trendLabel ?? ''"
+                  type="text"
+                  placeholder="Ex: +2.1 pts vs 2022 à 12h"
+                  class="cfg-input"
+                  @input="updateConfig('trendLabel', ($event.target as HTMLInputElement).value)"
+                />
+              </div>
+              <div v-if="block.config.trendLabel" class="grid grid-cols-2 gap-2">
+                <button v-for="o in [
+                  { v: 'up',   l: '▲ Hausse' },
+                  { v: 'down', l: '▼ Baisse' },
+                ]" :key="o.v"
+                  class="py-2.5 rounded-xl border text-[11px] font-semibold transition-colors"
+                  :class="(block.config.trendDirection ?? 'up') === o.v ? 'cfg-active' : 'cfg-inactive'"
+                  @click="updateConfig('trendDirection', o.v)">
+                  {{ o.l }}
+                </button>
               </div>
             </div>
           </div>
@@ -1301,16 +1337,25 @@ function setResultDescColumnLabel(col: string, label: string) {
 
     </div>
 
-    <!-- Footer: delete -->
-    <div class="px-3 py-3 border-t border-slate-100 shrink-0">
+    <!-- Footer: duplicate / delete -->
+    <div class="px-3 py-3 border-t border-slate-100 shrink-0 flex gap-2">
       <button
-        class="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+        class="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
+        @click="studio.duplicateBlock(block.id)"
+      >
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" />
+        </svg>
+        Dupliquer
+      </button>
+      <button
+        class="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50 rounded-xl transition-colors"
         @click="studio.removeBlock(block.id)"
       >
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
         </svg>
-        Supprimer le bloc
+        Supprimer
       </button>
     </div>
 

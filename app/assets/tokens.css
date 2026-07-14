@@ -40,6 +40,10 @@
   --color-studio-header-start: #f0fdf4;
   --color-studio-header-mid: #dcfce7;
   --color-studio-header-end: #f0fdf4;
+  --app-body-background:
+    linear-gradient(90deg, rgba(15, 23, 42, 0.04) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.04) 1px, transparent 1px),
+    radial-gradient(900px 480px at 15% -10%, rgba(22, 101, 52, 0.14), transparent 70%), #f7fcf8;
 }
 
 /* Medistats theme — red palette */
@@ -53,6 +57,10 @@
   --color-studio-header-start: #fff5f5;
   --color-studio-header-mid: #fee2e2;
   --color-studio-header-end: #fff5f5;
+  --app-body-background:
+    linear-gradient(90deg, rgba(15, 23, 42, 0.04) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.04) 1px, transparent 1px),
+    radial-gradient(900px 480px at 15% -10%, rgba(153, 27, 27, 0.1), transparent 70%), #fdf8f8;
 }
 
 [data-theme='medistats'] .fill-primary { fill: #991b1b; }

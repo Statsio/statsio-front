@@ -123,6 +123,59 @@ export async function getChannels(): Promise<Channel[]> {
   return response.data.data
 }
 
+export type ChannelSort = 'popular' | 'views' | 'name' | 'recent'
+
+export type ChannelsListParams = {
+  search?: string
+  category?: ChannelCategory | ''
+  sort?: ChannelSort
+  page?: number
+  perPage?: number
+}
+
+export type PaginatedChannels = {
+  channels: Channel[]
+  currentPage: number
+  lastPage: number
+  perPage: number
+  total: number
+}
+
+/**
+ * Annuaire public des chaînes (page /chaines) : channels actifs uniquement,
+ * avec recherche, filtre catégorie, tri et pagination côté serveur.
+ */
+export async function getPublicChannels(params: ChannelsListParams = {}): Promise<PaginatedChannels> {
+  const response = await apiHttp.get<{
+    success: boolean
+    data: {
+      data: Channel[]
+      current_page: number
+      last_page: number
+      per_page: number
+      total: number
+    }
+  }>('/channels', {
+    params: {
+      search: params.search || undefined,
+      category: params.category || undefined,
+      sort: params.sort ?? 'popular',
+      page: params.page ?? 1,
+      per_page: params.perPage ?? 12,
+    },
+  })
+
+  const page = response.data.data
+
+  return {
+    channels: page.data.filter((channel) => channel.profile !== null),
+    currentPage: page.current_page,
+    lastPage: page.last_page,
+    perPage: page.per_page,
+    total: page.total,
+  }
+}
+
 export async function getChannel(id: number): Promise<Channel> {
   const response = await apiHttp.get<{ success: boolean; data: Channel }>(`/channels/${id}`)
   return response.data.data

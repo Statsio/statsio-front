@@ -1,10 +1,19 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'default', middleware: ['auth'], ssr: false, title: 'Propriétés', robots: 'noindex,nofollow' })
-import { ref, reactive, onMounted } from 'vue'
+definePageMeta({ layout: 'default', middleware: ['auth'], ssr: false, title: 'Paramètres', robots: 'noindex,nofollow' })
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import AppButton from '@/components/ui/AppButton.vue'
 import { fetchStatsDataDocument, saveStatsDataDocument, deleteStatsDataDocument } from '@/api/studio'
-import studioLogo from '@/assets/brand/statsio-studio.svg'
+import { CONTENT_TYPE_META } from '@/lib/content-display'
+import type { ContentVisibility } from '@/types/studio'
+import StatsDataSettingsBreadcrumb from '@/components/statsdata/settings/StatsDataSettingsBreadcrumb.vue'
+import StatsDataSettingsHeader from '@/components/statsdata/settings/StatsDataSettingsHeader.vue'
+import StatsDataSettingsGeneralCard from '@/components/statsdata/settings/StatsDataSettingsGeneralCard.vue'
+import StatsDataSettingsThumbnailCard from '@/components/statsdata/settings/StatsDataSettingsThumbnailCard.vue'
+import StatsDataSettingsCategoriesCard from '@/components/statsdata/settings/StatsDataSettingsCategoriesCard.vue'
+import StatsDataSettingsEmojiCard from '@/components/statsdata/settings/StatsDataSettingsEmojiCard.vue'
+import StatsDataSettingsVisibilityCard from '@/components/statsdata/settings/StatsDataSettingsVisibilityCard.vue'
+import StatsDataSettingsStudioCard from '@/components/statsdata/settings/StatsDataSettingsStudioCard.vue'
+import StatsDataSettingsDangerZoneCard from '@/components/statsdata/settings/StatsDataSettingsDangerZoneCard.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -15,20 +24,38 @@ const error = ref<string | null>(null)
 const isSaving = ref(false)
 const isSaved = ref(false)
 const isDeleting = ref(false)
-const showDeleteConfirm = ref(false)
 
-const form = reactive({
-  title: '',
-  description: '',
-  status: 'draft' as 'draft' | 'published',
-})
+const docType = ref<'statsdata' | 'article' | 'survey'>('statsdata')
+const docSlug = ref('')
+const ownerName = ref('')
+
+const name = ref('')
+const description = ref('')
+const visibility = ref<ContentVisibility>('private')
+const categories = ref<string[]>([])
+const emoji = ref<string | null>(null)
+
+const persistedThumbnailUrl = ref<string | null>(null)
+const pendingThumbnailFile = ref<File | null>(null)
+const removeThumbnail = ref(false)
+const pendingPreviewUrl = ref<string | null>(null)
+
+const studioPath = computed(() => `/studio/${docType.value}/${docSlug.value || id}`)
+const subtitle = computed(() => `${CONTENT_TYPE_META[docType.value].label} · ${ownerName.value}`)
+const thumbnailPreviewUrl = computed(() => pendingPreviewUrl.value ?? (removeThumbnail.value ? null : persistedThumbnailUrl.value))
 
 onMounted(async () => {
   try {
     const doc = await fetchStatsDataDocument(id)
-    form.title = doc.title
-    form.description = doc.description ?? ''
-    form.status = (doc.status as 'draft' | 'published') ?? 'draft'
+    name.value = doc.title
+    description.value = doc.description ?? ''
+    visibility.value = doc.visibility ?? 'private'
+    categories.value = doc.categories ?? []
+    emoji.value = doc.emoji ?? null
+    docType.value = doc.type ?? 'statsdata'
+    docSlug.value = doc.slug ?? id
+    ownerName.value = `${doc.author?.name ?? 'Anonyme'} · ${doc.published_as === 'channel' ? 'Chaîne' : 'Perso'}`
+    persistedThumbnailUrl.value = doc.thumbnail_url ?? null
   } catch {
     error.value = 'Document introuvable.'
   } finally {
@@ -36,14 +63,46 @@ onMounted(async () => {
   }
 })
 
+function onThumbnailSelect(file: File) {
+  if (pendingPreviewUrl.value) URL.revokeObjectURL(pendingPreviewUrl.value)
+  pendingThumbnailFile.value = file
+  removeThumbnail.value = false
+  pendingPreviewUrl.value = URL.createObjectURL(file)
+}
+
+function onThumbnailRemove() {
+  if (pendingPreviewUrl.value) URL.revokeObjectURL(pendingPreviewUrl.value)
+  pendingThumbnailFile.value = null
+  pendingPreviewUrl.value = null
+  removeThumbnail.value = true
+}
+
+onBeforeUnmount(() => {
+  if (pendingPreviewUrl.value) URL.revokeObjectURL(pendingPreviewUrl.value)
+})
+
 async function save() {
   isSaving.value = true
   try {
-    await saveStatsDataDocument(id, {
-      title: form.title,
-      description: form.description || null,
-      status: form.status,
-    })
+    const updated = await saveStatsDataDocument(
+      id,
+      {
+        title: name.value,
+        description: description.value || null,
+        visibility: visibility.value,
+        categories: categories.value,
+        emoji: emoji.value,
+      },
+      pendingThumbnailFile.value,
+      removeThumbnail.value,
+    )
+
+    if (pendingPreviewUrl.value) URL.revokeObjectURL(pendingPreviewUrl.value)
+    persistedThumbnailUrl.value = updated?.thumbnail_url ?? null
+    pendingThumbnailFile.value = null
+    pendingPreviewUrl.value = null
+    removeThumbnail.value = false
+
     isSaved.value = true
     setTimeout(() => { isSaved.value = false }, 2500)
   } finally {
@@ -52,7 +111,6 @@ async function save() {
 }
 
 async function confirmDelete() {
-  showDeleteConfirm.value = false
   isDeleting.value = true
   try {
     await deleteStatsDataDocument(id)
@@ -61,17 +119,12 @@ async function confirmDelete() {
     isDeleting.value = false
   }
 }
-
-const visibilityOptions = [
-  { value: 'published', label: 'Public', description: 'Visible dans le catalogue public et par tous les visiteurs' },
-  { value: 'draft', label: 'Brouillon', description: 'Visible uniquement par vous dans votre espace éditorial' },
-]
 </script>
 
 <template>
   <main class="pb-24 pt-4">
     <section class="section pb-10">
-      <div class="container max-w-3xl flex flex-col gap-8">
+      <div class="container max-w-3xl flex flex-col gap-6">
 
         <!-- Loading -->
         <div v-if="loading" class="flex items-center justify-center py-32">
@@ -87,148 +140,37 @@ const visibilityOptions = [
         </div>
 
         <template v-else>
-          <!-- Header -->
-          <div class="flex items-center justify-between gap-4">
-            <div class="flex flex-col gap-1">
-              <p class="eyebrow text-primary">Propriétés</p>
-              <h1 class="text-3xl font-semibold tracking-[-0.03em] text-slate-950">
-                {{ form.title }}
-              </h1>
-            </div>
-            <AppButton
-              variant="primary"
-              size="sm"
-              :disabled="isSaving"
-              @click="save"
-            >
-              {{ isSaving ? 'Enregistrement…' : isSaved ? 'Enregistré ✓' : 'Enregistrer' }}
-            </AppButton>
-          </div>
+          <StatsDataSettingsBreadcrumb />
 
-          <!-- General settings -->
-          <div class="rounded-[2rem] border border-slate-200 bg-white shadow-sm overflow-hidden">
-            <div class="border-b border-slate-100 px-7 py-5">
-              <h2 class="text-sm font-bold text-slate-900">Informations générales</h2>
-            </div>
-            <div class="px-7 py-6 flex flex-col gap-5">
-              <div>
-                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Titre</label>
-                <input
-                  v-model="form.title"
-                  type="text"
-                  class="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                  placeholder="Titre du StatsData"
-                />
-              </div>
+          <StatsDataSettingsHeader
+            :subtitle="subtitle"
+            :is-saving="isSaving"
+            :is-saved="isSaved"
+            @save="save"
+          />
 
-              <div>
-                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Description</label>
-                <textarea
-                  v-model="form.description"
-                  rows="3"
-                  class="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
-                  placeholder="Description courte affichée dans les listings"
-                />
-              </div>
-            </div>
-          </div>
+          <StatsDataSettingsGeneralCard v-model:name="name" v-model:description="description" />
 
-          <!-- Visibility -->
-          <div class="rounded-[2rem] border border-slate-200 bg-white shadow-sm overflow-hidden">
-            <div class="border-b border-slate-100 px-7 py-5">
-              <h2 class="text-sm font-bold text-slate-900">Visibilité</h2>
-            </div>
-            <div class="px-7 py-4 flex flex-col divide-y divide-slate-100">
-              <label
-                v-for="opt in visibilityOptions"
-                :key="opt.value"
-                class="flex items-center gap-4 py-4 cursor-pointer"
-              >
-                <input
-                  type="radio"
-                  name="visibility"
-                  :value="opt.value"
-                  v-model="form.status"
-                  class="accent-primary w-4 h-4 shrink-0"
-                />
-                <div class="flex flex-col">
-                  <span class="text-sm font-semibold text-slate-800">{{ opt.label }}</span>
-                  <span class="text-xs text-slate-500 mt-0.5">{{ opt.description }}</span>
-                </div>
-              </label>
-            </div>
-          </div>
+          <StatsDataSettingsCategoriesCard v-model="categories" />
 
-          <!-- Studio link -->
-          <div class="rounded-[2rem] border border-slate-200 bg-white p-7 shadow-sm flex items-center gap-5">
-            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-              <svg class="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-              </svg>
-            </div>
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-semibold text-slate-800">Éditer dans le Studio</p>
-              <p class="text-xs text-slate-500 mt-0.5">Construisez les pages de visualisation avec l'interface drag & drop.</p>
-            </div>
-            <AppButton as="router-link" :to="`/studio/statsdata/${id}`" variant="secondary" size="sm">
-              <template #icon>
-                <img :src="studioLogo" alt="" class="h-3.5 w-3.5 rounded" />
-              </template>
-              Ouvrir le Studio
-            </AppButton>
-          </div>
+          <StatsDataSettingsEmojiCard v-model="emoji" />
 
-          <!-- Danger zone -->
-          <div class="rounded-[2rem] border border-red-100 bg-white shadow-sm overflow-hidden">
-            <div class="border-b border-red-100 px-7 py-5 bg-red-50/50">
-              <h2 class="text-sm font-bold text-red-600">Zone de danger</h2>
-            </div>
-            <div class="px-7 py-6 flex items-start gap-5">
-              <div class="flex-1 min-w-0">
-                <p class="text-sm font-semibold text-slate-800">Supprimer ce StatsData</p>
-                <p class="text-xs text-slate-500 mt-0.5">Cette action supprime définitivement le dataset, toutes ses pages et les fichiers associés. Irréversible.</p>
-              </div>
-              <button
-                class="shrink-0 rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
-                :disabled="isDeleting"
-                @click="showDeleteConfirm = true"
-              >
-                {{ isDeleting ? 'Suppression…' : 'Supprimer' }}
-              </button>
-            </div>
-          </div>
+          <StatsDataSettingsThumbnailCard
+            :preview-url="thumbnailPreviewUrl"
+            @select="onThumbnailSelect"
+            @remove="onThumbnailRemove"
+          />
+
+          <StatsDataSettingsVisibilityCard v-model="visibility" />
+
+          <StatsDataSettingsStudioCard :studio-path="studioPath" />
+
+          <StatsDataSettingsDangerZoneCard
+            :content-name="name"
+            :is-deleting="isDeleting"
+            @confirm="confirmDelete"
+          />
         </template>
-
-        <!-- Delete confirm modal -->
-        <Teleport to="body">
-          <div
-            v-if="showDeleteConfirm"
-            class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 backdrop-blur-sm"
-            @click.self="showDeleteConfirm = false"
-          >
-            <div class="w-full max-w-md rounded-[2rem] border border-slate-200 bg-white p-8 shadow-2xl mx-4">
-              <h3 class="text-lg font-bold text-slate-950">Confirmer la suppression</h3>
-              <p class="mt-2 text-sm text-slate-600">
-                Êtes-vous sûr de vouloir supprimer <strong>{{ form.title }}</strong> ?
-                Cette action est irréversible.
-              </p>
-              <div class="mt-6 flex gap-3 justify-end">
-                <button
-                  class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
-                  @click="showDeleteConfirm = false"
-                >
-                  Annuler
-                </button>
-                <button
-                  class="rounded-xl bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 transition-colors"
-                  @click="confirmDelete"
-                >
-                  Supprimer définitivement
-                </button>
-              </div>
-            </div>
-          </div>
-        </Teleport>
       </div>
     </section>
   </main>

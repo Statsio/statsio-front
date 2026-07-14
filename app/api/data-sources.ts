@@ -4,6 +4,26 @@ import type { AuthType, HttpMethod } from '@/composables/useAddSourceWizard'
 
 export type RefreshFrequency = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly'
 export type PaginationStyle = 'none' | 'offset' | 'page' | 'cursor' | 'next_link'
+export type Materialization = 'snapshot' | 'live'
+
+/** Mapping colonne Studio → paramètre de requête upstream, pour une source "live". */
+export interface QueryMappingFilter {
+  /** Filtre simple (égalité) : un seul paramètre upstream. */
+  param?: string
+  /** Filtre de plage (bornes min/max) : deux paramètres upstream. */
+  range?: { gteParam: string; lteParam: string }
+  operators: Array<'eq' | 'in' | 'gte' | 'lte'>
+}
+
+export interface QueryMapping {
+  countPath: string | null
+  maxPageSize: number | null
+  filters: Record<string, QueryMappingFilter>
+  sortableColumns: string[]
+  supportsDistinct: boolean
+  supportsJoins: boolean
+  supportsAggregate: boolean
+}
 
 export interface DataSourcePagination {
   style: PaginationStyle
@@ -34,6 +54,8 @@ export interface DataSourceDetail {
   name: string
   type: string
   sourceKind: 'upload' | 'api'
+  /** Non pertinent pour source_kind !== 'api' — toujours 'snapshot' par défaut. */
+  materialization: Materialization
   originalFilename: string | null
   fileSizeBytes: number | null
   status: string
@@ -44,10 +66,37 @@ export interface DataSourceDetail {
   provenance: { id: number; slug: string; name: string } | null
   provenanceOtherLabel: string | null
   apiConfig: DataSourceApiConfig | null
+  /** Uniquement pour materialization === 'live'. */
+  queryMapping: QueryMapping | null
   refreshFrequency: RefreshFrequency
   lastRefreshedAt: string | null
   nextRefreshAt: string | null
   isOwner: boolean
+}
+
+function mapQueryMappingFromApi(raw: Record<string, unknown> | null | undefined): QueryMapping | null {
+  if (!raw) return null
+
+  const rawFilters = (raw.filters as Record<string, Record<string, unknown>>) ?? {}
+  const filters: Record<string, QueryMappingFilter> = {}
+  for (const [column, f] of Object.entries(rawFilters)) {
+    const range = f.range as Record<string, unknown> | undefined
+    filters[column] = {
+      param: f.param ? String(f.param) : undefined,
+      range: range ? { gteParam: String(range.gte_param), lteParam: String(range.lte_param) } : undefined,
+      operators: (f.operators as QueryMappingFilter['operators']) ?? [],
+    }
+  }
+
+  return {
+    countPath: raw.count_path ? String(raw.count_path) : null,
+    maxPageSize: raw.max_page_size != null ? Number(raw.max_page_size) : null,
+    filters,
+    sortableColumns: (raw.sortable_columns as string[]) ?? [],
+    supportsDistinct: raw.supports_distinct === true,
+    supportsJoins: raw.supports_joins === true,
+    supportsAggregate: raw.supports_aggregate === true,
+  }
 }
 
 function mapPaginationFromApi(raw: Record<string, unknown> | undefined): DataSourcePagination {
@@ -108,6 +157,7 @@ function mapDataSource(raw: Record<string, unknown>): DataSourceDetail {
     name: String(raw.name ?? ''),
     type: String(raw.type ?? ''),
     sourceKind: (raw.source_kind as DataSourceDetail['sourceKind']) ?? 'upload',
+    materialization: (raw.materialization as Materialization) ?? 'snapshot',
     originalFilename: raw.original_filename ? String(raw.original_filename) : null,
     fileSizeBytes: raw.file_size_bytes != null ? Number(raw.file_size_bytes) : null,
     status: String(raw.status ?? ''),
@@ -125,6 +175,7 @@ function mapDataSource(raw: Record<string, unknown>): DataSourceDetail {
       dataPath: config.data_path ? String(config.data_path) : null,
       pagination: mapPaginationFromApi(config.pagination as Record<string, unknown> | undefined),
     } : null,
+    queryMapping: mapQueryMappingFromApi(raw.query_mapping as Record<string, unknown> | null | undefined),
     refreshFrequency: (raw.refresh_frequency as RefreshFrequency) ?? 'none',
     lastRefreshedAt: raw.last_refreshed_at ? String(raw.last_refreshed_at) : null,
     nextRefreshAt: raw.next_refresh_at ? String(raw.next_refresh_at) : null,
@@ -134,6 +185,12 @@ function mapDataSource(raw: Record<string, unknown>): DataSourceDetail {
 
 export async function fetchDataSource(id: string): Promise<DataSourceDetail> {
   const { data } = await apiHttp.get(STATSIO_API.dataSources.one(id))
+  return mapDataSource(data.data)
+}
+
+/** Crée une source API (snapshot ou live selon `payload.materialization`). */
+export async function createApiDataSource(payload: Record<string, unknown>): Promise<DataSourceDetail> {
+  const { data } = await apiHttp.post(STATSIO_API.apiSources.collection, payload)
   return mapDataSource(data.data)
 }
 
@@ -150,6 +207,8 @@ export interface UpdateDataSourcePayload {
   data_path?: string | null
   pagination?: Record<string, unknown>
   refresh_frequency?: RefreshFrequency
+  /** Reconfiguration du mapping de filtres d'une source "live" (matérialization non modifiable après création). */
+  query_mapping?: Record<string, unknown>
 }
 
 /** Relance immédiatement le fetch d'une source API, sans changer sa configuration. */

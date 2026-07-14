@@ -1,4 +1,4 @@
-import { ref, onMounted, onBeforeUnmount, nextTick, watch, type Ref } from 'vue'
+import { onMounted, onBeforeUnmount, nextTick, watch, type Ref } from 'vue'
 import {
   Chart,
   BarController,
@@ -15,7 +15,60 @@ import {
   type ChartType,
   type ChartData,
   type ChartOptions,
+  type Plugin,
 } from 'chart.js'
+
+function formatValueLabel(value: number, format?: 'number' | 'percent' | 'currency') {
+  if (format === 'percent') return `${value.toFixed(1)} %`
+  if (format === 'currency') {
+    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value)
+  }
+  return new Intl.NumberFormat('fr-FR').format(value)
+}
+
+/**
+ * Draws each bar's value at its tip (above for vertical bars, past the end for horizontal
+ * ones). Opt-in per chart via `options.plugins.valueLabels` — no-ops otherwise, so it's safe
+ * to register globally once rather than per chart instance.
+ */
+const valueLabelsPlugin: Plugin<'bar'> = {
+  id: 'valueLabels',
+  afterDatasetsDraw(chart, _args, pluginOptions) {
+    const opts = pluginOptions as { enabled?: boolean; format?: 'number' | 'percent' | 'currency' } | undefined
+    if (!opts?.enabled) return
+
+    const { ctx } = chart
+    const horizontal = chart.options.indexAxis === 'y'
+    ctx.save()
+    ctx.font = "600 11px 'JetBrains Mono', monospace"
+    ctx.fillStyle = 'rgba(24,24,31,0.65)'
+
+    chart.data.datasets.forEach((dataset, datasetIndex) => {
+      const meta = chart.getDatasetMeta(datasetIndex)
+      if (meta.hidden) return
+      meta.data.forEach((element, index) => {
+        const raw = dataset.data[index]
+        if (raw === null || raw === undefined) return
+        const value = Number(raw)
+        if (Number.isNaN(value)) return
+
+        const label = formatValueLabel(value, opts.format)
+        const pos = (element as unknown as { tooltipPosition(): { x: number; y: number } }).tooltipPosition()
+
+        if (horizontal) {
+          ctx.textAlign = 'left'
+          ctx.textBaseline = 'middle'
+          ctx.fillText(label, pos.x + 6, pos.y)
+        } else {
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'bottom'
+          ctx.fillText(label, pos.x, pos.y - 4)
+        }
+      })
+    })
+    ctx.restore()
+  },
+}
 
 Chart.register(
   BarController,
@@ -29,6 +82,7 @@ Chart.register(
   ArcElement,
   Tooltip,
   Legend,
+  valueLabelsPlugin,
 )
 
 export const PALETTE = [

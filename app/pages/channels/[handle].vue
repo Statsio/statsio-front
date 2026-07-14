@@ -3,7 +3,7 @@ definePageMeta({ layout: 'default' })
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppButton from '@/components/ui/AppButton.vue'
-import { channelCategoryLabels, type ChannelCategory } from '@/api/channels'
+import { channelCategoryLabels, getMyChannels, type ChannelCategory } from '@/api/channels'
 import type { ChannelEntry } from '@/data/channels'
 import { fetchChannelByHandle } from '@/lib/channels-api'
 import { useAuthStore } from '@/stores/auth'
@@ -17,6 +17,7 @@ const channel = ref<ChannelEntry | null>(null)
 const loading = ref(true)
 const error = ref<string | null>(null)
 const isFollowing = ref(false)
+const isOwner = ref(false)
 
 usePageSeo({
   title: computed(() => channel.value?.name),
@@ -30,6 +31,15 @@ onMounted(async () => {
 
     if (currentChannel) {
       channel.value = currentChannel
+
+      if (auth.isAuthenticated) {
+        try {
+          const myChannels = await getMyChannels()
+          isOwner.value = myChannels.some((c) => String(c.id) === currentChannel.slug)
+        } catch {
+          /* impossible de déterminer la propriété, on garde le bouton Suivre par défaut */
+        }
+      }
     } else {
       error.value = 'Chaîne non trouvée'
     }
@@ -206,7 +216,16 @@ const sortedPollItems = computed(() => {
               <p class="text-sm text-slate-500">
                 <span class="font-semibold text-slate-950">{{ formatCompactNumber(channel.followers) }}</span> suivis
               </p>
-              <AppButton :variant="isFollowing ? 'secondary' : 'primary'" size="md" @click="toggleFollow">
+              <AppButton
+                v-if="isOwner"
+                as="router-link"
+                :to="`/channels/${channel.slug}/dashboard/profil`"
+                variant="secondary"
+                size="md"
+              >
+                Modifier le profil
+              </AppButton>
+              <AppButton v-else :variant="isFollowing ? 'secondary' : 'primary'" size="md" @click="toggleFollow">
                 {{ isFollowing ? 'Suivi' : 'Suivre' }}
               </AppButton>
             </div>

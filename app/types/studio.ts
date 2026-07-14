@@ -2,6 +2,8 @@
 
 export type ContentType = 'statsdata' | 'article' | 'survey'
 
+export type ContentVisibility = 'public' | 'protege' | 'private'
+
 export interface StudioContent {
   id: string
   type: ContentType
@@ -60,6 +62,8 @@ export interface FieldMapping {
   value?: string
   series?: string
   columns?: string[]
+  /** Custom display label per column name — used by the table block */
+  columnLabels?: Record<string, string>
   valueColumn?: string
   comparisonColumn?: string
   /** Aggregation applied to the value column(s) — shared by kpi/pie/bar/line, grouped by xAxis/label/series */
@@ -89,12 +93,20 @@ export interface BlockConfig {
   showPagination?: boolean
   pageSize?: number
   rowLimit?: number | null
+  /** Nombre max de séries distinctes affichées sur un bar/line chart avec regroupement — garde-fou contre une colonne de série à forte cardinalité (voir Line/BarChartBlock.vue). */
+  seriesLimit?: number | null
   distinctColumn?: string | null
   sortColumn?: string | null
   sortDirection?: 'asc' | 'desc' | null
   orientation?: 'vertical' | 'horizontal'
+  showValueLabels?: boolean
+  /** Bar block rendering mode — 'chart' (default, Chart.js canvas) or 'progress' (thin labeled progress-bar list) */
+  barStyle?: 'chart' | 'progress'
   // KPI comparison
   comparisonFormat?: 'percent' | 'number' | 'currency'
+  // Line/bar chart trend badge shown in the block header (free text, not computed)
+  trendLabel?: string
+  trendDirection?: 'up' | 'down'
   // Search block config
   searchPlaceholder?: string
   // Text block config
@@ -167,6 +179,8 @@ export interface StudioBlock {
   filters?: BlockFilter[]
   comparisonFilters?: BlockFilter[]
   joins?: BlockJoin[]
+  /** Non-removable via the block toolbar (still draggable/configurable) — used for the auto-provisioned search block on param pages. */
+  locked?: boolean
 }
 
 // ─── Layout ───────────────────────────────────────────────────────────────────
@@ -258,6 +272,8 @@ export interface DatasetMeta {
   description?: string | null
   rowCount: number
   status: 'pending' | 'ready' | 'failed'
+  /** Pourcentage d'avancement du pipeline d'ingestion (0-100), uniquement pertinent tant que status === 'pending'. */
+  progress?: number
   createdAt?: string
   /** False when attached from the public catalog rather than owned — see SidebarDataSources delete/detach. */
   isOwner?: boolean
@@ -297,6 +313,8 @@ export interface Section {
   id: string
   layout: SectionLayout
   pageId?: string
+  /** Non-removable, non-reorderable via section controls — used for the auto-provisioned search section on param pages. */
+  locked?: boolean
 }
 
 // ─── Document pages ───────────────────────────────────────────────────────────
@@ -308,6 +326,8 @@ export interface StudioDocumentPage {
   description?: string
   isTemplate?: boolean
   paramName?: string
+  /** Emoji libre affiché devant le titre de l'onglet public, ex. '🇫🇷' */
+  icon?: string
 }
 
 export interface SectionLayoutDefinition {
@@ -360,7 +380,6 @@ export const BLOCK_CATEGORIES: BlockCategoryDef[] = [
     blocks: [
       { type: 'table', label: 'Tableau', description: 'Données tabulaires paginées',   iconPath: 'M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-1.5A1.125 1.125 0 0 1 18 18.375' },
       { type: 'kpi',    label: 'KPI',      description: 'Indicateur clé avec tendance', iconPath: 'M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z' },
-      { type: 'search', label: 'Recherche', description: 'Barre de recherche drill-down', iconPath: 'M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z' },
     ],
   },
   {

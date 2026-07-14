@@ -246,16 +246,12 @@ onBeforeUnmount(() => {
                 <template #trailing>⚙</template>
               </AppDropdownMenuItem>
 
-              <AppDropdownMenuItem to="/profile" @click="closeUserMenu">
-                Mon profil
+              <AppDropdownMenuItem to="/user" @click="closeUserMenu">
+                Mon compte
               </AppDropdownMenuItem>
 
               <AppDropdownMenuItem to="/mes-chaines" @click="closeUserMenu">
                 Mes chaînes
-              </AppDropdownMenuItem>
-
-              <AppDropdownMenuItem to="/historique" @click="closeUserMenu">
-                Historique
               </AppDropdownMenuItem>
 
               <AppDropdownMenuItem to="/fil-actus" @click="closeUserMenu">
@@ -476,11 +472,11 @@ onBeforeUnmount(() => {
             </div>
             <div class="grid grid-cols-2 gap-2">
               <RouterLink
-                to="/profile"
+                to="/user"
                 class="flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-white"
                 @click="closeMobileMenu"
               >
-                Mon profil
+                Mon compte
               </RouterLink>
               <button
                 type="button"

@@ -63,6 +63,10 @@ export default defineNuxtConfig({
     dirs: ['stores', 'composables', 'api'],
   },
 
+  routeRules: {
+    '/profile': { redirect: '/user' },
+  },
+
   components: [
     // Exclude brand-specific nav components from auto-import (they share the name AppHeaderNav)
     // AppHeader.vue imports them explicitly with aliased names.
