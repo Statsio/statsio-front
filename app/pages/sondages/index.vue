@@ -134,7 +134,7 @@ const editorialPoints = [
                 Le Studio permet de publier vos propres sondages et de suivre les réponses en direct.
               </p>
               <div class="mt-5">
-                <AppButton as="router-link" to="/profile" variant="secondary" size="md" full-width>
+                <AppButton as="router-link" to="/user" variant="secondary" size="md" full-width>
                   Ouvrir l’espace créateur
                 </AppButton>
               </div>

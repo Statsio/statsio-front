@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useBlockData } from '@/composables/useBlockData'
+import { formatDisplayValue } from '@/utils/statsDataFormat'
 import type { StudioBlock } from '@/types/studio'
 
 const props = defineProps<{ block: StudioBlock; readonly?: boolean }>()
@@ -62,15 +63,15 @@ function sortBy(col: string) {
     </div>
 
     <template v-else>
-      <div class="overflow-x-auto">
+      <div class="overflow-x-auto px-5 pb-5">
         <table class="w-full min-w-[480px] border-collapse">
-          <thead class="sticky top-0 z-10 bg-slate-50/80 backdrop-blur-sm">
+          <thead class="sticky top-0 z-10">
             <tr>
               <th
                 v-for="col in visibleColumns"
                 :key="col"
-                class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400 border-b border-slate-100 whitespace-nowrap select-none"
-                :class="block.config.sortable ? 'cursor-pointer hover:text-slate-700 transition-colors' : ''"
+                class="mono px-3 py-2 text-left text-[11px] font-bold text-[#18181f]/60 bg-[#f7f6fb] whitespace-nowrap select-none first:rounded-l-md last:rounded-r-md"
+                :class="block.config.sortable ? 'cursor-pointer hover:text-[#18181f] transition-colors' : ''"
                 @click="block.config.sortable && sortBy(col)"
               >
                 <span class="flex items-center gap-1">
@@ -86,23 +87,23 @@ function sortBy(col: string) {
             <tr
               v-for="(row, i) in pagedRows"
               :key="i"
-              class="group border-b border-slate-100 last:border-0 transition-colors hover:bg-[var(--color-primary)]/[0.025]"
+              class="group border-b border-[#18181f]/[0.06] last:border-0 transition-colors hover:bg-[var(--color-primary)]/[0.025]"
             >
               <td
                 v-for="col in visibleColumns"
                 :key="col"
-                class="px-4 py-3.5 text-xs whitespace-nowrap"
-                :class="typeof row[col] === 'number' ? 'mono font-semibold text-slate-800' : 'text-slate-600'"
+                class="mono px-3 py-2.5 text-xs whitespace-nowrap"
+                :class="typeof row[col] === 'number' ? 'font-semibold text-[#18181f]' : 'text-[#18181f]/70'"
               >
-                {{ row[col] ?? '—' }}
+                {{ formatDisplayValue(row[col]) }}
               </td>
             </tr>
           </tbody>
         </table>
       </div>
 
-      <div v-if="block.config.showPagination && totalPages > 1" class="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-slate-50/50">
-        <span class="text-xs text-slate-400">Page <span class="font-semibold text-slate-600">{{ page + 1 }}</span> / {{ totalPages }}</span>
+      <div v-if="block.config.showPagination && totalPages > 1" class="flex items-center justify-between px-5 py-3 border-t border-[#18181f]/[0.06]">
+        <span class="mono text-xs text-[#18181f]/45">Page <span class="font-semibold text-[#18181f]/70">{{ page + 1 }}</span> / {{ totalPages }}</span>
         <div class="flex gap-1.5">
           <button
             class="px-2.5 py-1 text-xs font-medium rounded-lg border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 disabled:opacity-30 transition-colors"

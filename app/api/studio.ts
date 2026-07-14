@@ -1,6 +1,6 @@
 import { apiHttp, publicHttp } from '@/lib/http'
 import { STATSIO_API } from './statsio-endpoints'
-import type { DatasetColumn, DatasetMeta, DatasetWithSchema, BlockQueryResult, StudioBlock } from '@/types/studio'
+import type { DatasetColumn, DatasetMeta, DatasetWithSchema, BlockQueryResult, StudioBlock, ContentVisibility } from '@/types/studio'
 import type { ContentType } from '@/types/content-creation'
 
 // ─── Datasets ─────────────────────────────────────────────────────────────────
@@ -188,6 +188,13 @@ export async function fetchDistinctValues(datasetId: string, column: string, sea
 
 // ─── StatsData document (page) ───────────────────────────────────────────────
 
+export interface ContentChannel {
+  id: number
+  name?: string | null
+  custom_color_primary?: string | null
+  custom_color_secondary?: string | null
+}
+
 export interface StatsDataDocument {
   id: string
   title: string
@@ -195,6 +202,12 @@ export interface StatsDataDocument {
   description?: string | null
   slug?: string
   status?: string
+  visibility?: ContentVisibility
+  thumbnail_url?: string | null
+  published_as?: 'user' | 'channel' | null
+  channel_id?: number | null
+  /** Only present when published_as === 'channel' — the channel's name + custom brand colors. */
+  channel?: ContentChannel | null
   author?: { name: string }
   datasets?: { id: string; name: string; row_count?: number }[]
   created_at?: string
@@ -203,6 +216,9 @@ export interface StatsDataDocument {
   sections?: import('@/types/studio').Section[]
   blocks?: StudioBlock[]
   categories?: string[]
+  emoji?: string | null
+  /** Only present on `fetchPublicStatsDataDocument` — true if the current viewer may edit this content. */
+  can_edit?: boolean
 }
 
 export async function fetchUserStudioContents(type?: ContentType): Promise<StatsDataDocument[]> {
@@ -216,7 +232,7 @@ export interface CreateStudioContentPayload {
   categories?: string[]
   coverage_type?: string
   coverage_data?: string[]
-  visibility?: 'private' | 'public'
+  visibility?: ContentVisibility
   published_as?: 'user' | 'channel'
   channel_id?: number
 }
@@ -246,18 +262,49 @@ export async function fetchPublicStatsDataDocument(slug: string): Promise<StatsD
   return data.data
 }
 
+export interface SaveStatsDataDocumentPayload {
+  title?: string
+  description?: string | null
+  status?: string
+  visibility?: ContentVisibility
+  categories?: string[]
+  emoji?: string | null
+  pages?: import('@/types/studio').StudioDocumentPage[]
+  sections?: import('@/types/studio').Section[]
+  blocks?: StudioBlock[]
+}
+
+/** PATCH via multipart quand `thumbnail`/`removeThumbnail` est fourni — Laravel lit `_method` pour router un POST vers `update()`. */
 export async function saveStatsDataDocument(
   documentId: string,
-  payload: {
-    title?: string
-    description?: string | null
-    status?: string
-    pages?: import('@/types/studio').StudioDocumentPage[]
-    sections?: import('@/types/studio').Section[]
-    blocks?: StudioBlock[]
-  },
-): Promise<void> {
-  await apiHttp.patch(STATSIO_API.studioContent.one(documentId), payload)
+  payload: SaveStatsDataDocumentPayload,
+  thumbnail?: File | null,
+  removeThumbnail?: boolean,
+): Promise<StatsDataDocument> {
+  if (thumbnail || removeThumbnail) {
+    const form = new FormData()
+    form.append('_method', 'PATCH')
+    if (thumbnail) form.append('thumbnail', thumbnail)
+    if (removeThumbnail) form.append('remove_thumbnail', '1')
+    appendSavePayload(form, payload)
+
+    const { data } = await apiHttp.post(STATSIO_API.studioContent.one(documentId), form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return data.data
+  }
+
+  const { data } = await apiHttp.patch(STATSIO_API.studioContent.one(documentId), payload)
+  return data.data
+}
+
+function appendSavePayload(form: FormData, payload: SaveStatsDataDocumentPayload): void {
+  if (payload.title !== undefined) form.append('title', payload.title)
+  if (payload.description !== undefined) form.append('description', payload.description ?? '')
+  if (payload.status !== undefined) form.append('status', payload.status)
+  if (payload.visibility !== undefined) form.append('visibility', payload.visibility)
+  if (payload.categories !== undefined) payload.categories.forEach((c) => form.append('categories[]', c))
+  if (payload.emoji !== undefined) form.append('emoji', payload.emoji ?? '')
 }
 
 export async function deleteStatsDataDocument(documentId: string): Promise<void> {

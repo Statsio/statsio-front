@@ -138,9 +138,17 @@ export const http = createAuthenticatedClient(getAuthApiBaseUrl)
 /** Client pour le reste de l'API Laravel (`/api/*` hors auth). */
 export const apiHttp = createAuthenticatedClient(getApiBaseUrl)
 
-/** Client sans auth pour les endpoints publics (pas de redirect sur 401). */
+/**
+ * Client pour les endpoints publics (pas de redirect ni refresh sur 401 — ils restent
+ * consultables anonymement). Le token est tout de même transmis quand il existe, pour que
+ * l'API puisse renvoyer des champs dépendants du viewer (ex. `can_edit`) aux visiteurs connectés.
+ */
 export const publicHttp = axios.create({ headers: { Accept: 'application/json' } })
 publicHttp.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   config.baseURL = getApiBaseUrl()
+  const storedToken = getStoredToken()
+  if (storedToken) {
+    config.headers.Authorization = `${storedToken.type} ${storedToken.token}`
+  }
   return config
 })

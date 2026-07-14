@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
+import { RouterLink } from 'vue-router'
 import { useStudioStore } from '@/stores/studio'
 import { publishStatsDataDocument } from '@/api/studio'
 import AppButton from '@/components/ui/AppButton.vue'
@@ -15,6 +16,13 @@ const studio = useStudioStore()
 
 const isPublishing = ref(false)
 const isPublished = computed(() => studio.content?.status === 'published')
+
+// Settings page only exists for statsdata content today (see app/pages/statsdata/[slug]/proprietes.vue).
+const settingsPath = computed(() => {
+  const content = studio.content
+  if (!content || content.type !== 'statsdata' || !content.slug) return null
+  return `/statsdata/${content.slug}/proprietes`
+})
 
 // ─── Page management ──────────────────────────────────────────────────────────
 
@@ -64,15 +72,13 @@ const showAddModal = ref(false)
 const newPageTitle = ref('')
 const newPageSlug = ref('')
 const newPageDesc = ref('')
-const newPageIsTemplate = ref(false)
-const newPageParam = ref('')
+const newPageNeedsParams = ref(false)
 
 function openAddModal() {
   newPageTitle.value = ''
   newPageSlug.value = ''
   newPageDesc.value = ''
-  newPageIsTemplate.value = false
-  newPageParam.value = ''
+  newPageNeedsParams.value = false
   pagesOpen.value = false
   showAddModal.value = true
   nextTick(() => (document.getElementById('hdr-page-title') as HTMLInputElement)?.focus())
@@ -90,11 +96,19 @@ function onNewPageTitleInput() {
 function confirmAddPage() {
   if (!newPageTitle.value.trim()) return
   const page = studio.addPage(newPageTitle.value.trim(), {
-    isTemplate: newPageIsTemplate.value || undefined,
-    paramName: newPageIsTemplate.value ? newPageParam.value.trim() || undefined : undefined,
+    isTemplate: newPageNeedsParams.value || undefined,
     description: newPageDesc.value.trim() || undefined,
   })
   if (newPageSlug.value) studio.updatePage(page.id, { slug: newPageSlug.value })
+
+  
+  if (newPageNeedsParams.value) {
+    const section = studio.addSection('1-col', 0, true)
+    const zoneId = `${section.id}-0`
+    const block = studio.addBlock('search', zoneId, 0, true)
+    studio.updateBlockFieldMapping(block.id, { targetPageId: page.id })
+  }
+
   showAddModal.value = false
 }
 
@@ -392,6 +406,19 @@ const saveDotClass = computed(() => {
         </svg>
       </button>
 
+      <!-- Paramètres du contenu -->
+      <RouterLink
+        v-if="settingsPath"
+        :to="settingsPath"
+        class="p-1.5 rounded-lg hover:bg-white/60 text-slate-500 transition-colors"
+        title="Paramètres du contenu"
+      >
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 0 1 0 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 0 1 0-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+        </svg>
+      </RouterLink>
+
       <!-- Publish -->
       <AppButton
         size="sm"
@@ -447,19 +474,38 @@ const saveDotClass = computed(() => {
           />
         </div>
 
-        <label class="flex items-center gap-2 cursor-pointer select-none">
-          <input v-model="newPageIsTemplate" type="checkbox" class="rounded accent-[var(--color-primary)]" />
-          <span class="text-sm text-slate-700 font-medium">Page template (drill-down)</span>
-        </label>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold text-slate-600">Est-ce que cette page devra attendre des paramètres ?</label>
+          <div class="inline-flex rounded-xl border border-[var(--color-secondary)] p-0.5 w-fit">
+            <button
+              type="button"
+              class="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors"
+              :class="!newPageNeedsParams ? 'bg-[var(--color-primary)] text-white' : 'text-slate-500 hover:text-slate-700'"
+              @click="newPageNeedsParams = false"
+            >Non</button>
+            <button
+              type="button"
+              class="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors"
+              :class="newPageNeedsParams ? 'bg-[var(--color-primary)] text-white' : 'text-slate-500 hover:text-slate-700'"
+              @click="newPageNeedsParams = true"
+            >Oui</button>
+          </div>
+        </div>
 
-        <div v-if="newPageIsTemplate" class="flex flex-col gap-1">
-          <label class="text-xs font-semibold text-slate-600">Nom du paramètre</label>
-          <input
-            v-model="newPageParam"
-            type="text"
-            placeholder="Ex: ville"
-            class="px-3 py-2 text-sm border border-[var(--color-secondary)] rounded-xl outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 font-mono"
-          />
+        <div v-if="newPageNeedsParams" class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold text-slate-600">Comment les paramètres seront-ils fournis ?</label>
+          <div class="flex items-start gap-2.5 p-3 rounded-xl border-2 border-[var(--color-primary)] bg-[var(--color-primary)]/5 text-left">
+            <svg class="w-4 h-4 mt-0.5 shrink-0 text-[var(--color-primary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+            </svg>
+            <div class="flex-1">
+              <p class="text-sm font-semibold text-slate-800">Barre de recherche</p>
+              <p class="text-xs text-slate-500 mt-0.5">Une barre de recherche sera ajoutée en haut de la page pour choisir l'élément affiché.</p>
+            </div>
+            <svg class="w-4 h-4 mt-0.5 shrink-0 text-[var(--color-primary)]" fill="currentColor" viewBox="0 0 24 24">
+              <path fill-rule="evenodd" d="M19.916 4.626a.75.75 0 0 1 .208 1.04l-9 13.5a.75.75 0 0 1-1.154.114l-6-6a.75.75 0 0 1 1.06-1.06l5.353 5.353 8.493-12.74a.75.75 0 0 1 1.04-.207Z" clip-rule="evenodd" />
+            </svg>
+          </div>
         </div>
 
         <div class="flex gap-2 justify-end mt-1">
