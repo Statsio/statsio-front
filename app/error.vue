@@ -2,6 +2,7 @@
 import type { NuxtError } from '#app'
 import AppButton from '@/components/ui/AppButton.vue'
 import AppWordmark from '@/components/ui/AppWordmark.vue'
+import { getBrandFromPath } from '@/data/brands'
 
 const props = defineProps<{
   error: NuxtError
@@ -10,16 +11,13 @@ const props = defineProps<{
 const statusCode = computed(() => props.error?.statusCode ?? 500)
 const isProduction = useRuntimeConfig().public.appEnv === 'production'
 
-const appTheme = computed(() => {
-  const path = props.error?.url ?? ''
-  if (path.startsWith('/tvstats')) return 'tvstats'
-  if (path.startsWith('/medistats')) return 'medistats'
-  return undefined
-})
+const route = useRoute()
+const currentBrand = computed(() => getBrandFromPath(route.path || props.error?.url || ''))
+const appTheme = computed(() => (currentBrand.value.id === 'statsio' ? undefined : currentBrand.value.id))
 
-const goHome = () => clearError({ redirect: '/' })
+const goHome = () => clearError({ redirect: currentBrand.value.to })
 const goLogin = () => clearError({ redirect: '/login' })
-const goArticles = () => clearError({ redirect: '/articles' })
+const goBrandContent = () => clearError({ redirect: currentBrand.value.footerNav[0]?.href ?? currentBrand.value.to })
 const retry = () => {
   if (import.meta.client) window.location.reload()
 }
@@ -46,8 +44,8 @@ const content = computed<ErrorContent>(() => {
           'Cette page n’existe pas, a été déplacée ou renommée. Vérifiez l’adresse ou repartez depuis l’accueil.',
         primaryLabel: 'Retour à l’accueil',
         primaryAction: goHome,
-        secondaryLabel: 'Voir les articles',
-        secondaryAction: goArticles,
+        secondaryLabel: currentBrand.value.footerNav[0]?.label ?? 'Voir les articles',
+        secondaryAction: goBrandContent,
       }
     case 401:
       return {
@@ -99,15 +97,10 @@ const content = computed<ErrorContent>(() => {
   }
 })
 
-const quickLinks = [
-  { label: 'Articles', href: '/articles' },
-  { label: 'Sondages', href: '/sondages' },
-  { label: 'StatsData', href: '/statsdata' },
-  { label: 'Chaînes', href: '/chaines' },
-]
+const quickLinks = computed(() => currentBrand.value.footerNav)
 
 useHead({
-  title: () => `${content.value.title} · Statsio`,
+  title: () => `${content.value.title} · ${currentBrand.value.name}`,
 })
 </script>
 
@@ -124,20 +117,25 @@ useHead({
     <!-- Dot grid overlay -->
     <div
       class="pointer-events-none absolute inset-0"
-      style="background-image: radial-gradient(circle, rgba(139,92,246,0.08) 1px, transparent 1px); background-size: 28px 28px;"
+      style="background-image: radial-gradient(circle, color-mix(in srgb, var(--color-primary) 8%, transparent) 1px, transparent 1px); background-size: 28px 28px;"
       aria-hidden="true"
     />
 
     <div class="container relative flex min-h-screen flex-col py-8 sm:py-10">
       <!-- Mini header -->
       <header class="flex items-center justify-between">
-        <NuxtLink to="/" class="flex items-center gap-3" @click.prevent="goHome">
+        <NuxtLink :to="currentBrand.to" class="flex items-center gap-3" @click.prevent="goHome">
           <img
-            src="/brand/statsio-logo.svg"
-            alt="Statsio"
+            :src="currentBrand.logo"
+            :alt="currentBrand.logoAlt"
             class="h-10 w-10 rounded-2xl bg-[var(--color-primary)]/10 p-1.5"
           />
-          <AppWordmark as="p" class="text-lg tracking-[0.2em]" />
+          <AppWordmark
+            as="p"
+            class="text-lg tracking-[0.2em]"
+            :prefix="currentBrand.prefix"
+            :suffix="currentBrand.suffix"
+          />
         </NuxtLink>
         <span class="badge">
           <span class="h-1.5 w-1.5 rounded-full bg-[var(--color-error)]" aria-hidden="true" />
@@ -171,7 +169,7 @@ useHead({
 
         <!-- Quick links -->
         <div class="panel mt-14 w-full max-w-xl rounded-2xl px-6 py-5">
-          <p class="eyebrow mb-4">Continuer sur Statsio</p>
+          <p class="eyebrow mb-4">Continuer sur {{ currentBrand.name }}</p>
           <div class="flex flex-wrap justify-center gap-2">
             <NuxtLink
               v-for="link in quickLinks"

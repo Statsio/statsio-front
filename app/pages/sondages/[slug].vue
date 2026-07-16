@@ -8,6 +8,7 @@ import { fetchPublicStatsDataDocument, fetchPublicSurveys, type StatsDataDocumen
 import { useStudioStore } from '@/stores/studio'
 import { isFormBlock } from '@/types/studio'
 import type { StudioBlock } from '@/types/studio'
+import { getHttpErrorStatus } from '@/lib/http-errors'
 
 const route = useRoute()
 const studio = useStudioStore()
@@ -17,7 +18,6 @@ const slug = computed(() => String(route.params.slug ?? ''))
 const poll = ref<StatsDataDocument | null>(null)
 const relatedPolls = ref<StatsDataDocument[]>([])
 const loading = ref(true)
-const error = ref<string | null>(null)
 
 usePageSeo({
   title: computed(() => poll.value?.title),
@@ -54,8 +54,14 @@ onMounted(async () => {
       doc.blocks,
       doc.pages,
     )
-  } catch {
-    error.value = 'Sondage introuvable ou non publié.'
+  } catch (e) {
+    showError(
+      createError({
+        statusCode: getHttpErrorStatus(e, 404),
+        statusMessage: 'Ce sondage est introuvable ou non publié.',
+        fatal: true,
+      }),
+    )
   } finally {
     loading.value = false
   }
@@ -71,14 +77,6 @@ onMounted(async () => {
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
         </svg>
-      </div>
-    </section>
-
-    <!-- Error -->
-    <section v-else-if="error" class="section">
-      <div class="container py-24 text-center text-slate-500">
-        <p class="text-lg font-medium">{{ error }}</p>
-        <RouterLink to="/sondages" class="mt-4 inline-block text-sm text-primary underline">← Retour au listing</RouterLink>
       </div>
     </section>
 

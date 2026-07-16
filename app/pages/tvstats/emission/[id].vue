@@ -14,6 +14,7 @@ import {
 import { TNT_CHANNELS } from '@/data/tnt-channels'
 import { useAuthStore } from '@/stores/auth'
 import { apiHttp } from '@/lib/http'
+import { getHttpErrorStatus } from '@/lib/http-errors'
 import TvReviewModal from '@/components/tv/TvReviewModal.vue'
 
 const route = useRoute()
@@ -24,7 +25,6 @@ const broadcast = ref<BroadcastDetail | null>(null)
 const schedule = ref<ProgrammeSchedule | null>(null)
 const reviewsData = ref<ReviewsResponse | null>(null)
 const isLoading = ref(true)
-const error = ref<string | null>(null)
 const isToggling = ref(false)
 const dbLogoMap = ref<Map<string, string>>(new Map())
 const showReviewModal = ref(false)
@@ -121,7 +121,6 @@ function fmtRelative(iso: string) {
 
 async function load() {
   isLoading.value = true
-  error.value = null
   try {
     const [detail, channels, sched, rev] = await Promise.all([
       fetchBroadcast(broadcastId.value),
@@ -133,8 +132,14 @@ async function load() {
     dbLogoMap.value = new Map(channels.data.filter((c: { slug: string; logo_url: string | null }) => c.logo_url).map((c: { slug: string; logo_url: string | null }) => [c.slug, c.logo_url as string]))
     schedule.value = sched
     reviewsData.value = rev
-  } catch {
-    error.value = 'Programme introuvable.'
+  } catch (e) {
+    showError(
+      createError({
+        statusCode: getHttpErrorStatus(e, 404),
+        statusMessage: 'Ce programme est introuvable.',
+        fatal: true,
+      }),
+    )
   } finally {
     isLoading.value = false
   }
@@ -172,11 +177,6 @@ onMounted(() => load())
     <!-- Loading -->
     <div v-if="isLoading" class="flex items-center justify-center py-24">
       <div class="h-8 w-8 animate-spin rounded-full border-2 border-tvstats-primary border-t-transparent" />
-    </div>
-
-    <!-- Error -->
-    <div v-else-if="error" class="mx-auto max-w-3xl px-4 py-12 text-center">
-      <p class="text-red-600">{{ error }}</p>
     </div>
 
     <!-- Content -->

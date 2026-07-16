@@ -10,6 +10,10 @@ interface LaravelValidationErrorPayload {
 export const isUnauthorizedError = (error: unknown) =>
   axios.isAxiosError(error) && error.response?.status === 401
 
+/** Statut HTTP réel de l'erreur si disponible, sinon un statut par défaut (ex: 404 pour une ressource introuvable). */
+export const getHttpErrorStatus = (error: unknown, fallback: number): number =>
+  (axios.isAxiosError(error) && error.response?.status) || fallback
+
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
 }

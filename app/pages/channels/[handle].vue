@@ -8,6 +8,7 @@ import type { ChannelEntry } from '@/data/channels'
 import { fetchChannelByHandle } from '@/lib/channels-api'
 import { useAuthStore } from '@/stores/auth'
 import { AUTH_REDIRECT_KEY } from '@/lib/auth-storage'
+import { getHttpErrorStatus } from '@/lib/http-errors'
 
 const route = useRoute()
 const router = useRouter()
@@ -15,7 +16,6 @@ const auth = useAuthStore()
 
 const channel = ref<ChannelEntry | null>(null)
 const loading = ref(true)
-const error = ref<string | null>(null)
 const isFollowing = ref(false)
 const isOwner = ref(false)
 
@@ -41,11 +41,16 @@ onMounted(async () => {
         }
       }
     } else {
-      error.value = 'Chaîne non trouvée'
+      showError(createError({ statusCode: 404, statusMessage: 'Chaîne non trouvée', fatal: true }))
     }
   } catch (e) {
-    error.value = 'Erreur lors du chargement de la chaîne'
-    console.error(e)
+    showError(
+      createError({
+        statusCode: getHttpErrorStatus(e, 500),
+        statusMessage: 'Erreur lors du chargement de la chaîne',
+        fatal: true,
+      }),
+    )
   } finally {
     loading.value = false
   }
@@ -165,14 +170,6 @@ const sortedPollItems = computed(() => {
     <!-- Loading state -->
     <div v-if="loading" class="flex items-center justify-center py-32">
       <p class="text-slate-500">Chargement de la chaîne...</p>
-    </div>
-
-    <!-- Error state -->
-    <div v-else-if="error" class="flex flex-col items-center justify-center py-32">
-      <p class="text-lg font-semibold text-red-600">{{ error }}</p>
-      <AppButton as="router-link" to="/chaines" variant="secondary" size="md" class="mt-4">
-        Retour au catalogue
-      </AppButton>
     </div>
 
     <template v-else-if="channel">
