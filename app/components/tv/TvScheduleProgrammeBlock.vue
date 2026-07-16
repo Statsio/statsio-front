@@ -38,10 +38,10 @@ function goToDetail() {
 
 <template>
   <div
-    class="absolute top-1 bottom-1 flex flex-col justify-between overflow-hidden rounded-xl border border-l-4 p-2 transition-shadow hover:shadow-md"
+    class="absolute top-1 bottom-1 flex flex-col justify-between overflow-hidden rounded-lg border-l-[3px] bg-white p-2 shadow-sm transition-shadow hover:shadow-md"
     :class="[
       categoryBorderClass(genreLabel),
-      programme.isLive ? 'border-slate-200 bg-tvstats-soft/50' : 'border-slate-200 bg-white',
+      programme.isLive ? 'bg-tvstats-soft/50' : 'bg-white',
       programme.broadcastId != null ? 'cursor-pointer' : '',
     ]"
     :style="{ left: leftPx + 'px', width: widthPx + 'px' }"

@@ -1,5 +1,6 @@
 /** Reflète la réponse de PaysController (relais WHO GHO + référentiel géographique statique). */
 import type { TrendPoint } from '@/types/common'
+import type { CountrySoinsData } from '@/types/gho'
 
 export type IndicatorKey = 'lifeExp' | 'healthExp' | 'physicians' | 'u5mort'
 
@@ -80,9 +81,11 @@ export interface CountryTrend {
 
 export interface PaysDetail {
   iso3: string
+  iso2: string
   name: string
   region: string
   tiles: CountryTile[]
   lifeExpectancyTrend: CountryTrend | null
   topDiseases: CountryTopDisease[]
+  soins: CountrySoinsData
 }

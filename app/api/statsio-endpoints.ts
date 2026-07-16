@@ -106,6 +106,9 @@ export const STATSIO_API = {
     list: (indicator?: string) => (indicator ? `/pays?indicator=${encodeURIComponent(indicator)}` : '/pays'),
     one: (iso3: string) => `/pays/${encodeURIComponent(iso3)}`,
   },
+  soins: {
+    list: (indicator?: string) => (indicator ? `/soins?indicator=${encodeURIComponent(indicator)}` : '/soins'),
+  },
   tv: {
     epg: (date: string) => `/tv/epg?date=${encodeURIComponent(date)}`,
     audiences: '/tv/audiences',

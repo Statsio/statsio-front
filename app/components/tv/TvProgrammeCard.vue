@@ -34,8 +34,8 @@ function goToDetail() {
 
 <template>
   <div
-    class="flex flex-1 min-w-0 gap-3.5 rounded-2xl border border-slate-100 bg-slate-50 p-3 transition"
-    :class="programme.broadcastId != null ? 'cursor-pointer hover:bg-slate-100' : ''"
+    class="flex flex-1 min-w-0 gap-3.5 py-0.5"
+    :class="programme.broadcastId != null ? 'cursor-pointer' : ''"
     @click="goToDetail"
   >
     <!-- Thumbnail placeholder -->

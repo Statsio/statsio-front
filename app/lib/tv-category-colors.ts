@@ -21,20 +21,21 @@ export const CATEGORY_COLOR_FALLBACK = 'bg-slate-100 text-slate-700'
 // Program.type (free-text genre from the EPG feed) -> DB color name, best-effort match against the
 // seeded tv_categories labels (see database/migrations/2026_06_23_000002_create_tv_categories_table.php).
 const CATEGORY_COLOR_BY_LABEL: Record<string, string> = {
-  Fiction: 'violet',
+  Fiction: 'purple',
   Série: 'purple',
   Film: 'indigo',
+  'Cinéma': 'indigo',
   Informations: 'blue',
   Information: 'blue',
-  Documentaire: 'cyan',
+  Documentaire: 'teal',
   Reportage: 'teal',
-  Sport: 'green',
-  Divertissement: 'yellow',
+  Sport: 'red',
+  Divertissement: 'orange',
   'Talk-show': 'orange',
   Téléréalité: 'red',
   Musique: 'pink',
   Jeunesse: 'lime',
-  Animation: 'lime',
+  Animation: 'pink',
   Magazine: 'slate',
   Météo: 'sky',
 }
@@ -84,7 +85,7 @@ export const BROADCAST_TYPE_LABELS: Record<string, { label: string; class: strin
 // distinct from BROADCAST_TYPE_LABELS, which renders a filled badge elsewhere (broadcast detail pages).
 export const MENTION_TEXT_STYLE: Record<string, { label: string; textClass: string; dotClass: string; showDot: boolean }> = {
   direct: { label: 'Direct', textClass: 'text-red-600', dotClass: 'bg-red-600', showDot: true },
-  inedit: { label: 'Inédit', textClass: 'text-emerald-700', dotClass: 'bg-emerald-700', showDot: true },
+  inedit: { label: 'Inédit', textClass: 'text-tvstats-primary', dotClass: 'bg-tvstats-primary', showDot: true },
   rediffusion: { label: 'Rediffusion', textClass: 'text-slate-500', dotClass: '', showDot: false },
   replay: { label: 'Replay', textClass: 'text-slate-500', dotClass: '', showDot: false },
   exclusivite: { label: 'Exclusivité', textClass: 'text-violet-600', dotClass: 'bg-violet-600', showDot: true },

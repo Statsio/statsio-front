@@ -44,18 +44,18 @@ const items: HeaderNavItem[] = [
   },
   {
     label: 'Soins',
-    href: '/medistats/services',
+    href: '/medistats/soins',
     icon: 'medical-service',
-    eyebrow: 'Offre de soins',
-    title: 'Cartographiez l\'offre de soins et les indicateurs de performance des établissements.',
+    eyebrow: 'Systèmes de santé',
+    title: 'Analysez les ressources humaines, infrastructures et financements des systèmes de santé.',
     description:
-      'Hôpitaux, cliniques, médecins de ville — analysez la densité de l\'offre, les délais et les taux d\'occupation.',
+      'Médecins, infirmiers, lits d\'hôpital, dépenses de santé, couverture sanitaire universelle — comparez les pays sur les indicateurs GHO de l\'OMS.',
     featured: {
-      title: 'Établissements suivis',
-      value: '3 100',
-      detail: 'Hôpitaux et cliniques référencés en France',
+      title: 'Indicateurs GHO suivis',
+      value: '9',
+      detail: 'Ressources humaines, infrastructures, financement, couverture, vaccination',
     },
-    links: ['Hôpitaux', 'Cliniques', 'Médecine de ville', 'Urgences'],
+    links: ['Ressources humaines', 'Infrastructures', 'Financement', 'Vaccination'],
   },
   {
     label: 'Chaînes',
@@ -84,7 +84,7 @@ defineExpose({ items })
         :is="item.href.startsWith('/') ? RouterLink : 'a'"
         :to="item.href.startsWith('/') ? item.href : undefined"
         :href="item.href.startsWith('/') ? undefined : item.href"
-        class="inline-flex items-center gap-2 rounded-full border border-transparent px-3 py-2 transition hover:border-slate-200 hover:bg-white hover:text-slate-900"
+        class="inline-flex items-center gap-2 rounded-full border border-transparent px-3 py-2 transition hover:border-slate-200 hover:bg-white hover:text-slate-900 [&.router-link-active]:text-primary [&.router-link-active]:underline [&.router-link-active]:decoration-2 [&.router-link-active]:underline-offset-8"
         @mouseenter="emit('update:modelValue', item)"
       >
         <span class="flex items-center justify-center text-slate-700">

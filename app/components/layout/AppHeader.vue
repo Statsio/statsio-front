@@ -326,7 +326,7 @@ onBeforeUnmount(() => {
         :is="item.href.startsWith('/') ? RouterLink : 'a'"
         :to="item.href.startsWith('/') ? item.href : undefined"
         :href="item.href.startsWith('/') ? undefined : item.href"
-        class="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-primary/30 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+        class="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-primary/30 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 [&.router-link-active]:border-primary/40 [&.router-link-active]:text-primary [&.router-link-active]:underline [&.router-link-active]:underline-offset-4"
       >
         <AppNavIcon :kind="item.icon" class="h-[16px] w-[16px]" />
         {{ item.label }}
@@ -442,7 +442,7 @@ onBeforeUnmount(() => {
                 <AppNavIcon :kind="item.icon" class="h-[20px] w-[20px]" />
               </span>
               <span class="min-w-0">
-                <span class="block text-sm font-semibold text-slate-900 transition group-hover:text-primary">{{ item.label }}</span>
+                <span class="block text-sm font-semibold text-slate-900 transition group-hover:text-primary [.router-link-active_&]:text-primary [.router-link-active_&]:underline [.router-link-active_&]:underline-offset-4">{{ item.label }}</span>
                 <span class="block text-xs font-medium uppercase tracking-[0.16em] text-slate-400">{{ item.eyebrow }}</span>
               </span>
             </component>

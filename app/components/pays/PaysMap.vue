@@ -4,8 +4,7 @@ import { usePays } from '@/composables/usePays'
 import AppSectionTabs from '@/components/ui/AppSectionTabs.vue'
 import AppWorldScatterMap, { type WorldScatterPoint } from '@/components/ui/AppWorldScatterMap.vue'
 import type { IndicatorKey } from '@/types/pays'
-import { formatCompactNumber } from '@/utils/number'
-import { isoToFlagEmoji } from '@/utils/flag'
+import { getMedistatsTabs } from '@/data/medistats-nav-tabs'
 
 const {
   indicator,
@@ -48,12 +47,7 @@ const mapPoints = computed<WorldScatterPoint[]>(() =>
     </p>
     <p class="mb-6 font-mono text-xs text-slate-400">Source : GHO OData API (who.int/data/gho)</p>
 
-    <AppSectionTabs
-      :tabs="[
-        { label: 'Vue Maladies', to: '/medistats/maladies', active: false },
-        { label: 'Vue Pays', to: '/medistats/pays', active: true },
-      ]"
-    />
+    <AppSectionTabs :tabs="getMedistatsTabs('pays')" />
 
     <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
       <p class="text-xs font-bold tracking-[0.04em] text-slate-500 uppercase">Indicateur affiché sur la carte</p>
@@ -101,50 +95,38 @@ const mapPoints = computed<WorldScatterPoint[]>(() =>
       </div>
 
       <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
-        <NuxtLink
+        <CountryCard
           v-for="c in filteredCountries"
           :key="c.iso3"
-          :to="`/medistats/pays/${c.iso3}`"
-          class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3.5"
+          :iso3="c.iso3"
+          :iso2="c.iso2"
+          :name="c.name"
+          :region="c.region"
+          :population="c.population"
         >
-          <div class="flex items-center justify-between gap-2.5">
-            <div class="flex min-w-0 items-center gap-2.5">
-              <span
-                class="flex h-8.5 w-8.5 shrink-0 items-center justify-center rounded-lg bg-[var(--color-primary)]/10 text-base"
-                aria-hidden="true"
-              >
-                {{ isoToFlagEmoji(c.iso2) }}
-              </span>
-              <div class="min-w-0">
-                <p class="truncate text-[13.5px] font-bold text-slate-900">{{ c.name }}</p>
-                <p class="truncate text-[11px] text-slate-400">{{ c.region }} · {{ formatCompactNumber(c.population) }} hab.</p>
+          <template #body>
+            <div class="grid grid-cols-2 gap-2">
+              <div class="rounded-lg bg-slate-50 px-2.5 py-1.5">
+                <p class="text-[10.5px] text-slate-400">Espérance de vie</p>
+                <p class="mono text-[12.5px] font-bold text-slate-900">
+                  {{ c.stats.lifeExp.value !== null ? `${c.stats.lifeExp.value}${c.stats.lifeExp.unit}` : '—' }}
+                </p>
+              </div>
+              <div class="rounded-lg bg-slate-50 px-2.5 py-1.5">
+                <p class="text-[10.5px] text-slate-400">Médecins /1000 hab.</p>
+                <p class="mono text-[12.5px] font-bold text-slate-900">{{ c.stats.physicians.value ?? '—' }}</p>
               </div>
             </div>
-            <span class="mono shrink-0 rounded-lg bg-[var(--color-primary)]/10 px-2 py-1 text-xs font-bold text-[var(--color-primary)]">
-              {{ c.iso3 }}
-            </span>
-          </div>
-
-          <div class="grid grid-cols-2 gap-2">
-            <div class="rounded-lg bg-slate-50 px-2.5 py-1.5">
-              <p class="text-[10.5px] text-slate-400">Espérance de vie</p>
-              <p class="mono text-[12.5px] font-bold text-slate-900">
-                {{ c.stats.lifeExp.value !== null ? `${c.stats.lifeExp.value}${c.stats.lifeExp.unit}` : '—' }}
-              </p>
-            </div>
-            <div class="rounded-lg bg-slate-50 px-2.5 py-1.5">
-              <p class="text-[10.5px] text-slate-400">Médecins /1000 hab.</p>
-              <p class="mono text-[12.5px] font-bold text-slate-900">{{ c.stats.physicians.value ?? '—' }}</p>
-            </div>
-          </div>
-
-          <p v-if="c.topDisease" class="flex items-center gap-1.5 text-[11px] text-slate-500">
-            <span class="shrink-0 rounded-full bg-[var(--color-primary)]/10 px-2 py-0.5 text-[10px] font-bold text-[var(--color-primary)]">
-              Top {{ c.topDisease.percentile }}%
-            </span>
-            <span class="truncate">{{ c.topDisease.name }}</span>
-          </p>
-        </NuxtLink>
+          </template>
+          <template v-if="c.topDisease" #footer>
+            <p class="flex items-center gap-1.5 text-[11px] text-slate-500">
+              <span class="shrink-0 rounded-full bg-[var(--color-primary)]/10 px-2 py-0.5 text-[10px] font-bold text-[var(--color-primary)]">
+                Top {{ c.topDisease.percentile }}%
+              </span>
+              <span class="truncate">{{ c.topDisease.name }}</span>
+            </p>
+          </template>
+        </CountryCard>
       </div>
       <p v-if="countriesEmpty" class="py-10 text-center text-[13.5px] text-slate-400">
         Aucun pays ne correspond à « {{ countryQuery }} ».
