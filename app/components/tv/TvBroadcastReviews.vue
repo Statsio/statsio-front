@@ -5,41 +5,20 @@ import type { ReviewsResponse } from '@/api/tv-broadcast'
 defineProps<{
   reviewsData: ReviewsResponse | null
   isPast: boolean
-  isAuthenticated: boolean
-  userHasReviewed: boolean
 }>()
-
-defineEmits<{ 'add-review': [] }>()
 </script>
 
 <template>
   <div class="rounded-3xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm">
-    <div class="mb-4 flex items-center justify-between gap-3">
-      <div class="flex items-center gap-3">
-        <h2 class="text-xs font-semibold uppercase tracking-widest text-tvstats-primary">Avis téléspectateurs</h2>
-        <div v-if="reviewsData?.avgRating" class="flex items-center gap-1">
-          <svg class="h-4 w-4 fill-amber-400" viewBox="0 0 24 24">
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-          </svg>
-          <span class="text-sm font-bold text-slate-800">{{ reviewsData.avgRating }}</span>
-          <span class="text-xs text-slate-400">({{ reviewsData.totalCount }})</span>
-        </div>
+    <div class="mb-4 flex items-center gap-3">
+      <h2 class="text-xs font-semibold uppercase tracking-widest text-tvstats-primary">Avis téléspectateurs</h2>
+      <div v-if="reviewsData?.avgRating" class="flex items-center gap-1">
+        <svg class="h-4 w-4 fill-tvstats-primary" viewBox="0 0 24 24">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+        </svg>
+        <span class="font-mono text-sm font-bold text-slate-800">{{ reviewsData.avgRating }}</span>
+        <span class="text-xs text-slate-400">({{ reviewsData.totalCount }})</span>
       </div>
-      <!-- Add review button (shown when past + auth + not yet reviewed) -->
-      <button
-        v-if="isPast && isAuthenticated && !userHasReviewed"
-        class="rounded-xl border border-tvstats-primary/30 bg-tvstats-soft/20 px-3 py-1.5 text-xs font-semibold text-tvstats-primary hover:bg-tvstats-soft/40 transition"
-        @click="$emit('add-review')"
-      >
-        + Donner mon avis
-      </button>
-      <RouterLink
-        v-else-if="isPast && !isAuthenticated"
-        to="/login"
-        class="text-xs text-slate-400 hover:text-slate-600 underline"
-      >
-        Connectez-vous pour noter
-      </RouterLink>
     </div>
 
     <!-- Reviews list -->
@@ -55,7 +34,7 @@ defineEmits<{ 'add-review': [] }>()
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 mb-1">
             <div v-if="review.rating" class="flex items-center gap-0.5">
-              <svg v-for="s in 5" :key="s" class="h-3.5 w-3.5" :class="s <= review.rating ? 'fill-amber-400' : 'fill-slate-200'" viewBox="0 0 24 24">
+              <svg v-for="s in 5" :key="s" class="h-3.5 w-3.5" :class="s <= review.rating ? 'fill-tvstats-primary' : 'fill-slate-200'" viewBox="0 0 24 24">
                 <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
               </svg>
             </div>

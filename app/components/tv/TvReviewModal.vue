@@ -97,13 +97,13 @@ const STAR_LABELS: Record<number, string> = { 1: 'Très mauvais', 2: 'Mauvais', 
             >
               <svg
                 class="h-7 w-7 transition-colors"
-                :class="(globalRating ?? 0) >= star ? 'fill-amber-400 text-amber-400' : 'fill-slate-200 text-slate-200'"
+                :class="(globalRating ?? 0) >= star ? 'fill-tvstats-primary text-tvstats-primary' : 'fill-slate-200 text-slate-200'"
                 viewBox="0 0 24 24"
               >
                 <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
               </svg>
             </button>
-            <span v-if="globalRating" class="ml-1 text-sm font-medium text-amber-600">{{ STAR_LABELS[globalRating] }}</span>
+            <span v-if="globalRating" class="ml-1 text-sm font-medium text-tvstats-primary">{{ STAR_LABELS[globalRating] }}</span>
           </div>
         </div>
 
@@ -153,13 +153,13 @@ const STAR_LABELS: Record<number, string> = { 1: 'Très mauvais', 2: 'Mauvais', 
 
       <!-- Footer -->
       <div class="flex items-center justify-between gap-3 border-t border-slate-100 px-6 py-4">
-        <button class="text-sm text-slate-500 hover:text-slate-700" @click="emit('close')">Passer</button>
+        <button class="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50 transition" @click="emit('close')">Annuler</button>
         <button
           class="rounded-xl bg-tvstats-primary px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-tvstats-dark disabled:opacity-50 transition"
           :disabled="!canSubmit || submitting"
           @click="submit"
         >
-          {{ submitting ? 'Envoi…' : 'Publier mon avis' }}
+          {{ submitting ? 'Envoi…' : 'Envoyer mon avis' }}
         </button>
       </div>
     </div>
