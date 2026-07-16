@@ -1,14 +1,28 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
+import { RouterLink } from 'vue-router'
 import { useStudioStore } from '@/stores/studio'
 import { publishStatsDataDocument } from '@/api/studio'
 import AppButton from '@/components/ui/AppButton.vue'
+import ColumnPickerModal from '@/components/studio/ui/ColumnPickerModal.vue'
+import type { StudioBlock } from '@/types/studio'
+import studioLogo from '@/assets/brand/statsio-studio.svg'
+
+// Stub block passed to ColumnPickerModal so it only exposes page template variables (no dataset columns)
+const PAGE_TITLE_TOKEN_BLOCK: StudioBlock = { id: '__page-title__', type: 'heading', zoneId: '', fieldMapping: {}, config: {} }
 
 const emit = defineEmits<{ save: [] }>()
 const studio = useStudioStore()
 
 const isPublishing = ref(false)
 const isPublished = computed(() => studio.content?.status === 'published')
+
+// Settings page only exists for statsdata content today (see app/pages/statsdata/[slug]/proprietes.vue).
+const settingsPath = computed(() => {
+  const content = studio.content
+  if (!content || content.type !== 'statsdata' || !content.slug) return null
+  return `/statsdata/${content.slug}/proprietes`
+})
 
 // ─── Page management ──────────────────────────────────────────────────────────
 
@@ -28,8 +42,23 @@ function startRename(id: string, title: string) {
 }
 
 function commitRename(id: string) {
+  if (showPageTokenModal.value) return
   if (editingPageTitle.value.trim()) studio.updatePage(id, { title: editingPageTitle.value.trim() })
   editingPageId.value = null
+}
+
+// ─── Insert dynamic page variable (template pages) ────────────────────────────
+
+const showPageTokenModal = ref(false)
+
+function closePageTokenModal() {
+  showPageTokenModal.value = false
+  nextTick(() => (document.getElementById(`hdr-rename-${editingPageId.value}`) as HTMLInputElement)?.focus())
+}
+
+function onPickPageTitleToken(value: string) {
+  editingPageTitle.value = value
+  if (editingPageId.value && value.trim()) studio.updatePage(editingPageId.value, { title: value.trim() })
 }
 
 function removePage(id: string, title: string) {
@@ -43,15 +72,13 @@ const showAddModal = ref(false)
 const newPageTitle = ref('')
 const newPageSlug = ref('')
 const newPageDesc = ref('')
-const newPageIsTemplate = ref(false)
-const newPageParam = ref('')
+const newPageNeedsParams = ref(false)
 
 function openAddModal() {
   newPageTitle.value = ''
   newPageSlug.value = ''
   newPageDesc.value = ''
-  newPageIsTemplate.value = false
-  newPageParam.value = ''
+  newPageNeedsParams.value = false
   pagesOpen.value = false
   showAddModal.value = true
   nextTick(() => (document.getElementById('hdr-page-title') as HTMLInputElement)?.focus())
@@ -69,11 +96,19 @@ function onNewPageTitleInput() {
 function confirmAddPage() {
   if (!newPageTitle.value.trim()) return
   const page = studio.addPage(newPageTitle.value.trim(), {
-    isTemplate: newPageIsTemplate.value || undefined,
-    paramName: newPageIsTemplate.value ? newPageParam.value.trim() || undefined : undefined,
+    isTemplate: newPageNeedsParams.value || undefined,
     description: newPageDesc.value.trim() || undefined,
   })
   if (newPageSlug.value) studio.updatePage(page.id, { slug: newPageSlug.value })
+
+  
+  if (newPageNeedsParams.value) {
+    const section = studio.addSection('1-col', 0, true)
+    const zoneId = `${section.id}-0`
+    const block = studio.addBlock('search', zoneId, 0, true)
+    studio.updateBlockFieldMapping(block.id, { targetPageId: page.id })
+  }
+
   showAddModal.value = false
 }
 
@@ -128,9 +163,13 @@ function onKeydown(e: KeyboardEvent) {
 }
 
 function onDocMousedown(e: MouseEvent) {
+  // The token picker is teleported to <body>, so clicks inside it look like
+  // "outside" clicks here — ignore them or we'd wipe editingPageId before
+  // its own update:modelValue/close handlers get a chance to commit.
+  if (showPageTokenModal.value) return
   if (pagesDropdownRef.value && !pagesDropdownRef.value.contains(e.target as Node)) {
     pagesOpen.value = false
-    if (editingPageId.value) editingPageId.value = null
+    if (editingPageId.value) commitRename(editingPageId.value)
   }
 }
 
@@ -165,11 +204,14 @@ const saveDotClass = computed(() => {
 </script>
 
 <template>
-  <header class="h-12 shrink-0 flex items-center px-4 gap-3 border-b border-slate-200 bg-white z-20">
+  <header
+    class="h-14 shrink-0 flex items-center px-4 gap-3 border-b border-slate-200 z-20"
+    style="background: linear-gradient(90deg, var(--color-studio-header-start), var(--color-studio-header-mid), var(--color-studio-header-end))"
+  >
     <!-- Left: nav toggle + logo -->
     <div class="flex items-center gap-3 shrink-0">
       <button
-        class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"
+        class="p-1.5 rounded-lg hover:bg-white/60 text-slate-500 transition-colors"
         title="Basculer la sidebar"
         @click="studio.setLeftTab('blocks')"
       >
@@ -179,8 +221,8 @@ const saveDotClass = computed(() => {
       </button>
 
       <a href="/" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
-        <span class="w-6 h-6 rounded bg-[var(--color-primary)] flex items-center justify-center text-white text-[10px] font-black">S</span>
-        <span class="text-sm font-bold text-slate-800 hidden sm:block">Studio</span>
+        <img :src="studioLogo" alt="Statsio Studio" class="h-8 w-8 rounded-xl shrink-0" />
+        <span class="text-sm font-bold uppercase tracking-wide text-slate-800 font-mono hidden sm:block">Studio</span>
       </a>
     </div>
 
@@ -188,7 +230,7 @@ const saveDotClass = computed(() => {
     <div class="flex items-center gap-0.5 shrink-0">
       <button
         class="p-1.5 rounded-lg transition-colors"
-        :class="studio.canUndo ? 'hover:bg-slate-100 text-slate-600' : 'text-slate-300 cursor-not-allowed'"
+        :class="studio.canUndo ? 'hover:bg-white/60 text-slate-600' : 'text-slate-300 cursor-not-allowed'"
         title="Annuler (Ctrl+Z)"
         :disabled="!studio.canUndo"
         @click="studio.undo()"
@@ -199,7 +241,7 @@ const saveDotClass = computed(() => {
       </button>
       <button
         class="p-1.5 rounded-lg transition-colors"
-        :class="studio.canRedo ? 'hover:bg-slate-100 text-slate-600' : 'text-slate-300 cursor-not-allowed'"
+        :class="studio.canRedo ? 'hover:bg-white/60 text-slate-600' : 'text-slate-300 cursor-not-allowed'"
         title="Rétablir (Ctrl+Y)"
         :disabled="!studio.canRedo"
         @click="studio.redo()"
@@ -210,15 +252,15 @@ const saveDotClass = computed(() => {
       </button>
     </div>
 
-    <div class="w-px h-5 bg-slate-200 shrink-0" />
+    <div class="w-px h-5 bg-slate-300/60 shrink-0" />
 
     <!-- Pages dropdown -->
     <div ref="pagesDropdownRef" class="relative shrink-0">
       <button
-        class="flex items-center gap-1.5 h-7 px-2.5 rounded-xl text-xs font-semibold transition-colors border"
+        class="flex items-center gap-1.5 h-7 px-3 rounded-full text-xs font-semibold transition-colors border"
         :class="pagesOpen
           ? 'bg-[var(--color-primary)]/10 text-[var(--color-primary)] border-[var(--color-primary)]/20'
-          : 'text-slate-600 hover:bg-slate-100 border-slate-200'"
+          : 'text-slate-600 bg-white/50 hover:bg-white/80 border-slate-200'"
         @click="pagesOpen = !pagesOpen"
       >
         <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -247,15 +289,26 @@ const saveDotClass = computed(() => {
           @click="studio.switchPage(page.id); pagesOpen = false"
         >
           <template v-if="editingPageId === page.id">
-            <input
-              :id="`hdr-rename-${page.id}`"
-              v-model="editingPageTitle"
-              class="flex-1 text-xs font-medium text-slate-800 bg-slate-100 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30"
-              @click.stop
-              @blur="commitRename(page.id)"
-              @keydown.enter.stop="commitRename(page.id)"
-              @keydown.escape.stop="editingPageId = null"
-            />
+            <div class="relative flex-1">
+              <input
+                :id="`hdr-rename-${page.id}`"
+                v-model="editingPageTitle"
+                class="w-full text-xs font-medium text-slate-800 bg-slate-100 rounded-lg px-2 py-1 outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30"
+                :class="page.isTemplate ? 'pr-6' : ''"
+                @click.stop
+                @blur="commitRename(page.id)"
+                @keydown.enter.stop="commitRename(page.id)"
+                @keydown.escape.stop="editingPageId = null"
+              />
+              <button
+                v-if="page.isTemplate"
+                type="button"
+                class="absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center w-4 h-4 rounded text-[10px] font-mono font-semibold text-slate-400 hover:text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 transition-colors"
+                title="Insérer une variable dynamique"
+                @mousedown.prevent="showPageTokenModal = true"
+                @click.stop
+              >{ }</button>
+            </div>
           </template>
           <template v-else>
             <span
@@ -273,7 +326,7 @@ const saveDotClass = computed(() => {
             >
               <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
             </svg>
-            <div v-else class="hidden group-hover:flex items-center gap-0.5 flex-shrink-0">
+            <div class="hidden group-hover:flex items-center gap-0.5 flex-shrink-0">
               <button
                 class="p-1 rounded-md hover:bg-slate-200 text-slate-400 hover:text-slate-700 transition-colors"
                 title="Renommer"
@@ -344,7 +397,7 @@ const saveDotClass = computed(() => {
 
       <!-- Manual save -->
       <button
-        class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"
+        class="p-1.5 rounded-lg hover:bg-white/60 text-slate-500 transition-colors"
         title="Enregistrer (⌘S)"
         @click="emit('save')"
       >
@@ -352,6 +405,19 @@ const saveDotClass = computed(() => {
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
         </svg>
       </button>
+
+      <!-- Paramètres du contenu -->
+      <RouterLink
+        v-if="settingsPath"
+        :to="settingsPath"
+        class="p-1.5 rounded-lg hover:bg-white/60 text-slate-500 transition-colors"
+        title="Paramètres du contenu"
+      >
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 0 1 0 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 0 1 0-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+        </svg>
+      </RouterLink>
 
       <!-- Publish -->
       <AppButton
@@ -408,19 +474,38 @@ const saveDotClass = computed(() => {
           />
         </div>
 
-        <label class="flex items-center gap-2 cursor-pointer select-none">
-          <input v-model="newPageIsTemplate" type="checkbox" class="rounded accent-[var(--color-primary)]" />
-          <span class="text-sm text-slate-700 font-medium">Page template (drill-down)</span>
-        </label>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold text-slate-600">Est-ce que cette page devra attendre des paramètres ?</label>
+          <div class="inline-flex rounded-xl border border-[var(--color-secondary)] p-0.5 w-fit">
+            <button
+              type="button"
+              class="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors"
+              :class="!newPageNeedsParams ? 'bg-[var(--color-primary)] text-white' : 'text-slate-500 hover:text-slate-700'"
+              @click="newPageNeedsParams = false"
+            >Non</button>
+            <button
+              type="button"
+              class="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors"
+              :class="newPageNeedsParams ? 'bg-[var(--color-primary)] text-white' : 'text-slate-500 hover:text-slate-700'"
+              @click="newPageNeedsParams = true"
+            >Oui</button>
+          </div>
+        </div>
 
-        <div v-if="newPageIsTemplate" class="flex flex-col gap-1">
-          <label class="text-xs font-semibold text-slate-600">Nom du paramètre</label>
-          <input
-            v-model="newPageParam"
-            type="text"
-            placeholder="Ex: ville"
-            class="px-3 py-2 text-sm border border-[var(--color-secondary)] rounded-xl outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 font-mono"
-          />
+        <div v-if="newPageNeedsParams" class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold text-slate-600">Comment les paramètres seront-ils fournis ?</label>
+          <div class="flex items-start gap-2.5 p-3 rounded-xl border-2 border-[var(--color-primary)] bg-[var(--color-primary)]/5 text-left">
+            <svg class="w-4 h-4 mt-0.5 shrink-0 text-[var(--color-primary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+            </svg>
+            <div class="flex-1">
+              <p class="text-sm font-semibold text-slate-800">Barre de recherche</p>
+              <p class="text-xs text-slate-500 mt-0.5">Une barre de recherche sera ajoutée en haut de la page pour choisir l'élément affiché.</p>
+            </div>
+            <svg class="w-4 h-4 mt-0.5 shrink-0 text-[var(--color-primary)]" fill="currentColor" viewBox="0 0 24 24">
+              <path fill-rule="evenodd" d="M19.916 4.626a.75.75 0 0 1 .208 1.04l-9 13.5a.75.75 0 0 1-1.154.114l-6-6a.75.75 0 0 1 1.06-1.06l5.353 5.353 8.493-12.74a.75.75 0 0 1 1.04-.207Z" clip-rule="evenodd" />
+            </svg>
+          </div>
         </div>
 
         <div class="flex gap-2 justify-end mt-1">
@@ -439,4 +524,16 @@ const saveDotClass = computed(() => {
       </div>
     </div>
   </Teleport>
+
+  <!-- Insert dynamic page variable (template pages) -->
+  <ColumnPickerModal
+    :show="showPageTokenModal"
+    :block="PAGE_TITLE_TOKEN_BLOCK"
+    mode="expression"
+    hide-operators
+    :page-id="editingPageId ?? undefined"
+    :model-value="editingPageTitle"
+    @update:model-value="onPickPageTitleToken"
+    @close="closePageTokenModal"
+  />
 </template>

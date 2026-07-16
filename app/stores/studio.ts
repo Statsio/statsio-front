@@ -180,9 +180,9 @@ export const useStudioStore = defineStore('studio', () => {
 
   // ─── Sections ────────────────────────────────────────────────────────────────
 
-  function addSection(layout: SectionLayout, atIndex?: number) {
+  function addSection(layout: SectionLayout, atIndex?: number, locked?: boolean) {
     snapshot()
-    const section: Section = { id: uid(), layout, pageId: currentPageId.value }
+    const section: Section = { id: uid(), layout, pageId: currentPageId.value, locked }
     if (atIndex !== undefined) {
       sections.value.splice(atIndex, 0, section)
     } else {
@@ -193,6 +193,8 @@ export const useStudioStore = defineStore('studio', () => {
   }
 
   function removeSection(sectionId: string) {
+    const section = sections.value.find((s: Section) => s.id === sectionId)
+    if (section?.locked) return
     snapshot()
     sections.value = sections.value.filter((s: Section) => s.id !== sectionId)
     blocks.value = blocks.value.filter((b: StudioBlock) => !b.zoneId?.startsWith(`${sectionId}-`))
@@ -208,7 +210,7 @@ export const useStudioStore = defineStore('studio', () => {
 
   function changeSectionLayout(sectionId: string, layout: SectionLayout) {
     const section = sections.value.find((s: Section) => s.id === sectionId)
-    if (!section) return
+    if (!section || section.locked) return
     snapshot()
     const newCols = getColCount(layout)
     blocks.value = blocks.value.map((b: StudioBlock) => {
@@ -223,20 +225,64 @@ export const useStudioStore = defineStore('studio', () => {
 
   function reorderSections(newOrder: Section[]) {
     snapshot()
-    sections.value = newOrder
+    // Keep locked sections in their original relative positions, only reorder non-locked ones
+    const originalLocked = sections.value.filter(s => s.locked)
+    const originalNonLocked = sections.value.filter(s => !s.locked)
+    const newNonLocked = newOrder.filter(s => !s.locked)
+    
+    // Create a map of locked section IDs to their original indices
+    const lockedPositions = new Map<string, number>()
+    originalLocked.forEach((s, idx) => lockedPositions.set(s.id, idx))
+    
+    // Merge locked sections (in original order) with non-locked sections (in new order), keeping locked in their original relative positions
+    const result: Section[] = []
+    let nonLockedIndex = 0
+    
+    // Iterate through original sections, inserting locked sections in original place and non-locked in new order
+    for (const originalSection of sections.value) {
+      if (originalSection.locked) {
+        result.push(originalSection)
+      } else if (nonLockedIndex < newNonLocked.length) {
+        result.push(newNonLocked[nonLockedIndex++])
+      }
+    }
+    // Add any remaining non-locked sections (shouldn't happen, but just in case)
+    while (nonLockedIndex < newNonLocked.length) {
+      result.push(newNonLocked[nonLockedIndex++])
+    }
+    
+    sections.value = result
     markDirty()
   }
 
   function reorderCurrentPageSections(newPageOrder: Section[]) {
     snapshot()
     const otherSections = sections.value.filter((s: Section) => (s.pageId ?? 'default') !== currentPageId.value)
-    sections.value = [...otherSections, ...newPageOrder]
+    const currentPageOriginal = sections.value.filter((s: Section) => (s.pageId ?? 'default') === currentPageId.value)
+    
+    // Keep locked sections in their original positions for current page
+    const currentLocked = currentPageOriginal.filter(s => s.locked)
+    const currentNonLocked = newPageOrder.filter(s => !s.locked)
+    const mergedCurrentPage: Section[] = []
+    let nonLockedIdx = 0
+    for (const originalSection of currentPageOriginal) {
+      if (originalSection.locked) {
+        mergedCurrentPage.push(originalSection)
+      } else if (nonLockedIdx < currentNonLocked.length) {
+        mergedCurrentPage.push(currentNonLocked[nonLockedIdx++])
+      }
+    }
+    while (nonLockedIdx < currentNonLocked.length) {
+      mergedCurrentPage.push(currentNonLocked[nonLockedIdx++])
+    }
+    
+    sections.value = [...otherSections, ...mergedCurrentPage]
     markDirty()
   }
 
   // ─── Pages ───────────────────────────────────────────────────────────────────
 
-  function addPage(title: string, options: { isTemplate?: boolean; paramName?: string; description?: string } = {}): StudioDocumentPage {
+  function addPage(title: string, options: { isTemplate?: boolean; paramName?: string; description?: string; icon?: string } = {}): StudioDocumentPage {
     snapshot()
     const page: StudioDocumentPage = {
       id: uid(),
@@ -245,6 +291,7 @@ export const useStudioStore = defineStore('studio', () => {
       description: options.description,
       isTemplate: options.isTemplate,
       paramName: options.paramName,
+      icon: options.icon,
     }
     pages.value.push(page)
     currentPageId.value = page.id
@@ -322,14 +369,23 @@ export const useStudioStore = defineStore('studio', () => {
     callout:   { content: '<p></p>', textAlign: 'left', calloutColor: '#eff6ff' },
   }
 
-  function addBlock(type: BlockType, zoneId: string, atIndex?: number): StudioBlock {
+  const FORM_DEFAULTS: Partial<Record<BlockType, object>> = {
+    choice:     { formOptions: ['Option 1', 'Option 2'] },
+    checkboxes: { formOptions: ['Option 1', 'Option 2'] },
+    dropdown:   { formOptions: ['Option 1', 'Option 2'] },
+    scale:      { scaleMin: 1, scaleMax: 5 },
+    rating:     { ratingMax: 5 },
+  }
+
+  function addBlock(type: BlockType, zoneId: string, atIndex?: number, locked?: boolean): StudioBlock {
     snapshot()
     const block: StudioBlock = {
       id: uid(),
       type,
       zoneId,
+      locked: locked || undefined,
       fieldMapping: {},
-      config: { title: '', ...(TEXT_DEFAULTS[type] ?? {}) },
+      config: { title: '', ...TEXT_DEFAULTS[type], ...FORM_DEFAULTS[type] },
     }
 
     if (atIndex !== undefined) {
@@ -355,6 +411,8 @@ export const useStudioStore = defineStore('studio', () => {
   }
 
   function removeBlock(blockId: string) {
+    const target = blocks.value.find((b: StudioBlock) => b.id === blockId)
+    if (target?.locked) return
     snapshot()
     blocks.value = blocks.value.filter((b: StudioBlock) => b.id !== blockId)
     if (selectedBlockId.value === blockId) {
@@ -362,6 +420,21 @@ export const useStudioStore = defineStore('studio', () => {
       isSidebarRightOpen.value = false
     }
     markDirty()
+  }
+
+  function duplicateBlock(blockId: string): StudioBlock | null {
+    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
+    if (!block || block.locked) return null
+
+    snapshot()
+    const clone: StudioBlock = { ...deepClone(block), id: uid(), locked: undefined }
+    const originalIdx = blocks.value.findIndex((b: StudioBlock) => b.id === blockId)
+    blocks.value.splice(originalIdx + 1, 0, clone)
+
+    selectedBlockId.value = clone.id
+    isSidebarRightOpen.value = true
+    markDirty()
+    return clone
   }
 
   function selectBlock(blockId: string | null) {
@@ -519,6 +592,7 @@ export const useStudioStore = defineStore('studio', () => {
     reorderCurrentPageSections,
     addBlock,
     removeBlock,
+    duplicateBlock,
     selectBlock,
     moveBlock,
     setZoneBlocks,

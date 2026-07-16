@@ -34,6 +34,16 @@ export const STATSIO_API = {
     test: (id: string) => `/api-sources/${encodeURIComponent(id)}/test`,
     preview: (id: string) => `/api-sources/${encodeURIComponent(id)}/preview`,
   },
+  dataSources: {
+    upload: '/data-sources/upload',
+    public: '/data-sources/public',
+    one: (id: string | number) => `/data-sources/${encodeURIComponent(String(id))}`,
+    attach: (id: string | number) => `/data-sources/${encodeURIComponent(String(id))}/attach`,
+    refresh: (id: string | number) => `/data-sources/${encodeURIComponent(String(id))}/refresh`,
+  },
+  sourceProvenances: {
+    collection: '/source-provenances',
+  },
   datasets: {
     collection: '/datasets',
     one: (id: string) => `/datasets/${encodeURIComponent(id)}`,
@@ -51,6 +61,8 @@ export const STATSIO_API = {
     publicBySlug: (slug: string) => `/studio/content/public/${encodeURIComponent(slug)}`,
     publicDatasetQuery: (slug: string, datasetId: string) =>
       `/studio/content/public/${encodeURIComponent(slug)}/datasets/${encodeURIComponent(datasetId)}/query`,
+    blockResponse: (slug: string, blockId: string) =>
+      `/studio/content/public/${encodeURIComponent(slug)}/blocks/${encodeURIComponent(blockId)}/response`,
   },
   pages: {
     blocks: (pageId: string) => `/pages/${encodeURIComponent(pageId)}/blocks`,
@@ -84,6 +96,15 @@ export const STATSIO_API = {
     media: (documentId: string) => `/statsdata/${encodeURIComponent(documentId)}/media`,
     mediaOne: (documentId: string, mediaId: string) =>
       `/statsdata/${encodeURIComponent(documentId)}/media/${encodeURIComponent(mediaId)}`,
+  },
+  maladies: {
+    search: (q: string) => `/maladies/search?q=${encodeURIComponent(q)}`,
+    populaires: '/maladies/populaires',
+    one: (id: string) => `/maladies/${encodeURIComponent(id)}`,
+  },
+  pays: {
+    list: (indicator?: string) => (indicator ? `/pays?indicator=${encodeURIComponent(indicator)}` : '/pays'),
+    one: (iso3: string) => `/pays/${encodeURIComponent(iso3)}`,
   },
   tv: {
     epg: (date: string) => `/tv/epg?date=${encodeURIComponent(date)}`,

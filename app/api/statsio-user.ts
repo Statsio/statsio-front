@@ -19,3 +19,9 @@ export async function updateProfile(payload: { first_name?: string; last_name?: 
   const res = await apiHttp.patch(STATSIO_API.me, payload)
   return unwrapStatsioResponseData(res)
 }
+
+/** `POST /account/anonymize` — anonymise et supprime définitivement le compte de l'utilisateur connecté. */
+export async function anonymizeAccount(): Promise<unknown> {
+  const res = await apiHttp.post(STATSIO_API.account.anonymize)
+  return unwrapStatsioResponseData(res)
+}

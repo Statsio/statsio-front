@@ -23,6 +23,12 @@ const sections: NavSection[] = [
     ],
   },
   {
+    title: 'Data',
+    items: [
+      { label: 'Provenances', to: '/admin/data/provenances' },
+    ],
+  },
+  {
     title: 'MediStats',
     soon: true,
     items: [],

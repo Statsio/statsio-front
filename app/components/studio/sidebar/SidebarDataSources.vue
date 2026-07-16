@@ -3,35 +3,41 @@ import { ref, onMounted } from 'vue'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import type { DatasetMeta, DatasetWithSchema } from '@/types/studio'
 import type { DatasetPreview } from '@/api/studio'
+import { fetchDataSource, type DataSourceDetail } from '@/api/data-sources'
 import AddSourceModal from './AddSourceModal.vue'
+import EditSourceModal from './EditSourceModal.vue'
+import ViewSourceDataModal from './ViewSourceDataModal.vue'
 
 const datasets = useStudioDatasetsStore()
 const showModal = ref(false)
 const searchQuery = ref('')
 const expandedId = ref<string | null>(null)
 
-// ─── Edit (rename) ────────────────────────────────────────────────────────────
-const editingId = ref<string | null>(null)
-const editingName = ref('')
-const editInputRef = ref<HTMLInputElement | null>(null)
+// ─── View data (modal) ────────────────────────────────────────────────────────
+const viewingDataset = ref<DatasetMeta | null>(null)
 
-function startEdit(dataset: DatasetMeta, event: Event) {
+function openDataView(dataset: DatasetMeta, event: Event) {
   event.stopPropagation()
-  editingId.value = dataset.id
-  editingName.value = dataset.name
-  setTimeout(() => editInputRef.value?.select(), 0)
+  viewingDataset.value = dataset
 }
 
-async function commitEdit(dataset: DatasetMeta) {
-  const name = editingName.value.trim()
-  if (name && name !== dataset.name) {
-    await datasets.renameDataset(dataset.id, name)
+// ─── Edit source (modal) ──────────────────────────────────────────────────────
+const editingSource = ref<DataSourceDetail | null>(null)
+const editingLoadingId = ref<string | null>(null)
+const editingLoadError = ref('')
+
+async function startEdit(dataset: DatasetMeta, event: Event) {
+  event.stopPropagation()
+  if (!dataset.dataSourceId) return
+  editingLoadError.value = ''
+  editingLoadingId.value = dataset.id
+  try {
+    editingSource.value = await fetchDataSource(dataset.dataSourceId)
+  } catch {
+    editingLoadError.value = 'Impossible de charger la source.'
+  } finally {
+    editingLoadingId.value = null
   }
-  editingId.value = null
-}
-
-function cancelEdit() {
-  editingId.value = null
 }
 
 // ─── Delete ───────────────────────────────────────────────────────────────────
@@ -67,7 +73,6 @@ onMounted(() => {
 })
 
 async function toggleDataset(dataset: DatasetMeta) {
-  if (editingId.value === dataset.id) return
   if (expandedId.value === dataset.id) {
     expandedId.value = null
     return
@@ -144,6 +149,8 @@ const statusConfig: Record<SourceStatus, { label: string; dot: string; badge: st
     <!-- Source list -->
     <div class="flex-1 overflow-y-auto px-3 py-2 flex flex-col gap-2">
 
+      <p v-if="editingLoadError" class="text-xs text-red-500 px-1">{{ editingLoadError }}</p>
+
       <!-- Loading -->
       <div v-if="datasets.isLoading" class="flex items-center justify-center py-8 gap-2 text-sm text-slate-400">
         <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -180,7 +187,9 @@ const statusConfig: Record<SourceStatus, { label: string; dot: string; badge: st
             <svg class="w-4 h-4 text-red-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
             </svg>
-            <p class="text-xs text-red-700 font-medium flex-1">Supprimer cette source ?</p>
+            <p class="text-xs text-red-700 font-medium flex-1">
+              {{ dataset.isOwner === false ? 'Retirer cette source de vos sources ?' : 'Supprimer cette source ?' }}
+            </p>
             <button
               class="text-xs font-semibold text-slate-500 hover:text-slate-700 px-2 py-1 rounded transition-colors"
               @click="deletingId = null; deleteError = ''"
@@ -194,7 +203,7 @@ const statusConfig: Record<SourceStatus, { label: string; dot: string; badge: st
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
-              Supprimer
+              {{ dataset.isOwner === false ? 'Retirer' : 'Supprimer' }}
             </button>
           </div>
           <p v-if="deleteError" class="text-[11px] text-red-600 pl-6">{{ deleteError }}</p>
@@ -213,24 +222,14 @@ const statusConfig: Record<SourceStatus, { label: string; dot: string; badge: st
             </svg>
           </span>
 
-          <!-- Name (editable inline) -->
-          <div class="flex-1 min-w-0" @click.stop>
-            <input
-              v-if="editingId === dataset.id"
-              ref="editInputRef"
-              v-model="editingName"
-              type="text"
-              class="w-full text-sm font-semibold text-slate-800 bg-white border border-[var(--color-primary)] rounded px-1.5 py-0.5 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
-              @blur="commitEdit(dataset)"
-              @keydown.enter="commitEdit(dataset)"
-              @keydown.escape="cancelEdit"
-              @click.stop
-            />
-            <p v-else class="text-sm font-semibold text-slate-800 truncate">{{ dataset.name }}</p>
+          <!-- Name -->
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-slate-800 truncate">{{ dataset.name }}</p>
             <div class="flex items-center gap-1.5 mt-0.5">
               <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="statusConfig[dataset.status].dot" />
               <span class="text-[10px] text-slate-400">
-                {{ statusConfig[dataset.status].label }}
+                <template v-if="dataset.status === 'pending' && dataset.progress != null">{{ dataset.progress }}%</template>
+                <template v-else>{{ statusConfig[dataset.status].label }}</template>
                 <template v-if="dataset.status === 'ready'"> · {{ formatRows(dataset.rowCount) }} lignes</template>
               </span>
             </div>
@@ -239,17 +238,34 @@ const statusConfig: Record<SourceStatus, { label: string; dot: string; badge: st
           <!-- Action buttons (visible on hover) -->
           <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
             <button
+              v-if="dataset.status === 'ready'"
               class="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
-              title="Renommer"
-              @click="startEdit(dataset, $event)"
+              title="Voir les données"
+              @click="openDataView(dataset, $event)"
             >
               <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+              </svg>
+            </button>
+            <button
+              v-if="dataset.isOwner !== false"
+              class="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-50"
+              title="Modifier la source"
+              :disabled="editingLoadingId === dataset.id"
+              @click="startEdit(dataset, $event)"
+            >
+              <svg v-if="editingLoadingId === dataset.id" class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              <svg v-else class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
               </svg>
             </button>
             <button
               class="p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-              title="Supprimer"
+              :title="dataset.isOwner === false ? 'Retirer de mes sources' : 'Supprimer'"
               @click="confirmDelete(dataset, $event)"
             >
               <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -355,6 +371,8 @@ const statusConfig: Record<SourceStatus, { label: string; dot: string; badge: st
     </div>
   </div>
 
-  <!-- Modal -->
+  <!-- Modals -->
   <AddSourceModal v-if="showModal" @close="showModal = false" />
+  <EditSourceModal v-if="editingSource" :source="editingSource" @close="editingSource = null" />
+  <ViewSourceDataModal v-if="viewingDataset" :dataset="viewingDataset" @close="viewingDataset = null" />
 </template>

@@ -52,6 +52,7 @@ const query       = ref('')
 const results     = ref<SearchResult[]>([])
 const isLoading   = ref(false)
 const isOpen      = ref(false)
+const searchError = ref('')
 const inputRef    = ref<HTMLInputElement | null>(null)
 const containerRef = ref<HTMLElement | null>(null)
 
@@ -78,6 +79,7 @@ function scheduleSearch(q: string) {
   if (debounceTimer) clearTimeout(debounceTimer)
   if (q.length < 2) {
     results.value = []
+    searchError.value = ''
     isOpen.value = false
     isLoading.value = false
     return
@@ -88,6 +90,7 @@ function scheduleSearch(q: string) {
 }
 
 async function doSearch(q: string) {
+  searchError.value = ''
   try {
     const allRows: SearchResult[] = []
     const seen = new Set<string>()
@@ -120,8 +123,20 @@ async function doSearch(q: string) {
               displayValue = String(row[primaryCol] ?? '')
             }
 
-            if (!displayValue || seen.has(displayValue)) continue
-            seen.add(displayValue)
+            if (!displayValue) continue
+
+            // Deux résultats distincts peuvent partager le même libellé d'affichage
+            // (ex : plusieurs communes françaises nommées "Grigny") — dédoublonner
+            // uniquement sur `displayValue` fusionnerait ces entrées différentes et,
+            // pire, figerait la navigation (urlParams) sur la première rencontrée
+            // au hasard. On dédoublonne donc sur l'identité complète de la ligne :
+            // les colonnes utilisées pour la navigation si configurées, sinon
+            // toutes les colonnes recherchées.
+            const identityCols = urlParamCols.value.length > 0 ? urlParamCols.value : source.columns
+            const identityKey = identityCols.map((c: string) => String(row[c] ?? '')).join(' ')
+            const dedupeKey = `${displayValue} ${identityKey}`
+            if (seen.has(dedupeKey)) continue
+            seen.add(dedupeKey)
 
             // Determine sub-info (description)
             const labels = resultDescColumnLabels.value
@@ -134,7 +149,7 @@ async function doSearch(q: string) {
                   .map((c: string) => ({ label: c, value: String(row[c]) }))
 
             allRows.push({
-              key: `${source.datasetId}:${displayValue}`,
+              key: `${source.datasetId}:${identityKey || displayValue}`,
               displayValue,
               subValues,
               row,
@@ -144,8 +159,10 @@ async function doSearch(q: string) {
     )
 
     results.value = allRows
-  } catch {
+  } catch (e: unknown) {
     results.value = []
+    const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message
+    searchError.value = msg ?? 'La recherche a échoué. Réessayez dans quelques instants.'
   } finally {
     isLoading.value = false
   }
@@ -234,9 +251,9 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="h-full flex flex-col justify-center p-4">
+  <div class="p-5">
     <!-- Not configured -->
-    <div v-if="!isConfigured" class="flex flex-col items-center justify-center gap-2 text-slate-400 h-full">
+    <div v-if="!isConfigured" class="flex flex-col items-center justify-center gap-2 py-6 text-slate-400">
       <svg class="w-8 h-8 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
       </svg>
@@ -245,9 +262,12 @@ onBeforeUnmount(() => {
 
     <!-- Search UI -->
     <div v-else ref="containerRef" class="relative w-full">
-      <div class="relative">
+      <div
+        class="flex items-center gap-2.5 rounded-xl bg-[#f7f6fb] py-3.5 pl-4 pr-4 cursor-text transition-colors focus-within:ring-2 focus-within:ring-[var(--color-primary)]/20"
+        @click="inputRef?.focus()"
+      >
         <svg
-          class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none"
+          class="w-4 h-4 shrink-0 text-[#18181f]/40 pointer-events-none"
           fill="none" viewBox="0 0 24 24" stroke="currentColor"
         >
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
@@ -257,12 +277,12 @@ onBeforeUnmount(() => {
           v-model="query"
           type="text"
           :placeholder="placeholder"
-          class="w-full pl-9 pr-4 py-2.5 text-sm rounded-lg border border-slate-200 bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30 focus:border-[var(--color-primary)] transition-colors"
+          class="min-w-0 flex-1 bg-transparent text-sm text-[#18181f] placeholder-[#18181f]/40 outline-none"
           @focus="onFocus"
         />
         <svg
           v-if="isLoading"
-          class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 animate-spin"
+          class="w-4 h-4 shrink-0 text-[#18181f]/40 animate-spin"
           fill="none" viewBox="0 0 24 24"
         >
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
@@ -278,7 +298,7 @@ onBeforeUnmount(() => {
       <Teleport to="body">
         <div
           v-if="isOpen && results.length > 0"
-          class="fixed z-[9999] bg-white border border-slate-200 rounded-lg shadow-xl max-h-64 overflow-y-auto"
+          class="fixed z-[9999] bg-white border border-[#18181f]/[0.08] rounded-xl shadow-xl max-h-64 overflow-y-auto"
           :style="dropdownStyle"
         >
           <button
@@ -302,8 +322,16 @@ onBeforeUnmount(() => {
         </div>
 
         <div
+          v-else-if="isOpen && !isLoading && searchError && query.length >= 2"
+          class="fixed z-[9999] bg-white border border-[#18181f]/[0.08] rounded-xl shadow-sm px-4 py-3 text-sm text-red-500"
+          :style="dropdownStyle"
+        >
+          {{ searchError }}
+        </div>
+
+        <div
           v-else-if="isOpen && !isLoading && query.length >= 2"
-          class="fixed z-[9999] bg-white border border-slate-200 rounded-lg shadow-sm px-4 py-3 text-sm text-slate-400"
+          class="fixed z-[9999] bg-white border border-[#18181f]/[0.08] rounded-xl shadow-sm px-4 py-3 text-sm text-slate-400"
           :style="dropdownStyle"
         >
           Aucun résultat pour « {{ query }} »

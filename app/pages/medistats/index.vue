@@ -1,22 +1,12 @@
 <script setup lang="ts">
 definePageMeta({
   layout: 'default',
-  title: 'MédiStats',
-  description: 'Analysez les médias en chiffres avec MédiStats : audiences presse, radio et TV, tendances de consommation et signaux éditoriaux.',
+  title: 'MédiStats — Santé publique en données',
+  description: 'Analysez la santé publique en chiffres avec MédiStats : maladies, médicaments et offre de soins décryptés par la donnée.',
 })
-import HomePageFrame from '@/components/home/HomePageFrame.vue'
-import { articles, heroBullets, heroKpis, highlights, polls, statsData, statsStrip } from '@/data/home-page'
+import MedistatsHome from '@/components/home/medistats/MedistatsHome.vue'
 </script>
 
 <template>
-  <HomePageFrame
-    variant="medistats"
-    :hero-bullets="heroBullets"
-    :hero-kpis="heroKpis"
-    :stats-strip="statsStrip"
-    :highlights="highlights"
-    :articles="articles"
-    :stats-data="statsData"
-    :polls="polls"
-  />
+  <MedistatsHome />
 </template>

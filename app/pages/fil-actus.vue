@@ -153,7 +153,7 @@ const spotlightItems = [
                 <AppButton as="router-link" to="/articles" variant="secondary" size="md">
                   Voir tous les articles
                 </AppButton>
-                <AppButton as="router-link" to="/profile" variant="outline" size="md">
+                <AppButton as="router-link" to="/user" variant="outline" size="md">
                   Revenir au profil
                 </AppButton>
               </div>

@@ -2,22 +2,27 @@
 
 export type ContentType = 'statsdata' | 'article' | 'survey'
 
+export type ContentVisibility = 'public' | 'protege' | 'private'
+
 export interface StudioContent {
   id: string
   type: ContentType
   title: string
   slug?: string
   status?: 'draft' | 'published'
+  categories?: string[]
 }
 
 // ─── Blocks ───────────────────────────────────────────────────────────────────
 
-export type BlockType = 'bar' | 'line' | 'pie' | 'table' | 'kpi' | 'heading' | 'paragraph' | 'quote' | 'callout' | 'search' | 'image' | 'video' | 'button' | 'link-card' | 'retenir'
+export type BlockType = 'bar' | 'line' | 'pie' | 'table' | 'kpi' | 'heading' | 'paragraph' | 'quote' | 'callout' | 'search' | 'image' | 'video' | 'button' | 'link-card' | 'retenir' | 'choice' | 'checkboxes' | 'dropdown' | 'scale' | 'rating'
 
 export const TEXT_BLOCK_TYPES: BlockType[] = ['heading', 'paragraph', 'quote', 'callout']
 export const EDITORIAL_BLOCK_TYPES: BlockType[] = ['image', 'video', 'button', 'link-card', 'retenir']
+export const FORM_BLOCK_TYPES: BlockType[] = ['choice', 'checkboxes', 'dropdown', 'scale', 'rating']
 export function isTextBlock(type: BlockType) { return TEXT_BLOCK_TYPES.includes(type) }
 export function isEditorialBlock(type: BlockType) { return EDITORIAL_BLOCK_TYPES.includes(type) }
+export function isFormBlock(type: BlockType) { return FORM_BLOCK_TYPES.includes(type) }
 
 export interface BlockDefinition {
   type: BlockType
@@ -47,6 +52,8 @@ export interface SearchJoin {
   type: 'inner' | 'left'
 }
 
+export type AggregateFunction = 'sum' | 'avg' | 'count' | 'min' | 'max'
+
 export interface FieldMapping {
   xAxis?: string
   yAxis?: string
@@ -55,8 +62,12 @@ export interface FieldMapping {
   value?: string
   series?: string
   columns?: string[]
+  /** Custom display label per column name — used by the table block */
+  columnLabels?: Record<string, string>
   valueColumn?: string
   comparisonColumn?: string
+  /** Aggregation applied to the value column(s) — shared by kpi/pie/bar/line, grouped by xAxis/label/series */
+  aggregate?: AggregateFunction
   searchColumn?: string    // legacy – kept for backward compat
   searchSources?: SearchSource[]
   searchJoins?: SearchJoin[]
@@ -70,6 +81,7 @@ export interface FieldMapping {
 
 export interface BlockConfig {
   title?: string
+  description?: string
   colors?: string[]
   stacked?: boolean
   smooth?: boolean
@@ -81,12 +93,20 @@ export interface BlockConfig {
   showPagination?: boolean
   pageSize?: number
   rowLimit?: number | null
+  /** Nombre max de séries distinctes affichées sur un bar/line chart avec regroupement — garde-fou contre une colonne de série à forte cardinalité (voir Line/BarChartBlock.vue). */
+  seriesLimit?: number | null
   distinctColumn?: string | null
   sortColumn?: string | null
   sortDirection?: 'asc' | 'desc' | null
   orientation?: 'vertical' | 'horizontal'
+  showValueLabels?: boolean
+  /** Bar block rendering mode — 'chart' (default, Chart.js canvas) or 'progress' (thin labeled progress-bar list) */
+  barStyle?: 'chart' | 'progress'
   // KPI comparison
   comparisonFormat?: 'percent' | 'number' | 'currency'
+  // Line/bar chart trend badge shown in the block header (free text, not computed)
+  trendLabel?: string
+  trendDirection?: 'up' | 'down'
   // Search block config
   searchPlaceholder?: string
   // Text block config
@@ -123,6 +143,14 @@ export interface BlockConfig {
   retenirTitle?: string
   retenirItems?: string[]
   retenirColor?: 'violet' | 'emerald' | 'amber' | 'blue'
+  // Form block config (choice / checkboxes / dropdown / scale / rating)
+  formOptions?: string[]
+  formRequired?: boolean
+  scaleMin?: number
+  scaleMax?: number
+  scaleMinLabel?: string
+  scaleMaxLabel?: string
+  ratingMax?: number
 }
 
 export type FilterOperator = '=' | '!=' | '>' | '>=' | '<' | '<=' | 'contains' | 'not_contains'
@@ -151,6 +179,8 @@ export interface StudioBlock {
   filters?: BlockFilter[]
   comparisonFilters?: BlockFilter[]
   joins?: BlockJoin[]
+  /** Non-removable via the block toolbar (still draggable/configurable) — used for the auto-provisioned search block on param pages. */
+  locked?: boolean
 }
 
 // ─── Layout ───────────────────────────────────────────────────────────────────
@@ -242,7 +272,17 @@ export interface DatasetMeta {
   description?: string | null
   rowCount: number
   status: 'pending' | 'ready' | 'failed'
+  /** Pourcentage d'avancement du pipeline d'ingestion (0-100), uniquement pertinent tant que status === 'pending'. */
+  progress?: number
   createdAt?: string
+  /** False when attached from the public catalog rather than owned — see SidebarDataSources delete/detach. */
+  isOwner?: boolean
+  dataSourceId?: string
+  /** Uniquement renseigné pour le propriétaire d'une source de type "api" — voir DatasetController::formatDataset. */
+  sourceKind?: 'api'
+  refreshFrequency?: 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly'
+  lastRefreshedAt?: string | null
+  nextRefreshAt?: string | null
 }
 
 export interface DatasetWithSchema extends DatasetMeta {
@@ -273,6 +313,8 @@ export interface Section {
   id: string
   layout: SectionLayout
   pageId?: string
+  /** Non-removable, non-reorderable via section controls — used for the auto-provisioned search section on param pages. */
+  locked?: boolean
 }
 
 // ─── Document pages ───────────────────────────────────────────────────────────
@@ -284,6 +326,8 @@ export interface StudioDocumentPage {
   description?: string
   isTemplate?: boolean
   paramName?: string
+  /** Emoji libre affiché devant le titre de l'onglet public, ex. '🇫🇷' */
+  icon?: string
 }
 
 export interface SectionLayoutDefinition {
@@ -336,7 +380,6 @@ export const BLOCK_CATEGORIES: BlockCategoryDef[] = [
     blocks: [
       { type: 'table', label: 'Tableau', description: 'Données tabulaires paginées',   iconPath: 'M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-1.5A1.125 1.125 0 0 1 18 18.375' },
       { type: 'kpi',    label: 'KPI',      description: 'Indicateur clé avec tendance', iconPath: 'M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z' },
-      { type: 'search', label: 'Recherche', description: 'Barre de recherche drill-down', iconPath: 'M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z' },
     ],
   },
   {
@@ -348,6 +391,17 @@ export const BLOCK_CATEGORIES: BlockCategoryDef[] = [
       { type: 'button',    label: 'Bouton',    description: 'Bouton CTA cliquable',             iconPath: 'M15.042 21.672 13.684 16.6m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672zm-7.518-.267A8.25 8.25 0 1 1 20.25 10.5M8.288 14.212A5.25 5.25 0 1 1 17.25 10.5' },
       { type: 'link-card', label: 'Lien',      description: 'Carte de prévisualisation de lien', iconPath: 'M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244' },
       { type: 'retenir',   label: 'À retenir', description: 'Bloc de points clés mis en avant', iconPath: 'M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5z' },
+    ],
+  },
+  {
+    id: 'form',
+    label: 'Formulaire',
+    blocks: [
+      { type: 'choice',     label: 'Choix unique',      description: 'Question à réponse unique (radio)',    iconPath: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-5.25a3.75 3.75 0 1 0 0-7.5 3.75 3.75 0 0 0 0 7.5Z' },
+      { type: 'checkboxes', label: 'Cases à cocher',    description: 'Question à réponses multiples',         iconPath: 'M9 12.75 11.25 15 15 9.75M3.75 12c0-4.556 3.694-8.25 8.25-8.25s8.25 3.694 8.25 8.25-3.694 8.25-8.25 8.25S3.75 16.556 3.75 12Z' },
+      { type: 'dropdown',   label: 'Liste déroulante', description: 'Sélection dans une liste d\'options',    iconPath: 'M8.25 15 12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9' },
+      { type: 'scale',      label: 'Échelle linéaire', description: 'Note sur une échelle numérique',         iconPath: 'M3 6.75h18M3 12h18M3 17.25h18M6 6.75v0M12 12v0M18 17.25v0' },
+      { type: 'rating',     label: 'Avis',              description: 'Notation en étoiles',                   iconPath: 'M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5z' },
     ],
   },
 ]

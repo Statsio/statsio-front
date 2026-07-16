@@ -1,6 +1,7 @@
 import { apiHttp, publicHttp } from '@/lib/http'
 import { STATSIO_API } from './statsio-endpoints'
-import type { DatasetColumn, DatasetMeta, DatasetWithSchema, BlockQueryResult, StudioBlock } from '@/types/studio'
+import type { DatasetColumn, DatasetMeta, DatasetWithSchema, BlockQueryResult, StudioBlock, ContentVisibility } from '@/types/studio'
+import type { ContentType } from '@/types/content-creation'
 
 // ─── Datasets ─────────────────────────────────────────────────────────────────
 
@@ -51,6 +52,9 @@ type BlockQueryParams = {
   sortDirection?: 'asc' | 'desc' | null
   filters?: import('@/types/studio').BlockFilter[]
   joins?: import('@/types/studio').BlockJoin[]
+  aggregate?: import('@/types/studio').AggregateFunction
+  aggregateColumns?: string[]
+  groupBy?: string[]
 }
 
 function buildParamsSerializer(p: BlockQueryParams): string {
@@ -77,6 +81,11 @@ function buildParamsSerializer(p: BlockQueryParams): string {
       parts.push(`joins[${i}][type]=${j.type}`)
       j.columns.forEach((c) => parts.push(`joins[${i}][columns][]=${encodeURIComponent(c)}`))
     })
+  }
+  if (p.aggregate && p.aggregateColumns?.length) {
+    parts.push(`aggregate=${encodeURIComponent(p.aggregate)}`)
+    p.aggregateColumns.forEach((c) => parts.push(`aggregate_columns[]=${encodeURIComponent(c)}`))
+    p.groupBy?.forEach((c) => parts.push(`group_by[]=${encodeURIComponent(c)}`))
   }
   return parts.join('&')
 }
@@ -179,12 +188,26 @@ export async function fetchDistinctValues(datasetId: string, column: string, sea
 
 // ─── StatsData document (page) ───────────────────────────────────────────────
 
+export interface ContentChannel {
+  id: number
+  name?: string | null
+  custom_color_primary?: string | null
+  custom_color_secondary?: string | null
+}
+
 export interface StatsDataDocument {
   id: string
   title: string
+  type?: ContentType
   description?: string | null
   slug?: string
   status?: string
+  visibility?: ContentVisibility
+  thumbnail_url?: string | null
+  published_as?: 'user' | 'channel' | null
+  channel_id?: number | null
+  /** Only present when published_as === 'channel' — the channel's name + custom brand colors. */
+  channel?: ContentChannel | null
   author?: { name: string }
   datasets?: { id: string; name: string; row_count?: number }[]
   created_at?: string
@@ -192,30 +215,40 @@ export interface StatsDataDocument {
   pages?: import('@/types/studio').StudioDocumentPage[]
   sections?: import('@/types/studio').Section[]
   blocks?: StudioBlock[]
+  categories?: string[]
+  emoji?: string | null
+  /** Only present on `fetchPublicStatsDataDocument` — true if the current viewer may edit this content. */
+  can_edit?: boolean
 }
 
-export async function fetchUserStatsDataDocuments(): Promise<StatsDataDocument[]> {
-  const { data } = await apiHttp.get(STATSIO_API.studioContent.collection)
+export async function fetchUserStudioContents(type?: ContentType): Promise<StatsDataDocument[]> {
+  const { data } = await apiHttp.get(STATSIO_API.studioContent.collection, { params: type ? { type } : {} })
   return data.data ?? []
 }
 
-export interface CreateStatsDataPayload {
+export interface CreateStudioContentPayload {
   title: string
+  type: ContentType
   categories?: string[]
   coverage_type?: string
   coverage_data?: string[]
-  visibility?: 'private' | 'public'
+  visibility?: ContentVisibility
   published_as?: 'user' | 'channel'
   channel_id?: number
 }
 
-export async function createStatsDataDocument(payload: CreateStatsDataPayload): Promise<StatsDataDocument> {
+export async function createStudioContent(payload: CreateStudioContentPayload): Promise<StatsDataDocument> {
   const { data } = await apiHttp.post(STATSIO_API.studioContent.collection, payload)
   return data.data
 }
 
 export async function fetchPublicStatsDataCatalog(): Promise<StatsDataDocument[]> {
-  const { data } = await apiHttp.get(STATSIO_API.studioContent.publicCollection)
+  const { data } = await apiHttp.get(STATSIO_API.studioContent.publicCollection, { params: { type: 'statsdata' } })
+  return data.data ?? []
+}
+
+export async function fetchPublicSurveys(): Promise<StatsDataDocument[]> {
+  const { data } = await apiHttp.get(STATSIO_API.studioContent.publicCollection, { params: { type: 'survey' } })
   return data.data ?? []
 }
 
@@ -229,18 +262,49 @@ export async function fetchPublicStatsDataDocument(slug: string): Promise<StatsD
   return data.data
 }
 
+export interface SaveStatsDataDocumentPayload {
+  title?: string
+  description?: string | null
+  status?: string
+  visibility?: ContentVisibility
+  categories?: string[]
+  emoji?: string | null
+  pages?: import('@/types/studio').StudioDocumentPage[]
+  sections?: import('@/types/studio').Section[]
+  blocks?: StudioBlock[]
+}
+
+/** PATCH via multipart quand `thumbnail`/`removeThumbnail` est fourni — Laravel lit `_method` pour router un POST vers `update()`. */
 export async function saveStatsDataDocument(
   documentId: string,
-  payload: {
-    title?: string
-    description?: string | null
-    status?: string
-    pages?: import('@/types/studio').StudioDocumentPage[]
-    sections?: import('@/types/studio').Section[]
-    blocks?: StudioBlock[]
-  },
-): Promise<void> {
-  await apiHttp.patch(STATSIO_API.studioContent.one(documentId), payload)
+  payload: SaveStatsDataDocumentPayload,
+  thumbnail?: File | null,
+  removeThumbnail?: boolean,
+): Promise<StatsDataDocument> {
+  if (thumbnail || removeThumbnail) {
+    const form = new FormData()
+    form.append('_method', 'PATCH')
+    if (thumbnail) form.append('thumbnail', thumbnail)
+    if (removeThumbnail) form.append('remove_thumbnail', '1')
+    appendSavePayload(form, payload)
+
+    const { data } = await apiHttp.post(STATSIO_API.studioContent.one(documentId), form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return data.data
+  }
+
+  const { data } = await apiHttp.patch(STATSIO_API.studioContent.one(documentId), payload)
+  return data.data
+}
+
+function appendSavePayload(form: FormData, payload: SaveStatsDataDocumentPayload): void {
+  if (payload.title !== undefined) form.append('title', payload.title)
+  if (payload.description !== undefined) form.append('description', payload.description ?? '')
+  if (payload.status !== undefined) form.append('status', payload.status)
+  if (payload.visibility !== undefined) form.append('visibility', payload.visibility)
+  if (payload.categories !== undefined) payload.categories.forEach((c) => form.append('categories[]', c))
+  if (payload.emoji !== undefined) form.append('emoji', payload.emoji ?? '')
 }
 
 export async function deleteStatsDataDocument(documentId: string): Promise<void> {
@@ -260,6 +324,13 @@ function mapDatasetMeta(raw: Record<string, unknown>): DatasetMeta {
     description: raw.description ? String(raw.description) : null,
     rowCount: Number(raw.row_count ?? 0),
     status: (raw.status as DatasetMeta['status']) ?? 'pending',
+    progress: raw.progress != null ? Number(raw.progress) : undefined,
     createdAt: raw.created_at ? String(raw.created_at) : undefined,
+    isOwner: raw.is_owner !== false,
+    dataSourceId: raw.data_source_id != null ? String(raw.data_source_id) : undefined,
+    sourceKind: raw.source_kind === 'api' ? 'api' : undefined,
+    refreshFrequency: raw.refresh_frequency as DatasetMeta['refreshFrequency'],
+    lastRefreshedAt: raw.last_refreshed_at ? String(raw.last_refreshed_at) : null,
+    nextRefreshAt: raw.next_refresh_at ? String(raw.next_refresh_at) : null,
   }
 }

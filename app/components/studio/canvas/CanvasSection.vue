@@ -34,9 +34,10 @@ const layoutIcons: Record<SectionLayout, string> = {
 
 <template>
   <!-- Outer wrapper includes the toolbar area: hover zone is continuous from toolbar to card bottom -->
-  <div class="group/section relative pt-8">
+  <div class="group/section relative pt-8" :class="section.locked ? 'cursor-not-allowed' : ''">
     <!-- Section toolbar (in the pt-8 space above the card) -->
     <div
+      v-if="!section.locked"
       class="absolute top-0 left-0 right-0 h-8 flex items-center justify-between opacity-0 group-hover/section:opacity-100 transition-opacity z-10"
     >
       <!-- Left: drag handle -->
@@ -99,9 +100,16 @@ const layoutIcons: Record<SectionLayout, string> = {
     </div>
 
     <!-- Section card -->
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm group-hover/section:shadow-md transition-all">
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm group-hover/section:shadow-md transition-all" :class="section.locked ? 'border-amber-300' : ''">
+      <!-- Locked badge -->
+      <div v-if="section.locked" class="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border-b border-amber-200 rounded-t-2xl">
+        <svg class="w-3.5 h-3.5 text-amber-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        </svg>
+        <span class="text-[11px] font-semibold text-amber-700">Section verrouillée</span>
+      </div>
       <!-- Section body: columns -->
-      <div class="grid gap-3 p-3" :style="{ gridTemplateColumns: def.gridCols.map((s: number) => `${s}fr`).join(' ') }">
+      <div class="grid items-start gap-3 p-3" :style="{ gridTemplateColumns: def.gridCols.map((s: number) => `${s}fr`).join(' ') }">
         <CanvasZone
           v-for="(zoneId, i) in zoneIds"
           :key="zoneId"

@@ -1,0 +1,81 @@
+// Tailwind color name -> badge classes. Mirrors the color names seeded in tv_categories.color (DB).
+export const CATEGORY_COLOR_CLASS: Record<string, string> = {
+  slate: 'bg-slate-100 text-slate-700',
+  blue: 'bg-blue-100 text-blue-700',
+  indigo: 'bg-indigo-100 text-indigo-700',
+  violet: 'bg-violet-100 text-violet-700',
+  purple: 'bg-purple-100 text-purple-700',
+  pink: 'bg-pink-100 text-pink-700',
+  red: 'bg-red-100 text-red-700',
+  orange: 'bg-orange-100 text-orange-700',
+  yellow: 'bg-yellow-100 text-yellow-700',
+  lime: 'bg-lime-100 text-lime-700',
+  green: 'bg-green-100 text-green-700',
+  teal: 'bg-teal-100 text-teal-700',
+  cyan: 'bg-cyan-100 text-cyan-700',
+  sky: 'bg-sky-100 text-sky-700',
+}
+
+export const CATEGORY_COLOR_FALLBACK = 'bg-slate-100 text-slate-700'
+
+// Program.type (free-text genre from the EPG feed) -> DB color name, best-effort match against the
+// seeded tv_categories labels (see database/migrations/2026_06_23_000002_create_tv_categories_table.php).
+const CATEGORY_COLOR_BY_LABEL: Record<string, string> = {
+  Fiction: 'violet',
+  Série: 'purple',
+  Film: 'indigo',
+  Informations: 'blue',
+  Information: 'blue',
+  Documentaire: 'cyan',
+  Reportage: 'teal',
+  Sport: 'green',
+  Divertissement: 'yellow',
+  'Talk-show': 'orange',
+  Téléréalité: 'red',
+  Musique: 'pink',
+  Jeunesse: 'lime',
+  Animation: 'lime',
+  Magazine: 'slate',
+  Météo: 'sky',
+}
+
+export function categoryBadgeClass(label: string | null | undefined): string {
+  if (!label) return CATEGORY_COLOR_FALLBACK
+  const colorName = CATEGORY_COLOR_BY_LABEL[label]
+  return (colorName && CATEGORY_COLOR_CLASS[colorName]) || CATEGORY_COLOR_FALLBACK
+}
+
+// border-l-{color} (not border-{color}) so only the left accent is tinted; the rest of the
+// border keeps the neutral slate-200 also applied on the element.
+const CATEGORY_BORDER_CLASS: Record<string, string> = {
+  slate: 'border-l-slate-400',
+  blue: 'border-l-blue-400',
+  indigo: 'border-l-indigo-400',
+  violet: 'border-l-violet-400',
+  purple: 'border-l-purple-400',
+  pink: 'border-l-pink-400',
+  red: 'border-l-red-400',
+  orange: 'border-l-orange-400',
+  yellow: 'border-l-yellow-400',
+  lime: 'border-l-lime-400',
+  green: 'border-l-green-400',
+  teal: 'border-l-teal-400',
+  cyan: 'border-l-cyan-400',
+  sky: 'border-l-sky-400',
+}
+
+export const CATEGORY_BORDER_FALLBACK = 'border-l-slate-300'
+
+export function categoryBorderClass(label: string | null | undefined): string {
+  if (!label) return CATEGORY_BORDER_FALLBACK
+  const colorName = CATEGORY_COLOR_BY_LABEL[label]
+  return (colorName && CATEGORY_BORDER_CLASS[colorName]) || CATEGORY_BORDER_FALLBACK
+}
+
+export const BROADCAST_TYPE_LABELS: Record<string, { label: string; class: string }> = {
+  inedit: { label: 'Inédit', class: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
+  rediffusion: { label: 'Rediffusion', class: 'bg-slate-100 text-slate-600 border-slate-200' },
+  direct: { label: 'Direct', class: 'bg-red-100 text-red-700 border-red-200' },
+  replay: { label: 'Replay', class: 'bg-blue-100 text-blue-700 border-blue-200' },
+  exclusivite: { label: 'Exclusivité', class: 'bg-violet-100 text-violet-700 border-violet-200' },
+}

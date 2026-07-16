@@ -10,6 +10,7 @@ export interface AuthProfile {
   region?: string | null
   city?: string | null
   zip_code?: string | null
+  avatar?: string | null
 }
 
 export interface AuthUser {

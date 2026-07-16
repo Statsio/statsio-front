@@ -13,5 +13,6 @@ usePageSeo({ title: 'Studio', robots: 'noindex,nofollow' })
     class="h-screen w-screen overflow-hidden bg-slate-50 text-slate-900 font-sans"
   >
     <slot />
+    <SourceSyncToast />
   </div>
 </template>

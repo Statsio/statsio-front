@@ -223,7 +223,7 @@ onBeforeUnmount(() => {
               class="inline-flex items-center rounded-full md:border md:border-slate-200 md:bg-white md:pl-0 p-1 md:p-3 text-left transition hover:md:border-slate-300 hover:md:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 md:gap-3 md:py-0 md:pr-3"
               :aria-expanded="isUserMenuOpen" aria-haspopup="menu" aria-label="Mon compte" @click="toggleUserMenu">
               <span class="relative shrink-0">
-                <AppAvatar :initials="userInitials()" size="sm" />
+                <AppAvatar :src="authStore.user?.profile?.avatar ?? undefined" :initials="userInitials()" size="sm" />
                 <span v-if="notificationCount > 0"
                   class="absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-red-500 px-1 text-[10px] font-semibold text-white">
                   {{ notificationCount }}
@@ -246,16 +246,12 @@ onBeforeUnmount(() => {
                 <template #trailing>⚙</template>
               </AppDropdownMenuItem>
 
-              <AppDropdownMenuItem to="/profile" @click="closeUserMenu">
-                Mon profil
+              <AppDropdownMenuItem to="/user" @click="closeUserMenu">
+                Mon compte
               </AppDropdownMenuItem>
 
               <AppDropdownMenuItem to="/mes-chaines" @click="closeUserMenu">
                 Mes chaînes
-              </AppDropdownMenuItem>
-
-              <AppDropdownMenuItem to="/historique" @click="closeUserMenu">
-                Historique
               </AppDropdownMenuItem>
 
               <AppDropdownMenuItem to="/fil-actus" @click="closeUserMenu">
@@ -476,11 +472,11 @@ onBeforeUnmount(() => {
             </div>
             <div class="grid grid-cols-2 gap-2">
               <RouterLink
-                to="/profile"
+                to="/user"
                 class="flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-white"
                 @click="closeMobileMenu"
               >
-                Mon profil
+                Mon compte
               </RouterLink>
               <button
                 type="button"

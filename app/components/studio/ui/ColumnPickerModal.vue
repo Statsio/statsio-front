@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
-import type { StudioBlock, DatasetColumn, StudioDocumentPage, SearchSource, BlockJoin } from '@/types/studio'
+import type { StudioBlock, DatasetColumn, StudioDocumentPage, SearchSource, BlockJoin, AggregateFunction } from '@/types/studio'
 
 export interface ColumnGroup {
   label: string
@@ -24,11 +24,19 @@ const props = defineProps<{
   selectedValues?: string[]
   /** Override column groups (e.g. for join key pickers). If omitted, derives from block. */
   customGroups?: ColumnGroup[]
+  /** Page whose template variables should be listed. Defaults to studio.currentPageId. */
+  pageId?: string
+  /** Hide the "Formule" (math operators) nav section — irrelevant outside chart/value expressions. */
+  hideOperators?: boolean
+  /** Show the "Agrégation" nav section for value columns that support sum/avg/count/min/max. */
+  showAggregation?: boolean
+  aggregateValue?: AggregateFunction
 }>()
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: string): void
   (e: 'toggle', value: string): void
+  (e: 'update:aggregate', value: AggregateFunction | undefined): void
   (e: 'close'): void
 }>()
 
@@ -39,6 +47,7 @@ const formula = ref('')
 const activeSection = ref('')
 
 const isExpression = computed(() => props.mode === 'expression')
+const showOperators = computed(() => isExpression.value && !props.hideOperators)
 const isMulti      = computed(() => props.mode === 'multi')
 
 // ─── Column groups (the block's own sources) ───────────────────────────────────
@@ -65,14 +74,18 @@ const activeGroups = computed(() => props.customGroups ?? derivedGroups.value)
 // ─── Dynamic variable groups from search blocks ────────────────────────────────
 
 const tokenGroups = computed((): TokenGroup[] => {
-  const currentPage = studio.pages.find((p: StudioDocumentPage) => p.id === studio.currentPageId)
+  const pageId = props.pageId ?? studio.currentPageId
+  const currentPage = studio.pages.find((p: StudioDocumentPage) => p.id === pageId)
   if (!currentPage?.isTemplate) return []
 
   const groups: TokenGroup[] = []
+  if (currentPage.paramName) {
+    groups.push({ label: 'Paramètre de la page', tokens: [currentPage.paramName] })
+  }
   const seenDatasets = new Set<string>()
 
   for (const block of studio.blocks) {
-    if (block.type !== 'search' || block.fieldMapping.targetPageId !== studio.currentPageId) continue
+    if (block.type !== 'search' || block.fieldMapping.targetPageId !== pageId) continue
 
     for (const src of (block.fieldMapping.searchSources ?? []) as SearchSource[]) {
       if (!src.datasetId || seenDatasets.has(src.datasetId)) continue
@@ -108,7 +121,7 @@ const tokenGroups = computed((): TokenGroup[] => {
 function defaultSection(): string {
   if (activeGroups.value.length > 0) return 'col-0'
   if (tokenGroups.value.length > 0) return 'var-0'
-  return 'operators'
+  return showOperators.value ? 'operators' : ''
 }
 
 const activeSectionSafe = computed(() => {
@@ -116,7 +129,8 @@ const activeSectionSafe = computed(() => {
   if (!s) return defaultSection()
   if (s.startsWith('col-') && activeGroups.value[Number(s.slice(4))]) return s
   if (s.startsWith('var-') && tokenGroups.value[Number(s.slice(4))]) return s
-  if (s === 'operators' && isExpression.value) return s
+  if (s === 'operators' && showOperators.value) return s
+  if (s === 'aggregation' && props.showAggregation) return s
   return defaultSection()
 })
 
@@ -190,6 +204,10 @@ watch(
       activeSection.value = defaultSection()
       for (const block of studio.blocks) {
         if (block.type !== 'search') continue
+        for (const src of (block.fieldMapping.searchSources ?? []) as SearchSource[]) {
+          if (src.datasetId) datasets.loadSchema(src.datasetId)
+        }
+        if (block.datasetId) datasets.loadSchema(block.datasetId)
         for (const join of (block.joins ?? []) as BlockJoin[]) {
           if (join.datasetId) datasets.loadSchema(join.datasetId)
         }
@@ -333,7 +351,7 @@ const OPERATORS = [
             </template>
 
             <!-- Operators (expression mode) -->
-            <template v-if="isExpression">
+            <template v-if="showOperators">
               <p class="px-4 pb-1 pt-3 text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Formule</p>
               <button
                 class="flex w-full items-center gap-2 rounded-lg mx-2 px-3 py-2 text-left text-xs transition-all"
@@ -350,8 +368,26 @@ const OPERATORS = [
               </button>
             </template>
 
+            <!-- Aggregation -->
+            <template v-if="showAggregation">
+              <p class="px-4 pb-1 pt-3 text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Valeur</p>
+              <button
+                class="flex w-full items-center gap-2 rounded-lg mx-2 px-3 py-2 text-left text-xs transition-all"
+                :class="activeSectionSafe === 'aggregation'
+                  ? 'bg-[var(--color-primary)]/8 text-[var(--color-primary)] font-semibold'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'"
+                style="width: calc(100% - 1rem);"
+                @click="activeSection = 'aggregation'"
+              >
+                <svg class="h-3.5 w-3.5 shrink-0 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
+                </svg>
+                <span class="truncate">Agrégation</span>
+              </button>
+            </template>
+
             <!-- Empty fallback -->
-            <div v-if="!activeGroups.length && !tokenGroups.length && !isExpression" class="px-4 py-6 text-center">
+            <div v-if="!activeGroups.length && !tokenGroups.length && !showOperators" class="px-4 py-6 text-center">
               <p class="text-[11px] text-slate-400">Aucune source configurée</p>
             </div>
           </nav>
@@ -426,6 +462,15 @@ const OPERATORS = [
                   @click="insertOp(op.value)"
                 >{{ op.label }}</button>
               </div>
+            </template>
+
+            <!-- Aggregation -->
+            <template v-else-if="activeSectionSafe === 'aggregation'">
+              <p class="mb-3 text-[11px] text-slate-500 leading-relaxed">Applique une fonction d'agrégation sur cette colonne, calculée sur les lignes filtrées.</p>
+              <AggregationSelect
+                :model-value="aggregateValue"
+                @update:model-value="emit('update:aggregate', $event)"
+              />
             </template>
 
           </div>

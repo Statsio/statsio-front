@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed, watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import type { SidebarLeftTab } from '@/types/studio'
 import SidebarBlocks from './sidebar/SidebarBlocks.vue'
@@ -7,7 +8,7 @@ import SidebarDataSources from './sidebar/SidebarDataSources.vue'
 
 const studio = useStudioStore()
 
-const tabs: { id: SidebarLeftTab; label: string; icon: string }[] = [
+const allTabs: { id: SidebarLeftTab; label: string; icon: string }[] = [
   {
     id: 'blocks',
     label: 'Éléments',
@@ -24,6 +25,19 @@ const tabs: { id: SidebarLeftTab; label: string; icon: string }[] = [
     icon: 'M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 5.625c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125',
   },
 ]
+
+// Le bloc "Données" (sources) ne concerne que les StatsData : articles et sondages n'ont pas de dataset attaché.
+const tabs = computed(() =>
+  studio.content?.type === 'article' || studio.content?.type === 'survey'
+    ? allTabs.filter((tab) => tab.id !== 'sources')
+    : allTabs,
+)
+
+watch(tabs, (newTabs) => {
+  if (!newTabs.some((tab) => tab.id === studio.activeLeftTab)) {
+    studio.closePanel()
+  }
+})
 </script>
 
 <template>
