@@ -14,6 +14,11 @@ export type BrandMenuItem = {
   accentClass: string
 }
 
+export type FooterNavItem = {
+  label: string
+  href: string
+}
+
 export type BrandConfig = {
   id: BrandId
   to: string
@@ -25,6 +30,8 @@ export type BrandConfig = {
   suffix: string
   suffixClass: string
   switchMenu: BrandMenuItem[]
+  footerTagline: string
+  footerNav: FooterNavItem[]
 }
 
 const brandConfigs: Record<BrandId, BrandConfig> = {
@@ -58,6 +65,13 @@ const brandConfigs: Record<BrandId, BrandConfig> = {
         accentClass: 'bg-rose-50 border-rose-100',
       },
     ],
+    footerTagline: 'La plateforme française qui transforme les statistiques en histoires et en décisions.',
+    footerNav: [
+      { label: 'Articles', href: '/articles' },
+      { label: 'StatsData', href: '/statsdata' },
+      { label: 'Sondages', href: '/sondages' },
+      { label: 'Chaînes', href: '/chaines' },
+    ],
   },
   tvstats: {
     id: 'tvstats',
@@ -89,6 +103,13 @@ const brandConfigs: Record<BrandId, BrandConfig> = {
         accentClass: 'bg-rose-50 border-rose-100',
       },
     ],
+    footerTagline: 'Audiences, programmes et grilles TV décryptés par la donnée, en temps réel.',
+    footerNav: [
+      { label: 'Actus', href: '/tvstats' },
+      { label: 'Audiences', href: '/tvstats/audiences' },
+      { label: 'Programme TV', href: '/tvstats/programme-tv' },
+      { label: 'Chaînes', href: '/chaines' },
+    ],
   },
   medistats: {
     id: 'medistats',
@@ -119,6 +140,13 @@ const brandConfigs: Record<BrandId, BrandConfig> = {
         description: 'Programmes, grilles et audiences TV en temps réel.',
         accentClass: 'bg-emerald-50 border-emerald-100',
       },
+    ],
+    footerTagline: 'Maladies, médicaments et offre de soins décryptés par la donnée.',
+    footerNav: [
+      { label: 'Maladies', href: '/medistats/maladies' },
+      { label: 'Médicaments', href: '/medistats/medicaments' },
+      { label: 'Soins', href: '/medistats/services' },
+      { label: 'Chaînes', href: '/chaines' },
     ],
   },
 }

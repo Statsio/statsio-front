@@ -97,6 +97,15 @@ export const STATSIO_API = {
     mediaOne: (documentId: string, mediaId: string) =>
       `/statsdata/${encodeURIComponent(documentId)}/media/${encodeURIComponent(mediaId)}`,
   },
+  maladies: {
+    search: (q: string) => `/maladies/search?q=${encodeURIComponent(q)}`,
+    populaires: '/maladies/populaires',
+    one: (id: string) => `/maladies/${encodeURIComponent(id)}`,
+  },
+  pays: {
+    list: (indicator?: string) => (indicator ? `/pays?indicator=${encodeURIComponent(indicator)}` : '/pays'),
+    one: (iso3: string) => `/pays/${encodeURIComponent(iso3)}`,
+  },
   tv: {
     epg: (date: string) => `/tv/epg?date=${encodeURIComponent(date)}`,
     audiences: '/tv/audiences',
