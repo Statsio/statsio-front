@@ -10,7 +10,7 @@ defineProps<{
 }>()
 
 defineEmits<{
-  toggle: [type: 'watched' | 'will_watch']
+  toggle: [type: 'will_watch']
   review: []
 }>()
 </script>
@@ -26,37 +26,29 @@ defineEmits<{
     <!-- Action card -->
     <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <template v-if="isPast">
-        <!-- Past: "J'ai regardé" -->
+        <!-- Already reviewed: disabled confirmation state -->
         <button
-          class="w-full flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition"
-          :class="broadcast.userViewType === 'watched'
-            ? 'bg-tvstats-primary text-white shadow-sm hover:bg-tvstats-dark'
-            : 'border border-slate-200 text-slate-700 hover:border-tvstats-primary/40 hover:bg-tvstats-soft/20'"
-          :disabled="isToggling"
-          @click="$emit('toggle', 'watched')"
+          v-if="broadcast.userHasReviewed"
+          disabled
+          class="w-full cursor-default rounded-2xl border border-tvstats-primary/30 bg-tvstats-soft/20 px-4 py-3 text-sm font-bold text-tvstats-primary"
         >
-          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-          </svg>
-          {{ broadcast.userViewType === 'watched' ? 'J\'ai regardé ✓' : 'J\'ai regardé' }}
+          ✓ Vous avez donné votre avis
         </button>
-        <!-- After watching, offer to leave review if not done -->
+        <!-- Not reviewed yet: single CTA opens the review modal directly (marks watched + review together) -->
         <button
-          v-if="broadcast.userViewType === 'watched' && !broadcast.userHasReviewed"
-          class="mt-2 w-full rounded-xl border border-tvstats-primary/20 bg-tvstats-soft/20 px-3 py-2 text-xs font-semibold text-tvstats-primary hover:bg-tvstats-soft/40 transition"
+          v-else
+          class="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-slate-800"
           @click="$emit('review')"
         >
-          Donner mon avis →
+          J'ai déjà vu ce programme
         </button>
-        <p v-if="broadcast.userHasReviewed" class="mt-2 text-center text-xs text-tvstats-primary font-medium">Avis déposé ✓</p>
       </template>
       <template v-else>
-        <!-- Future: "Je vais regarder" -->
+        <!-- Future: "Je vais regarder" toggle -->
         <button
           class="w-full flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition"
           :class="broadcast.userViewType === 'will_watch'
-            ? 'bg-tvstats-primary text-white shadow-sm hover:bg-tvstats-dark'
+            ? 'border border-tvstats-primary bg-tvstats-soft/20 text-tvstats-primary'
             : 'border border-slate-200 text-slate-700 hover:border-tvstats-primary/40 hover:bg-tvstats-soft/20'"
           :disabled="isToggling"
           @click="$emit('toggle', 'will_watch')"
@@ -64,7 +56,7 @@ defineEmits<{
           <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
-          {{ broadcast.userViewType === 'will_watch' ? 'Je vais regarder ✓' : 'Je vais regarder' }}
+          {{ broadcast.userViewType === 'will_watch' ? '✓ Je vais regarder' : 'Je vais regarder' }}
         </button>
       </template>
       <p v-if="!isAuthenticated" class="mt-2 text-center text-xs text-slate-400">

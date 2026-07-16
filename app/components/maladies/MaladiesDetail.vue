@@ -1,13 +1,43 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import AppSparkline from '@/components/ui/AppSparkline.vue'
 import AppWorldScatterMap, { type WorldScatterPoint } from '@/components/ui/AppWorldScatterMap.vue'
+import AppRelatedSlider, { type RelatedSliderItem } from '@/components/ui/AppRelatedSlider.vue'
+import { fetchMaladiesPopulaires } from '@/api/maladies'
 import { formatCompactNumber } from '@/utils/number'
-import type { Maladie } from '@/types/maladies'
+import { isoToFlagEmoji } from '@/utils/flag'
+import type { Maladie, MaladiePopulaire } from '@/types/maladies'
 
 const props = defineProps<{
   maladie: Maladie
 }>()
+
+const populaires = ref<MaladiePopulaire[]>([])
+const relatedLoading = ref(true)
+
+onMounted(async () => {
+  try {
+    populaires.value = await fetchMaladiesPopulaires()
+  } catch {
+    populaires.value = []
+  } finally {
+    relatedLoading.value = false
+  }
+})
+
+const relatedMaladies = computed<RelatedSliderItem[]>(() => {
+  const others = populaires.value.filter((m) => m.id !== props.maladie.id)
+  const sameCategory = others.filter((m) => m.category && m.category === props.maladie.chapter)
+  const rest = others.filter((m) => !sameCategory.includes(m))
+  return [...sameCategory, ...rest].slice(0, 10).map((m) => ({
+    key: m.id,
+    to: `/medistats/maladies/${m.id}`,
+    title: m.name,
+    subtitle: m.category ?? undefined,
+    meta: m.value !== null ? formatCompactNumber(m.value) : undefined,
+    emoji: '🩺',
+  }))
+})
 
 const trendPoints = computed(() => props.maladie.stats?.trend.map((p) => p.value) ?? [])
 const trendLabels = computed(() => props.maladie.stats?.trend.map((p) => p.year) ?? [])
@@ -126,7 +156,10 @@ const mapPoints = computed<WorldScatterPoint[]>(() =>
           class="flex items-center gap-3.5 border-t border-slate-100 py-2.5 first:border-t-0"
         >
           <span class="mono w-10 shrink-0 text-[11px] font-bold text-slate-400">{{ tc.iso3 }}</span>
-          <span class="w-32 shrink-0 truncate text-[13.5px] font-bold text-slate-900">{{ tc.name }}</span>
+          <span class="flex w-32 shrink-0 items-center gap-1.5 truncate text-[13.5px] font-bold text-slate-900">
+            <span aria-hidden="true">{{ isoToFlagEmoji(tc.iso2) }}</span>
+            <span class="truncate">{{ tc.name }}</span>
+          </span>
           <span class="h-2 flex-1 overflow-hidden rounded bg-slate-100">
             <span
               class="block h-full rounded bg-[var(--color-primary)]"
@@ -145,5 +178,12 @@ const mapPoints = computed<WorldScatterPoint[]>(() =>
         <AppWorldScatterMap :points="mapPoints" :height="230" />
       </div>
     </div>
+
+    <AppRelatedSlider
+      title="Maladies similaires"
+      :items="relatedMaladies"
+      :loading="relatedLoading"
+      empty-text="Aucune autre maladie suivie pour le moment."
+    />
   </div>
 </template>

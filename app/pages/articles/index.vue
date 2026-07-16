@@ -4,249 +4,295 @@ definePageMeta({
   title: 'Articles',
   description: "Décryptages et analyses enrichies par les données. Retrouvez tous les articles Statsio sur l'actualité politique, économique et sociale.",
 })
+import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { articleSummaries } from '@/data/articles'
+import { getCategoryColorClass } from '@/lib/articleCategoryColor'
 import AppButton from '@/components/ui/AppButton.vue'
+import AppDropdownMenu from '@/components/layout/AppDropdownMenu.vue'
+import AppDropdownMenuItem from '@/components/layout/AppDropdownMenuItem.vue'
 
-const featuredArticle = {
-  category: 'Politique',
-  title: 'Présidentielle 2027 : les bassins d’indécision qui peuvent faire basculer le second tour',
-  summary:
-    'Un dossier construit à partir des dernières vagues d’opinion, des dynamiques locales et des signaux d’engagement observés sur les principales thématiques de campagne.',
-  stats: [
-    { label: 'Temps de lecture', value: '8 min' },
-    { label: 'Sources croisées', value: '14' },
-    { label: 'Mise à jour', value: 'Il y a 2 h' },
-  ],
+const search = ref('')
+const activeCategory = ref('')
+const sortMode = ref<'recent' | 'popular'>('recent')
+const isSortMenuOpen = ref(false)
+const sortMenuRef = ref<HTMLElement | null>(null)
+
+function toggleSortMenu() {
+  isSortMenuOpen.value = !isSortMenuOpen.value
 }
 
-const filters = ['Tous', 'Politique', 'Économie', 'Santé', 'Climat', 'Société']
+function closeSortMenu() {
+  isSortMenuOpen.value = false
+}
 
-const articles = articleSummaries
+function selectSort(mode: 'recent' | 'popular') {
+  sortMode.value = mode
+  closeSortMenu()
+}
 
-const editorialPillars = [
-  {
-    title: 'Formats lisibles',
-    detail: 'Chaque article est pensé pour aller vite du signal brut à l’insight éditorial.',
-  },
-  {
-    title: 'Sources vérifiables',
-    detail: 'Les chiffres, notes de contexte et comparaisons restent consultables à chaque étape.',
-  },
-  {
-    title: 'Publication continue',
-    detail: 'Les dossiers peuvent être enrichis en direct quand une donnée bouge vraiment.',
-  },
-]
+useClickOutside(sortMenuRef, closeSortMenu)
 
-const sidebarItems = [
-  {
-    label: 'À surveiller',
-    title: 'Municipales 2026',
-    detail: 'Cartes locales, rapports de force et chroniques de campagne en continu.',
-  },
-  {
-    label: 'Format maison',
-    title: 'Le scan hebdo',
-    detail: 'Trois tendances, un angle clair, des chiffres directement exploitables.',
-  },
-  {
-    label: 'Signal en hausse',
-    title: 'Inflation alimentaire',
-    detail: 'Sujet le plus consulté sur les 72 dernières heures.',
-  },
-]
+const sortLabel = computed(() => (sortMode.value === 'popular' ? 'Les plus lus' : 'Plus récents'))
+
+const categories = computed(() => {
+  const seen: string[] = []
+  for (const article of articleSummaries) {
+    if (!seen.includes(article.category)) seen.push(article.category)
+  }
+  return seen
+})
+
+function signalValue(article: (typeof articleSummaries)[number]) {
+  const match = article.signal.match(/[\d,.]+/)
+  return match ? parseFloat(match[0].replace(',', '.')) : 0
+}
+
+const filtered = computed(() => {
+  let result = articleSummaries
+
+  const query = search.value.trim().toLowerCase()
+  if (query) {
+    result = result.filter(
+      (article) =>
+        article.title.toLowerCase().includes(query) || article.category.toLowerCase().includes(query),
+    )
+  }
+  if (activeCategory.value) {
+    result = result.filter((article) => article.category === activeCategory.value)
+  }
+
+  if (sortMode.value === 'popular') {
+    return [...result].sort((a, b) => signalValue(b) - signalValue(a))
+  }
+  return result
+})
+
+const featured = computed(() => filtered.value[0])
+const secondary = computed(() => filtered.value.slice(1, 4))
+const remaining = computed(() => filtered.value.slice(4))
+
+const statHighlight = computed(() => ({
+  value: filtered.value.length,
+  label:
+    filtered.value.length > 1
+      ? `articles disponibles${activeCategory.value ? ' dans ' + activeCategory.value.toLowerCase() : ''}`
+      : 'article disponible',
+}))
+
+const pageTitle = computed(() => activeCategory.value || 'Articles')
+const pageSubtitle = computed(
+  () => `${filtered.value.length} article${filtered.value.length > 1 ? 's' : ''} · ${categories.value.length} thématiques`,
+)
+
+function selectCategory(category: string) {
+  activeCategory.value = category
+}
 </script>
 
 <template>
   <main class="pb-24 pt-4">
-    <section class="section pb-10">
-      <div class="container grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_320px] lg:items-start">
-        <div class="flex flex-col gap-8">
-          <div class="flex flex-col gap-5">
-            <p class="eyebrow text-primary">Rédaction & insights</p>
-            <div class="flex max-w-4xl flex-col gap-4">
-              <h1 class="text-4xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-5xl lg:text-6xl">
-                Une page articles pensée pour lire les signaux avant tout le monde.
-              </h1>
-              <p class="max-w-3xl text-lg leading-8 text-slate-600">
-                Décryptages, formats longs et analyses enrichies par les données. Chaque sujet combine angle
-                éditorial clair, preuves consultables et mise à jour continue.
+    <section class="section pb-6">
+      <div class="container">
+        <div class="flex flex-wrap items-end justify-between gap-6">
+          <div>
+            <h1 class="text-3xl font-bold text-slate-950 sm:text-4xl">{{ pageTitle }}</h1>
+            <p class="mt-1.5 text-sm text-slate-500">{{ pageSubtitle }}</p>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-4">
+            <label class="flex items-center gap-2 border-b border-slate-200 pb-0.5 text-sm text-slate-400 focus-within:border-slate-400">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input
+                v-model="search"
+                type="text"
+                placeholder="Rechercher un article…"
+                class="bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none"
+              />
+            </label>
+
+            <div class="h-4 w-px bg-slate-200" aria-hidden="true" />
+
+            <button type="button" class="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M3 6h18M6 12h12M10 18h4" />
+              </svg>
+              Filtrer
+            </button>
+
+            <div ref="sortMenuRef" class="relative">
+              <button
+                type="button"
+                class="flex items-center gap-1.5 text-sm font-semibold text-slate-900"
+                :aria-expanded="isSortMenuOpen"
+                aria-haspopup="menu"
+                @click="toggleSortMenu"
+              >
+                {{ sortLabel }}
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </button>
+
+              <AppDropdownMenu v-if="isSortMenuOpen" label="Trier les articles" align="right" width-class="min-w-[180px]">
+                <AppDropdownMenuItem as="button" @click="selectSort('recent')">Plus récents</AppDropdownMenuItem>
+                <AppDropdownMenuItem as="button" @click="selectSort('popular')">Les plus lus</AppDropdownMenuItem>
+              </AppDropdownMenu>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-6 flex gap-7 overflow-x-auto border-b border-slate-200 pb-px">
+          <button
+            type="button"
+            class="shrink-0 whitespace-nowrap pb-3 text-[13.5px] font-bold transition-colors"
+            :class="
+              !activeCategory
+                ? 'border-b-2 border-[var(--color-primary)] text-slate-950'
+                : 'border-b-2 border-transparent text-slate-500 hover:text-slate-900'
+            "
+            @click="selectCategory('')"
+          >
+            Toutes
+          </button>
+          <button
+            v-for="category in categories"
+            :key="category"
+            type="button"
+            class="shrink-0 whitespace-nowrap pb-3 text-[13.5px] font-bold transition-colors"
+            :class="
+              activeCategory === category
+                ? 'border-b-2 border-[var(--color-primary)] text-slate-950'
+                : 'border-b-2 border-transparent text-slate-500 hover:text-slate-900'
+            "
+            @click="selectCategory(category)"
+          >
+            {{ category }}
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section v-if="featured" class="section pb-4">
+      <div class="container">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:grid-rows-2 lg:auto-rows-[200px]">
+          <RouterLink
+            :to="`/articles/${featured.slug}`"
+            class="group relative overflow-hidden rounded-2xl bg-slate-100 sm:col-span-2 lg:col-span-2 lg:row-span-2"
+          >
+            <img
+              v-if="featured.image"
+              :src="featured.image"
+              :alt="featured.title"
+              class="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+            />
+            <div v-else class="absolute inset-0 bg-[var(--color-primary)]/10" aria-hidden="true" />
+            <div class="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/10 to-transparent" />
+            <div class="absolute inset-0 flex flex-col justify-end p-6">
+              <span class="text-[11px] font-bold uppercase tracking-[0.04em] text-white/85">
+                {{ featured.category }} · À la une
+              </span>
+              <p class="mt-2 text-xl font-bold leading-tight text-white sm:text-2xl">{{ featured.title }}</p>
+              <p class="mt-2.5 text-xs text-white/70">{{ featured.author }} · {{ featured.readTime }}</p>
+            </div>
+          </RouterLink>
+
+          <RouterLink
+            v-for="item in secondary"
+            :key="item.slug"
+            :to="`/articles/${item.slug}`"
+            class="group relative min-h-[200px] overflow-hidden rounded-2xl bg-slate-100 lg:min-h-0"
+          >
+            <img
+              v-if="item.image"
+              :src="item.image"
+              :alt="item.title"
+              class="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
+            />
+            <div v-else class="absolute inset-0 bg-[var(--color-primary)]/10" aria-hidden="true" />
+            <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/5 to-transparent" />
+            <div class="absolute inset-0 flex flex-col justify-end p-4">
+              <p class="text-[14.5px] font-bold leading-snug text-white">{{ item.title }}</p>
+            </div>
+          </RouterLink>
+
+          <div class="flex min-h-[200px] flex-col justify-between rounded-2xl border border-slate-200 p-5 lg:min-h-0">
+            <div>
+              <span class="text-[11px] font-bold uppercase text-[var(--color-primary)]">En chiffres</span>
+              <p class="mono mt-2 text-[28px] font-bold text-slate-950">{{ statHighlight.value }}</p>
+              <p class="mt-1 text-xs leading-snug text-slate-500">{{ statHighlight.label }}</p>
+            </div>
+            <svg width="100%" height="34" viewBox="0 0 160 34" preserveAspectRatio="none" aria-hidden="true">
+              <polyline
+                points="0,28 30,22 60,24 90,14 120,16 160,4"
+                fill="none"
+                stroke="var(--color-primary)"
+                stroke-width="2.5"
+              />
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section v-if="remaining.length > 0" class="section pt-6">
+      <div class="container">
+        <div class="flex items-baseline justify-between">
+          <p class="text-[15px] font-bold text-slate-950">Dernières analyses</p>
+        </div>
+        <div class="mt-2 flex flex-col">
+          <RouterLink
+            v-for="item in remaining"
+            :key="item.slug"
+            :to="`/articles/${item.slug}`"
+            class="flex items-center gap-4 border-b border-slate-100 py-4 last:border-b-0"
+          >
+            <div class="h-16 w-24 shrink-0 overflow-hidden rounded-lg bg-slate-100">
+              <img v-if="item.image" :src="item.image" :alt="item.title" class="h-full w-full object-cover" />
+            </div>
+            <div class="min-w-0 flex-1">
+              <span class="text-[10.5px] font-bold uppercase" :class="getCategoryColorClass(item.category)">
+                {{ item.category }}
+              </span>
+              <p class="mt-1 text-[14.5px] font-bold text-slate-950">{{ item.title }}</p>
+            </div>
+            <span class="shrink-0 text-xs text-slate-400">{{ item.readTime }}</span>
+          </RouterLink>
+        </div>
+      </div>
+    </section>
+
+    <section v-if="filtered.length === 0" class="section pt-10">
+      <div class="container py-16 text-center text-slate-400">
+        <p class="text-sm">Aucun article ne correspond à votre recherche.</p>
+      </div>
+    </section>
+
+    <section class="section pt-14">
+      <div class="container">
+        <div class="rounded-[2.5rem] border border-slate-200 bg-white px-6 py-8 shadow-[0_40px_120px_-66px_rgba(15,23,42,0.4)] sm:px-8 lg:px-10">
+          <div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+            <div class="flex flex-col gap-4">
+              <p class="eyebrow text-primary">Publier sur Statsio</p>
+              <h2 class="text-3xl font-semibold text-slate-950">Votre rédaction peut passer du signal à l’article sans changer d’outil.</h2>
+              <p class="max-w-2xl text-base leading-7 text-slate-600">
+                Brief éditorial, données, notes de contexte, visualisations et diffusion: la page articles s’inscrit dans un flux de production plus large.
               </p>
             </div>
-          </div>
-
-            <div class="grid gap-4 sm:grid-cols-3">
-              <div
-                v-for="stat in featuredArticle.stats"
-                :key="stat.label"
-                class="rounded-[1.75rem] border border-slate-200 bg-white/80 px-5 py-4 shadow-[0_20px_60px_-42px_rgba(15,23,42,0.35)]"
-                >
-                <div class="flex flex-col gap-3">
-                  <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">{{ stat.label }}</p>
-                  <p class="text-2xl font-semibold text-slate-950">{{ stat.value }}</p>
-                </div>
-              </div>
-            </div>
-
-            <article
-              class="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_40px_110px_-58px_rgba(59,130,246,0.45)]"
-            >
-              <div class="grid gap-0 lg:grid-cols-[minmax(0,1fr)_280px]">
-                <div class="flex flex-col gap-6 p-7 sm:p-9">
-                  <span class="inline-flex rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-primary">
-                    {{ featuredArticle.category }}
-                  </span>
-                  <div class="flex flex-col gap-4">
-                    <h2 class="max-w-3xl text-3xl font-semibold leading-tight tracking-[-0.03em] text-slate-950">
-                      {{ featuredArticle.title }}
-                    </h2>
-                    <p class="max-w-2xl text-base leading-7 text-slate-600">
-                      {{ featuredArticle.summary }}
-                    </p>
-                  </div>
-                  <div class="flex flex-wrap gap-3">
-                    <AppButton as="router-link" to="/login" variant="primary" size="md">
-                      Ouvrir le studio
-                    </AppButton>
-                    <AppButton variant="secondary" size="md">Partager le format</AppButton>
-                  </div>
-                </div>
-
-                <div class="bg-slate-950 p-7 text-white sm:p-9">
-                  <div class="flex flex-col gap-6">
-                    <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Vue rapide</p>
-                    <div class="flex items-end gap-3">
-                      <div class="h-12 w-6 rounded-full bg-white/25"></div>
-                      <div class="h-24 w-6 rounded-full bg-accent"></div>
-                      <div class="h-36 w-6 rounded-full bg-white"></div>
-                      <div class="h-20 w-6 rounded-full bg-primary"></div>
-                      <div class="h-28 w-6 rounded-full bg-secondary"></div>
-                    </div>
-                    <p class="text-sm leading-6 text-slate-300">
-                      Un bloc héro volontairement simple: la page met la lecture et la hiérarchie éditoriale avant le décor.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </article>
-          </div>
-
-          <aside class="flex flex-col gap-4">
-            <div class="rounded-[2rem] border border-slate-200 bg-slate-950 p-6 text-white">
-              <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Ligne éditoriale</p>
-              <div class="mt-5 flex flex-col gap-5">
-                <div v-for="item in editorialPillars" :key="item.title" class="rounded-[1.5rem] bg-white/8 p-4">
-                  <div class="flex flex-col gap-2">
-                    <p class="text-sm font-semibold text-white">{{ item.title }}</p>
-                    <p class="text-sm leading-6 text-slate-300">{{ item.detail }}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="rounded-[2rem] border border-slate-200 bg-white p-6">
-              <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">En ce moment</p>
-              <div class="mt-5 flex flex-col gap-4">
-                <div v-for="item in sidebarItems" :key="item.title" class="rounded-[1.5rem] bg-slate-50 p-4">
-                  <div class="flex flex-col gap-2">
-                    <p class="text-xs font-semibold uppercase tracking-[0.22em] text-primary">{{ item.label }}</p>
-                    <p class="text-base font-semibold text-slate-950">{{ item.title }}</p>
-                    <p class="text-sm leading-6 text-slate-500">{{ item.detail }}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </aside>
-        </div>
-      </section>
-
-      <section class="section pt-8">
-        <div class="container flex flex-col gap-8">
-          <div class="flex flex-wrap items-center justify-between gap-5">
-            <div class="flex flex-col gap-2">
-              <p class="eyebrow">Sélection</p>
-              <h2 class="text-3xl font-semibold text-slate-950">Les derniers articles à fort signal</h2>
-            </div>
-            <div class="flex flex-wrap gap-2">
-              <span
-                v-for="filter in filters"
-                :key="filter"
-                class="inline-flex rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600"
-              >
-                {{ filter }}
-              </span>
-            </div>
-          </div>
-
-          <div class="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
-            <RouterLink
-              v-for="item in articles"
-              :key="item.slug"
-              :to="`/articles/${item.slug}`"
-              class="group flex h-full flex-col gap-5 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_26px_80px_-54px_rgba(15,23,42,0.45)] transition hover:-translate-y-1 hover:border-primary/25"
-            >
-              <div
-                v-if="'image' in item"
-                class="overflow-hidden rounded-[1.5rem] border border-slate-100 bg-slate-100"
-              >
-                <img
-                  :src="item.image"
-                  :alt="item.title"
-                  class="h-48 w-full object-cover transition duration-500 group-hover:scale-[1.03]"
-                />
-              </div>
-
-              <div class="flex items-start justify-between gap-4">
-                <span class="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-slate-600">
-                  {{ item.category }}
-                </span>
-                <div class="text-right">
-                  <p class="text-sm font-semibold text-primary">{{ item.signal }}</p>
-                  <p class="text-xs uppercase tracking-[0.18em] text-slate-400">{{ item.signalLabel }}</p>
-                </div>
-              </div>
-
-              <div class="flex flex-1 flex-col gap-4">
-                <h3 class="text-2xl font-semibold leading-tight tracking-[-0.03em] text-slate-950">
-                  {{ item.title }}
-                </h3>
-                <p class="text-sm leading-7 text-slate-600">
-                  {{ item.excerpt }}
-                </p>
-              </div>
-
-              <div class="flex items-center justify-between border-t border-slate-100 pt-4 text-sm text-slate-500">
-                <span>{{ item.author }}</span>
-                <span>{{ item.readTime }}</span>
-              </div>
-            </RouterLink>
-          </div>
-        </div>
-      </section>
-
-      <section class="section pt-4">
-        <div class="container">
-          <div class="rounded-[2.5rem] border border-slate-200 bg-white px-6 py-8 shadow-[0_40px_120px_-66px_rgba(15,23,42,0.4)] sm:px-8 lg:px-10">
-            <div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-              <div class="flex flex-col gap-4">
-                <p class="eyebrow text-primary">Publier sur Statsio</p>
-                <h2 class="text-3xl font-semibold text-slate-950">Votre rédaction peut passer du signal à l’article sans changer d’outil.</h2>
-                <p class="max-w-2xl text-base leading-7 text-slate-600">
-                  Brief éditorial, données, notes de contexte, visualisations et diffusion: la page articles s’inscrit dans un flux de production plus large.
-                </p>
-              </div>
-              <div class="flex flex-wrap gap-3">
-                <AppButton as="router-link" to="/register" variant="primary" size="md">
-                  Créer un espace
-                </AppButton>
-                <AppButton as="router-link" to="/login" variant="outline" size="md">
-                  Voir la démo
-                </AppButton>
-              </div>
+            <div class="flex flex-wrap gap-3">
+              <AppButton as="router-link" to="/register" variant="primary" size="md">
+                Créer un espace
+              </AppButton>
+              <AppButton as="router-link" to="/login" variant="outline" size="md">
+                Voir la démo
+              </AppButton>
             </div>
           </div>
         </div>
-      </section>
+      </div>
+    </section>
   </main>
 </template>

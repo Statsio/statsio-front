@@ -84,7 +84,7 @@ defineExpose({ items })
       <component :is="item.href.startsWith('/') ? RouterLink : 'a'"
         :to="item.href.startsWith('/') ? item.href : undefined"
         :href="item.href.startsWith('/') ? undefined : item.href"
-        class="inline-flex items-center gap-2 rounded-full border border-transparent px-3 py-2 transition hover:border-slate-200 hover:bg-white hover:text-slate-900"
+        class="inline-flex items-center gap-2 rounded-full border border-transparent px-3 py-2 transition hover:border-slate-200 hover:bg-white hover:text-slate-900 [&.router-link-active]:text-primary [&.router-link-active]:underline [&.router-link-active]:decoration-2 [&.router-link-active]:underline-offset-8"
         @mouseenter="emit('update:modelValue', item)">
         <span class="flex items-center justify-center text-slate-700">
           <AppNavIcon :kind="item.icon" />

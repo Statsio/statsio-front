@@ -23,12 +23,12 @@ function cards(current: TvProgramme | null, next: TvProgramme | null) {
     <div
       v-for="{ schedule, current, next } in rows"
       :key="schedule.channel.id"
-      class="flex items-stretch gap-4 rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)]"
+      class="flex items-stretch gap-6 rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)]"
     >
       <!-- Channel identity -->
       <RouterLink
         :to="`/tvstats/chaine/${schedule.channel.id}`"
-        class="flex w-[92px] shrink-0 flex-col items-start justify-center gap-2"
+        class="flex w-fit shrink-0 flex-col items-center justify-center gap-2"
       >
         <TvChannelLogo
           class="h-10 w-10 rounded-xl p-1.5"
@@ -37,14 +37,14 @@ function cards(current: TvProgramme | null, next: TvProgramme | null) {
           :fallback-bg="schedule.channel.fallbackBg"
           :max-initials="3"
         />
-        <div class="flex flex-col gap-0.5">
+        <div class="flex flex-col items-center gap-0.5 text-center">
           <span class="truncate text-[13px] font-bold text-slate-900">{{ schedule.channel.displayName }}</span>
           <span class="font-mono text-[10.5px] text-slate-400">N°{{ schedule.channel.number }}</span>
         </div>
       </RouterLink>
 
       <!-- Current / next cards -->
-      <div v-if="current || next" class="flex min-w-0 flex-1 flex-col gap-2.5 sm:flex-row">
+      <div v-if="current || next" class="flex min-w-0 flex-1 flex-col gap-2.5 sm:flex-row sm:gap-6">
         <template v-for="(c, i) in cards(current, next)" :key="c.programme.id">
           <div v-if="i > 0" class="hidden w-px shrink-0 self-stretch bg-slate-200 sm:block" />
           <TvProgrammeCard

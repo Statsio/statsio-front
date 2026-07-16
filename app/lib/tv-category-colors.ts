@@ -21,20 +21,21 @@ export const CATEGORY_COLOR_FALLBACK = 'bg-slate-100 text-slate-700'
 // Program.type (free-text genre from the EPG feed) -> DB color name, best-effort match against the
 // seeded tv_categories labels (see database/migrations/2026_06_23_000002_create_tv_categories_table.php).
 const CATEGORY_COLOR_BY_LABEL: Record<string, string> = {
-  Fiction: 'violet',
+  Fiction: 'purple',
   Série: 'purple',
   Film: 'indigo',
+  'Cinéma': 'indigo',
   Informations: 'blue',
   Information: 'blue',
-  Documentaire: 'cyan',
+  Documentaire: 'teal',
   Reportage: 'teal',
-  Sport: 'green',
-  Divertissement: 'yellow',
+  Sport: 'red',
+  Divertissement: 'orange',
   'Talk-show': 'orange',
   Téléréalité: 'red',
   Musique: 'pink',
   Jeunesse: 'lime',
-  Animation: 'lime',
+  Animation: 'pink',
   Magazine: 'slate',
   Météo: 'sky',
 }
@@ -80,14 +81,15 @@ export const BROADCAST_TYPE_LABELS: Record<string, { label: string; class: strin
   exclusivite: { label: 'Exclusivité', class: 'bg-violet-100 text-violet-700 border-violet-200' },
 }
 
-// Plain-text mention indicator (no pill background) used on the schedule programme cards —
-// distinct from BROADCAST_TYPE_LABELS, which renders a filled badge elsewhere (broadcast detail pages).
-export const MENTION_TEXT_STYLE: Record<string, { label: string; textClass: string; dotClass: string; showDot: boolean }> = {
-  direct: { label: 'Direct', textClass: 'text-red-600', dotClass: 'bg-red-600', showDot: true },
-  inedit: { label: 'Inédit', textClass: 'text-emerald-700', dotClass: 'bg-emerald-700', showDot: true },
-  rediffusion: { label: 'Rediffusion', textClass: 'text-slate-500', dotClass: '', showDot: false },
-  replay: { label: 'Replay', textClass: 'text-slate-500', dotClass: '', showDot: false },
-  exclusivite: { label: 'Exclusivité', textClass: 'text-violet-600', dotClass: 'bg-violet-600', showDot: true },
+// Filled-pill mention badge (same gabarit as the category badge) used on the schedule programme
+// cards, alongside the category pill — mirrors the "Détail chaîne" mockup where both badges share
+// the same rounded-pill treatment.
+export const MENTION_BADGE_CLASS: Record<string, { label: string; class: string }> = {
+  direct: { label: 'Direct', class: 'bg-red-100 text-red-700' },
+  inedit: { label: 'Inédit', class: 'bg-tvstats-soft/40 text-tvstats-primary' },
+  rediffusion: { label: 'Rediffusion', class: 'bg-slate-100 text-slate-500' },
+  replay: { label: 'Replay', class: 'bg-blue-100 text-blue-700' },
+  exclusivite: { label: 'Exclusivité', class: 'bg-violet-100 text-violet-700' },
 }
 
 // Hex accent per DB color name, used to tint the diagonal-stripe programme thumbnail placeholder.

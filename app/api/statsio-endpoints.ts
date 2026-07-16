@@ -106,9 +106,15 @@ export const STATSIO_API = {
     list: (indicator?: string) => (indicator ? `/pays?indicator=${encodeURIComponent(indicator)}` : '/pays'),
     one: (iso3: string) => `/pays/${encodeURIComponent(iso3)}`,
   },
+  soins: {
+    list: (indicator?: string) => (indicator ? `/soins?indicator=${encodeURIComponent(indicator)}` : '/soins'),
+  },
   tv: {
     epg: (date: string) => `/tv/epg?date=${encodeURIComponent(date)}`,
     audiences: '/tv/audiences',
+    channelDetail: (slug: string) => `/tv/channels/${encodeURIComponent(slug)}`,
+    channelPopular: (slug: string) => `/tv/channels/${encodeURIComponent(slug)}/popular`,
+    channelFollow: (slug: string) => `/tv/channels/${encodeURIComponent(slug)}/follow`,
     broadcast: (id: number) => `/tv/broadcasts/${id}`,
     broadcastView: (id: number) => `/tv/broadcasts/${id}/view`,
     broadcastSchedule: (id: number) => `/tv/broadcasts/${id}/schedule`,

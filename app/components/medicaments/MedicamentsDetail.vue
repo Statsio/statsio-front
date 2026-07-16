@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { formatEuros } from '@/lib/format'
+import AppRelatedSlider, { type RelatedSliderItem } from '@/components/ui/AppRelatedSlider.vue'
 import type { GenericGroup, Medicament } from '@/types/medicaments'
 
 const props = defineProps<{
@@ -8,6 +9,19 @@ const props = defineProps<{
   generiques: readonly GenericGroup[]
   isLoadingGeneriques: boolean
 }>()
+
+const relatedMedicaments = computed<RelatedSliderItem[]>(() =>
+  props.generiques.flatMap((group) =>
+    group.medicaments.map((alt) => ({
+      key: alt.cis,
+      to: `/medistats/medicaments/${alt.cis}`,
+      title: alt.elementPharmaceutique,
+      subtitle: alt.formePharmaceutique,
+      meta: alt.type,
+      emoji: '💊',
+    })),
+  ),
+)
 
 const dci = computed(() => props.medicament.composition[0]?.denominationSubstance ?? '—')
 
@@ -108,21 +122,11 @@ const conditions = computed(() => props.medicament.conditions ?? [])
       <p v-for="(c, i) in conditions" :key="i" class="mb-2 text-[13.5px] text-[var(--color-medistats-dark)] last:mb-0">— {{ c }}</p>
     </div>
 
-    <div class="rounded-2xl border border-slate-100 bg-white p-6 shadow-[0_1px_3px_rgba(20,20,30,0.06)]">
-      <p class="mb-3.5 text-sm font-bold text-slate-900">Génériques &amp; alternatives</p>
-      <p v-if="isLoadingGeneriques" class="text-[13.5px] text-slate-400">Recherche des alternatives…</p>
-      <p v-else-if="generiques.length === 0" class="text-[13.5px] text-slate-400">
-        Aucune alternative référencée pour ce médicament.
-      </p>
-      <div v-else class="flex flex-wrap gap-2.5">
-        <span
-          v-for="alt in generiques.flatMap((g) => g.medicaments)"
-          :key="alt.cis"
-          class="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-[13px] font-semibold text-slate-700"
-        >
-          {{ alt.elementPharmaceutique }}
-        </span>
-      </div>
-    </div>
+    <AppRelatedSlider
+      title="Génériques & alternatives"
+      :items="relatedMedicaments"
+      :loading="isLoadingGeneriques"
+      empty-text="Aucune alternative référencée pour ce médicament."
+    />
   </div>
 </template>

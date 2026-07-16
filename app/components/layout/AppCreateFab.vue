@@ -19,7 +19,6 @@ const activeModal = ref<ContentType | null>(null)
 const modalOpen = computed({ get: () => activeModal.value !== null, set: (v) => { if (!v) activeModal.value = null } })
 
 const currentBrand = computed(() => getBrandFromPath(route.path))
-const isTvstats = computed(() => currentBrand.value.id === 'tvstats')
 
 function closeMenu() { isOpen.value = false }
 function openModal(id: typeof menuItems[number]['id']) {
@@ -32,7 +31,7 @@ watch(() => route.fullPath, closeMenu)
 </script>
 
 <template>
-  <div v-if="authStore.isAuthenticated" ref="fabRef" class="pointer-events-none fixed bottom-6 right-6 z-50">
+  <div v-if="authStore.isAuthenticated" ref="fabRef" :data-theme="currentBrand.id" class="pointer-events-none fixed bottom-6 right-6 z-50">
     <div class="pointer-events-auto relative flex flex-col items-end gap-3">
 
       <!-- Dropdown panel -->

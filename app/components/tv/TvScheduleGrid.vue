@@ -12,7 +12,7 @@ const props = defineProps<{
 
 const PX_PER_MIN = 3
 const ROW_HEIGHT = 72
-const LOGO_COL_WIDTH = 80
+const LOGO_COL_WIDTH = 96
 
 const totalWidth = computed(
   () => (props.timeWindow.endMinutes - props.timeWindow.startMinutes) * PX_PER_MIN + LOGO_COL_WIDTH,
@@ -24,7 +24,7 @@ const totalWidth = computed(
     <!-- Sticky header row (logo corner + timeline) -->
     <div class="sticky top-0 z-20 flex border-b border-slate-200 bg-white" :style="{ minWidth: totalWidth + 'px' }">
       <!-- Corner cell -->
-      <div class="sticky left-0 z-30 w-20 shrink-0 border-r border-slate-100 bg-slate-50" style="height: 32px" />
+      <div class="sticky left-0 z-30 w-24 shrink-0 border-r border-slate-100 bg-slate-50" style="height: 32px" />
       <!-- Timeline -->
       <TvScheduleTimeline
         :time-window="timeWindow"
@@ -42,6 +42,7 @@ const totalWidth = computed(
         :time-window="timeWindow"
         :px-per-min="PX_PER_MIN"
         :row-height="ROW_HEIGHT"
+        :now="now"
       />
     </div>
   </div>

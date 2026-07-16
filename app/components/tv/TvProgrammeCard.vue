@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { categoryBadgeClass, categoryThumbnailGradient, MENTION_TEXT_STYLE } from '@/lib/tv-category-colors'
+import { categoryBadgeClass, categoryThumbnailGradient, MENTION_BADGE_CLASS } from '@/lib/tv-category-colors'
 import type { TvProgramme } from '@/types/tv-schedule'
 
 const props = defineProps<{
@@ -13,7 +13,7 @@ const props = defineProps<{
 const router = useRouter()
 
 const categoryLabel = computed(() => props.programme.genres[0] ?? props.programme.type)
-const mention = computed(() => (props.programme.mention ? MENTION_TEXT_STYLE[props.programme.mention] : null))
+const mention = computed(() => (props.programme.mention ? MENTION_BADGE_CLASS[props.programme.mention] : null))
 const thumbnailGradient = computed(() => categoryThumbnailGradient(categoryLabel.value))
 const isAired = computed(() => props.programme.score?.type === 'viewers')
 
@@ -34,8 +34,8 @@ function goToDetail() {
 
 <template>
   <div
-    class="flex flex-1 min-w-0 gap-3.5 rounded-2xl border border-slate-100 bg-slate-50 p-3 transition"
-    :class="programme.broadcastId != null ? 'cursor-pointer hover:bg-slate-100' : ''"
+    class="flex flex-1 min-w-0 gap-3.5 py-0.5"
+    :class="programme.broadcastId != null ? 'cursor-pointer' : ''"
     @click="goToDetail"
   >
     <!-- Thumbnail placeholder -->
@@ -59,12 +59,11 @@ function goToDetail() {
       <p class="truncate text-sm font-bold text-slate-900">{{ programme.title }}</p>
 
       <div class="flex flex-wrap items-center gap-1.5">
-        <span v-if="mention" class="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wide" :class="mention.textClass">
-          <span v-if="mention.showDot" class="h-1.5 w-1.5 shrink-0 rounded-full" :class="mention.dotClass" />
-          {{ mention.label }}
-        </span>
         <span v-if="categoryLabel" class="rounded-full px-2 py-0.5 text-[10px] font-bold" :class="categoryBadgeClass(categoryLabel)">
           {{ categoryLabel }}
+        </span>
+        <span v-if="mention" class="rounded-full px-2 py-0.5 text-[10px] font-bold" :class="mention.class">
+          {{ mention.label }}
         </span>
       </div>
 

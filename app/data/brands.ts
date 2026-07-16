@@ -145,7 +145,7 @@ const brandConfigs: Record<BrandId, BrandConfig> = {
     footerNav: [
       { label: 'Maladies', href: '/medistats/maladies' },
       { label: 'Médicaments', href: '/medistats/medicaments' },
-      { label: 'Soins', href: '/medistats/services' },
+      { label: 'Soins', href: '/medistats/soins' },
       { label: 'Chaînes', href: '/chaines' },
     ],
   },

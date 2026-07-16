@@ -119,19 +119,27 @@ export function useBroadcastDetail() {
       broadcast.value.userViewType = res.userViewType
       broadcast.value.audience.viewers = res.viewers
       broadcast.value.audience.willWatch = res.willWatch
-      // Show review modal after marking as watched (if broadcast is past and not yet reviewed)
-      if (res.userViewType === 'watched' && isPast.value && !broadcast.value.userHasReviewed) {
-        showReviewModal.value = true
-      }
     } finally {
       isToggling.value = false
     }
   }
 
-  function onReviewSubmitted(reviews: ReviewsResponse) {
+  // "J'ai déjà vu ce programme" opens the review modal directly — marking the broadcast as
+  // watched and submitting the review are a single user action (see onReviewSubmitted).
+  function openReview() {
+    if (!auth.isAuthenticated) { router.push({ name: 'login' }); return }
+    if (broadcast.value?.userHasReviewed) return
+    showReviewModal.value = true
+  }
+
+  async function onReviewSubmitted(reviews: ReviewsResponse) {
     reviewsData.value = reviews
     showReviewModal.value = false
-    if (broadcast.value) broadcast.value.userHasReviewed = true
+    if (!broadcast.value) return
+    broadcast.value.userHasReviewed = true
+    if (broadcast.value.userViewType !== 'watched') {
+      await toggle('watched')
+    }
   }
 
   return {
@@ -153,6 +161,7 @@ export function useBroadcastDetail() {
     youtubeEmbedUrl,
     load,
     toggle,
+    openReview,
     onReviewSubmitted,
   }
 }

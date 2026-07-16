@@ -2,26 +2,13 @@
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import type { ArticleSummary } from '@/data/articles'
+import { getCategoryColorClass } from '@/lib/articleCategoryColor'
 
 const props = defineProps<{
   article: ArticleSummary
 }>()
 
-const categoryPalette = [
-  'text-[var(--color-primary)]',
-  'text-[var(--color-accent)]',
-  'text-emerald-600',
-  'text-amber-600',
-  'text-rose-600',
-] as const
-
-function hashIndex(value: string, mod: number) {
-  let hash = 0
-  for (const char of value) hash = (hash * 31 + char.charCodeAt(0)) % 997
-  return hash % mod
-}
-
-const categoryClass = computed(() => categoryPalette[hashIndex(props.article.category, categoryPalette.length)])
+const categoryClass = computed(() => getCategoryColorClass(props.article.category))
 </script>
 
 <template>

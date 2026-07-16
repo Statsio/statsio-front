@@ -27,6 +27,7 @@ export interface MaladieStats {
 
 export interface MaladieTopCountry {
   iso3: string
+  iso2: string
   name: string
   lat: number
   lon: number

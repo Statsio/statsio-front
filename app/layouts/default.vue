@@ -22,7 +22,13 @@ usePageSeo()
   >
     <AppPromoBanner :items="sharedPromoItems" />
     <AppHeader />
-    <main class="pt-28">
+    <!--
+      pt-44 lg:pt-28 clears the fixed AppPromoBanner + AppHeader stack, which is taller
+      below lg (extra mobile nav-pills row) than at lg+. Pages that bleed a background
+      under the header (HomeHero/MedistatsHero/TvstatsHero via PageHero.vue) cancel this
+      with a matching -mt-44 lg:-mt-28 — keep both in sync if the header height changes.
+    -->
+    <main class="pt-44 lg:pt-28">
       <slot />
     </main>
     <AppFooter />
