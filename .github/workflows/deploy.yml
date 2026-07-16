@@ -5,8 +5,12 @@ on:
     branches: [main, staging]
 
 jobs:
+  test:
+    uses: ./.github/workflows/tests.yml
+
   deploy:
     name: Build & Deploy to Cloudflare (${{ github.ref_name }})
+    needs: test
     runs-on: ubuntu-latest
     environment: ${{ github.ref_name == 'main' && 'Production' || 'Staging' }}
 
