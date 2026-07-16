@@ -7,6 +7,17 @@ export function formatCompactNumber(value: number): string {
   return compactNumberFormatter.format(value)
 }
 
+const eurosFormatter = new Intl.NumberFormat('fr-FR', {
+  style: 'currency',
+  currency: 'EUR',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
+
+export function formatEuros(value: number): string {
+  return eurosFormatter.format(value)
+}
+
 export function formatShortDate(iso?: string | null): string {
   if (!iso) return '—'
   const date = new Date(iso)
