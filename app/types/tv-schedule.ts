@@ -1,5 +1,12 @@
 import type { TntChannel } from '@/data/tnt-channels'
 
+export type TvProgrammeMention = 'inedit' | 'rediffusion' | 'direct' | 'replay' | 'exclusivite'
+
+export type TvProgrammeScore = {
+  type: 'viewers' | 'want'
+  value: number
+}
+
 export type TvProgramme = {
   id: number
   broadcastId: number | null   // DB broadcast ID — null if not yet stored
@@ -14,6 +21,8 @@ export type TvProgramme = {
   imageUrl: string | null
   rating: number | null
   isLive: boolean
+  mention: TvProgrammeMention | null
+  score: TvProgrammeScore | null
 }
 
 export type ChannelSchedule = {
@@ -22,7 +31,7 @@ export type ChannelSchedule = {
   logoUrl: string | null
 }
 
-export type TimePreset = 'yesterday' | 'morning' | 'afternoon' | 'live' | 'tonight' | 'night' | 'tomorrow' | 'custom'
+export type TimePreset = 'live' | 'tonight' | 'tomorrow' | 'weekend' | 'custom'
 
 export type TimeWindow = {
   startMinutes: number

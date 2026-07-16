@@ -15,6 +15,13 @@ function getRelativeDate(offsetDays: number): Date {
   return d
 }
 
+function getNextSaturday(): Date {
+  const d = new Date()
+  const offset = (6 - d.getDay() + 7) % 7 // 0 if today is already Saturday
+  d.setDate(d.getDate() + offset)
+  return d
+}
+
 export function useTvSchedule() {
   const selectedPreset = ref<TimePreset>('tonight')
   const selectedDate = ref<string>(toDateStr(new Date()))
@@ -36,8 +43,8 @@ export function useTvSchedule() {
   })
 
   const effectiveDate = computed<string>(() => {
-    if (selectedPreset.value === 'yesterday') return toDateStr(getRelativeDate(-1))
     if (selectedPreset.value === 'tomorrow') return toDateStr(getRelativeDate(1))
+    if (selectedPreset.value === 'weekend') return toDateStr(getNextSaturday())
     if (selectedPreset.value === 'custom') return selectedDate.value
     return toDateStr(new Date())
   })
@@ -47,12 +54,6 @@ export function useTvSchedule() {
     const nowMin = n.getHours() * 60 + n.getMinutes()
 
     switch (selectedPreset.value) {
-      case 'yesterday':
-        return { startMinutes: 6 * 60, endMinutes: 24 * 60, label: 'Hier' }
-      case 'morning':
-        return { startMinutes: 6 * 60, endMinutes: 12 * 60, label: 'Matin' }
-      case 'afternoon':
-        return { startMinutes: 12 * 60, endMinutes: 18 * 60, label: 'Après-midi' }
       case 'live':
         return {
           startMinutes: Math.max(0, nowMin - 30),
@@ -61,36 +62,30 @@ export function useTvSchedule() {
         }
       case 'tonight':
         return { startMinutes: 18 * 60, endMinutes: 24 * 60, label: 'Ce soir' }
-      case 'night':
-        return { startMinutes: 23 * 60, endMinutes: 24 * 60, label: 'Nuit' }
       case 'tomorrow':
         return { startMinutes: 6 * 60, endMinutes: 24 * 60, label: 'Demain' }
+      case 'weekend':
+        return { startMinutes: 6 * 60, endMinutes: 24 * 60, label: 'Ce week-end' }
       case 'custom':
         return { startMinutes: 6 * 60, endMinutes: 24 * 60, label: 'Programme' }
     }
   })
 
-  // Heure d'ancrage pour TvScheduleNowNext : le programme "courant" est celui qui passe à cette minute-là
+  // Heure d'ancrage pour TvScheduleCardView : le programme "courant" est celui qui passe à cette minute-là
   const referenceMinutes = computed<number>(() => {
     switch (selectedPreset.value) {
-      case 'live':      return now.value.getHours() * 60 + now.value.getMinutes()
-      case 'morning':   return 8 * 60
-      case 'afternoon': return 14 * 60
-      case 'tonight':   return 21 * 60 + 10
-      case 'night':     return 23 * 60 + 30
-      default:          return 20 * 60  // yesterday / tomorrow / custom
+      case 'live':    return now.value.getHours() * 60 + now.value.getMinutes()
+      case 'tonight': return 21 * 60 + 10
+      default:        return 20 * 60  // tomorrow / weekend / custom
     }
   })
 
-  // Label du badge "courant" dans TvScheduleNowNext
+  // Label du badge "courant" dans TvScheduleCardView
   const currentLabel = computed<string>(() => {
     switch (selectedPreset.value) {
-      case 'live':      return 'En cours'
-      case 'morning':   return 'Matin'
-      case 'afternoon': return 'Après-midi'
-      case 'tonight':   return 'Ce soir'
-      case 'night':     return 'Nuit'
-      default:          return '-'
+      case 'live':    return 'En cours'
+      case 'tonight': return 'Ce soir'
+      default:        return '-'
     }
   })
 
@@ -111,8 +106,8 @@ export function useTvSchedule() {
 
   function selectPreset(preset: Exclude<TimePreset, 'custom'>) {
     selectedPreset.value = preset
-    if (preset === 'yesterday') selectedDate.value = toDateStr(getRelativeDate(-1))
-    else if (preset === 'tomorrow') selectedDate.value = toDateStr(getRelativeDate(1))
+    if (preset === 'tomorrow') selectedDate.value = toDateStr(getRelativeDate(1))
+    else if (preset === 'weekend') selectedDate.value = toDateStr(getNextSaturday())
     else selectedDate.value = toDateStr(new Date())
   }
 

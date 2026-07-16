@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { categoryBadgeClass, BROADCAST_TYPE_LABELS } from '@/lib/tv-category-colors'
+import { categoryBadgeClass, categoryThumbnailGradient, MENTION_TEXT_STYLE } from '@/lib/tv-category-colors'
 import type { TvProgramme } from '@/types/tv-schedule'
 
 const props = defineProps<{
@@ -13,7 +13,9 @@ const props = defineProps<{
 const router = useRouter()
 
 const categoryLabel = computed(() => props.programme.genres[0] ?? props.programme.type)
-const mention = computed(() => (props.programme.mention ? BROADCAST_TYPE_LABELS[props.programme.mention] : null))
+const mention = computed(() => (props.programme.mention ? MENTION_TEXT_STYLE[props.programme.mention] : null))
+const thumbnailGradient = computed(() => categoryThumbnailGradient(categoryLabel.value))
+const isAired = computed(() => props.programme.score?.type === 'viewers')
 
 const scoreLabel = computed(() => {
   const score = props.programme.score
@@ -37,7 +39,7 @@ function goToDetail() {
     @click="goToDetail"
   >
     <!-- Thumbnail placeholder -->
-    <div class="relative h-[66px] w-[88px] shrink-0 overflow-hidden rounded-xl bg-slate-200/70">
+    <div class="relative h-[66px] w-[88px] shrink-0 overflow-hidden rounded-xl" :style="{ backgroundImage: thumbnailGradient }">
       <span class="absolute inset-0 flex items-center justify-center px-1 text-center font-mono text-[8px] font-bold uppercase text-slate-400">
         Image programme
       </span>
@@ -57,21 +59,22 @@ function goToDetail() {
       <p class="truncate text-sm font-bold text-slate-900">{{ programme.title }}</p>
 
       <div class="flex flex-wrap items-center gap-1.5">
+        <span v-if="mention" class="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wide" :class="mention.textClass">
+          <span v-if="mention.showDot" class="h-1.5 w-1.5 shrink-0 rounded-full" :class="mention.dotClass" />
+          {{ mention.label }}
+        </span>
         <span v-if="categoryLabel" class="rounded-full px-2 py-0.5 text-[10px] font-bold" :class="categoryBadgeClass(categoryLabel)">
           {{ categoryLabel }}
-        </span>
-        <span v-if="mention" class="rounded-full px-2 py-0.5 text-[10px] font-bold" :class="mention.class">
-          {{ mention.label }}
         </span>
       </div>
 
       <div class="mt-0.5 flex items-center justify-between gap-2">
-        <div v-if="programme.rating != null" class="flex gap-0.5">
+        <div v-if="isAired" class="flex gap-0.5">
           <span
             v-for="i in 5"
             :key="i"
             class="text-xs"
-            :class="i <= Math.round(programme.rating) ? 'text-tvstats-primary' : 'text-slate-200'"
+            :class="programme.rating != null && i <= Math.round(programme.rating) ? 'text-tvstats-primary' : 'text-slate-200'"
           >★</span>
         </div>
         <div v-if="scoreLabel" class="ml-auto flex items-center gap-1.5">
