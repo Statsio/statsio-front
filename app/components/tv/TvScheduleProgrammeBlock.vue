@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { categoryBorderClass } from '@/lib/tv-category-colors'
 import type { TvProgramme, TimeWindow } from '@/types/tv-schedule'
 
 const router = useRouter()
@@ -26,6 +27,7 @@ const widthPx = computed(() => {
 })
 
 const genreLabel = computed(() => props.programme.genres[0] ?? props.programme.type)
+const isDirect = computed(() => props.programme.mention === 'direct')
 
 function goToDetail() {
   if (props.programme.broadcastId != null) {
@@ -36,11 +38,10 @@ function goToDetail() {
 
 <template>
   <div
-    class="absolute top-1 bottom-1 flex flex-col justify-between overflow-hidden rounded-xl border p-2 transition-shadow hover:shadow-md"
+    class="absolute top-1 bottom-1 flex flex-col justify-between overflow-hidden rounded-xl border border-l-4 p-2 transition-shadow hover:shadow-md"
     :class="[
-      programme.isLive
-        ? 'border-tvstats-primary/30 bg-tvstats-soft/50'
-        : 'border-slate-200 bg-white',
+      categoryBorderClass(genreLabel),
+      programme.isLive ? 'border-slate-200 bg-tvstats-soft/50' : 'border-slate-200 bg-white',
       programme.broadcastId != null ? 'cursor-pointer' : '',
     ]"
     :style="{ left: leftPx + 'px', width: widthPx + 'px' }"
@@ -48,7 +49,8 @@ function goToDetail() {
     @click="goToDetail"
   >
     <div class="min-w-0">
-      <p class="truncate text-[10px] font-semibold tracking-[0.1em] text-tvstats-primary">
+      <p class="flex items-center gap-1 truncate text-[10px] font-semibold tracking-[0.1em] text-tvstats-primary">
+        <span v-if="isDirect" class="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" />
         {{ programme.startTime }}
         <span v-if="programme.isLive" class="ml-1 rounded-full bg-tvstats-primary px-1.5 py-0.5 text-[9px] text-white">
           LIVE

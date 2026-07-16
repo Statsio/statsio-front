@@ -4,34 +4,15 @@ definePageMeta({
   title: 'Programme TV',
   description: 'Consultez le programme TV du jour et de la semaine : grille horaire complète des chaînes TNT avec détails et critiques des émissions.',
 })
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, ref } from 'vue'
 import AppButton from '@/components/ui/AppButton.vue'
+import TvScheduleFilters, { type DisplayMode } from '@/components/tv/TvScheduleFilters.vue'
+import TvScheduleCardView from '@/components/tv/TvScheduleCardView.vue'
 import TvScheduleGrid from '@/components/tv/TvScheduleGrid.vue'
-import TvScheduleNowNext from '@/components/tv/TvScheduleNowNext.vue'
+import TvScheduleEmptyState from '@/components/tv/TvScheduleEmptyState.vue'
 import { useTvSchedule } from '@/composables/useTvSchedule'
-import type { TimePreset, TvProgramme } from '@/types/tv-schedule'
 
-const router = useRouter()
-
-type DisplayMode = 'normal' | 'grid'
-const displayMode = ref<DisplayMode>('normal')
-
-function goToBroadcast(programme: TvProgramme) {
-  if (programme.broadcastId != null) {
-    router.push({ name: 'tvstats-broadcast', params: { id: programme.broadcastId } })
-  }
-}
-
-const presetOptions: Array<{ id: Exclude<TimePreset, 'custom'>; label: string }> = [
-  { id: 'yesterday', label: 'Hier' },
-  { id: 'morning', label: 'Matin' },
-  { id: 'afternoon', label: 'Après-midi' },
-  { id: 'live', label: 'En ce moment' },
-  { id: 'tonight', label: 'Ce soir' },
-  { id: 'night', label: 'Nuit' },
-  { id: 'tomorrow', label: 'Demain' },
-]
+const displayMode = ref<DisplayMode>('card')
 
 const {
   schedules,
@@ -49,6 +30,7 @@ const {
   selectDate,
 } = useTvSchedule()
 
+const isEmpty = computed(() => schedules.value.every((s) => s.programmes.length === 0))
 </script>
 
 <template>
@@ -56,91 +38,23 @@ const {
     <section class="section pt-4">
       <div class="container flex flex-col gap-6">
 
-        <!-- Header card -->
-        <div class="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)] sm:p-6">
-          <div class="mb-6 flex flex-col gap-4">
-            <p class="eyebrow text-tvstats-primary">Programme TV & analyse d'antenne</p>
-            <div class="max-w-4xl">
-              <h1 class="text-3xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-4xl">
-                La grille TV enrichie par les signaux publicitaires et le contexte d'antenne.
-              </h1>
-              <p class="mt-3 max-w-3xl text-base leading-7 text-slate-600">
-                Comparez les chaînes, identifiez les rendez-vous clés et repérez ce qui distingue vraiment un programme : son univers, sa durée, son statut éditorial, sa catégorie et, en complément, son niveau d'exposition publicitaire.
-              </p>
-            </div>
-          </div>
-
-          <!-- Filter bar -->
-          <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px_auto] xl:items-end">
-            <div class="flex flex-wrap gap-2">
-              <button
-                v-for="preset in presetOptions"
-                :key="preset.id"
-                type="button"
-                class="rounded-full border px-4 py-2 text-sm font-semibold transition"
-                :class="
-                  selectedPreset === preset.id
-                    ? 'border-tvstats-primary bg-tvstats-primary text-white'
-                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
-                "
-                @click="selectPreset(preset.id)"
-              >
-                {{ preset.label }}
-              </button>
-            </div>
-
-            <label class="flex flex-col gap-2">
-              <span class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Jour précis</span>
-              <input
-                :value="selectedDate"
-                type="date"
-                class="min-h-12 rounded-[1.25rem] border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition focus:border-tvstats-primary/40 focus:bg-white focus:ring-4 focus:ring-tvstats-primary/10"
-                @input="selectDate(($event.target as HTMLInputElement).value)"
-              />
-            </label>
-
-            <div class="flex items-center justify-between gap-4 xl:justify-end">
-              <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Date affichée</p>
-                <p class="mt-1 text-sm font-semibold capitalize text-slate-900">{{ formattedDate }}</p>
-              </div>
-              <div class="flex items-center gap-2">
-                <!-- Display mode toggle -->
-                <div class="flex rounded-2xl border border-slate-200 bg-slate-50 p-1">
-                  <!-- Normal (now/next) -->
-                  <button
-                    type="button"
-                    class="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition"
-                    :class="displayMode === 'normal' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'"
-                    :title="'Vue maintenant / suivant'"
-                    @click="displayMode = 'normal'"
-                  >
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h10" />
-                    </svg>
-                    <span class="hidden sm:inline">Normal</span>
-                  </button>
-                  <!-- Grid -->
-                  <button
-                    type="button"
-                    class="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition"
-                    :class="displayMode === 'grid' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'"
-                    :title="'Vue grille EPG'"
-                    @click="displayMode = 'grid'"
-                  >
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18M10 3v18M14 3v18" />
-                    </svg>
-                    <span class="hidden sm:inline">Grille</span>
-                  </button>
-                </div>
-                <AppButton variant="secondary" size="md" @click="selectPreset('tonight')">
-                  Revenir à ce soir
-                </AppButton>
-              </div>
-            </div>
-          </div>
+        <div class="max-w-3xl">
+          <h1 class="text-3xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-4xl">Programme TV</h1>
+          <p class="mt-3 text-base leading-7 text-slate-600">
+            Tous les programmes, chaîne par chaîne, avec le score d'audience calculé à partir des téléspectateurs de TVStats qui ont déclaré vouloir regarder ou avoir déjà vu chaque programme.
+          </p>
         </div>
+
+        <TvScheduleFilters
+          :selected-preset="selectedPreset"
+          :selected-date="selectedDate"
+          :display-mode="displayMode"
+          @select-preset="selectPreset"
+          @select-date="selectDate"
+          @update:display-mode="displayMode = $event"
+        />
+
+        <p class="-mt-2 text-sm font-semibold capitalize text-slate-500">{{ formattedDate }}</p>
 
         <!-- Loading skeleton -->
         <div
@@ -168,90 +82,24 @@ const {
           <AppButton variant="outline" size="md" @click="load()">Réessayer</AppButton>
         </div>
 
-        <template v-else>
-          <!-- Normal mode: now/next for all channels -->
-          <TvScheduleNowNext
-            v-if="displayMode === 'normal'"
-            :schedules="schedules"
-            :reference-minutes="referenceMinutes"
-            :current-label="currentLabel"
-          />
+        <!-- Empty state -->
+        <TvScheduleEmptyState v-else-if="isEmpty" />
 
-          <!-- Grid mode: desktop EPG timeline -->
-          <template v-else>
-          <!-- Desktop EPG grid -->
-          <TvScheduleGrid
-            class="hidden lg:block"
-            :schedules="schedules"
-            :time-window="timeWindow"
-            :now="now"
-          />
+        <!-- Card view: now/next for all channels -->
+        <TvScheduleCardView
+          v-else-if="displayMode === 'card'"
+          :schedules="schedules"
+          :reference-minutes="referenceMinutes"
+          :current-label="currentLabel"
+        />
 
-          <!-- Mobile: card list -->
-          <div class="flex flex-col gap-4 lg:hidden">
-            <article
-              v-for="schedule in schedules"
-              :key="schedule.channel.id"
-              class="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)]"
-            >
-              <div class="mb-4 flex items-center gap-3">
-                <div class="flex shrink-0 flex-col items-center gap-1">
-                  <TvChannelLogo
-                    class="h-12 w-16 rounded-xl p-2"
-                    :src="schedule.logoUrl"
-                    :name="schedule.channel.displayName"
-                    :fallback-bg="schedule.channel.fallbackBg"
-                    :max-initials="3"
-                  />
-                  <span class="text-[10px] font-semibold text-slate-400">{{ schedule.channel.number }}</span>
-                </div>
-                <div>
-                  <h2 class="text-xl font-semibold tracking-[-0.03em] text-slate-950">
-                    {{ schedule.channel.displayName }}
-                  </h2>
-                </div>
-              </div>
-
-              <div v-if="schedule.programmes.length > 0" class="flex flex-col gap-2">
-                <div
-                  v-for="programme in schedule.programmes.slice(0, 5)"
-                  :key="programme.id"
-                  class="flex gap-3 rounded-2xl border p-3 transition"
-                  :class="[
-                    programme.isLive
-                      ? 'border-tvstats-primary/20 bg-tvstats-soft/30'
-                      : 'border-slate-100 bg-slate-50',
-                    programme.broadcastId != null ? 'cursor-pointer hover:shadow-sm' : '',
-                  ]"
-                  @click="goToBroadcast(programme)"
-                >
-                  <div class="w-14 shrink-0 text-right">
-                    <p class="text-xs font-semibold text-tvstats-primary">{{ programme.startTime }}</p>
-                    <p class="text-[10px] text-slate-400">{{ programme.durationMinutes }}min</p>
-                  </div>
-                  <div class="min-w-0">
-                    <div class="flex items-center gap-2">
-                      <p class="truncate text-sm font-semibold text-slate-900">{{ programme.title }}</p>
-                      <span
-                        v-if="programme.isLive"
-                        class="shrink-0 rounded-full bg-tvstats-primary px-1.5 py-0.5 text-[9px] font-semibold uppercase text-white"
-                      >
-                        LIVE
-                      </span>
-                    </div>
-                    <p v-if="programme.genres.length" class="mt-0.5 text-[11px] text-slate-500">
-                      {{ programme.genres.slice(0, 2).join(' · ') }}
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <p v-else class="text-sm text-slate-400">
-                Programme non disponible pour cette chaîne.
-              </p>
-            </article>
-          </div>
-          </template><!-- end grid mode -->
-        </template>
+        <!-- Grid view: EPG timeline (horizontal scroll on mobile) -->
+        <TvScheduleGrid
+          v-else
+          :schedules="schedules"
+          :time-window="timeWindow"
+          :now="now"
+        />
 
       </div>
     </section>

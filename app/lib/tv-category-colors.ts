@@ -79,3 +79,28 @@ export const BROADCAST_TYPE_LABELS: Record<string, { label: string; class: strin
   replay: { label: 'Replay', class: 'bg-blue-100 text-blue-700 border-blue-200' },
   exclusivite: { label: 'Exclusivité', class: 'bg-violet-100 text-violet-700 border-violet-200' },
 }
+
+// Plain-text mention indicator (no pill background) used on the schedule programme cards —
+// distinct from BROADCAST_TYPE_LABELS, which renders a filled badge elsewhere (broadcast detail pages).
+export const MENTION_TEXT_STYLE: Record<string, { label: string; textClass: string; dotClass: string; showDot: boolean }> = {
+  direct: { label: 'Direct', textClass: 'text-red-600', dotClass: 'bg-red-600', showDot: true },
+  inedit: { label: 'Inédit', textClass: 'text-emerald-700', dotClass: 'bg-emerald-700', showDot: true },
+  rediffusion: { label: 'Rediffusion', textClass: 'text-slate-500', dotClass: '', showDot: false },
+  replay: { label: 'Replay', textClass: 'text-slate-500', dotClass: '', showDot: false },
+  exclusivite: { label: 'Exclusivité', textClass: 'text-violet-600', dotClass: 'bg-violet-600', showDot: true },
+}
+
+// Hex accent per DB color name, used to tint the diagonal-stripe programme thumbnail placeholder.
+const CATEGORY_ACCENT_HEX: Record<string, string> = {
+  slate: '#64748b', blue: '#3b82f6', indigo: '#6366f1', violet: '#8b5cf6', purple: '#a855f7',
+  pink: '#ec4899', red: '#ef4444', orange: '#f97316', yellow: '#eab308', lime: '#84cc16',
+  green: '#22c55e', teal: '#14b8a6', cyan: '#06b6d4', sky: '#0ea5e9',
+}
+
+const CATEGORY_ACCENT_FALLBACK = '#94a3b8'
+
+export function categoryThumbnailGradient(label: string | null | undefined): string {
+  const colorName = label ? CATEGORY_COLOR_BY_LABEL[label] : undefined
+  const hex = (colorName && CATEGORY_ACCENT_HEX[colorName]) || CATEGORY_ACCENT_FALLBACK
+  return `repeating-linear-gradient(135deg, ${hex}29 0px, ${hex}29 8px, ${hex}0f 8px, ${hex}0f 16px)`
+}
