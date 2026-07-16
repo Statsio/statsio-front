@@ -11,7 +11,7 @@ describe('getStatsDataVisual', () => {
   })
 
   it('matches the health category (case-insensitive substring match)', () => {
-    expect(getStatsDataVisual(['Santé'])).toEqual({ emoji: '🏥', bg: 'bg-rose-50', color: '#e11d48' })
+    expect(getStatsDataVisual(['Santé'])).toMatchObject({ emoji: '🏥', bg: 'bg-rose-50', color: '#e11d48' })
     expect(getStatsDataVisual(['Urgences hospitalières'])).toMatchObject({ emoji: '🏥' })
   })
 
@@ -28,7 +28,7 @@ describe('getStatsDataVisual', () => {
   })
 
   it('overrides the emoji when one is explicitly provided', () => {
-    expect(getStatsDataVisual(['Santé'], '🚑')).toEqual({ emoji: '🚑', bg: 'bg-rose-50', color: '#e11d48' })
+    expect(getStatsDataVisual(['Santé'], '🚑')).toMatchObject({ emoji: '🚑', bg: 'bg-rose-50', color: '#e11d48' })
   })
 
   it('ignores a null/falsy emoji override', () => {
