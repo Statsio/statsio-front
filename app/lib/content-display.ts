@@ -26,8 +26,14 @@ export function getStatusMeta(status?: string | null, visibility?: string | null
   return { label: 'Publié', bg: 'rgba(16,185,129,0.14)', color: '#10b981', live: true }
 }
 
-export function publicContentPath(type: ContentType, slug: string): string {
-  if (type === 'survey') return `/sondages/${slug}`
-  if (type === 'article') return `/articles/${slug}`
-  return `/statsdata/${slug}`
+export function publicContentPath(type: ContentType, slug: string, basePath = ''): string {
+  if (type === 'survey') return `${basePath}/sondages/${slug}`
+  if (type === 'article') return `${basePath}/articles/${slug}`
+  return `${basePath}/statsdata/${slug}`
+}
+
+export function publicContentListPath(type: ContentType, basePath = ''): string {
+  if (type === 'survey') return `${basePath}/sondages`
+  if (type === 'article') return `${basePath}/articles`
+  return `${basePath}/statsdata`
 }

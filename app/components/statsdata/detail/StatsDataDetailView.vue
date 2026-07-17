@@ -2,6 +2,8 @@
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useStatsDataDetail } from '@/composables/useStatsDataDetail'
+import { publicContentListPath } from '@/lib/content-display'
+import { useContentBasePath } from '@/composables/useContentBasePath'
 import StatsDataBreadcrumb from './StatsDataBreadcrumb.vue'
 import StatsDataHeader from './StatsDataHeader.vue'
 import StatsDataCover from './StatsDataCover.vue'
@@ -27,6 +29,9 @@ usePageSeo({
 })
 
 const pageTitle = computed(() => resolveToken(doc.value?.title ?? ''))
+
+const basePath = useContentBasePath()
+const listPath = computed(() => publicContentListPath('statsdata', basePath.value))
 
 const propertiesPath = computed(() => (doc.value?.slug ? `/statsdata/${doc.value.slug}/proprietes` : null))
 const studioPath = computed(() => (doc.value ? `/studio/${doc.value.type ?? 'statsdata'}/${doc.value.slug ?? doc.value.id}` : null))
@@ -60,7 +65,7 @@ const isFollowing = ref(false)
         <!-- Error -->
         <div v-else-if="error" class="py-24 text-center text-slate-500">
           <p class="text-lg font-medium">{{ error }}</p>
-          <RouterLink to="/statsdata" class="mt-4 inline-block text-sm text-primary underline">← Retour au catalogue</RouterLink>
+          <RouterLink :to="listPath" class="mt-4 inline-block text-sm text-primary underline">← Retour au catalogue</RouterLink>
         </div>
 
         <template v-else-if="doc">

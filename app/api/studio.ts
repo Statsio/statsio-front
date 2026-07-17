@@ -202,6 +202,7 @@ export interface StatsDataDocument {
   description?: string | null
   slug?: string
   status?: string
+  views_count?: number
   visibility?: ContentVisibility
   thumbnail_url?: string | null
   published_as?: 'user' | 'channel' | null
@@ -242,13 +243,24 @@ export async function createStudioContent(payload: CreateStudioContentPayload): 
   return data.data
 }
 
-export async function fetchPublicStatsDataCatalog(): Promise<StatsDataDocument[]> {
-  const { data } = await apiHttp.get(STATSIO_API.studioContent.publicCollection, { params: { type: 'statsdata' } })
+export async function fetchPublicStatsDataCatalog(categories?: string[]): Promise<StatsDataDocument[]> {
+  const { data } = await apiHttp.get(STATSIO_API.studioContent.publicCollection, {
+    params: { type: 'statsdata', ...(categories?.length ? { categories } : {}) },
+  })
   return data.data ?? []
 }
 
-export async function fetchPublicSurveys(): Promise<StatsDataDocument[]> {
-  const { data } = await apiHttp.get(STATSIO_API.studioContent.publicCollection, { params: { type: 'survey' } })
+export async function fetchPublicSurveys(categories?: string[]): Promise<StatsDataDocument[]> {
+  const { data } = await apiHttp.get(STATSIO_API.studioContent.publicCollection, {
+    params: { type: 'survey', ...(categories?.length ? { categories } : {}) },
+  })
+  return data.data ?? []
+}
+
+export async function fetchPublicArticles(categories?: string[]): Promise<StatsDataDocument[]> {
+  const { data } = await apiHttp.get(STATSIO_API.studioContent.publicCollection, {
+    params: { type: 'article', ...(categories?.length ? { categories } : {}) },
+  })
   return data.data ?? []
 }
 

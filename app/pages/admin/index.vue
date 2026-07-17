@@ -7,9 +7,7 @@ const stats = ref({ users: '—', admins: '—', broadcasts: '—', programs: '�
 
 onMounted(async () => {
   try {
-    const [usersRes] = await Promise.all([
-      apiHttp.get<{ total: number }>('/admin/users?per_page=1'),
-    ])
+    const usersRes = await apiHttp.get<{ total: number }>('/admin/users?per_page=1')
     stats.value.users = String(usersRes.data.total ?? '—')
   } catch {
     // silent

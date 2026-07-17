@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useScrollAnim } from '@/composables/useScrollAnim'
 import AppSectionHeader from '@/components/ui/AppSectionHeader.vue'
 import ArticleTeaserCard from '@/components/articles/ArticleTeaserCard.vue'
-import { articleSummaries } from '@/data/articles'
+import { fetchPublicArticles } from '@/api/studio'
 
-const featuredArticles = computed(() => articleSummaries.slice(0, 3))
+const { data: featuredArticles } = await useAsyncData('home-articles', () => fetchPublicArticles(), {
+  default: () => [],
+  transform: (articles) => articles.slice(0, 3),
+})
 
 const sectionRef = ref<HTMLElement | null>(null)
 

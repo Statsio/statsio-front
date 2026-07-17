@@ -55,8 +55,7 @@ const FONT_OPTIONS = [
 
 // Read the font at the current cursor/selection from the editor marks
 const currentFontFamily = computed(() => {
-  editorVersion.value
-  return activeEditor.value?.getAttributes('textStyle').fontFamily ?? ''
+  return (editorVersion.value, activeEditor.value?.getAttributes('textStyle').fontFamily ?? '')
 })
 
 function setFontFamily(value: string) {
@@ -88,14 +87,14 @@ function onFontSizeInput(e: Event) {
 
 // ── Inline marks (track editorVersion to stay reactive to editor state) ───────
 
-const isBold      = computed(() => { editorVersion.value; return activeEditor.value?.isActive('bold')      ?? false })
-const isItalic    = computed(() => { editorVersion.value; return activeEditor.value?.isActive('italic')    ?? false })
-const isUnderline = computed(() => { editorVersion.value; return activeEditor.value?.isActive('underline') ?? false })
-const isStrike    = computed(() => { editorVersion.value; return activeEditor.value?.isActive('strike')    ?? false })
-const isUppercase = computed(() => { editorVersion.value; return activeEditor.value?.getAttributes('textStyle').textTransform === 'uppercase' })
-const isBulletList   = computed(() => { editorVersion.value; return activeEditor.value?.isActive('bulletList')   ?? false })
-const isOrderedList  = computed(() => { editorVersion.value; return activeEditor.value?.isActive('orderedList')  ?? false })
-const currentAlign   = computed(() => { editorVersion.value; return selectedBlock.value?.config.textAlign ?? 'left' })
+const isBold      = computed(() => (editorVersion.value, activeEditor.value?.isActive('bold')      ?? false))
+const isItalic    = computed(() => (editorVersion.value, activeEditor.value?.isActive('italic')    ?? false))
+const isUnderline = computed(() => (editorVersion.value, activeEditor.value?.isActive('underline') ?? false))
+const isStrike    = computed(() => (editorVersion.value, activeEditor.value?.isActive('strike')    ?? false))
+const isUppercase = computed(() => (editorVersion.value, activeEditor.value?.getAttributes('textStyle').textTransform === 'uppercase'))
+const isBulletList   = computed(() => (editorVersion.value, activeEditor.value?.isActive('bulletList')   ?? false))
+const isOrderedList  = computed(() => (editorVersion.value, activeEditor.value?.isActive('orderedList')  ?? false))
+const currentAlign   = computed(() => (editorVersion.value, selectedBlock.value?.config.textAlign ?? 'left'))
 
 function toggleBold()      { activeEditor.value?.chain().focus().toggleBold().run() }
 function toggleItalic()    { activeEditor.value?.chain().focus().toggleItalic().run() }
@@ -127,8 +126,7 @@ const TEXT_COLORS = [
 ]
 
 const currentColor = computed(() => {
-  editorVersion.value
-  return activeEditor.value?.getAttributes('textStyle').color ?? ''
+  return (editorVersion.value, activeEditor.value?.getAttributes('textStyle').color ?? '')
 })
 
 function setColor(color: string) {
@@ -145,8 +143,7 @@ const HIGHLIGHT_COLORS = [
 ]
 
 const currentHighlight = computed(() => {
-  editorVersion.value
-  return activeEditor.value?.getAttributes('highlight').color ?? ''
+  return (editorVersion.value, activeEditor.value?.getAttributes('highlight').color ?? '')
 })
 
 function setHighlight(color: string) {
