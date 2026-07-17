@@ -55,7 +55,7 @@ export function useBlockData(block: () => StudioBlock | null, readonly = false) 
       data.value = readonly && docSlug
         ? await fetchPublicBlockData(docSlug, b.datasetId, params)
         : await fetchBlockData(b.datasetId, params)
-    } catch (e) {
+    } catch {
       error.value = 'Impossible de charger les données.'
       data.value = null
     } finally {

@@ -17,9 +17,7 @@ const bannerBg = props.staticChannel?.fallbackBg ?? 'bg-slate-800'
 
 <template>
   <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-    <div class="relative h-24" :class="bannerBg">
-      <div class="absolute inset-0 bg-gradient-to-br from-transparent to-black/75" />
-    </div>
+    <div class="h-24" :class="bannerBg" />
 
     <div class="flex flex-wrap items-end gap-5 px-7 pb-6 -mt-8">
       <TvChannelLogo

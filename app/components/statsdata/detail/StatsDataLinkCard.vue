@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useContentBasePath } from '@/composables/useContentBasePath'
 
-defineProps<{
+const props = defineProps<{
   slug: string
 }>()
+
+const basePath = useContentBasePath()
 
 const isCopied = ref(false)
 function copyLink() {
@@ -22,7 +25,7 @@ function copyLink() {
   >
     <p class="mb-1.5 text-[11px] font-bold uppercase tracking-[0.04em] text-[#18181f]/45">Lien public</p>
     <p class="mono truncate text-xs text-[#18181f]/55">
-      {{ isCopied ? 'Copié !' : `/statsdata/${slug}` }}
+      {{ isCopied ? 'Copié !' : `${basePath}/statsdata/${props.slug}` }}
     </p>
   </button>
 </template>
