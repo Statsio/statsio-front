@@ -40,3 +40,6 @@ __screenshots__/
 
 # Vite
 *.timestamp-*-*.mjs
+
+# Local manual security-scan output (not CI artifacts)
+semgrep-*.txt
