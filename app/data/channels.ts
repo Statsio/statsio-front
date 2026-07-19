@@ -23,6 +23,8 @@ export type ChannelEntry = {
   createdAt?: string
   country?: string | null
   viewCount?: number
+  customColorPrimary?: string | null
+  customColorSecondary?: string | null
 }
 
 export const channels: ChannelEntry[] = [

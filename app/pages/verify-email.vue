@@ -5,17 +5,30 @@ definePageMeta({
   ssr: false,
   title: 'Vérification email',
   description: 'Confirmez votre adresse e-mail pour activer votre compte Statsio.',
+  robots: 'noindex,nofollow',
 })
-import AuthLayout from '@/components/login/AuthLayout.vue'
-import VerifyEmailCard from '@/components/login/VerifyEmailCard.vue'
+
+const verifySignals = [
+  {
+    label: 'Activation rapide',
+    value: '6 chiffres',
+    detail: 'Saisissez le code reçu par e-mail pour activer votre compte en quelques secondes.',
+  },
+  {
+    label: 'Accès protégés',
+    value: 'Sécurisé',
+    detail: 'La vérification protège votre compte contre les usages frauduleux.',
+  },
+]
 </script>
 
 <template>
-  <AuthLayout
+  <AuthShell
+    :signals="verifySignals"
     badge-label="Vérification"
     title="Confirmez votre identité."
     description="Un code à 6 chiffres a été envoyé à votre adresse e-mail. Saisissez-le ci-dessous pour activer votre compte."
   >
-    <VerifyEmailCard />
-  </AuthLayout>
+    <VerifyEmailFormCard />
+  </AuthShell>
 </template>

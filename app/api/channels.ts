@@ -42,6 +42,7 @@ export type ChannelProfile = {
   custom_color_primary: string | null
   custom_color_secondary: string | null
   age_restriction: number
+  is_following: boolean
   created_at: string
   updated_at: string
 }
@@ -178,6 +179,18 @@ export async function getPublicChannels(params: ChannelsListParams = {}): Promis
 
 export async function getChannel(id: number): Promise<Channel> {
   const response = await apiHttp.get<{ success: boolean; data: Channel }>(`/channels/${id}`)
+  return response.data.data
+}
+
+export type ToggleSubscriptionResponse = {
+  isFollowing: boolean
+  followersCount: number
+}
+
+export async function toggleChannelSubscription(id: number): Promise<ToggleSubscriptionResponse> {
+  const response = await apiHttp.post<{ success: boolean; data: ToggleSubscriptionResponse }>(
+    `/channels/${id}/follow`,
+  )
   return response.data.data
 }
 

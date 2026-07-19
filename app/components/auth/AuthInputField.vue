@@ -36,12 +36,12 @@ const inputType = computed(() => (isPassword.value && showPassword.value ? 'text
         :placeholder="placeholder"
         :autocomplete="autocomplete"
         :disabled="disabled"
-        class="w-full rounded-2xl border px-4 py-3.5 text-sm text-slate-950 outline-none transition duration-150 placeholder:text-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
+        class="w-full rounded-[10px] border-[1.5px] bg-white px-3.5 py-3 text-[14.5px] text-slate-950 outline-none transition duration-150 placeholder:text-slate-950/35 disabled:cursor-not-allowed disabled:opacity-50"
         :class="[
           isPassword ? 'pr-11' : '',
           error
             ? 'border-rose-300 bg-rose-50/60 focus:border-rose-400 focus:ring-4 focus:ring-rose-100'
-            : 'border-slate-200 bg-slate-50 hover:border-slate-300 focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10',
+            : 'border-slate-900/[0.12] hover:border-slate-900/20 focus:border-[var(--color-primary)] focus:ring-4 focus:ring-[var(--color-primary)]/10',
         ]"
       />
 
