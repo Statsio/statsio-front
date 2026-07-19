@@ -13,6 +13,7 @@ import {
   faFont,
   faBold,
 } from '@fortawesome/free-solid-svg-icons'
+import { faXTwitter } from '@fortawesome/free-brands-svg-icons'
 import type { NuxtApp } from '#app'
 
 export default defineNuxtPlugin((nuxtApp: NuxtApp) => {
@@ -28,6 +29,7 @@ export default defineNuxtPlugin((nuxtApp: NuxtApp) => {
     faPalette,
     faFont,
     faBold,
+    faXTwitter,
   )
   nuxtApp.vueApp.component('FontAwesomeIcon', FontAwesomeIcon)
 })

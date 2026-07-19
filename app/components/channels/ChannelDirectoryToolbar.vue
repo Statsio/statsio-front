@@ -28,65 +28,48 @@ const sortOptions: AppSelectOption<ChannelSort>[] = [
 const categoryFilters = computed(() => [{ slug: '' as const, label: 'Toutes' }, ...props.categories])
 
 const resultLabel = computed(() => (props.total > 1 ? 'chaînes' : 'chaîne'))
+const activeAdjective = computed(() => (props.total > 1 ? 'actives' : 'active'))
+const subtitle = computed(() =>
+  props.loading
+    ? 'Sources officielles, experts indépendants et collectifs thématiques.'
+    : `${props.total} ${resultLabel.value} ${activeAdjective.value}, chacune avec sa propre identité visuelle.`,
+)
 </script>
 
 <template>
-  <div class="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)] sm:p-6">
-    <div class="mb-5 flex flex-col gap-3">
-      <p class="eyebrow text-primary">Chaînes & abonnements</p>
-      <div class="max-w-3xl">
-        <h1 class="text-3xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-4xl">
-          Recherchez et suivez les chaînes qui font l’actualité data.
-        </h1>
-        <p class="mt-2 text-sm leading-6 text-slate-500 sm:text-base">
-          Sources officielles, experts indépendants et collectifs thématiques : filtrez par catégorie, triez par
-          popularité et trouvez la chaîne à suivre.
-        </p>
-      </div>
-    </div>
+  <div>
+    <h1 class="text-[32px] font-bold tracking-[-0.02em] text-[#18181f]">Chaînes éditoriales</h1>
+    <p class="mb-6 mt-2 max-w-2xl text-[15px] leading-6 text-[#18181f]/60">{{ subtitle }}</p>
 
-    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
-      <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
-        <label class="flex flex-col gap-2">
-          <span class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Recherche</span>
-          <input
-            v-model="search"
-            type="search"
-            placeholder="Chercher une chaîne, un handle ou une description"
-            class="min-h-12 rounded-[1.25rem] border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary/40 focus:bg-white focus:ring-4 focus:ring-primary/10"
-          />
-        </label>
-
-        <label class="flex flex-col gap-2">
-          <span class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Tri</span>
-          <AppSelect v-model="sort" :options="sortOptions" aria-label="Tri" />
-        </label>
-      </div>
-
-      <div class="flex items-center justify-between gap-4 xl:justify-end">
-        <p class="text-sm text-slate-500">
-          <span v-if="loading">Chargement…</span>
-          <span v-else>{{ total }} {{ resultLabel }}</span>
-        </p>
-        <AppButton variant="secondary" size="md" @click="emit('reset')">Réinitialiser</AppButton>
-      </div>
-    </div>
-
-    <div class="mt-5 flex flex-wrap gap-2">
+    <div class="mb-7 flex flex-wrap items-center gap-2">
       <button
         v-for="filter in categoryFilters"
         :key="filter.slug"
         type="button"
-        class="rounded-full border px-4 py-2 text-sm font-semibold transition"
-        :class="
-          category === filter.slug
-            ? 'border-primary bg-primary text-white'
-            : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
-        "
+        class="rounded-full px-4 py-[9px] text-[13px] font-semibold transition"
+        :class="category === filter.slug ? 'bg-[#18181f] text-white' : 'bg-[#f7f6fb] text-[#333] hover:bg-[#18181f]/10'"
         @click="category = filter.slug as ChannelCategory | ''"
       >
         {{ filter.label }}
       </button>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-3 border-t border-[#18181f]/[0.08] pt-5">
+      <input
+        v-model="search"
+        type="search"
+        placeholder="Chercher une chaîne, un handle ou une description"
+        class="min-h-11 min-w-[240px] flex-1 rounded-xl border border-[#18181f]/10 bg-white px-4 text-sm text-[#18181f] outline-none transition placeholder:text-[#18181f]/40 focus:border-primary/40 focus:ring-4 focus:ring-primary/10"
+      />
+
+      <AppSelect v-model="sort" :options="sortOptions" size="sm" aria-label="Tri" button-class="min-h-11" />
+
+      <p class="text-sm text-[#18181f]/50">
+        <span v-if="loading">Chargement…</span>
+        <span v-else>{{ total }} {{ resultLabel }}</span>
+      </p>
+
+      <AppButton variant="secondary" size="md" class="ml-auto" @click="emit('reset')">Réinitialiser</AppButton>
     </div>
   </div>
 </template>

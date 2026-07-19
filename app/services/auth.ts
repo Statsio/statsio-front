@@ -6,11 +6,13 @@ import type {
   ApiRegisterPendingResponse,
   AuthSession,
   AuthUserPayload,
+  ForgotPasswordPayload,
   GoogleAuthPayload,
   LoginPayload,
   RegisterPayload,
   RegisterPendingData,
   ResendVerificationPayload,
+  ResetPasswordPayload,
   VerifyEmailPayload,
 } from '@/types/auth'
 
@@ -42,6 +44,14 @@ export const verifyEmailRequest = async (payload: VerifyEmailPayload): Promise<A
 
 export const resendVerificationRequest = async (payload: ResendVerificationPayload): Promise<void> => {
   await http.post('/verify-email/resend', payload)
+}
+
+export const forgotPasswordRequest = async (payload: ForgotPasswordPayload): Promise<void> => {
+  await http.post('/forgot-password', payload)
+}
+
+export const resetPasswordRequest = async (payload: ResetPasswordPayload): Promise<void> => {
+  await http.post('/reset-password', payload)
 }
 
 export const googleAuthRequest = async (payload: GoogleAuthPayload) => {

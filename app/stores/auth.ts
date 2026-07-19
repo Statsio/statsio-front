@@ -3,12 +3,14 @@ import { defineStore } from 'pinia'
 import { clearStoredToken, getStoredToken, storeSession, storeUser } from '@/lib/auth-storage'
 import { isUnauthorizedError } from '@/lib/http-errors'
 import {
+  forgotPasswordRequest,
   googleAuthRequest,
   loginRequest,
   logoutRequest,
   meRequest,
   registerRequest,
   resendVerificationRequest,
+  resetPasswordRequest,
   verifyEmailRequest,
 } from '@/services/auth'
 import type {
@@ -17,6 +19,7 @@ import type {
   LoginPayload,
   PersistMode,
   RegisterPayload,
+  ResetPasswordPayload,
   VerifyEmailPayload,
 } from '@/types/auth'
 
@@ -148,6 +151,14 @@ export const useAuthStore = defineStore('auth', () => {
     await resendVerificationRequest({ email })
   }
 
+  const forgotPassword = async (email: string) => {
+    await forgotPasswordRequest({ email })
+  }
+
+  const resetPassword = async (payload: ResetPasswordPayload) => {
+    await resetPasswordRequest(payload)
+  }
+
   const authenticateWithGoogle = async (idToken: string, mode: PersistMode = DEFAULT_PERSIST_MODE) => {
     isAuthenticating.value = true
 
@@ -218,6 +229,8 @@ export const useAuthStore = defineStore('auth', () => {
     register,
     verifyEmail,
     resendVerification,
+    forgotPassword,
+    resetPassword,
     authenticateWithGoogle,
     refreshUser,
     logout,

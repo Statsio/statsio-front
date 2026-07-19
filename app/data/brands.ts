@@ -36,6 +36,8 @@ export type BrandConfig = {
   contentBasePath: string
   /** Catégories de contenu affichées pour cette marque. `undefined` = pas de filtre (statsio). */
   contentCategories?: string[]
+  /** URL du compte X (Twitter) de la marque. `#` = pas encore de compte dédié. */
+  xUrl: string
 }
 
 const brandConfigs: Record<BrandId, BrandConfig> = {
@@ -77,6 +79,7 @@ const brandConfigs: Record<BrandId, BrandConfig> = {
       { label: 'Chaînes', href: '/chaines' },
     ],
     contentBasePath: '',
+    xUrl: 'https://x.com/StatsIO_france',
   },
   tvstats: {
     id: 'tvstats',
@@ -119,6 +122,7 @@ const brandConfigs: Record<BrandId, BrandConfig> = {
     ],
     contentBasePath: '/tvstats',
     contentCategories: ['tv', 'people'],
+    xUrl: 'https://x.com/tvstats_statsio',
   },
   medistats: {
     id: 'medistats',
@@ -162,6 +166,7 @@ const brandConfigs: Record<BrandId, BrandConfig> = {
     ],
     contentBasePath: '/medistats',
     contentCategories: ['sante'],
+    xUrl: '#',
   },
 }
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, useAttrs } from 'vue'
+import { computed, useAttrs, useId } from 'vue'
 
 defineOptions({
   inheritAttrs: false,
@@ -32,7 +32,7 @@ const handleChange = (event: Event) => {
   emit('update:modelValue', target.checked)
 }
 
-const checkboxId = `checkbox-${Math.random().toString(16).slice(2)}`
+const checkboxId = `checkbox-${useId()}`
 </script>
 
 <template>

@@ -17,9 +17,16 @@ const isLoadingGeneriques = ref(false)
 
 const cis = computed(() => Number(route.params.cis))
 
-useHead(() => ({
-  title: medicament.value ? `${medicament.value.elementPharmaceutique} — MédiStats` : 'Médicament — MédiStats',
-}))
+usePageSeo({
+  title: computed(() =>
+    medicament.value ? `${medicament.value.elementPharmaceutique} — MédiStats` : 'Médicament — MédiStats',
+  ),
+  description: computed(() =>
+    medicament.value
+      ? `Fiche médicament ${medicament.value.elementPharmaceutique} (${medicament.value.formePharmaceutique}) : composition, présentations et conditions de prescription.`
+      : undefined,
+  ),
+})
 
 async function loadGeneriques(m: Medicament) {
   const dci = m.composition[0]?.denominationSubstance
