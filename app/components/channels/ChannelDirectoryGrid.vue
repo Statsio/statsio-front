@@ -17,11 +17,11 @@ const emit = defineEmits<{
 
 <template>
   <div>
-    <div v-if="loading" class="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+    <div v-if="loading" class="grid gap-[22px] md:grid-cols-2 xl:grid-cols-3">
       <div
         v-for="n in 6"
         :key="n"
-        class="h-[22rem] animate-pulse rounded-[2rem] border border-slate-200 bg-slate-100"
+        class="h-[13rem] animate-pulse rounded-2xl border border-slate-200 bg-slate-100"
       />
     </div>
 
@@ -44,7 +44,7 @@ const emit = defineEmits<{
       <AppButton variant="secondary" size="md" @click="emit('reset')">Réinitialiser les filtres</AppButton>
     </div>
 
-    <div v-else class="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+    <div v-else class="grid gap-[22px] md:grid-cols-2 xl:grid-cols-3">
       <ChannelDirectoryCard v-for="channel in channels" :key="channel.id" :channel="channel" />
     </div>
   </div>

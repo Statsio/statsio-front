@@ -88,6 +88,8 @@ function mapApiChannelToEntry(apiChannel: ApiChannel): ChannelEntry {
     createdAt: apiChannel.created_at,
     country: profile?.country || null,
     viewCount: profile?.view_count || 0,
+    customColorPrimary: profile?.custom_color_primary || null,
+    customColorSecondary: profile?.custom_color_secondary || null,
   }
 }
 

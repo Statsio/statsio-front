@@ -1,7 +1,5 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'studio', middleware: ['guest'], ssr: false, title: 'Connexion', robots: 'noindex,nofollow' })
-import AuthLayout from '@/components/login/AuthLayout.vue'
-import LoginFormCard from '@/components/login/LoginFormCard.vue'
 
 const trustSignals = [
   {
@@ -20,11 +18,10 @@ const trustSignals = [
     detail: 'Un même compte pour retrouver vos contenus, suivis et services associés.',
   },
 ]
-
 </script>
 
 <template>
-  <AuthLayout :signals="trustSignals">
+  <AuthShell :signals="trustSignals">
     <LoginFormCard />
-  </AuthLayout>
+  </AuthShell>
 </template>

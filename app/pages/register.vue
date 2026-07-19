@@ -1,7 +1,5 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'studio', middleware: ['guest'], ssr: false, title: 'Inscription', robots: 'noindex,nofollow' })
-import AuthLayout from '@/components/login/AuthLayout.vue'
-import RegisterFormCard from '@/components/login/RegisterFormCard.vue'
 
 const registerSignals = [
   {
@@ -23,7 +21,7 @@ const registerSignals = [
 </script>
 
 <template>
-  <AuthLayout
+  <AuthShell
     :signals="registerSignals"
     badge-label="Nouvel espace"
     title="Créez votre accès Statsio."
@@ -31,5 +29,5 @@ const registerSignals = [
     form-width-class="480px"
   >
     <RegisterFormCard />
-  </AuthLayout>
+  </AuthShell>
 </template>

@@ -12,6 +12,7 @@ type ButtonVariant =
   | 'ghost'
   | 'light'
   | 'light-outline'
+  | 'gradient'
 
 type ButtonSize = 'sm' | 'md' | 'lg'
 type ButtonTag = 'button' | 'a' | 'router-link'
@@ -52,6 +53,8 @@ const variantClasses: Record<ButtonVariant, string> = {
     'bg-white text-slate-900 shadow-[0_12px_20px_rgba(15,23,42,0.18)] hover:bg-slate-100 focus-visible:outline-white',
   'light-outline':
     'border border-white/30 bg-transparent text-white hover:bg-white/10 focus-visible:outline-white',
+  gradient:
+    '!rounded-[10px] bg-[linear-gradient(135deg,var(--color-primary),var(--color-accent))] text-white shadow-[0_12px_20px_color-mix(in_srgb,var(--color-primary)_24%,transparent)] hover:brightness-105 focus-visible:outline-[var(--color-primary)]',
 }
 
 const sizeClasses: Record<ButtonSize, string> = {

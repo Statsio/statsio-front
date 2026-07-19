@@ -3,6 +3,7 @@ import type { MaybeRefOrGetter } from 'vue'
 const SITE_NAME = 'Statsio'
 const DEFAULT_DESCRIPTION =
   'Statsio centralise les analyses, les sources et les signaux en temps réel pour créer des articles, des StatsData et des sondages à fort impact.'
+const DEFAULT_OG_IMAGE_PATH = '/brand/blank.png'
 
 export interface PageSeoOptions {
   title?: MaybeRefOrGetter<string | undefined>
@@ -28,7 +29,9 @@ export function usePageSeo(options: PageSeoOptions = {}) {
   )
 
   const image = computed(() =>
-    toValue(options.image) ?? (route.meta.ogImage as string | undefined),
+    toValue(options.image) ??
+    (route.meta.ogImage as string | undefined) ??
+    `${requestUrl.origin}${DEFAULT_OG_IMAGE_PATH}`,
   )
 
   const type = computed(() =>

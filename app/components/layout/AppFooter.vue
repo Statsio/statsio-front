@@ -33,7 +33,7 @@ const accountNav = computed(() => {
 const aboutNav = [
   { label: 'Présentation Statsio', href: '/about' },
   { label: "Centre d'aide", href: '#' },
-  { label: 'Contact', href: '#' },
+  { label: 'Contact', href: '/contact' },
 ]
 </script>
 
