@@ -27,7 +27,7 @@ defineProps<{
           </div>
           <div class="flex-1 min-w-0">
             <p class="font-semibold text-slate-800">{{ fmtScheduleDate(b.startAt) }}</p>
-            <p class="text-xs text-slate-500">{{ b.startTime }}–{{ b.endTime }}</p>
+            <p class="font-mono text-xs text-slate-500">{{ b.startTime }}–{{ b.endTime }}</p>
           </div>
           <span
             v-if="b.broadcastType"
@@ -56,7 +56,7 @@ defineProps<{
           </div>
           <div class="flex-1 min-w-0">
             <p class="font-semibold text-slate-700">{{ fmtScheduleDate(b.startAt) }}</p>
-            <p class="text-xs text-slate-500">{{ b.startTime }}–{{ b.endTime }}</p>
+            <p class="font-mono text-xs text-slate-500">{{ b.startTime }}–{{ b.endTime }}</p>
           </div>
           <span v-if="b.viewers > 0" class="shrink-0 text-xs text-slate-400">
             {{ b.viewers.toLocaleString('fr-FR') }} vues

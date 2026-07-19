@@ -1,7 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'studio', ssr: false, title: 'Mot de passe oublié', robots: 'noindex,nofollow' })
-import AuthLayout from '@/components/login/AuthLayout.vue'
-import ForgotPasswordFormCard from '@/components/login/ForgotPasswordFormCard.vue'
+definePageMeta({ layout: 'studio', middleware: ['guest'], ssr: false, title: 'Mot de passe oublié', robots: 'noindex,nofollow' })
 
 const recoverySignals = [
   {
@@ -23,12 +21,12 @@ const recoverySignals = [
 </script>
 
 <template>
-  <AuthLayout
+  <AuthShell
     :signals="recoverySignals"
     badge-label="Récupération sécurisée"
     title="Récupérez l'accès à votre compte."
     description="Réinitialisez votre mot de passe simplement et reprenez l'accès à vos contenus, abonnements et services."
   >
     <ForgotPasswordFormCard />
-  </AuthLayout>
+  </AuthShell>
 </template>

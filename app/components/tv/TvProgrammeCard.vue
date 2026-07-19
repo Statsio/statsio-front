@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { categoryBadgeClass, BROADCAST_TYPE_LABELS } from '@/lib/tv-category-colors'
+import { categoryBadgeClass, categoryThumbnailGradient, MENTION_BADGE_CLASS } from '@/lib/tv-category-colors'
 import type { TvProgramme } from '@/types/tv-schedule'
 
 const props = defineProps<{
@@ -13,7 +13,9 @@ const props = defineProps<{
 const router = useRouter()
 
 const categoryLabel = computed(() => props.programme.genres[0] ?? props.programme.type)
-const mention = computed(() => (props.programme.mention ? BROADCAST_TYPE_LABELS[props.programme.mention] : null))
+const mention = computed(() => (props.programme.mention ? MENTION_BADGE_CLASS[props.programme.mention] : null))
+const thumbnailGradient = computed(() => categoryThumbnailGradient(categoryLabel.value))
+const isAired = computed(() => props.programme.score?.type === 'viewers')
 
 const scoreLabel = computed(() => {
   const score = props.programme.score
@@ -32,12 +34,12 @@ function goToDetail() {
 
 <template>
   <div
-    class="flex flex-1 min-w-0 gap-3.5 rounded-2xl border border-slate-100 bg-slate-50 p-3 transition"
-    :class="programme.broadcastId != null ? 'cursor-pointer hover:bg-slate-100' : ''"
+    class="flex flex-1 min-w-0 gap-3.5 py-0.5"
+    :class="programme.broadcastId != null ? 'cursor-pointer' : ''"
     @click="goToDetail"
   >
     <!-- Thumbnail placeholder -->
-    <div class="relative h-[66px] w-[88px] shrink-0 overflow-hidden rounded-xl bg-slate-200/70">
+    <div class="relative h-[66px] w-[88px] shrink-0 overflow-hidden rounded-xl" :style="{ backgroundImage: thumbnailGradient }">
       <span class="absolute inset-0 flex items-center justify-center px-1 text-center font-mono text-[8px] font-bold uppercase text-slate-400">
         Image programme
       </span>
@@ -66,12 +68,12 @@ function goToDetail() {
       </div>
 
       <div class="mt-0.5 flex items-center justify-between gap-2">
-        <div v-if="programme.rating != null" class="flex gap-0.5">
+        <div v-if="isAired" class="flex gap-0.5">
           <span
             v-for="i in 5"
             :key="i"
             class="text-xs"
-            :class="i <= Math.round(programme.rating) ? 'text-tvstats-primary' : 'text-slate-200'"
+            :class="programme.rating != null && i <= Math.round(programme.rating) ? 'text-tvstats-primary' : 'text-slate-200'"
           >★</span>
         </div>
         <div v-if="scoreLabel" class="ml-auto flex items-center gap-1.5">

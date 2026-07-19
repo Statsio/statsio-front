@@ -1,4 +1,4 @@
-import { watch, ref } from 'vue'
+import { watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { saveStatsDataDocument } from '@/api/studio'
 
@@ -7,11 +7,6 @@ const DEBOUNCE_MS = 1500
 export function useStudioAutosave() {
   const studio = useStudioStore()
   let debounceTimer: ReturnType<typeof setTimeout> | null = null
-
-  // Tracks the "version" of dirty data — increments on every markDirty call.
-  // After a successful save we record which version we saved; if the version
-  // has advanced since, new changes arrived during the save and we reschedule.
-  const savedVersion = ref(0)
 
   function scheduleAutosave() {
     const id = studio.content?.id

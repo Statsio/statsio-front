@@ -227,7 +227,6 @@ export const useStudioStore = defineStore('studio', () => {
     snapshot()
     // Keep locked sections in their original relative positions, only reorder non-locked ones
     const originalLocked = sections.value.filter(s => s.locked)
-    const originalNonLocked = sections.value.filter(s => !s.locked)
     const newNonLocked = newOrder.filter(s => !s.locked)
     
     // Create a map of locked section IDs to their original indices
@@ -261,7 +260,6 @@ export const useStudioStore = defineStore('studio', () => {
     const currentPageOriginal = sections.value.filter((s: Section) => (s.pageId ?? 'default') === currentPageId.value)
     
     // Keep locked sections in their original positions for current page
-    const currentLocked = currentPageOriginal.filter(s => s.locked)
     const currentNonLocked = newPageOrder.filter(s => !s.locked)
     const mergedCurrentPage: Section[] = []
     let nonLockedIdx = 0

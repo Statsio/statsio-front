@@ -2,11 +2,16 @@
 import { computed } from 'vue'
 import type { StatsDataDocument } from '@/api/studio'
 import { isFormBlock } from '@/types/studio'
+import { publicContentPath } from '@/lib/content-display'
+import { useContentBasePath } from '@/composables/useContentBasePath'
 import AppButton from '@/components/ui/AppButton.vue'
 
 const props = defineProps<{
   poll: StatsDataDocument
 }>()
+
+const basePath = useContentBasePath()
+const detailPath = computed(() => publicContentPath('survey', props.poll.slug ?? '', basePath.value))
 
 const questionCount = computed(
   () => (props.poll.blocks ?? []).filter((block) => isFormBlock(block.type)).length,
@@ -62,7 +67,7 @@ function formatDate(iso?: string) {
         <p class="mt-2 text-sm leading-6 text-slate-600">{{ formatDate(poll.updated_at) }}</p>
       </div>
 
-      <AppButton as="router-link" :to="`/sondages/${poll.slug}`" variant="primary" size="md" full-width>
+      <AppButton as="router-link" :to="detailPath" variant="primary" size="md" full-width>
         Voir et répondre
       </AppButton>
     </div>

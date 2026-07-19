@@ -14,9 +14,16 @@ const isLoading = ref(true)
 
 const id = computed(() => String(route.params.id))
 
-useHead(() => ({
-  title: maladie.value ? `${maladie.value.name} — MédiStats` : 'Maladie — MédiStats',
-}))
+usePageSeo({
+  title: computed(() => (maladie.value ? `${maladie.value.name} — MédiStats` : 'Maladie — MédiStats')),
+  description: computed(
+    () =>
+      maladie.value?.definition ??
+      (maladie.value
+        ? `Statistiques et données sur ${maladie.value.name} : prévalence, tendances et pays les plus touchés.`
+        : undefined),
+  ),
+})
 
 async function load() {
   isLoading.value = true

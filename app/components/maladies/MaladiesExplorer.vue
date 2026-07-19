@@ -3,6 +3,7 @@ import { useMaladies } from '@/composables/useMaladies'
 import MaladiesCard from '@/components/maladies/MaladiesCard.vue'
 import MaladiesRankedList from '@/components/maladies/MaladiesRankedList.vue'
 import AppSectionTabs from '@/components/ui/AppSectionTabs.vue'
+import { getMedistatsTabs } from '@/data/medistats-nav-tabs'
 
 const {
   query,
@@ -34,12 +35,7 @@ const evolutionClass = (m: { evolutionPercent: number | null }) =>
       Sources : ICD-API (icd.who.int) — classification · GHO OData API (who.int/data/gho) — statistiques
     </p>
 
-    <AppSectionTabs
-      :tabs="[
-        { label: 'Vue Maladies', to: '/medistats/maladies', active: true },
-        { label: 'Vue Pays', to: '/medistats/pays', active: false },
-      ]"
-    />
+    <AppSectionTabs :tabs="getMedistatsTabs('maladies')" />
 
     <div class="relative mb-9">
       <div class="flex items-center gap-3 rounded-2xl border border-[var(--color-primary)]/20 bg-white px-5 py-4 shadow-[0_1px_3px_rgba(20,20,30,0.05)]">

@@ -101,7 +101,8 @@ watch(() => props.groups, (groups) => {
 
 function toggleGroupOpen(label: string) {
   const s = new Set(groupOpenState.value)
-  s.has(label) ? s.delete(label) : s.add(label)
+  if (s.has(label)) s.delete(label)
+  else s.add(label)
   groupOpenState.value = s
 }
 
@@ -198,7 +199,8 @@ function toggleValue(value: Primitive) {
   if (props.multiple) {
     const current = Array.isArray(props.modelValue) ? [...props.modelValue] : []
     const idx = current.indexOf(value)
-    idx >= 0 ? current.splice(idx, 1) : current.push(value)
+    if (idx >= 0) current.splice(idx, 1)
+    else current.push(value)
     emit('update:modelValue', current)
     emit('change', current)
   } else {

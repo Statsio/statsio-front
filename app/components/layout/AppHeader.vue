@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, ref, watch, type Component } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import AppAccessibilityPanel from '@/components/layout/AppAccessibilityPanel.vue'
+import AppHeaderMegaMenu from '@/components/layout/AppHeaderMegaMenu.vue'
 import type { HeaderNavItem } from '@/components/layout/brands/header-nav.types'
 import StatsioAppHeaderNav from '@/components/layout/brands/statsio/AppHeaderNav.vue'
 import TvstatsAppHeaderNav from '@/components/layout/brands/tvstats/AppHeaderNav.vue'
@@ -326,7 +327,7 @@ onBeforeUnmount(() => {
         :is="item.href.startsWith('/') ? RouterLink : 'a'"
         :to="item.href.startsWith('/') ? item.href : undefined"
         :href="item.href.startsWith('/') ? undefined : item.href"
-        class="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-primary/30 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+        class="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-primary/30 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 [&.router-link-active]:border-primary/40 [&.router-link-active]:text-primary [&.router-link-active]:underline [&.router-link-active]:underline-offset-4"
       >
         <AppNavIcon :kind="item.icon" class="h-[16px] w-[16px]" />
         {{ item.label }}
@@ -342,48 +343,7 @@ onBeforeUnmount(() => {
     <div v-if="activeMenu"
       class="absolute left-0 top-full z-30 w-full border-y border-slate-200 bg-white/95 shadow-[0_24px_70px_-40px_rgba(15,23,42,0.45)] backdrop-blur"
       @mouseenter="activeMenu = activeMenu">
-      <div class="container grid grid-cols-[minmax(0,1.35fr)_minmax(260px,0.75fr)] gap-12 py-10">
-        <div class="space-y-5">
-          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
-            {{ activeMenu.eyebrow }}
-          </p>
-          <div class="max-w-2xl space-y-3">
-            <h3 class="text-3xl font-semibold leading-tight text-slate-950">
-              {{ activeMenu.title }}
-            </h3>
-            <p class="text-base leading-7 font-medium text-slate-500">
-              {{ activeMenu.description }}
-            </p>
-          </div>
-
-          <div class="grid max-w-3xl grid-cols-2 gap-4">
-            <a v-for="link in activeMenu.links" :key="link" href="#"
-              class="rounded-3xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm font-semibold text-slate-700 transition hover:border-primary/30 hover:bg-white hover:text-slate-950">
-              {{ link }}
-            </a>
-          </div>
-        </div>
-
-        <aside class="rounded-[2rem] border border-slate-200 bg-slate-950 p-6 text-white">
-          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-300">
-            {{ activeMenu.featured.title }}
-          </p>
-          <p class="mt-4 text-4xl font-semibold">{{ activeMenu.featured.value }}</p>
-          <p class="mt-3 max-w-xs text-sm leading-6 text-slate-300">
-            {{ activeMenu.featured.detail }}
-          </p>
-
-          <div class="mt-8 rounded-3xl bg-white/10 p-4">
-            <div class="flex items-end gap-2">
-              <div class="h-10 w-3 rounded-full bg-accent"></div>
-              <div class="h-16 w-3 rounded-full bg-primary"></div>
-              <div class="h-24 w-3 rounded-full bg-white"></div>
-              <div class="h-12 w-3 rounded-full bg-primary/70"></div>
-            </div>
-            <p class="mt-4 text-xs uppercase tracking-[0.22em] text-slate-400">Vue synthétique</p>
-          </div>
-        </aside>
-      </div>
+      <AppHeaderMegaMenu :item="activeMenu" />
     </div>
   </header>
 
@@ -442,7 +402,7 @@ onBeforeUnmount(() => {
                 <AppNavIcon :kind="item.icon" class="h-[20px] w-[20px]" />
               </span>
               <span class="min-w-0">
-                <span class="block text-sm font-semibold text-slate-900 transition group-hover:text-primary">{{ item.label }}</span>
+                <span class="block text-sm font-semibold text-slate-900 transition group-hover:text-primary [.router-link-active_&]:text-primary [.router-link-active_&]:underline [.router-link-active_&]:underline-offset-4">{{ item.label }}</span>
                 <span class="block text-xs font-medium uppercase tracking-[0.16em] text-slate-400">{{ item.eyebrow }}</span>
               </span>
             </component>

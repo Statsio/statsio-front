@@ -8,6 +8,7 @@ const props = defineProps<{
   timeWindow: TimeWindow
   pxPerMin: number
   rowHeight: number
+  now: Date
 }>()
 
 const visibleProgrammes = computed(() =>
@@ -20,29 +21,47 @@ const visibleProgrammes = computed(() =>
 const totalWidth = computed(
   () => (props.timeWindow.endMinutes - props.timeWindow.startMinutes) * props.pxPerMin,
 )
+
+const nowMinutes = computed(() => props.now.getHours() * 60 + props.now.getMinutes())
+
+const nowLineLeft = computed(() => {
+  const { startMinutes, endMinutes } = props.timeWindow
+  if (nowMinutes.value < startMinutes || nowMinutes.value > endMinutes) return null
+  return (nowMinutes.value - startMinutes) * props.pxPerMin
+})
 </script>
 
 <template>
-  <div class="flex border-b border-slate-100">
-    <!-- Channel logo column (sticky left) -->
+  <div class="flex items-center gap-2.5 border-b border-slate-100 px-0 py-1.5">
+    <!-- Channel identity column (sticky left) -->
     <div
-      class="sticky left-0 z-10 flex w-20 shrink-0 items-center justify-center border-r border-slate-100 bg-white"
+      class="sticky left-0 z-10 flex w-24 shrink-0 items-center gap-1.5 bg-white pr-2"
       :style="{ height: rowHeight + 'px' }"
     >
-      <div class="flex flex-col items-center gap-1">
-        <TvChannelLogo
-          class="h-11 w-15 rounded-xl p-1.5"
-          :src="schedule.logoUrl"
-          :name="schedule.channel.displayName"
-          :fallback-bg="schedule.channel.fallbackBg"
-          :max-initials="3"
-        />
-        <span class="text-[9px] font-semibold text-slate-400">{{ schedule.channel.number }}</span>
+      <TvChannelLogo
+        class="h-8 w-8 shrink-0 rounded-lg p-1"
+        :src="schedule.logoUrl"
+        :name="schedule.channel.displayName"
+        :fallback-bg="schedule.channel.fallbackBg"
+        :max-initials="3"
+      />
+      <div class="flex min-w-0 flex-col gap-0">
+        <span class="truncate text-[11px] font-bold text-slate-900">{{ schedule.channel.displayName }}</span>
+        <span class="font-mono text-[9px] text-slate-400">N°{{ schedule.channel.number }}</span>
       </div>
     </div>
 
-    <!-- Programme blocks area -->
-    <div class="relative" :style="{ width: totalWidth + 'px', height: rowHeight + 'px' }">
+    <!-- Programme blocks area (channel lane) -->
+    <div
+      class="relative rounded-lg bg-slate-50"
+      :style="{ width: totalWidth + 'px', height: rowHeight + 'px' }"
+    >
+      <div
+        v-if="nowLineLeft !== null"
+        class="absolute top-0 bottom-0 z-20 w-0.5 bg-red-500"
+        :style="{ left: nowLineLeft + 'px' }"
+      />
+
       <TvScheduleProgrammeBlock
         v-for="programme in visibleProgrammes"
         :key="programme.id"

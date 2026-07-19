@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { BroadcastDetail } from '@/api/tv-broadcast'
 import type { TntChannel } from '@/data/tnt-channels'
-import { CATEGORY_COLOR_CLASS, CATEGORY_COLOR_FALLBACK } from '@/lib/tv-category-colors'
+import { CATEGORY_COLOR_CLASS, CATEGORY_COLOR_FALLBACK, BROADCAST_TYPE_LABELS } from '@/lib/tv-category-colors'
 
 defineProps<{
   broadcast: BroadcastDetail
@@ -44,18 +44,31 @@ defineProps<{
         <span class="text-slate-300">·</span>
         <span>{{ formattedDate }}</span>
         <span class="text-slate-300">·</span>
-        <span>{{ broadcast.startTime }}–{{ broadcast.endTime }}</span>
+        <span class="font-mono">{{ broadcast.startTime }}–{{ broadcast.endTime }}</span>
         <span class="text-slate-300">·</span>
         <span>{{ durationLabel }}</span>
       </div>
 
-      <!-- Title -->
-      <h1 class="text-2xl font-bold leading-tight text-slate-900 sm:text-3xl">
-        {{ broadcast.program.title }}
-      </h1>
-
-      <!-- Metadata row -->
-      <div class="mt-3 flex flex-wrap items-center gap-2">
+      <!-- Badges row (categories, mention, type, coup de cœur) -->
+      <div class="flex flex-wrap items-center gap-2 mb-3">
+        <span
+          v-for="cat in broadcast.program.categories"
+          :key="cat.id"
+          class="rounded-full px-3 py-1 text-[10.5px] font-bold"
+          :class="CATEGORY_COLOR_CLASS[cat.color ?? ''] ?? CATEGORY_COLOR_FALLBACK"
+        >
+          {{ cat.name }}
+        </span>
+        <span
+          v-if="broadcast.broadcastType"
+          class="rounded-full border px-3 py-1 text-[10.5px] font-bold"
+          :class="BROADCAST_TYPE_LABELS[broadcast.broadcastType]?.class ?? 'bg-slate-100 text-slate-600 border-slate-200'"
+        >
+          {{ BROADCAST_TYPE_LABELS[broadcast.broadcastType]?.label ?? broadcast.broadcastType }}
+        </span>
+        <span v-if="broadcast.program.type" class="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          {{ broadcast.program.type }}
+        </span>
         <div
           v-if="broadcast.program.isTvstatsPick && !broadcast.program.imageUrl"
           class="flex items-center gap-1.5 rounded-full bg-tvstats-soft/40 border border-tvstats-primary/20 px-2.5 py-1"
@@ -65,18 +78,12 @@ defineProps<{
           </svg>
           <span class="text-[11px] font-bold text-tvstats-primary">Coup de cœur TvStats</span>
         </div>
-        <span v-if="broadcast.program.type" class="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-          {{ broadcast.program.type }}
-        </span>
-        <span
-          v-for="cat in broadcast.program.categories"
-          :key="cat.id"
-          class="rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
-          :class="CATEGORY_COLOR_CLASS[cat.color ?? ''] ?? CATEGORY_COLOR_FALLBACK"
-        >
-          {{ cat.name }}
-        </span>
       </div>
+
+      <!-- Title -->
+      <h1 class="text-2xl font-bold leading-tight text-slate-900 sm:text-3xl">
+        {{ broadcast.program.title }}
+      </h1>
 
       <!-- Description -->
       <p v-if="broadcast.program.description" class="mt-4 text-sm leading-relaxed text-slate-600">

@@ -32,6 +32,12 @@ export type BrandConfig = {
   switchMenu: BrandMenuItem[]
   footerTagline: string
   footerNav: FooterNavItem[]
+  /** Préfixe des routes de contenu partagé (articles/statsdata/sondages) pour cette marque. */
+  contentBasePath: string
+  /** Catégories de contenu affichées pour cette marque. `undefined` = pas de filtre (statsio). */
+  contentCategories?: string[]
+  /** URL du compte X (Twitter) de la marque. `#` = pas encore de compte dédié. */
+  xUrl: string
 }
 
 const brandConfigs: Record<BrandId, BrandConfig> = {
@@ -72,6 +78,8 @@ const brandConfigs: Record<BrandId, BrandConfig> = {
       { label: 'Sondages', href: '/sondages' },
       { label: 'Chaînes', href: '/chaines' },
     ],
+    contentBasePath: '',
+    xUrl: 'https://x.com/StatsIO_france',
   },
   tvstats: {
     id: 'tvstats',
@@ -105,11 +113,16 @@ const brandConfigs: Record<BrandId, BrandConfig> = {
     ],
     footerTagline: 'Audiences, programmes et grilles TV décryptés par la donnée, en temps réel.',
     footerNav: [
-      { label: 'Actus', href: '/tvstats' },
+      { label: 'Actus', href: '/tvstats/articles' },
       { label: 'Audiences', href: '/tvstats/audiences' },
       { label: 'Programme TV', href: '/tvstats/programme-tv' },
+      { label: 'StatsData', href: '/tvstats/statsdata' },
+      { label: 'Sondages', href: '/tvstats/sondages' },
       { label: 'Chaînes', href: '/chaines' },
     ],
+    contentBasePath: '/tvstats',
+    contentCategories: ['tv', 'people'],
+    xUrl: 'https://x.com/tvstats_statsio',
   },
   medistats: {
     id: 'medistats',
@@ -145,9 +158,15 @@ const brandConfigs: Record<BrandId, BrandConfig> = {
     footerNav: [
       { label: 'Maladies', href: '/medistats/maladies' },
       { label: 'Médicaments', href: '/medistats/medicaments' },
-      { label: 'Soins', href: '/medistats/services' },
+      { label: 'Soins', href: '/medistats/soins' },
+      { label: 'Articles', href: '/medistats/articles' },
+      { label: 'StatsData', href: '/medistats/statsdata' },
+      { label: 'Sondages', href: '/medistats/sondages' },
       { label: 'Chaînes', href: '/chaines' },
     ],
+    contentBasePath: '/medistats',
+    contentCategories: ['sante'],
+    xUrl: '#',
   },
 }
 

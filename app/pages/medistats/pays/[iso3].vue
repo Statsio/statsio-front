@@ -14,9 +14,14 @@ const isLoading = ref(true)
 
 const iso3 = computed(() => String(route.params.iso3).toUpperCase())
 
-useHead(() => ({
-  title: pays.value ? `${pays.value.name} — MédiStats` : 'Pays — MédiStats',
-}))
+usePageSeo({
+  title: computed(() => (pays.value ? `${pays.value.name} — MédiStats` : 'Pays — MédiStats')),
+  description: computed(() =>
+    pays.value
+      ? `Indicateurs de santé publique pour ${pays.value.name} (${pays.value.region}) : espérance de vie, dépenses de santé, densité médicale et maladies principales.`
+      : undefined,
+  ),
+})
 
 async function load() {
   isLoading.value = true

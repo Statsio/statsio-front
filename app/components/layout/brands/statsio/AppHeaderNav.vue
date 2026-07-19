@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import AppNavIcon from '@/components/layout/AppNavIcon.vue'
 import type { HeaderNavItem } from '@/components/layout/brands/header-nav.types'
+import { loadArticleMenu, loadStatsDataMenu, loadSurveyMenu, loadChannelsMenu } from '@/composables/useHeaderMegaMenuData'
 
 defineProps<{
   modelValue: HeaderNavItem | null
@@ -11,68 +13,63 @@ const emit = defineEmits<{
   'update:modelValue': [value: HeaderNavItem | null]
 }>()
 
-const items: HeaderNavItem[] = [
-  {
-    label: 'Articles',
-    href: '/articles',
-    icon: 'articles',
-    eyebrow: 'Analyses & formats',
-    title: 'Des formats éditoriaux enrichis par vos signaux data.',
-    description:
-      'Explorez des dossiers, décryptages et chroniques construites autour des tendances qui montent vraiment.',
-    featured: {
-      title: 'A la une',
-      value: '24 analyses',
-      detail: 'Nouveaux formats publiés cette semaine',
+const categoryPalette = ['#8b5cf6', '#e11d48', '#3b82f6', '#166534', '#d97706']
+
+const { data } = useAsyncData('statsio-header-nav', () =>
+  Promise.all([
+    loadArticleMenu(undefined, categoryPalette),
+    loadStatsDataMenu(undefined, categoryPalette),
+    loadSurveyMenu(undefined, categoryPalette),
+    loadChannelsMenu(categoryPalette),
+  ]),
+)
+
+const items = computed<HeaderNavItem[]>(() => {
+  const [articles, statsdata, sondages, chaines] = data.value ?? []
+
+  return [
+    {
+      label: 'Articles',
+      href: '/articles',
+      icon: 'articles',
+      eyebrow: 'Analyses & formats',
+      menuHeading: 'Derniers articles',
+      links: articles?.links ?? [],
+      categories: articles?.categories ?? [],
+      menu: articles?.menu ?? { variant: 'doc', cards: [] },
     },
-    links: ['Décryptages', 'Tribunes', 'Fact-checking', 'Formats longs'],
-  },
-  {
-    label: 'StatsData',
-    href: '/statsdata',
-    icon: 'stats',
-    eyebrow: 'Base de données',
-    title: 'Un cockpit pour suivre les signaux, métriques et séries temporelles.',
-    description:
-      'Croisez les volumes, tendances et historiques sur une interface pensée pour l’exploration rapide.',
-    featured: {
-      title: 'Signal live',
-      value: '+18.4%',
-      detail: 'Croissance hebdomadaire des requêtes suivies',
+    {
+      label: 'StatsData',
+      href: '/statsdata',
+      icon: 'stats',
+      eyebrow: 'Base de données',
+      menuHeading: 'StatsData populaires',
+      links: statsdata?.links ?? [],
+      categories: statsdata?.categories ?? [],
+      menu: statsdata?.menu ?? { variant: 'bar', cards: [] },
     },
-    links: ['Tableaux de bord', 'API datasets', 'Comparateurs', 'Exports'],
-  },
-  {
-    label: 'Sondages',
-    href: '/sondages',
-    icon: 'polls',
-    eyebrow: 'Intentions & opinions',
-    title: 'Pilotez vos baromètres et suivez les écarts en temps réel.',
-    description:
-      'Accédez à des synthèses claires, des intentions de vote et des dynamiques par période ou segment.',
-    featured: {
-      title: 'Baromètre actif',
-      value: '12k réponses',
-      detail: 'Dernière vague consolidée',
+    {
+      label: 'Sondages',
+      href: '/sondages',
+      icon: 'polls',
+      eyebrow: 'Intentions & opinions',
+      menuHeading: 'Sondages populaires',
+      links: sondages?.links ?? [],
+      categories: sondages?.categories ?? [],
+      menu: sondages?.menu ?? { variant: 'pie', cards: [] },
     },
-    links: ['Intentions de vote', 'Baromètres', 'Segments', 'Historique'],
-  },
-  {
-    label: 'Chaînes',
-    href: '/chaines',
-    icon: 'channels',
-    eyebrow: 'Distribution',
-    title: 'Centralisez vos canaux de diffusion et leurs performances.',
-    description:
-      'Connectez newsletters, réseaux et flux éditoriaux pour comparer la portée et l’engagement.',
-    featured: {
-      title: 'Canaux suivis',
-      value: '08 sources',
-      detail: 'Newsletters, social, flux et partenaires',
+    {
+      label: 'Chaînes',
+      href: '/chaines',
+      icon: 'channels',
+      eyebrow: 'Distribution',
+      menuHeading: 'Chaînes tendance',
+      links: chaines?.links ?? [],
+      categories: chaines?.categories ?? [],
+      menu: chaines?.menu ?? { variant: 'plane', cards: [] },
     },
-    links: ['Newsletters', 'Réseaux sociaux', 'Partenaires', 'Automatisations'],
-  },
-]
+  ]
+})
 
 defineExpose({ items })
 </script>
@@ -83,7 +80,7 @@ defineExpose({ items })
       <component :is="item.href.startsWith('/') ? RouterLink : 'a'"
         :to="item.href.startsWith('/') ? item.href : undefined"
         :href="item.href.startsWith('/') ? undefined : item.href"
-        class="inline-flex items-center gap-2 rounded-full border border-transparent px-3 py-2 transition hover:border-slate-200 hover:bg-white hover:text-slate-900"
+        class="inline-flex items-center gap-2 rounded-full border border-transparent px-3 py-2 transition hover:border-slate-200 hover:bg-white hover:text-slate-900 [&.router-link-active]:text-primary [&.router-link-active]:underline [&.router-link-active]:decoration-2 [&.router-link-active]:underline-offset-8"
         @mouseenter="emit('update:modelValue', item)">
         <span class="flex items-center justify-center text-slate-700">
           <AppNavIcon :kind="item.icon" />

@@ -1,13 +1,19 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import AppAvatar from '@/components/ui/AppAvatar.vue'
-import AppButton from '@/components/ui/AppButton.vue'
-import { channelCategoryLabels, type Channel } from '@/api/channels'
+import { computed, ref, watch } from 'vue'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { toggleChannelSubscription, type Channel } from '@/api/channels'
 import { formatCompactNumber } from '@/lib/format'
+import { channelBannerStyle, resolveChannelColors } from '@/lib/channel-brand'
+import { useAuthStore } from '@/stores/auth'
+import { AUTH_REDIRECT_KEY } from '@/lib/auth-storage'
 
 const props = defineProps<{
   channel: Channel
 }>()
+
+const route = useRoute()
+const router = useRouter()
+const auth = useAuthStore()
 
 const profile = computed(() => props.channel.profile)
 
@@ -21,72 +27,102 @@ const initials = computed(() =>
     .toUpperCase(),
 )
 
-const categoryLabels = computed(() =>
-  (profile.value?.categories ?? []).map((slug) => channelCategoryLabels[slug] ?? slug),
-)
-
 const handle = computed(() => profile.value?.handle ?? '')
 const detailPath = computed(() => `/channels/${encodeURIComponent(handle.value)}`)
+
+const colors = computed(() =>
+  resolveChannelColors(
+    String(props.channel.id),
+    profile.value?.custom_color_primary,
+    profile.value?.custom_color_secondary,
+  ),
+)
+const bannerStyle = computed(() => channelBannerStyle(colors.value.primary, colors.value.secondary))
+
+const isFollowing = ref(profile.value?.is_following ?? false)
+const followersCount = ref(profile.value?.subscriber_count ?? 0)
+const isToggling = ref(false)
+
+watch(profile, (next) => {
+  isFollowing.value = next?.is_following ?? false
+  followersCount.value = next?.subscriber_count ?? 0
+})
+
+async function onToggleFollow() {
+  if (isToggling.value) return
+
+  if (!auth.isAuthenticated) {
+    try {
+      sessionStorage.setItem(AUTH_REDIRECT_KEY, route.fullPath)
+      localStorage.setItem(AUTH_REDIRECT_KEY, route.fullPath)
+    } catch {
+      /* stockage indisponible */
+    }
+    router.push('/login')
+    return
+  }
+
+  isToggling.value = true
+  try {
+    const result = await toggleChannelSubscription(props.channel.id)
+    isFollowing.value = result.isFollowing
+    followersCount.value = result.followersCount
+  } finally {
+    isToggling.value = false
+  }
+}
 </script>
 
 <template>
-  <article
-    class="group flex h-full flex-col overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)] transition hover:-translate-y-1 hover:border-primary/20"
+  <div
+    class="group overflow-hidden rounded-2xl border border-[#18181f]/[0.08] bg-white transition hover:-translate-y-0.5 hover:shadow-[0_16px_40px_-26px_rgba(15,23,42,0.4)]"
   >
-    <div class="relative h-28 shrink-0 overflow-hidden bg-slate-950">
-      <img
-        v-if="profile?.banner_url"
-        :src="profile.banner_url"
-        :alt="`Bannière ${profile.name}`"
-        class="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
-      />
-      <div v-else class="h-full w-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950" />
-
-      <AppAvatar
-        :src="profile?.logo_url ?? undefined"
-        :initials="initials"
-        :alt="`Logo ${profile?.name ?? ''}`"
-        size="lg"
-        class="absolute -bottom-6 left-5 border-4 border-white"
-      />
-    </div>
-
-    <div class="flex flex-1 flex-col gap-4 px-5 pb-5 pt-9">
-      <div class="min-w-0">
-        <h2 class="truncate text-xl font-semibold tracking-[-0.03em] text-slate-950">
-          {{ profile?.name }}
-        </h2>
-        <p class="truncate text-sm font-medium text-slate-400">@{{ handle }}</p>
+    <RouterLink :to="detailPath" class="block">
+      <div class="h-16 w-full">
+        <img
+          v-if="profile?.banner_url"
+          :src="profile.banner_url"
+          :alt="`Bannière ${profile.name}`"
+          class="h-full w-full object-cover"
+        />
+        <div v-else class="h-full w-full" :style="bannerStyle" />
       </div>
 
-      <p v-if="profile?.description" class="line-clamp-2 text-sm leading-6 text-slate-600">
-        {{ profile.description }}
-      </p>
-
-      <div v-if="categoryLabels.length" class="flex flex-wrap gap-2">
-        <span
-          v-for="label in categoryLabels.slice(0, 3)"
-          :key="label"
-          class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600"
+      <div class="-mt-7 px-5">
+        <div
+          class="mb-3 flex h-14 w-14 items-center justify-center overflow-hidden rounded-[14px] border-[3px] border-white text-lg font-bold text-white"
+          :style="{ background: colors.primary }"
         >
-          {{ label }}
-        </span>
-      </div>
-
-      <div class="mt-auto grid grid-cols-2 gap-3 pt-1">
-        <div class="rounded-[1.25rem] bg-slate-950 px-4 py-3 text-white">
-          <p class="text-[11px] uppercase tracking-[0.16em] text-slate-400">Abonnés</p>
-          <p class="mt-1 text-lg font-semibold">{{ formatCompactNumber(profile?.subscriber_count ?? 0) }}</p>
+          <img
+            v-if="profile?.logo_url"
+            :src="profile.logo_url"
+            :alt="`Logo ${profile?.name ?? ''}`"
+            class="h-full w-full object-cover"
+          />
+          <span v-else>{{ initials }}</span>
         </div>
-        <div class="rounded-[1.25rem] bg-slate-50 px-4 py-3">
-          <p class="text-[11px] uppercase tracking-[0.16em] text-slate-400">Vues</p>
-          <p class="mt-1 text-lg font-semibold text-slate-950">{{ formatCompactNumber(profile?.view_count ?? 0) }}</p>
-        </div>
-      </div>
 
-      <AppButton as="router-link" :to="detailPath" variant="secondary" size="md" full-width>
-        Voir la chaîne
-      </AppButton>
+        <p class="mb-1 truncate text-base font-bold text-[#18181f]">{{ profile?.name }}</p>
+        <p class="mb-3 min-h-9 line-clamp-2 text-[13px] leading-[1.4] text-[#18181f]/55">
+          {{ profile?.description }}
+        </p>
+      </div>
+    </RouterLink>
+
+    <div class="flex items-center justify-between gap-3 px-5 pb-5">
+      <span class="text-xs text-[#18181f]/50"> {{ formatCompactNumber(followersCount) }} abonnés </span>
+      <button
+        type="button"
+        :disabled="isToggling"
+        class="shrink-0 rounded-lg px-3.5 py-1.5 text-xs font-bold transition disabled:opacity-60"
+        :style="{
+          background: isFollowing ? 'rgba(20,20,30,0.08)' : colors.primary,
+          color: isFollowing ? '#18181f' : '#fff',
+        }"
+        @click="onToggleFollow"
+      >
+        {{ isFollowing ? '✓ Suivi' : 'Suivre' }}
+      </button>
     </div>
-  </article>
+  </div>
 </template>

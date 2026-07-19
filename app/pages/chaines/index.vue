@@ -31,9 +31,14 @@ onMounted(init)
 </script>
 
 <template>
-  <main class="pb-24">
-    <section class="section pt-4">
-      <div class="container flex flex-col gap-6">
+  <main>
+    <!--
+      -mt-44 lg:-mt-28 cancels the layout's <main class="pt-44 lg:pt-28"> (app/layouts/default.vue)
+      so the lilac wash bleeds all the way under the translucent fixed header, matching the
+      "Chaînes — Annuaire" mockup's flat #eeecf5 page background. See PageHero.vue for the same pattern.
+    -->
+    <section class="relative -mt-44 min-h-screen bg-[var(--color-auth-wash)] pb-[100px] pt-44 lg:-mt-28 lg:pt-28">
+      <div class="container flex flex-col gap-6 pt-6 lg:px-16">
         <ChannelDirectoryToolbar
           v-model:search="search"
           v-model:category="category"

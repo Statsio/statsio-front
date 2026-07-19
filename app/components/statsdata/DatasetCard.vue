@@ -5,6 +5,7 @@ import AppSparkline from '@/components/ui/AppSparkline.vue'
 import type { StatsDataDocument } from '@/api/studio'
 import { getStatsDataVisual } from '@/utils/statsDataVisuals'
 import { formatRowCount, relativeUpdate } from '@/utils/statsDataFormat'
+import { useContentBasePath } from '@/composables/useContentBasePath'
 
 const props = defineProps<{
   document: StatsDataDocument
@@ -27,11 +28,15 @@ const sparklinePoints = computed(() => {
   return points
 })
 
+const basePath = useContentBasePath()
+
 const detailLink = computed(() => {
   const doc = props.document
-  if (!doc.slug) return `/statsdata/${doc.id}`
+  if (!doc.slug) return `${basePath.value}/statsdata/${doc.id}`
   const first = doc.pages?.[0]
-  return first ? `/statsdata/${doc.slug}/${first.slug ?? first.id}` : `/statsdata/${doc.slug}`
+  return first
+    ? `${basePath.value}/statsdata/${doc.slug}/${first.slug ?? first.id}`
+    : `${basePath.value}/statsdata/${doc.slug}`
 })
 </script>
 

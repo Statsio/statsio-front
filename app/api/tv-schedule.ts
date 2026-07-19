@@ -1,7 +1,7 @@
 import { apiHttp } from '@/lib/http'
 import { STATSIO_API } from '@/api/statsio-endpoints'
 import { TNT_CHANNELS } from '@/data/tnt-channels'
-import type { ChannelSchedule, TvProgramme } from '@/types/tv-schedule'
+import type { ChannelSchedule, TvProgramme, TvProgrammeMention, TvProgrammeScore } from '@/types/tv-schedule'
 
 type EpgProgramme = {
   broadcastId: number | null
@@ -13,6 +13,8 @@ type EpgProgramme = {
   genres: string[]
   summary: string | null
   isLive: boolean
+  mention: TvProgrammeMention | null
+  score: TvProgrammeScore | null
 }
 
 type EpgChannelEntry = {
@@ -80,6 +82,8 @@ function buildChannelSchedules(entries: EpgChannelEntry[], logoMap: Map<string, 
       imageUrl: null,
       rating: null,
       isLive: p.isLive ?? isCurrentlyLive(p.startMinutes, p.durationMinutes, now),
+      mention: p.mention ?? null,
+      score: p.score ?? null,
     }))
 
     // DB logo_url takes priority over the static CDN URL

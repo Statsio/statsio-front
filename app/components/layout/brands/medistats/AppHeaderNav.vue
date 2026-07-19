@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import AppNavIcon from '@/components/layout/AppNavIcon.vue'
 import type { HeaderNavItem } from '@/components/layout/brands/header-nav.types'
+import { loadMaladiesMenu, loadMedicamentsMenu, loadSoinsMenu, loadChannelsMenu } from '@/composables/useHeaderMegaMenuData'
 
 defineProps<{
   modelValue: HeaderNavItem | null
@@ -11,68 +13,63 @@ const emit = defineEmits<{
   'update:modelValue': [value: HeaderNavItem | null]
 }>()
 
-const items: HeaderNavItem[] = [
-  {
-    label: 'Maladies',
-    href: '/medistats/maladies',
-    icon: 'disease',
-    eyebrow: 'Épidémiologie & pathologies',
-    title: 'Suivez l\'évolution des maladies, épidémies et indicateurs de santé publique.',
-    description:
-      'Accédez aux données épidémiologiques, courbes d\'incidence et comparaisons géographiques pour chaque pathologie.',
-    featured: {
-      title: 'Pathologies suivies',
-      value: '1 240',
-      detail: 'Maladies et syndromes référencés dans la base',
+const categoryPalette = ['#991b1b', '#7c3aed', '#d97706', '#0891b2', '#ef4444']
+
+const { data } = useAsyncData('medistats-header-nav', () =>
+  Promise.all([
+    loadMaladiesMenu(categoryPalette),
+    loadMedicamentsMenu(categoryPalette),
+    loadSoinsMenu(categoryPalette),
+    loadChannelsMenu(categoryPalette),
+  ]),
+)
+
+const items = computed<HeaderNavItem[]>(() => {
+  const [maladies, medicaments, soins, chaines] = data.value ?? []
+
+  return [
+    {
+      label: 'Maladies',
+      href: '/medistats/maladies',
+      icon: 'disease',
+      eyebrow: 'Épidémiologie & pathologies',
+      menuHeading: 'Indicateurs de santé publique',
+      links: maladies?.links ?? [],
+      categories: maladies?.categories ?? [],
+      menu: maladies?.menu ?? { variant: 'bar', cards: [] },
     },
-    links: ['Maladies infectieuses', 'Maladies chroniques', 'Épidémies', 'Facteurs de risque'],
-  },
-  {
-    label: 'Médicaments',
-    href: '/medistats/medicaments',
-    icon: 'medicine',
-    eyebrow: 'Pharmacologie & traitements',
-    title: 'Explorez les médicaments, interactions et données de prescription.',
-    description:
-      'Comparez les traitements, consultez les essais cliniques et suivez les tendances de prescription par région.',
-    featured: {
-      title: 'Médicaments référencés',
-      value: '14 800',
-      detail: 'Spécialités pharmaceutiques dans la base',
+    {
+      label: 'Médicaments',
+      href: '/medistats/medicaments',
+      icon: 'medicine',
+      eyebrow: 'Pharmacologie & traitements',
+      menuHeading: 'Données pharmacologiques',
+      links: medicaments?.links ?? [],
+      categories: medicaments?.categories ?? [],
+      menu: medicaments?.menu ?? { variant: 'bar', cards: [] },
     },
-    links: ['Médicaments remboursés', 'Essais cliniques', 'Interactions', 'Génériques'],
-  },
-  {
-    label: 'Soins',
-    href: '/medistats/services',
-    icon: 'medical-service',
-    eyebrow: 'Offre de soins',
-    title: 'Cartographiez l\'offre de soins et les indicateurs de performance des établissements.',
-    description:
-      'Hôpitaux, cliniques, médecins de ville — analysez la densité de l\'offre, les délais et les taux d\'occupation.',
-    featured: {
-      title: 'Établissements suivis',
-      value: '3 100',
-      detail: 'Hôpitaux et cliniques référencés en France',
+    {
+      label: 'Soins',
+      href: '/medistats/soins',
+      icon: 'medical-service',
+      eyebrow: 'Systèmes de santé',
+      menuHeading: 'Systèmes de santé',
+      links: soins?.links ?? [],
+      categories: soins?.categories ?? [],
+      menu: soins?.menu ?? { variant: 'bar', cards: [] },
     },
-    links: ['Hôpitaux', 'Cliniques', 'Médecine de ville', 'Urgences'],
-  },
-  {
-    label: 'Chaînes',
-    href: '/chaines',
-    icon: 'channels',
-    eyebrow: 'Distribution éditoriale',
-    title: 'Centralisez vos canaux de diffusion santé et leurs performances.',
-    description:
-      'Connectez newsletters médicales, réseaux et flux éditoriaux pour comparer la portée et l\'engagement.',
-    featured: {
-      title: 'Canaux suivis',
-      value: '08 sources',
-      detail: 'Newsletters, social, flux et partenaires santé',
+    {
+      label: 'Chaînes',
+      href: '/chaines',
+      icon: 'channels',
+      eyebrow: 'Distribution éditoriale',
+      menuHeading: 'Chaînes santé suivies',
+      links: chaines?.links ?? [],
+      categories: chaines?.categories ?? [],
+      menu: chaines?.menu ?? { variant: 'plane', cards: [] },
     },
-    links: ['Newsletters', 'Réseaux sociaux', 'Partenaires', 'Automatisations'],
-  },
-]
+  ]
+})
 
 defineExpose({ items })
 </script>
@@ -84,7 +81,7 @@ defineExpose({ items })
         :is="item.href.startsWith('/') ? RouterLink : 'a'"
         :to="item.href.startsWith('/') ? item.href : undefined"
         :href="item.href.startsWith('/') ? undefined : item.href"
-        class="inline-flex items-center gap-2 rounded-full border border-transparent px-3 py-2 transition hover:border-slate-200 hover:bg-white hover:text-slate-900"
+        class="inline-flex items-center gap-2 rounded-full border border-transparent px-3 py-2 transition hover:border-slate-200 hover:bg-white hover:text-slate-900 [&.router-link-active]:text-primary [&.router-link-active]:underline [&.router-link-active]:decoration-2 [&.router-link-active]:underline-offset-8"
         @mouseenter="emit('update:modelValue', item)"
       >
         <span class="flex items-center justify-center text-slate-700">

@@ -26,7 +26,7 @@ defineProps<{
       <div>
         <p class="text-sm font-semibold text-slate-800">{{ channel?.displayName ?? channelId }}</p>
         <p class="text-xs text-slate-500">{{ formattedDate }}</p>
-        <p class="text-xs text-slate-500">{{ startTime }} – {{ endTime }} · {{ durationLabel }}</p>
+        <p class="text-xs text-slate-500"><span class="font-mono">{{ startTime }} – {{ endTime }}</span> · {{ durationLabel }}</p>
       </div>
     </component>
   </div>
