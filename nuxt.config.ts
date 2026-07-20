@@ -62,6 +62,7 @@ export default defineNuxtConfig({
       appEnv: process.env.NUXT_PUBLIC_APP_ENV ?? 'development',
       passwordMiddleware: process.env.NUXT_PUBLIC_PASSWORD_MIDDLEWARE ?? '',
       comingSoon: process.env.NUXT_PUBLIC_COMING_SOON ?? 'false',
+      comingSoonBypassCode: process.env.NUXT_PUBLIC_COMING_SOON_BYPASS_CODE ?? '',
     },
   },
 

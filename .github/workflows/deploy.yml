@@ -42,6 +42,7 @@ jobs:
           echo "NUXT_PUBLIC_APP_ENV=${{ vars.NUXT_PUBLIC_APP_ENV }}" >> .env
           echo "NUXT_PUBLIC_PASSWORD_MIDDLEWARE=${{ secrets.NUXT_PUBLIC_PASSWORD_MIDDLEWARE }}" >> .env
           echo "NUXT_PUBLIC_COMING_SOON=${{ vars.NUXT_PUBLIC_COMING_SOON }}" >> .env
+          echo "NUXT_PUBLIC_COMING_SOON_BYPASS_CODE=${{ vars.NUXT_PUBLIC_COMING_SOON_BYPASS_CODE }}" >> .env
 
       - name: Build
         run: npm run build
