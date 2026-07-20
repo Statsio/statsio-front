@@ -218,6 +218,8 @@ export interface StatsDataDocument {
   blocks?: StudioBlock[]
   categories?: string[]
   emoji?: string | null
+  /** Only meaningful for `type === 'survey'`. Null/undefined = ouvert indéfiniment. */
+  response_deadline?: string | null
   /** Only present on `fetchPublicStatsDataDocument` — true if the current viewer may edit this content. */
   can_edit?: boolean
 }
@@ -281,6 +283,7 @@ export interface SaveStatsDataDocumentPayload {
   visibility?: ContentVisibility
   categories?: string[]
   emoji?: string | null
+  response_deadline?: string | null
   pages?: import('@/types/studio').StudioDocumentPage[]
   sections?: import('@/types/studio').Section[]
   blocks?: StudioBlock[]
@@ -317,6 +320,7 @@ function appendSavePayload(form: FormData, payload: SaveStatsDataDocumentPayload
   if (payload.visibility !== undefined) form.append('visibility', payload.visibility)
   if (payload.categories !== undefined) payload.categories.forEach((c) => form.append('categories[]', c))
   if (payload.emoji !== undefined) form.append('emoji', payload.emoji ?? '')
+  if (payload.response_deadline !== undefined) form.append('response_deadline', payload.response_deadline ?? '')
 }
 
 export async function deleteStatsDataDocument(documentId: string): Promise<void> {
