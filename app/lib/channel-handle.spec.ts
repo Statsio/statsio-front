@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/api/channels-validation', () => ({
-  checkHandleAvailability: vi.fn(),
+  checkHandleAvailability: vi.fn<(handle: string) => Promise<boolean>>(),
 }))
 
 import { checkHandleAvailability } from '@/api/channels-validation'

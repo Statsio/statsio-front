@@ -14,7 +14,7 @@ withDefaults(
   <svg
     v-if="kind === 'articles'"
     viewBox="0 0 24 24"
-    :class="class"
+    :class="$props.class"
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
   >
@@ -29,7 +29,7 @@ withDefaults(
   <svg
     v-else-if="kind === 'stats'"
     viewBox="0 0 24 24"
-    :class="class"
+    :class="$props.class"
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
   >
@@ -49,7 +49,7 @@ withDefaults(
   <svg
     v-else-if="kind === 'polls'"
     viewBox="0 0 24 24"
-    :class="class"
+    :class="$props.class"
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
   >
@@ -61,7 +61,7 @@ withDefaults(
   <svg
     v-else-if="kind === 'remote'"
     viewBox="0 0 24 24"
-    :class="class"
+    :class="$props.class"
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
   >
@@ -74,7 +74,7 @@ withDefaults(
   </svg>
 
   <!-- Disease / Maladies — virus cell with surrounding particles -->
-  <svg v-else-if="kind === 'disease'" viewBox="0 0 24 24" :class="class" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <svg v-else-if="kind === 'disease'" viewBox="0 0 24 24" :class="$props.class" fill="none" xmlns="http://www.w3.org/2000/svg">
     <circle cx="12" cy="12" r="5.5" class="fill-secondary" />
     <circle cx="12" cy="4.5" r="2" class="fill-primary" />
     <circle cx="19.5" cy="12" r="2" class="fill-primary" />
@@ -87,20 +87,20 @@ withDefaults(
   </svg>
 
   <!-- Medicine / Médicaments — horizontal capsule pill -->
-  <svg v-else-if="kind === 'medicine'" viewBox="0 0 24 24" :class="class" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <svg v-else-if="kind === 'medicine'" viewBox="0 0 24 24" :class="$props.class" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M4 10C4 7.79 5.79 6 8 6H12V18H8C5.79 18 4 16.21 4 14V10Z" class="fill-secondary" />
     <path d="M12 6H16C18.21 6 20 7.79 20 10V14C20 16.21 18.21 18 16 18H12V6Z" class="fill-primary" />
     <circle cx="8.5" cy="12" r="1.5" class="fill-accent" />
   </svg>
 
   <!-- Medical Service / Services médicaux — cross on rounded square -->
-  <svg v-else-if="kind === 'medical-service'" viewBox="0 0 24 24" :class="class" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <svg v-else-if="kind === 'medical-service'" viewBox="0 0 24 24" :class="$props.class" fill="none" xmlns="http://www.w3.org/2000/svg">
     <rect x="3" y="3" width="18" height="18" rx="4" class="fill-secondary" />
     <rect x="10.5" y="6.5" width="3" height="11" rx="1" class="fill-primary" />
     <rect x="6.5" y="10.5" width="11" height="3" rx="1" class="fill-primary" />
   </svg>
 
-  <svg v-else viewBox="0 0 24 24" :class="class" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <svg v-else viewBox="0 0 24 24" :class="$props.class" fill="none" xmlns="http://www.w3.org/2000/svg">
     <circle cx="7" cy="8" r="2.5" class="fill-accent" />
     <circle cx="17" cy="6.5" r="2" class="fill-primary" />
     <circle cx="15.5" cy="16.5" r="2.5" class="fill-secondary" />

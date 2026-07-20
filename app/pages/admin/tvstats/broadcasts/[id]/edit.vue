@@ -3,7 +3,7 @@ definePageMeta({ layout: 'admin', middleware: ['admin'], ssr: false })
 import { ref, reactive, onMounted } from 'vue'
 import { getErrorMessage } from '@/lib/http-errors'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
-import { adminGetBroadcast, adminUpdateBroadcast, adminUpdateBroadcastAudience, BROADCAST_TYPES, type AdminBroadcast } from '@/api/admin'
+import { adminGetBroadcast, adminUpdateBroadcast, adminUpdateBroadcastAudience, BROADCAST_TYPES, type AdminBroadcast, type BroadcastType } from '@/api/admin'
 import { TNT_CHANNELS } from '@/data/tnt-channels'
 
 const route = useRoute()
@@ -63,7 +63,7 @@ async function submit() {
     await adminUpdateBroadcast(broadcast.value.id, {
       season: form.season !== '' ? Number(form.season) : null,
       episode: form.episode !== '' ? Number(form.episode) : null,
-      broadcast_type: (form.broadcast_type as any) || null,
+      broadcast_type: (form.broadcast_type || null) as BroadcastType | null,
     })
     router.push(`/admin/tvstats/broadcasts/${broadcast.value.id}`)
   } catch (e) {

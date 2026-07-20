@@ -10,7 +10,7 @@ import { ref } from 'vue'
 import type { StudioBlock } from '@/types/studio'
 import ColumnPickerModal from './ColumnPickerModal.vue'
 
-const props = defineProps<{
+defineProps<{
   modelValue: string
   block: StudioBlock
   placeholder?: string

@@ -7,6 +7,7 @@ import ChannelProfileHeader from './ChannelProfileHeader.vue'
 import ChannelStatsStrip from './ChannelStatsStrip.vue'
 import ChannelDetailTabs from './ChannelDetailTabs.vue'
 import ChannelFeedList from './ChannelFeedList.vue'
+import ChannelDatasetList from './ChannelDatasetList.vue'
 import ChannelPollsTab from './ChannelPollsTab.vue'
 import ChannelAboutTab from './ChannelAboutTab.vue'
 
@@ -22,9 +23,7 @@ const {
   createdAtLabel,
   articleFeedItems,
   statsDataFeedItems,
-  sondageSort,
-  sondageSortOptions,
-  sortedPollItems,
+  pollFeedItems,
 } = useChannelProfile()
 
 usePageSeo({
@@ -46,14 +45,14 @@ const brandColors = computed(() =>
     </div>
 
     <template v-else-if="channel">
-      <ChannelBanner
-        :banner-url="channel.bannerUrl"
-        :color-primary="brandColors.primary"
-        :color-secondary="brandColors.secondary"
-      />
-
       <section class="pt-0">
         <div class="container">
+          <ChannelBanner
+            :banner-url="channel.bannerUrl"
+            :color-primary="brandColors.primary"
+            :color-secondary="brandColors.secondary"
+          />
+
           <ChannelProfileHeader
             :channel="channel"
             :is-owner="isOwner"
@@ -73,20 +72,16 @@ const brandColors = computed(() =>
             :color-primary="brandColors.primary"
           />
 
-          <ChannelFeedList
+          <ChannelDatasetList
             v-else-if="activeTab === 'statsdata'"
             :items="statsDataFeedItems"
             empty-text="Aucune StatsData publiée pour le moment."
-            :color-primary="brandColors.primary"
           />
 
           <ChannelPollsTab
             v-else-if="activeTab === 'sondages'"
-            :items="sortedPollItems"
-            :sort="sondageSort"
-            :sort-options="sondageSortOptions"
-            :color-primary="brandColors.primary"
-            @update:sort="sondageSort = $event"
+            :items="pollFeedItems"
+            empty-text="Aucun sondage publié pour le moment."
           />
 
           <ChannelAboutTab

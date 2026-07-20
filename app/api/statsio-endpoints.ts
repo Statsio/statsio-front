@@ -11,6 +11,9 @@ export const STATSIO_API = {
   account: {
     anonymize: '/account/anonymize',
   },
+  referenceData: {
+    profile: '/reference-data/profile',
+  },
   healthcheck: '/healthcheck',
   media: {
     upload: '/media/upload',
@@ -101,6 +104,11 @@ export const STATSIO_API = {
     search: (q: string) => `/maladies/search?q=${encodeURIComponent(q)}`,
     populaires: '/maladies/populaires',
     one: (id: string) => `/maladies/${encodeURIComponent(id)}`,
+  },
+  medicaments: {
+    search: (q: string) => `/medicaments/search?q=${encodeURIComponent(q)}`,
+    generiques: (libelle: string) => `/medicaments/generiques?libelle=${encodeURIComponent(libelle)}`,
+    one: (cis: number | string) => `/medicaments/${encodeURIComponent(String(cis))}`,
   },
   pays: {
     list: (indicator?: string) => (indicator ? `/pays?indicator=${encodeURIComponent(indicator)}` : '/pays'),

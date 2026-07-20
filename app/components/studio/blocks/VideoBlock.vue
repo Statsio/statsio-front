@@ -7,24 +7,24 @@ const props = defineProps<{ block: StudioBlock; readonly?: boolean }>()
 const rawUrl  = computed(() => props.block.config.videoUrl ?? '')
 const caption = computed(() => props.block.config.videoCaption ?? '')
 
-const PROVIDERS = [
-  { name: 'YouTube',     color: 'bg-red-100 text-red-600' },
-  { name: 'Vimeo',       color: 'bg-sky-100 text-sky-600' },
-  { name: 'Dailymotion', color: 'bg-blue-100 text-blue-600' },
-]
+const PROVIDERS = {
+  youtube: { provider: 'YouTube', color: 'bg-red-100 text-red-600' },
+  vimeo: { provider: 'Vimeo', color: 'bg-sky-100 text-sky-600' },
+  dailymotion: { provider: 'Dailymotion', color: 'bg-blue-100 text-blue-600' },
+}
 
 const embed = computed<{ url: string; provider: string; color: string } | null>(() => {
   const url = rawUrl.value
   if (!url) return null
 
   const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/)
-  if (yt) return { url: `https://www.youtube.com/embed/${yt[1]}`, ...PROVIDERS[0] }
+  if (yt) return { url: `https://www.youtube.com/embed/${yt[1]}`, ...PROVIDERS.youtube }
 
   const vi = url.match(/vimeo\.com\/(\d+)/)
-  if (vi) return { url: `https://player.vimeo.com/video/${vi[1]}`, ...PROVIDERS[1] }
+  if (vi) return { url: `https://player.vimeo.com/video/${vi[1]}`, ...PROVIDERS.vimeo }
 
   const dm = url.match(/dailymotion\.com\/video\/([^_?\s]+)/)
-  if (dm) return { url: `https://www.dailymotion.com/embed/video/${dm[1]}`, ...PROVIDERS[2] }
+  if (dm) return { url: `https://www.dailymotion.com/embed/video/${dm[1]}`, ...PROVIDERS.dailymotion }
 
   return null
 })

@@ -2,7 +2,7 @@ import type { RouteLocationNormalized } from 'vue-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AUTH_REDIRECT_KEY } from '@/lib/auth-storage'
 
-const { navigateTo } = vi.hoisted(() => ({ navigateTo: vi.fn() }))
+const { navigateTo } = vi.hoisted(() => ({ navigateTo: vi.fn<(...args: unknown[]) => void>() }))
 
 vi.mock('#app', () => ({
   defineNuxtRouteMiddleware: (fn: unknown) => fn,
@@ -10,7 +10,7 @@ vi.mock('#app', () => ({
 }))
 
 vi.mock('@/stores/auth', () => ({
-  useAuthStore: vi.fn(),
+  useAuthStore: vi.fn<(...args: unknown[]) => unknown>(),
 }))
 
 import { useAuthStore } from '@/stores/auth'

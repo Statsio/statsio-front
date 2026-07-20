@@ -1,13 +1,18 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'default', middleware: ['auth'], ssr: false, title: 'Mon compte', robots: 'noindex,nofollow' })
-import { computed, reactive, ref } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { useDebounceFn } from '@vueuse/core'
 import AppButton from '@/components/ui/AppButton.vue'
 import { useAuthStore } from '@/stores/auth'
-import { updateProfile, anonymizeAccount } from '@/api/statsio-user'
+import { updateProfile, anonymizeAccount, fetchProfileReferenceData, type ProfileReferenceData } from '@/api/statsio-user'
+import { profileLabel } from '@/lib/profile-labels'
+import { lookupCommunesByPostalCode, type CommuneResult } from '@/lib/geo-lookup'
+import type { AuthUser } from '@/types/auth'
 
 const authStore = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 
 type TabKey = 'apercu' | 'historique' | 'favoris' | 'abonnements' | 'parametres'
 
@@ -19,7 +24,8 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: 'parametres', label: 'Paramètres' },
 ]
 
-const activeTab = ref<TabKey>('apercu')
+const initialTab = TABS.some((t) => t.key === route.query.tab) ? (route.query.tab as TabKey) : 'apercu'
+const activeTab = ref<TabKey>(initialTab)
 const selectTab = (key: TabKey) => { activeTab.value = key }
 
 const userInitials = computed(() => {
@@ -144,7 +150,7 @@ async function handleUpdateProfile() {
     const result = await updateProfile({
       first_name: profileForm.first_name || undefined,
       last_name: profileForm.last_name || undefined,
-    }) as any
+    }) as { user?: AuthUser } | undefined
     if (result?.user && authStore.user) {
       authStore.user.profile = result.user.profile
     }
@@ -153,6 +159,130 @@ async function handleUpdateProfile() {
     profileError.value = 'Une erreur est survenue. Veuillez réessayer.'
   } finally {
     isSavingProfile.value = false
+  }
+}
+
+/* ───────── Informations démographiques (débloquent les stats détaillées des sondages) ───────── */
+
+const referenceData = ref<ProfileReferenceData | null>(null)
+onMounted(async () => {
+  try {
+    referenceData.value = await fetchProfileReferenceData()
+  } catch {
+    referenceData.value = null
+  }
+})
+
+const demoForm = reactive({
+  gender_id: null as number | null,
+  age_range_id: null as number | null,
+  socio_professional_category_id: null as number | null,
+  marital_status_id: null as number | null,
+  region: '',
+  city: '',
+  zip_code: '',
+})
+const isSavingDemo = ref(false)
+const demoError = ref<string | null>(null)
+
+/* Ville/région sont déduites du code postal via l'API Découpage administratif (geo.api.gouv.fr) —
+   verrouillées tant qu'aucune commune n'a été retenue pour éviter une incohérence code postal/ville/région. */
+const communeSelected = ref(false)
+
+// authStore.user?.profile peut n'être hydraté qu'après le montage du composant (bootstrap
+// asynchrone du store, voir 03.auth-init.client.ts) : on synchronise le formulaire dès qu'il
+// est disponible plutôt que de figer un instantané pris trop tôt.
+watch(
+  () => authStore.user?.profile,
+  (profile) => {
+    if (!profile) return
+    demoForm.gender_id = profile.gender_id ?? null
+    demoForm.age_range_id = profile.age_range_id ?? null
+    demoForm.socio_professional_category_id = profile.socio_professional_category_id ?? null
+    demoForm.marital_status_id = profile.marital_status_id ?? null
+    demoForm.region = profile.region ?? ''
+    demoForm.city = profile.city ?? ''
+    demoForm.zip_code = profile.zip_code ?? ''
+    communeSelected.value = Boolean(profile.city && profile.region)
+  },
+  { immediate: true },
+)
+const communeResults = ref<CommuneResult[]>([])
+const communeLookupLoading = ref(false)
+const communeNoResults = ref(false)
+
+function selectCommune(commune: CommuneResult) {
+  demoForm.city = commune.nom
+  demoForm.region = commune.region?.nom ?? ''
+  communeSelected.value = true
+  communeResults.value = []
+  communeNoResults.value = false
+}
+
+const runCommuneLookup = useDebounceFn(async () => {
+  const code = demoForm.zip_code.trim()
+  if (!/^\d{5}$/.test(code)) {
+    communeResults.value = []
+    return
+  }
+  communeLookupLoading.value = true
+  try {
+    const results = await lookupCommunesByPostalCode(code)
+    if (results.length === 1) {
+      selectCommune(results[0]!)
+    } else if (results.length > 1) {
+      communeResults.value = results
+    } else {
+      communeResults.value = []
+      communeNoResults.value = true
+    }
+  } catch {
+    communeResults.value = []
+  } finally {
+    communeLookupLoading.value = false
+  }
+}, 400)
+
+/**
+ * Bindé sur l'événement DOM `input` plutôt qu'un `watch()` réactif : un `watch` se
+ * redéclencherait aussi quand le formulaire est resynchronisé programmatiquement depuis
+ * authStore.user?.profile (ci-dessus), effaçant à tort ville/région qu'on vient de restaurer.
+ */
+function onZipCodeInput() {
+  communeSelected.value = false
+  communeNoResults.value = false
+  communeResults.value = []
+  demoForm.city = ''
+  demoForm.region = ''
+  runCommuneLookup()
+}
+
+const isProfileComplete = computed(() => authStore.user?.profile_complete ?? false)
+const missingDemoFieldsCount = computed(() =>
+  [demoForm.gender_id, demoForm.age_range_id, demoForm.socio_professional_category_id, demoForm.marital_status_id, demoForm.region]
+    .filter((v) => !v).length,
+)
+
+async function handleUpdateDemographics() {
+  isSavingDemo.value = true
+  demoError.value = null
+  try {
+    const result = await updateProfile({
+      gender_id: demoForm.gender_id || undefined,
+      age_range_id: demoForm.age_range_id || undefined,
+      socio_professional_category_id: demoForm.socio_professional_category_id || undefined,
+      marital_status_id: demoForm.marital_status_id || undefined,
+      region: demoForm.region || undefined,
+      city: demoForm.city || undefined,
+      zip_code: demoForm.zip_code || undefined,
+    }) as { user: AuthUser }
+    if (result?.user && authStore.user) {
+      Object.assign(authStore.user, result.user)
+    }
+  } catch {
+    demoError.value = 'Une erreur est survenue. Veuillez réessayer.'
+  } finally {
+    isSavingDemo.value = false
   }
 }
 
@@ -536,6 +666,133 @@ const handleCreateChannel = () => router.push('/mes-chaines?create=1')
                   <RouterLink to="/forgot-password" class="text-[13px] font-semibold text-primary">Modifier</RouterLink>
                 </div>
               </template>
+            </div>
+
+            <div id="demographics-card" class="mb-[22px] rounded-2xl border border-slate-200 bg-white p-[26px_28px] shadow-[0_1px_3px_rgba(20,20,30,0.06)]">
+              <div class="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+                <div class="text-xs font-bold uppercase tracking-[0.04em] text-slate-400">Informations démographiques</div>
+                <span
+                  class="rounded-full px-2.5 py-1 text-[11px] font-bold"
+                  :class="isProfileComplete ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'"
+                >
+                  {{ isProfileComplete ? 'Profil complet' : `${missingDemoFieldsCount} champ(s) manquant(s)` }}
+                </span>
+              </div>
+              <p class="mb-5 text-[13px] leading-6 text-slate-500">
+                Ces informations débloquent les statistiques détaillées des sondages (répartition des votants par âge, sexe, profession et région). Elles restent anonymisées dans les résultats agrégés.
+              </p>
+
+              <form class="grid grid-cols-1 gap-4 sm:grid-cols-2" @submit.prevent="handleUpdateDemographics">
+                <label class="flex flex-col gap-2">
+                  <span class="text-sm font-semibold text-slate-700">Sexe</span>
+                  <select
+                    v-model="demoForm.gender_id"
+                    class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 transition focus:border-primary/30 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  >
+                    <option :value="null">Non renseigné</option>
+                    <option v-for="opt in referenceData?.genders ?? []" :key="opt.id" :value="opt.id">
+                      {{ profileLabel(opt.key, opt.label) }}
+                    </option>
+                  </select>
+                </label>
+
+                <label class="flex flex-col gap-2">
+                  <span class="text-sm font-semibold text-slate-700">Tranche d'âge</span>
+                  <select
+                    v-model="demoForm.age_range_id"
+                    class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 transition focus:border-primary/30 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  >
+                    <option :value="null">Non renseigné</option>
+                    <option v-for="opt in referenceData?.age_ranges ?? []" :key="opt.id" :value="opt.id">
+                      {{ profileLabel(opt.key, opt.label) }}
+                    </option>
+                  </select>
+                </label>
+
+                <label class="flex flex-col gap-2">
+                  <span class="text-sm font-semibold text-slate-700">Profession / CSP</span>
+                  <select
+                    v-model="demoForm.socio_professional_category_id"
+                    class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 transition focus:border-primary/30 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  >
+                    <option :value="null">Non renseigné</option>
+                    <option v-for="opt in referenceData?.socio_professional_categories ?? []" :key="opt.id" :value="opt.id">
+                      {{ profileLabel(opt.key, opt.label) }}
+                    </option>
+                  </select>
+                </label>
+
+                <label class="flex flex-col gap-2">
+                  <span class="text-sm font-semibold text-slate-700">Situation matrimoniale</span>
+                  <select
+                    v-model="demoForm.marital_status_id"
+                    class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 transition focus:border-primary/30 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  >
+                    <option :value="null">Non renseigné</option>
+                    <option v-for="opt in referenceData?.marital_statuses ?? []" :key="opt.id" :value="opt.id">
+                      {{ profileLabel(opt.key, opt.label) }}
+                    </option>
+                  </select>
+                </label>
+
+                <label class="relative flex flex-col gap-2">
+                  <span class="text-sm font-semibold text-slate-700">Code postal</span>
+                  <input
+                    v-model="demoForm.zip_code"
+                    type="text"
+                    inputmode="numeric"
+                    maxlength="5"
+                    placeholder="ex. 75001"
+                    @input="onZipCodeInput"
+                    class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 transition focus:border-primary/30 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                  <p v-if="communeLookupLoading" class="text-xs text-slate-400">Recherche…</p>
+                  <p v-else-if="communeNoResults" class="text-xs text-rose-500">Aucune ville trouvée pour ce code postal.</p>
+                  <div
+                    v-if="communeResults.length > 0"
+                    class="absolute left-0 right-0 top-full z-10 mt-1 flex max-h-56 flex-col gap-1 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg"
+                  >
+                    <button
+                      v-for="c in communeResults"
+                      :key="c.nom + (c.region?.code ?? '')"
+                      type="button"
+                      class="rounded-lg px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-primary/10"
+                      @click="selectCommune(c)"
+                    >
+                      {{ c.nom }} <span class="text-slate-400">· {{ c.region?.nom }}</span>
+                    </button>
+                  </div>
+                </label>
+
+                <label class="flex flex-col gap-2">
+                  <span class="text-sm font-semibold text-slate-700">Ville</span>
+                  <input
+                    v-model="demoForm.city"
+                    type="text"
+                    :disabled="!communeSelected"
+                    placeholder="Renseignez d'abord le code postal"
+                    class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 transition focus:border-primary/30 focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                  />
+                </label>
+
+                <label class="flex flex-col gap-2">
+                  <span class="text-sm font-semibold text-slate-700">Région</span>
+                  <input
+                    v-model="demoForm.region"
+                    type="text"
+                    :disabled="!communeSelected"
+                    placeholder="Renseignez d'abord le code postal"
+                    class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 transition focus:border-primary/30 focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                  />
+                </label>
+
+                <div class="flex items-center gap-3 sm:col-span-2">
+                  <AppButton type="submit" variant="primary" size="sm" :disabled="isSavingDemo">
+                    {{ isSavingDemo ? 'Enregistrement…' : 'Enregistrer' }}
+                  </AppButton>
+                  <p v-if="demoError" class="text-sm text-rose-600">{{ demoError }}</p>
+                </div>
+              </form>
             </div>
 
             <div class="mb-[22px] rounded-2xl border border-slate-200 bg-white p-[26px_28px] shadow-[0_1px_3px_rgba(20,20,30,0.06)]">

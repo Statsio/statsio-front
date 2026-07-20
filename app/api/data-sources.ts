@@ -23,6 +23,31 @@ export interface QueryMapping {
   supportsDistinct: boolean
   supportsJoins: boolean
   supportsAggregate: boolean
+  /** Paramètre de recherche plein texte détecté, si l'API upstream en expose un. */
+  searchParam?: string | null
+  /** true si le budget de temps a été atteint avant d'avoir sondé toutes les colonnes. */
+  probeTruncated: boolean
+}
+
+/** Rôle sémantique détecté pour une colonne — cf. `ColumnSemanticClassifier` côté API. */
+export type SemanticRole = 'temporal' | 'geographic' | 'measure' | 'dimension' | 'identifier' | 'text' | 'unknown'
+
+export interface DetectedSchemaColumn {
+  name: string
+  type: string
+  nullable: boolean
+  semanticRole?: SemanticRole
+}
+
+/** Type de visualisation évalué par `SourceCapabilityEvaluator` côté API. */
+export type ChartType = 'serie_temporelle' | 'carte' | 'kpi' | 'histogramme' | 'pivot' | 'jointure'
+
+export interface SourceCapabilities {
+  compatibilityScore: number
+  compatibleChartTypes: ChartType[]
+  incompatibleChartTypes: ChartType[]
+  estimatedMaxRows: number | null
+  responseTimeMs: number | null
 }
 
 export interface DataSourcePagination {
@@ -96,6 +121,8 @@ function mapQueryMappingFromApi(raw: Record<string, unknown> | null | undefined)
     supportsDistinct: raw.supports_distinct === true,
     supportsJoins: raw.supports_joins === true,
     supportsAggregate: raw.supports_aggregate === true,
+    searchParam: raw.search_param != null ? String(raw.search_param) : null,
+    probeTruncated: raw.probe_truncated === true,
   }
 }
 

@@ -2,7 +2,7 @@ import { computed, onMounted, ref } from 'vue'
 import { fetchUserStudioContents, type StatsDataDocument } from '@/api/studio'
 import { useMyChannels } from '@/composables/useMyChannels'
 import { useAuthStore } from '@/stores/auth'
-import { CONTENT_TYPE_META, getStatusMeta, publicContentPath } from '@/lib/content-display'
+import { CONTENT_TYPE_META, contentPropertiesPath, getStatusMeta, publicContentPath } from '@/lib/content-display'
 import { formatShortDate, getNameInitials, getUserInitials } from '@/lib/format'
 import type { ContentType } from '@/types/content-creation'
 
@@ -31,6 +31,7 @@ export interface DisplayContent {
   avatarBg: string
   avatarShape: 'circle' | 'square'
   date: string
+  viewsCount: number
   studioPath: string
   propertiesPath: string | null
   publicPath: string | null
@@ -100,8 +101,9 @@ export function useMyStudioContents() {
       avatarBg,
       avatarShape,
       date: formatShortDate(doc.updated_at ?? doc.created_at),
+      viewsCount: doc.views_count ?? 0,
       studioPath: `/studio/${type}/${doc.slug ?? doc.id}`,
-      propertiesPath: type === 'statsdata' && doc.slug ? `/statsdata/${doc.slug}/proprietes` : null,
+      propertiesPath: contentPropertiesPath(type, doc.slug),
       publicPath: status.live && doc.slug ? publicContentPath(type, doc.slug) : null,
     }
   }

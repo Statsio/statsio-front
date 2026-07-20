@@ -67,6 +67,7 @@ export function useTvSchedule() {
       case 'weekend':
         return { startMinutes: 6 * 60, endMinutes: 24 * 60, label: 'Ce week-end' }
       case 'custom':
+      default:
         return { startMinutes: 6 * 60, endMinutes: 24 * 60, label: 'Programme' }
     }
   })

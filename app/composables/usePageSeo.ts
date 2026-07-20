@@ -5,11 +5,18 @@ const DEFAULT_DESCRIPTION =
   'Statsio centralise les analyses, les sources et les signaux en temps réel pour créer des articles, des StatsData et des sondages à fort impact.'
 const DEFAULT_OG_IMAGE_PATH = '/brand/blank.png'
 
+/** Miroir du type `ogType` d'Unhead — pas de nom exporté à réutiliser directement. */
+export type PageSeoOgType =
+  | 'website' | 'article' | 'book' | 'profile'
+  | 'music.song' | 'music.album' | 'music.playlist' | 'music.radio_station'
+  | 'video.movie' | 'video.episode' | 'video.tv_show' | 'video.other'
+  | 'payment.link'
+
 export interface PageSeoOptions {
   title?: MaybeRefOrGetter<string | undefined>
   description?: MaybeRefOrGetter<string | undefined>
   image?: MaybeRefOrGetter<string | undefined>
-  type?: MaybeRefOrGetter<string | undefined>
+  type?: MaybeRefOrGetter<PageSeoOgType | undefined>
   robots?: MaybeRefOrGetter<string | undefined>
 }
 
@@ -35,7 +42,7 @@ export function usePageSeo(options: PageSeoOptions = {}) {
   )
 
   const type = computed(() =>
-    toValue(options.type) ?? (route.meta.ogType as string | undefined) ?? 'website',
+    toValue(options.type) ?? (route.meta.ogType as PageSeoOgType | undefined) ?? 'website',
   )
 
   const robots = computed(() =>

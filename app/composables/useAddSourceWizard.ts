@@ -79,7 +79,7 @@ export function useAddSourceWizard() {
   const visibility = ref<'private' | 'public'>('private')
   const categories = ref<string[]>([])
 
-  const currentStepId = ref<string>(ADD_SOURCE_WIZARD_STEPS[0].id)
+  const currentStepId = ref<string>(ADD_SOURCE_WIZARD_STEPS[0]!.id)
 
   const canGoNext = computed(() => {
     if (currentStepId.value === 'type') {
@@ -118,7 +118,7 @@ export function useAddSourceWizard() {
     provenanceOtherLabel.value = ''
     visibility.value = 'private'
     categories.value = []
-    currentStepId.value = ADD_SOURCE_WIZARD_STEPS[0].id
+    currentStepId.value = ADD_SOURCE_WIZARD_STEPS[0]!.id
   }
 
   function buildMetadataPayload() {

@@ -150,12 +150,12 @@ async function handleAttached() {
       </div>
 
       <StepSourceType
-        v-if="step.id === 'type'"
+        v-if="step?.id === 'type'"
         v-model="sourceType"
         @attached="handleAttached"
       />
       <StepSourceConfigure
-        v-else-if="step.id === 'configure'"
+        v-else-if="step?.id === 'configure'"
         :source-type="sourceType"
         :file-obj="fileObj"
         :file-name="fileName"
@@ -165,13 +165,13 @@ async function handleAttached() {
         @update:api-form="apiForm = $event"
       />
       <StepProvenance
-        v-else-if="step.id === 'provenance'"
+        v-else-if="step?.id === 'provenance'"
         v-model="provenanceId"
         :other-label="provenanceOtherLabel"
         @update:other-label="provenanceOtherLabel = $event"
       />
       <StepVisibility
-        v-else-if="step.id === 'visibility'"
+        v-else-if="step?.id === 'visibility'"
         :visibility="visibility"
         :categories="categories"
         @update:visibility="visibility = $event"

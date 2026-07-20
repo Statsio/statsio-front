@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/lib/http', () => ({
-  apiHttp: { get: vi.fn() },
+  apiHttp: { get: vi.fn<(...args: unknown[]) => Promise<unknown>>() },
 }))
 
 import { apiHttp } from '@/lib/http'

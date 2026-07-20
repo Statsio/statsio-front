@@ -65,13 +65,13 @@ export function useBlockData(block: () => StudioBlock | null, readonly = false) 
 
   // Reload when block configuration, filters, or page params change
   watch(
-    () => {
+    (): string | null => {
       const b = block()
       return b
         ? `${b.datasetId}|${JSON.stringify(b.fieldMapping)}|${JSON.stringify(b.filters ?? [])}|${JSON.stringify(b.joins ?? [])}|${JSON.stringify(studio.pageParams)}|${b.config.rowLimit ?? ''}|${b.config.distinctColumn ?? ''}|${b.config.sortColumn ?? ''}|${b.config.sortDirection ?? ''}`
         : null
     },
-    (key: string | null, prev: string | null) => {
+    (key, prev) => {
       if (key && key !== prev) load()
     },
     { immediate: true },

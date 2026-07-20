@@ -53,7 +53,7 @@ export const useContextStore = defineStore('context', () => {
    * Update context and sync to URL
    */
   function updateContext(updates: Partial<ContextState>, replace = false) {
-    const newContext = replace ? { ...updates } : { ...context.value, ...updates }
+    const newContext = (replace ? { ...updates } : { ...context.value, ...updates }) as ContextState
 
     // Remove null/undefined values
     Object.keys(newContext).forEach(key => {
@@ -188,7 +188,7 @@ export const useContextStore = defineStore('context', () => {
     }
 
     if (obj !== null && typeof obj === 'object') {
-      const result: any = {}
+      const result: Record<string, unknown> = {}
       for (const [key, value] of Object.entries(obj)) {
         result[key] = replaceTemplateVarsInObject(value)
       }
@@ -202,7 +202,7 @@ export const useContextStore = defineStore('context', () => {
    * Apply context to filters object
    * Replaces template variables and returns resolved filters
    */
-  function applyContextToFilters(filters: Record<string, any>): Record<string, any> {
+  function applyContextToFilters(filters: Record<string, unknown>): Record<string, unknown> {
     return replaceTemplateVarsInObject(filters)
   }
 

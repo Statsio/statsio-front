@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { navigateTo } = vi.hoisted(() => ({ navigateTo: vi.fn() }))
+const { navigateTo } = vi.hoisted(() => ({ navigateTo: vi.fn<(...args: unknown[]) => void>() }))
 
 vi.mock('#app', () => ({
   defineNuxtRouteMiddleware: (fn: unknown) => fn,
@@ -8,7 +8,7 @@ vi.mock('#app', () => ({
 }))
 
 vi.mock('@/stores/auth', () => ({
-  useAuthStore: vi.fn(),
+  useAuthStore: vi.fn<(...args: unknown[]) => unknown>(),
 }))
 
 import { useAuthStore } from '@/stores/auth'
@@ -22,7 +22,7 @@ describe('middleware/admin', () => {
   it('redirects to /login when there is no session', () => {
     vi.mocked(useAuthStore).mockReturnValue({ hasSession: false, isAdmin: false } as ReturnType<typeof useAuthStore>)
 
-    adminMiddleware()
+    ;(adminMiddleware as unknown as () => void)()
 
     expect(navigateTo).toHaveBeenCalledWith('/login')
   })
@@ -30,7 +30,7 @@ describe('middleware/admin', () => {
   it('redirects to / when authenticated but not an admin', () => {
     vi.mocked(useAuthStore).mockReturnValue({ hasSession: true, isAdmin: false } as ReturnType<typeof useAuthStore>)
 
-    adminMiddleware()
+    ;(adminMiddleware as unknown as () => void)()
 
     expect(navigateTo).toHaveBeenCalledWith('/')
   })
@@ -38,7 +38,7 @@ describe('middleware/admin', () => {
   it('lets an authenticated admin through', () => {
     vi.mocked(useAuthStore).mockReturnValue({ hasSession: true, isAdmin: true } as ReturnType<typeof useAuthStore>)
 
-    const result = adminMiddleware()
+    const result = (adminMiddleware as unknown as () => void)()
 
     expect(navigateTo).not.toHaveBeenCalled()
     expect(result).toBeUndefined()

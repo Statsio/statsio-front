@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, useAttrs, useId } from 'vue'
+import { useAttrs, useId } from 'vue'
 
 defineOptions({
   inheritAttrs: false,
 })
 
-const props = withDefaults(
+withDefaults(
   defineProps<{
     modelValue: boolean
     disabled?: boolean

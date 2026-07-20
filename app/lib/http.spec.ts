@@ -7,9 +7,9 @@ vi.mock('./auth-storage', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./auth-storage')>()
   return {
     ...actual,
-    getStoredToken: vi.fn(),
-    clearStoredToken: vi.fn(),
-    storeSession: vi.fn(),
+    getStoredToken: vi.fn<typeof actual.getStoredToken>(),
+    clearStoredToken: vi.fn<typeof actual.clearStoredToken>(),
+    storeSession: vi.fn<typeof actual.storeSession>(),
   }
 })
 
@@ -28,7 +28,7 @@ interface StoredTokenFixture {
 
 const stubLocation = (pathname = '/dashboard') => {
   Object.defineProperty(window, 'location', {
-    value: { pathname, search: '', hash: '', assign: vi.fn() },
+    value: { pathname, search: '', hash: '', assign: vi.fn<(url: string | URL) => void>() },
     writable: true,
     configurable: true,
   })

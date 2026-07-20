@@ -12,7 +12,7 @@ const statusCode = computed(() => props.error?.statusCode ?? 500)
 const isProduction = useRuntimeConfig().public.appEnv === 'production'
 
 const route = useRoute()
-const currentBrand = computed(() => getBrandFromPath(route.path || props.error?.url || ''))
+const currentBrand = computed(() => getBrandFromPath(route.path || ''))
 const appTheme = computed(() => (currentBrand.value.id === 'statsio' ? undefined : currentBrand.value.id))
 
 const goHome = () => clearError({ redirect: currentBrand.value.to })

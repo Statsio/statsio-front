@@ -16,20 +16,18 @@ describe('klaroConfig', () => {
   })
 
   it('marks required services as opted-in by default', () => {
-    for (const service of klaroConfig.services) {
-      if (service.required) {
-        expect(service.default).toBe(true)
-      }
+    const requiredServices = klaroConfig.services.filter((s) => s.required)
+    for (const service of requiredServices) {
+      expect(service.default).toBe(true)
     }
   })
 
   it('marks non-technical/functional/security services as opt-in by default', () => {
     const optionalPurposes = new Set(['analytics', 'videos'])
-    for (const service of klaroConfig.services) {
-      if (service.purposes.every((p) => optionalPurposes.has(p))) {
-        expect(service.default).toBe(false)
-        expect(service.required).toBe(false)
-      }
+    const optionalServices = klaroConfig.services.filter((s) => s.purposes.every((p) => optionalPurposes.has(p)))
+    for (const service of optionalServices) {
+      expect(service.default).toBe(false)
+      expect(service.required).toBe(false)
     }
   })
 })

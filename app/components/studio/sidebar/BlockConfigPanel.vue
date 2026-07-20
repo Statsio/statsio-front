@@ -4,16 +4,13 @@ import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import { useActiveEditor } from '@/composables/useActiveEditor'
 import { isTextBlock } from '@/types/studio'
-import type { BlockFilter, FilterOperator, BlockType, BlockJoin, StudioDocumentPage, DatasetMeta, DatasetColumn } from '@/types/studio'
+import { apiHttp } from '@/lib/http'
+import { STATSIO_API } from '@/api/statsio-endpoints'
+import type { BlockFilter, BlockType, BlockJoin, DatasetMeta, DatasetColumn } from '@/types/studio'
 
 const studio   = useStudioStore()
 const datasets = useStudioDatasetsStore()
 const { setActiveInput } = useActiveEditor()
-
-function hasVariable(value: string) { return /\{\{[^}]+\}\}/.test(value) }
-function extractVariables(value: string) {
-  return [...value.matchAll(/\{\{([^}]+)\}\}/g)].map((m) => m[1]!)
-}
 
 const block    = computed(() => studio.selectedBlock)
 const isText   = computed(() => block.value ? isTextBlock(block.value.type) : false)
@@ -97,48 +94,10 @@ const blockMeta = computed(() => block.value ? BLOCK_META[block.value.type as Bl
 
 // ─── Dataset ──────────────────────────────────────────────────────────────────
 
-import type { AppSelectOption, AppSelectGroup } from '@/components/ui/AppSelect.vue'
 import type { ColumnGroup } from '@/components/studio/ui/ColumnPickerModal.vue'
 
 const schema      = computed(() => block.value?.datasetId ? (datasets.getSchema(block.value.datasetId) ?? null) : null)
 const columnNames = computed(() => schema.value?.columns.map((c: DatasetColumn) => c.name) ?? [])
-
-// Primary columns + ALL schema columns from each joined dataset
-const allColumnNames = computed(() => {
-  const cols = new Set<string>(columnNames.value)
-  joins.value.forEach((_: BlockJoin, i: number) => {
-    joinSchema(i)?.columns.forEach((c: DatasetColumn) => cols.add(c.name))
-  })
-  return Array.from(cols)
-})
-
-// Grouped column options: primary source + each join as a collapsible group
-const columnGroups = computed<AppSelectGroup[]>(() => {
-  const groups: AppSelectGroup[] = []
-  if (schema.value?.columns.length) {
-    groups.push({
-      label: schema.value.name ?? 'Source principale',
-      options: schema.value.columns.map((c: DatasetColumn) => ({ value: c.name, label: c.name })),
-    })
-  }
-  joins.value.forEach((j: BlockJoin, i: number) => {
-    const jSchema = joinSchema(i)
-    if (!jSchema?.columns.length) return
-    const ds = datasets.readyDatasets.find((d: DatasetMeta) => d.id === j.datasetId)
-    groups.push({
-      label: ds?.name ?? `Jointure ${i + 1}`,
-      collapsible: true,
-      defaultOpen: true,
-      options: jSchema.columns.map((c: DatasetColumn) => ({ value: c.name, label: c.name })),
-    })
-  })
-  return groups
-})
-
-// Flat column options (no groups) for selects where grouping doesn't add value
-const columnOptions = computed<AppSelectOption[]>(() =>
-  columnNames.value.map((c: string) => ({ value: c, label: c })),
-)
 
 // Like updateMapping but auto-adds the column to join.columns if it belongs to a join
 function updateMappingWithJoinSync(key: string, value: string) {
@@ -156,6 +115,50 @@ watch(() => block.value?.datasetId, async (id: string | undefined) => { if (id) 
 
 function updateConfig(key: string, value: unknown)  { if (!block.value) return; studio.updateBlockConfig(block.value.id, { [key]: value }) }
 function updateMapping(key: string, value: string)  { if (!block.value) return; studio.updateBlockFieldMapping(block.value.id, { [key]: value }) }
+
+// ─── Image block upload (bloc "image") ─────────────────────────────────────────
+
+const imageFileInputRef = ref<HTMLInputElement | null>(null)
+const imageDragOver     = ref(false)
+const imageUploading    = ref(false)
+const imageUploadError  = ref('')
+
+async function uploadImageFile(file: File) {
+  if (!block.value) return
+  imageUploadError.value = ''
+  imageUploading.value = true
+  try {
+    const form = new FormData()
+    form.append('file', file)
+    form.append('directory', 'studio/images')
+    const { data } = await apiHttp.post(STATSIO_API.media.upload, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    updateConfig('imageUrl', data.data.url)
+  } catch (e: unknown) {
+    const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message
+    imageUploadError.value = msg ?? "Erreur lors de l'upload de l'image"
+  } finally {
+    imageUploading.value = false
+  }
+}
+
+function onImageFileChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  if (input.files?.[0]) uploadImageFile(input.files[0])
+  input.value = ''
+}
+
+function onImageDrop(event: DragEvent) {
+  imageDragOver.value = false
+  const file = event.dataTransfer?.files[0]
+  if (file) uploadImageFile(file)
+}
+
+function removeImage() {
+  imageUploadError.value = ''
+  updateConfig('imageUrl', '')
+}
 
 // ─── Form block config (choice / checkboxes / dropdown / scale / rating) ──────
 
@@ -180,22 +183,6 @@ const yAxes = computed<string[]>(() => {
 const needsValue    = computed(() => block.value?.type === 'kpi')
 const isTable       = computed(() => block.value?.type === 'table')
 
-// ─── Search block ─────────────────────────────────────────────────────────────
-
-const stringColumns = computed(() =>
-  schema.value?.columns
-    .filter((c: DatasetColumn) => ['string', 'integer', 'float'].includes(c.type))
-    .map((c: DatasetColumn) => c.name) ?? [],
-)
-
-const targetPageToken = computed(() => {
-  const targetId = block.value?.fieldMapping.targetPageId
-  if (!targetId) return null
-  const paramName = studio.pages.find((p: StudioDocumentPage) => p.id === targetId)?.paramName
-  if (!paramName) return null
-  return `{{${paramName}}}`
-})
-
 // ─── Text formatting ──────────────────────────────────────────────────────────
 
 const CALLOUT_COLORS = [
@@ -209,12 +196,6 @@ const CHART_COLORS = ['#8b5cf6','#3b82f6','#10b981','#f59e0b','#ef4444','#06b6d4
 // ─── Filters ──────────────────────────────────────────────────────────────────
 
 const filters = computed<BlockFilter[]>(() => block.value?.filters ?? [])
-const OPERATORS: { value: FilterOperator; label: string }[] = [
-  { value: '=',            label: 'égal à' },         { value: '!=',          label: 'différent de' },
-  { value: '>',            label: 'supérieur à' },    { value: '>=',          label: 'supérieur ou égal' },
-  { value: '<',            label: 'inférieur à' },    { value: '<=',          label: 'inférieur ou égal' },
-  { value: 'contains',     label: 'contient' },       { value: 'not_contains',label: 'ne contient pas' },
-]
 
 // ─── Comparison filters ───────────────────────────────────────────────────────
 
@@ -240,16 +221,6 @@ function joinSchema(joinIdx: number) {
   const id = joins.value[joinIdx]?.datasetId
   return id ? (datasets.getSchema(id) ?? null) : null
 }
-// ─── ColumnGroup helpers for ColumnButton / ColumnPickerModal ─────────────────
-
-function joinColumnGroup(joinIdx: number): ColumnGroup[] {
-  const jSchema = joinSchema(joinIdx)
-  if (!jSchema) return []
-  const j = joins.value[joinIdx]
-  const name = datasets.readyDatasets.find((d: DatasetMeta) => d.id === j?.datasetId)?.name ?? `Jointure ${joinIdx + 1}`
-  return [{ label: `Jointure — ${name}`, columns: jSchema.columns }]
-}
-
 // ─── Search sources ───────────────────────────────────────────────────────────
 
 import type { SearchSource, SearchJoin } from '@/types/studio'
@@ -282,7 +253,6 @@ watch(searchJoins, (joins: SearchJoin[]) => {
 
 
 const urlParams = computed<string[]>(() => block.value?.fieldMapping.urlParams ?? [])
-const urlParamMapping = computed<Record<string, string>>(() => block.value?.fieldMapping.urlParamMapping ?? {})
 
 // Grouped by dataset for the column picker modal — only sources with search columns
 const searchSourceColumnGroups = computed(() => {
@@ -313,27 +283,6 @@ const allSourceColumns = computed(() => {
   return Array.from(cols)
 })
 
-function toggleUrlParam(col: string) {
-  if (!block.value) return
-  const current = urlParams.value
-  const updated = current.includes(col)
-    ? current.filter((c: string) => c !== col)
-    : [...current, col]
-  studio.updateBlockFieldMapping(block.value.id, { urlParams: updated })
-}
-
-function setUrlParamMapping(urlKey: string, sourceCol: string) {
-  if (!block.value) return
-  const current = urlParamMapping.value
-  const updated = { ...current }
-  if (sourceCol === urlKey) {
-    delete updated[urlKey]
-  } else {
-    updated[urlKey] = sourceCol
-  }
-  studio.updateBlockFieldMapping(block.value.id, { urlParamMapping: updated })
-}
-
 // ─── Result display ────────────────────────────────────────────────────────────
 
 const showDataSourceModal        = ref(false)
@@ -346,7 +295,6 @@ const showSearchResultsDispModal = ref(false)
 
 const resultTitleColumn      = computed<string>(() => block.value?.fieldMapping.resultTitleColumn ?? '')
 const resultDescColumns      = computed<string[]>(() => block.value?.fieldMapping.resultDescColumns ?? [])
-const resultDescColumnLabels = computed<Record<string, string>>(() => block.value?.fieldMapping.resultDescColumnLabels ?? {})
 
 // ColumnGroup[] built from search source schemas (for ColumnPickerModal / ColumnButton)
 const displayColumnGroups = computed<ColumnGroup[]>(() => {
@@ -371,37 +319,7 @@ const displayColumnGroups = computed<ColumnGroup[]>(() => {
   return groups
 })
 
-function setResultTitleColumn(col: string) {
-  if (!block.value) return
-  studio.updateBlockFieldMapping(block.value.id, { resultTitleColumn: col || undefined })
-}
 
-function toggleResultDescColumn(col: string) {
-  if (!block.value) return
-  const current = resultDescColumns.value
-  const updated = current.includes(col)
-    ? current.filter((c: string) => c !== col)
-    : [...current, col]
-  // Also clean up the label if the column is removed
-  if (!updated.includes(col)) {
-    const labels = { ...resultDescColumnLabels.value }
-    delete labels[col]
-    studio.updateBlockFieldMapping(block.value.id, { resultDescColumns: updated.length ? updated : undefined, resultDescColumnLabels: Object.keys(labels).length ? labels : undefined })
-  } else {
-    studio.updateBlockFieldMapping(block.value.id, { resultDescColumns: updated.length ? updated : undefined })
-  }
-}
-
-function setResultDescColumnLabel(col: string, label: string) {
-  if (!block.value) return
-  const labels = { ...resultDescColumnLabels.value }
-  if (label && label !== col) {
-    labels[col] = label
-  } else {
-    delete labels[col]
-  }
-  studio.updateBlockFieldMapping(block.value.id, { resultDescColumnLabels: Object.keys(labels).length ? labels : undefined })
-}
 </script>
 
 <template>
@@ -614,8 +532,47 @@ function setResultDescColumnLabel(col: string, label: string) {
               </button>
               <div v-show="open('img-src')" class="accordion-body flex flex-col gap-2">
                 <div>
-                  <label class="cfg-label">URL de l'image</label>
-                  <input :value="block.config.imageUrl ?? ''" type="url" placeholder="https://…" class="cfg-input" @input="updateConfig('imageUrl', ($event.target as HTMLInputElement).value)" />
+                  <label class="cfg-label">Image</label>
+                  <div
+                    class="relative rounded-xl border-2 border-dashed transition-colors cursor-pointer overflow-hidden"
+                    :class="imageDragOver
+                      ? 'border-[var(--color-primary)] bg-purple-50'
+                      : block.config.imageUrl ? 'border-slate-200' : 'border-slate-200 hover:border-slate-300 bg-slate-50'"
+                    @click="imageFileInputRef?.click()"
+                    @dragover.prevent="imageDragOver = true"
+                    @dragleave="imageDragOver = false"
+                    @drop.prevent="onImageDrop"
+                  >
+                    <input ref="imageFileInputRef" type="file" accept="image/*" class="sr-only" @change="onImageFileChange" />
+
+                    <img v-if="block.config.imageUrl" :src="block.config.imageUrl" class="w-full h-28 object-cover" />
+                    <div v-else class="flex flex-col items-center gap-1.5 py-8 px-4 text-center pointer-events-none">
+                      <svg class="w-6 h-6 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                      </svg>
+                      <p class="text-xs font-medium text-slate-500">Glisser une image ici</p>
+                      <p class="text-[11px] text-slate-400">ou cliquer pour parcourir</p>
+                    </div>
+
+                    <div v-if="imageUploading" class="absolute inset-0 flex items-center justify-center bg-white/70">
+                      <svg class="w-5 h-5 animate-spin text-[var(--color-primary)]" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                    </div>
+
+                    <button
+                      v-if="block.config.imageUrl && !imageUploading"
+                      type="button"
+                      class="absolute top-1.5 right-1.5 p-1 rounded-lg bg-white/90 text-slate-500 hover:text-red-500 shadow-sm"
+                      @click.stop="removeImage"
+                    >
+                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  <p v-if="imageUploadError" class="mt-1 text-[11px] text-red-500">{{ imageUploadError }}</p>
                 </div>
                 <div>
                   <label class="cfg-label">Texte alternatif</label>
@@ -814,7 +771,7 @@ function setResultDescColumnLabel(col: string, label: string) {
               </span>
               <div class="flex-1 min-w-0">
                 <p v-if="block.datasetId" class="text-xs font-semibold text-slate-700 truncate">
-                  {{ datasets.readyDatasets.find((d: DatasetMeta) => d.id === block.datasetId)?.name ?? 'Dataset sélectionné' }}
+                  {{ datasets.readyDatasets.find((d: DatasetMeta) => d.id === block?.datasetId)?.name ?? 'Dataset sélectionné' }}
                 </p>
                 <p v-else class="text-xs text-slate-400">Aucun dataset sélectionné</p>
                 <p class="mt-0.5 text-[11px] text-slate-400">
