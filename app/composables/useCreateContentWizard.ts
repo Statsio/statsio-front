@@ -25,7 +25,7 @@ export function useCreateContentWizard() {
   const publishedAs = ref<ContentPublishedAs | undefined>(undefined)
   const channelId = ref<number | undefined>(undefined)
 
-  const currentStepId = ref<string>(CONTENT_WIZARD_STEPS[0].id)
+  const currentStepId = ref<string>(CONTENT_WIZARD_STEPS[0]!.id)
 
   const currentStepIndex = computed(
     () => CONTENT_WIZARD_STEPS.findIndex((s) => s.id === currentStepId.value),
@@ -51,7 +51,7 @@ export function useCreateContentWizard() {
     visibility.value = 'private'
     publishedAs.value = undefined
     channelId.value = undefined
-    currentStepId.value = CONTENT_WIZARD_STEPS[0].id
+    currentStepId.value = CONTENT_WIZARD_STEPS[0]!.id
   }
 
   function buildPayload(type: ContentType): CreateContentPayload {

@@ -22,7 +22,7 @@ describe('middleware/guest', () => {
   it('redirects an authenticated visitor away to /user', () => {
     vi.mocked(useAuthStore).mockReturnValue({ hasSession: true } as ReturnType<typeof useAuthStore>)
 
-    guestMiddleware()
+    ;(guestMiddleware as unknown as () => void)()
 
     expect(navigateTo).toHaveBeenCalledWith('/user')
   })
@@ -30,7 +30,7 @@ describe('middleware/guest', () => {
   it('lets an anonymous visitor through', () => {
     vi.mocked(useAuthStore).mockReturnValue({ hasSession: false } as ReturnType<typeof useAuthStore>)
 
-    const result = guestMiddleware()
+    const result = (guestMiddleware as unknown as () => void)()
 
     expect(navigateTo).not.toHaveBeenCalled()
     expect(result).toBeUndefined()

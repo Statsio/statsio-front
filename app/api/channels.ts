@@ -182,6 +182,50 @@ export async function getChannel(id: number): Promise<Channel> {
   return response.data.data
 }
 
+export type ChannelStats = {
+  views: {
+    total: number
+    growthPercent: number
+    series: { date: string; views: number }[]
+  }
+  subscribers: {
+    total: number
+    growth: { newCount: number; growthPercent: number }
+  }
+  teamMemberCount: number
+  lifetimeViews: number
+}
+
+export async function getChannelStats(id: number): Promise<ChannelStats> {
+  const response = await apiHttp.get<{
+    success: boolean
+    data: {
+      views: { total: number; growth_percent: number; series: { date: string; views: number }[] }
+      subscribers: { total: number; growth: { new_count: number; growth_percent: number } }
+      team_member_count: number
+      lifetime_views: number
+    }
+  }>(`/channels/${id}/stats`)
+  const raw = response.data.data
+
+  return {
+    views: {
+      total: raw.views.total,
+      growthPercent: raw.views.growth_percent,
+      series: raw.views.series,
+    },
+    subscribers: {
+      total: raw.subscribers.total,
+      growth: {
+        newCount: raw.subscribers.growth.new_count,
+        growthPercent: raw.subscribers.growth.growth_percent,
+      },
+    },
+    teamMemberCount: raw.team_member_count,
+    lifetimeViews: raw.lifetime_views,
+  }
+}
+
 export type ToggleSubscriptionResponse = {
   isFollowing: boolean
   followersCount: number

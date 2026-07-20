@@ -35,7 +35,7 @@ function hash(value: string): number {
 }
 
 export function getCategoryPalette(category: string): CategoryPalette {
-  return PALETTE[hash(category || 'Sondage') % PALETTE.length]
+  return PALETTE[hash(category || 'Sondage') % PALETTE.length] ?? PALETTE[0]!
 }
 
 export function getCategoryStripeBackground(category: string, spacing = 14): string {
@@ -45,7 +45,7 @@ export function getCategoryStripeBackground(category: string, spacing = 14): str
 
 /** Couleur d'une option dans une barre segmentée multi-options, cyclée sur la même palette. */
 export function getOptionColor(index: number): string {
-  return PALETTE[index % PALETTE.length].solid
+  return (PALETTE[index % PALETTE.length] ?? PALETTE[0]!).solid
 }
 
 /** Normalise l'agrégat d'un bloc de formulaire (options nommées, distribution numérique, ou config brute) en paires label/pourcentage. */

@@ -86,23 +86,23 @@ const studioPath = () => createdDoc.value ? `/studio/${props.type}/${createdDoc.
   >
     <template #default="{ step }">
       <StepTitle
-        v-if="step.id === 'title'"
+        v-if="step?.id === 'title'"
         v-model="title"
         :content-type-label="config.label"
       />
       <StepCategories
-        v-else-if="step.id === 'categories'"
+        v-else-if="step?.id === 'categories'"
         v-model="categories"
       />
       <StepCoverage
-        v-else-if="step.id === 'coverage'"
+        v-else-if="step?.id === 'coverage'"
         :coverage-type="coverageType"
         :coverage-values="coverageValues"
         @update:coverage-type="coverageType = $event"
         @update:coverage-values="coverageValues = $event"
       />
       <StepPublication
-        v-else-if="step.id === 'publication'"
+        v-else-if="step?.id === 'publication'"
         :visibility="visibility"
         :published-as="publishedAs"
         :channel-id="channelId"

@@ -148,7 +148,7 @@ const FORMAT_OPTIONS = [
   { v: 'number',   l: '123',  desc: 'Nombre brut' },
   { v: 'percent',  l: '%',    desc: 'Pourcentage' },
   { v: 'currency', l: '€',   desc: 'Devise' },
-]
+] as const
 
 </script>
 

@@ -95,7 +95,7 @@ async function handleSubmit() {
       </p>
 
       <StepSourceConfigure
-        v-if="step.id === 'configure'"
+        v-if="step?.id === 'configure'"
         :source-type="sourceType"
         :file-obj="newFileObj"
         :file-name="name"
@@ -113,13 +113,13 @@ async function handleSubmit() {
         @update:api-form="apiForm = $event"
       />
       <StepProvenance
-        v-else-if="step.id === 'provenance'"
+        v-else-if="step?.id === 'provenance'"
         v-model="provenanceId"
         :other-label="provenanceOtherLabel"
         @update:other-label="provenanceOtherLabel = $event"
       />
       <StepVisibility
-        v-else-if="step.id === 'visibility'"
+        v-else-if="step?.id === 'visibility'"
         :visibility="visibility"
         :categories="categories"
         @update:visibility="visibility = $event"

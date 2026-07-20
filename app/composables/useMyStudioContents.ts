@@ -31,6 +31,7 @@ export interface DisplayContent {
   avatarBg: string
   avatarShape: 'circle' | 'square'
   date: string
+  viewsCount: number
   studioPath: string
   propertiesPath: string | null
   publicPath: string | null
@@ -100,6 +101,7 @@ export function useMyStudioContents() {
       avatarBg,
       avatarShape,
       date: formatShortDate(doc.updated_at ?? doc.created_at),
+      viewsCount: doc.views_count ?? 0,
       studioPath: `/studio/${type}/${doc.slug ?? doc.id}`,
       propertiesPath: contentPropertiesPath(type, doc.slug),
       publicPath: status.live && doc.slug ? publicContentPath(type, doc.slug) : null,

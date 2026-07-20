@@ -25,7 +25,7 @@ useScrollAnim(sectionRef, (gsap) => {
       immediateRender: false,
       scrollTrigger: { trigger: sectionRef.value, start: 'top 82%', once: true },
     })
-  }, sectionRef.value)
+  }, sectionRef.value ?? undefined)
 })
 </script>
 

@@ -224,8 +224,10 @@ export interface StatsDataDocument {
   can_edit?: boolean
 }
 
-export async function fetchUserStudioContents(type?: ContentType): Promise<StatsDataDocument[]> {
-  const { data } = await apiHttp.get(STATSIO_API.studioContent.collection, { params: type ? { type } : {} })
+export async function fetchUserStudioContents(type?: ContentType, channelId?: number): Promise<StatsDataDocument[]> {
+  const { data } = await apiHttp.get(STATSIO_API.studioContent.collection, {
+    params: { ...(type ? { type } : {}), ...(channelId ? { channel_id: channelId } : {}) },
+  })
   return data.data ?? []
 }
 

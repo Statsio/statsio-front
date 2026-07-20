@@ -13,5 +13,5 @@ function hashIndex(value: string, mod: number) {
 }
 
 export function getCategoryColorClass(category: string): string {
-  return categoryPalette[hashIndex(category, categoryPalette.length)]
+  return categoryPalette[hashIndex(category, categoryPalette.length)] ?? categoryPalette[0]
 }
