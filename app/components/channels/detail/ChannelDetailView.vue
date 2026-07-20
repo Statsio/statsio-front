@@ -6,6 +6,7 @@ import ChannelBanner from './ChannelBanner.vue'
 import ChannelProfileHeader from './ChannelProfileHeader.vue'
 import ChannelStatsStrip from './ChannelStatsStrip.vue'
 import ChannelDetailTabs from './ChannelDetailTabs.vue'
+import ChannelFeaturedTab from './ChannelFeaturedTab.vue'
 import ChannelFeedList from './ChannelFeedList.vue'
 import ChannelDatasetList from './ChannelDatasetList.vue'
 import ChannelPollsTab from './ChannelPollsTab.vue'
@@ -21,9 +22,11 @@ const {
   activeTab,
   categoryLabels,
   createdAtLabel,
-  articleFeedItems,
-  statsDataFeedItems,
-  pollFeedItems,
+  articles,
+  statsData,
+  featured,
+  enrichedPolls,
+  featuredEnrichedSurvey,
 } = useChannelProfile()
 
 usePageSeo({
@@ -61,26 +64,31 @@ const brandColors = computed(() =>
             @toggle-follow="toggleFollow"
           />
 
-          <ChannelStatsStrip :channel="channel" />
+          <ChannelStatsStrip :channel="channel" :articles-count="articles.length" :stats-data-count="statsData.length" />
 
           <ChannelDetailTabs v-model="activeTab" :tabs="tabs" :accent-color="brandColors.primary" />
 
+          <ChannelFeaturedTab
+            v-if="activeTab === 'featured'"
+            :featured="featured"
+            :enriched-survey="featuredEnrichedSurvey"
+          />
+
           <ChannelFeedList
-            v-if="activeTab === 'articles'"
-            :items="articleFeedItems"
+            v-else-if="activeTab === 'articles'"
+            :items="articles"
             empty-text="Aucun article publié pour le moment."
-            :color-primary="brandColors.primary"
           />
 
           <ChannelDatasetList
             v-else-if="activeTab === 'statsdata'"
-            :items="statsDataFeedItems"
+            :items="statsData"
             empty-text="Aucune StatsData publiée pour le moment."
           />
 
           <ChannelPollsTab
             v-else-if="activeTab === 'sondages'"
-            :items="pollFeedItems"
+            :items="enrichedPolls"
             empty-text="Aucun sondage publié pour le moment."
           />
 

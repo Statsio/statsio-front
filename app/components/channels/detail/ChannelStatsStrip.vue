@@ -5,12 +5,15 @@ import { formatCompactNumber } from '@/lib/format'
 
 const props = defineProps<{
   channel: ChannelEntry
+  articlesCount: number
+  statsDataCount: number
 }>()
 
 const stats = computed(() => [
   { label: 'Abonnés', value: formatCompactNumber(props.channel.followers) },
-  { label: 'Articles', value: String(props.channel.articles.length) },
-  { label: 'StatsData', value: String(props.channel.statsData.length) },
+  { label: 'Vues', value: formatCompactNumber(props.channel.viewCount ?? 0) },
+  { label: 'Articles', value: String(props.articlesCount) },
+  { label: 'StatsData', value: String(props.statsDataCount) },
 ])
 </script>
 

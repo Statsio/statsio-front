@@ -1,14 +1,39 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref, toRef } from 'vue'
 import { formatEuros } from '@/lib/format'
+import { formatCompactNumber } from '@/utils/number'
+import { extractMedicamentBrandName, getMedicamentFormEmoji } from '@/utils/medicaments'
 import AppRelatedSlider, { type RelatedSliderItem } from '@/components/ui/AppRelatedSlider.vue'
-import type { GenericGroup, Medicament } from '@/types/medicaments'
+import AppSparkline from '@/components/ui/AppSparkline.vue'
+import { useMedicamentImage } from '@/composables/useMedicamentImage'
+import { fetchMedicamentVentes } from '@/api/medicaments'
+import type { GenericGroup, Medicament, MedicamentVentesTrend } from '@/types/medicaments'
 
 const props = defineProps<{
   medicament: Medicament
   generiques: readonly GenericGroup[]
   isLoadingGeneriques: boolean
 }>()
+
+const { url: imageUrl } = useMedicamentImage(toRef(() => extractMedicamentBrandName(props.medicament.elementPharmaceutique)))
+const formEmoji = computed(() => getMedicamentFormEmoji(props.medicament.formePharmaceutique))
+
+const ventes = ref<MedicamentVentesTrend | null>(null)
+const isLoadingVentes = ref(true)
+const ventesTrendPoints = computed(() => ventes.value?.trend.map((p) => p.value) ?? [])
+const ventesTrendLabels = computed(() => ventes.value?.trend.map((p) => p.year) ?? [])
+
+onMounted(async () => {
+  try {
+    ventes.value = await fetchMedicamentVentes(props.medicament.cis)
+  } catch {
+    // Pas de données Open Medic pour ce médicament (non remboursé, non suivi...) — cas normal,
+    // on affiche un message "non disponible" plutôt qu'une erreur.
+    ventes.value = null
+  } finally {
+    isLoadingVentes.value = false
+  }
+})
 
 const relatedMedicaments = computed<RelatedSliderItem[]>(() =>
   props.generiques.flatMap((group) =>
@@ -45,19 +70,48 @@ const conditions = computed(() => props.medicament.conditions ?? [])
       ← Retour à la recherche
     </NuxtLink>
 
-    <div class="mb-1.5 flex flex-wrap items-start justify-between gap-6">
-      <div>
-        <div class="mb-1.5 flex flex-wrap items-center gap-3">
-          <h1 class="text-[26px] font-bold text-slate-900 md:text-[28px]">{{ medicament.elementPharmaceutique }}</h1>
-          <span class="rounded-full bg-[var(--color-primary)]/10 px-3 py-1 text-[11.5px] font-bold text-[var(--color-primary)]">
-            {{ medicament.formePharmaceutique }}
-          </span>
+    <div class="mb-1.5 flex items-start justify-between gap-6">
+      <div class="flex min-w-0 items-start gap-4">
+        <div class="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-100 bg-slate-50 text-2xl">
+          <span aria-hidden="true">{{ formEmoji }}</span>
         </div>
-        <p class="text-sm text-slate-500">
-          {{ dci }} · {{ medicament.titulaire }}
-          <span v-if="medicament.voiesAdministration.length"> · {{ medicament.voiesAdministration.join(', ') }}</span>
-        </p>
+        <div class="min-w-0">
+          <div class="mb-1.5 flex flex-wrap items-center gap-3">
+            <h1 class="text-[26px] font-bold text-slate-900 md:text-[28px]">{{ medicament.elementPharmaceutique }}</h1>
+            <span class="rounded-full bg-[var(--color-primary)]/10 px-3 py-1 text-[11.5px] font-bold text-[var(--color-primary)]">
+              {{ medicament.formePharmaceutique }}
+            </span>
+          </div>
+          <p class="text-sm text-slate-500">
+            {{ dci }} · {{ medicament.titulaire }}
+            <span v-if="medicament.voiesAdministration.length"> · {{ medicament.voiesAdministration.join(', ') }}</span>
+          </p>
+        </div>
       </div>
+
+      <img
+        v-if="imageUrl"
+        :src="imageUrl"
+        :alt="medicament.elementPharmaceutique"
+        class="h-32 w-32 shrink-0 rounded-2xl border border-slate-100 object-cover shadow-[0_1px_3px_rgba(20,20,30,0.06)] md:h-40 md:w-40"
+      />
+    </div>
+
+    <div class="my-5 rounded-2xl border border-slate-100 bg-white p-6 shadow-[0_1px_3px_rgba(20,20,30,0.06)]">
+      <p class="mb-1 text-[11.5px] text-slate-500">Boîtes vendues</p>
+      <p v-if="isLoadingVentes" class="text-[14px] text-slate-400">Chargement…</p>
+      <template v-else-if="ventes">
+        <p class="mono text-[21px] font-semibold text-slate-900">{{ formatCompactNumber(ventes.value) }}</p>
+        <p class="mt-1 text-[11.5px] text-slate-400">Source : Open Medic (Assurance Maladie) — {{ ventes.year }}</p>
+        <AppSparkline
+          v-if="ventesTrendPoints.length > 1"
+          :points="ventesTrendPoints"
+          :labels="ventesTrendLabels"
+          show-axis
+          class="mt-4"
+        />
+      </template>
+      <p v-else class="text-[14px] text-slate-400">Non disponible — aucune donnée Open Medic ne couvre ce médicament.</p>
     </div>
 
     <div class="my-7 grid grid-cols-2 gap-4 md:grid-cols-4">

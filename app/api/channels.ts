@@ -1,4 +1,6 @@
 import { apiHttp } from '@/lib/http'
+import { STATSIO_API } from './statsio-endpoints'
+import type { StatsDataDocument } from '@/api/studio'
 
 export type ChannelCategory =
   | 'sport'
@@ -45,6 +47,16 @@ export type ChannelProfile = {
   is_following: boolean
   created_at: string
   updated_at: string
+  /** Présent uniquement sur GET /channels/{id} (show) — absent sur les listes (/channels, /my). */
+  featured?: FeaturedContent
+}
+
+export type FeaturedContentSlot = StatsDataDocument | null
+
+export type FeaturedContent = {
+  article: FeaturedContentSlot
+  statsdata: FeaturedContentSlot
+  survey: FeaturedContentSlot
 }
 
 export type Channel = {
@@ -367,6 +379,30 @@ export async function getChannelSubscribers(id: number, page = 1): Promise<{ dat
 
 export async function deleteChannel(id: number): Promise<void> {
   await apiHttp.delete(`/channels/${id}`)
+}
+
+export async function getChannelFeaturedContent(channelId: number): Promise<FeaturedContent> {
+  const response = await apiHttp.get<{ success: boolean; data: FeaturedContent }>(
+    STATSIO_API.channels.featured(String(channelId)),
+  )
+  return response.data.data
+}
+
+export type UpdateFeaturedContentPayload = {
+  featured_article_id?: number | null
+  featured_statsdata_id?: number | null
+  featured_survey_id?: number | null
+}
+
+export async function updateChannelFeaturedContent(
+  channelId: number,
+  payload: UpdateFeaturedContentPayload,
+): Promise<FeaturedContent> {
+  const response = await apiHttp.put<{ success: boolean; data: FeaturedContent; message: string }>(
+    STATSIO_API.channels.featured(String(channelId)),
+    payload,
+  )
+  return response.data.data
 }
 
 export const channelCategoryLabels: Record<ChannelCategory, string> = {

@@ -100,9 +100,11 @@ describe('fetchChannelByHandle', () => {
   })
 
   it('finds the channel whose normalized handle matches', async () => {
-    vi.mocked(apiHttp.get).mockResolvedValue({
-      data: { success: true, data: { current_page: 1, last_page: 1, per_page: 100, total: 1, data: [apiChannel()] } },
-    })
+    vi.mocked(apiHttp.get)
+      .mockResolvedValueOnce({
+        data: { success: true, data: { current_page: 1, last_page: 1, per_page: 100, total: 1, data: [apiChannel()] } },
+      })
+      .mockResolvedValueOnce({ data: { success: true, data: apiChannel() } })
 
     const channel = await fetchChannelByHandle('datajourn')
 

@@ -1,3 +1,5 @@
+import type { FeaturedContent } from '@/api/channels'
+
 export type ChannelTone = 'primary' | 'accent' | 'secondary'
 
 export type ChannelEntry = {
@@ -25,6 +27,7 @@ export type ChannelEntry = {
   viewCount?: number
   customColorPrimary?: string | null
   customColorSecondary?: string | null
+  featured?: FeaturedContent | null
 }
 
 export const channels: ChannelEntry[] = [

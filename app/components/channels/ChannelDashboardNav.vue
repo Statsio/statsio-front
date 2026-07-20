@@ -15,6 +15,7 @@ type NavItem = { to: string; label: string; exact?: boolean }
 const navItems = computed<NavItem[]>(() => [
   { to: basePath.value, label: "Vue d'ensemble", exact: true },
   { to: `${basePath.value}/contenus`, label: 'Contenus' },
+  { to: `${basePath.value}/mis-en-avant`, label: 'Mis en avant' },
   { to: `${basePath.value}/abonnes`, label: 'Abonnés' },
   { to: `${basePath.value}/membres`, label: 'Membres' },
   { to: `${basePath.value}/parametres`, label: 'Paramètres' },
