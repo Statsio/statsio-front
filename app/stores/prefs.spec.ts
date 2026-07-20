@@ -4,11 +4,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { usePrefsStore } from './prefs'
 
 const stubMatchMedia = (matches: Record<string, boolean> = {}) => {
-  window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+  window.matchMedia = vi.fn<(query: string) => unknown>().mockImplementation((query: string) => ({
     matches: matches[query] ?? false,
     media: query,
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
+    addEventListener: vi.fn<(...args: unknown[]) => void>(),
+    removeEventListener: vi.fn<(...args: unknown[]) => void>(),
   })) as unknown as typeof window.matchMedia
 }
 

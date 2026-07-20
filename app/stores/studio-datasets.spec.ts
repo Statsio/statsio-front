@@ -3,10 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DatasetMeta, DatasetWithSchema } from '@/types/studio'
 
 vi.mock('@/api/studio', () => ({
-  fetchDatasets: vi.fn(),
-  fetchDatasetSchema: vi.fn(),
-  fetchDatasetPreview: vi.fn(),
-  deleteDataset: vi.fn(),
+  fetchDatasets: vi.fn<() => Promise<DatasetMeta[]>>(),
+  fetchDatasetSchema: vi.fn<(datasetId: string) => Promise<DatasetWithSchema>>(),
+  fetchDatasetPreview: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  deleteDataset: vi.fn<(datasetId: string) => Promise<void>>(),
 }))
 
 import { deleteDataset, fetchDatasetPreview, fetchDatasetSchema, fetchDatasets } from '@/api/studio'

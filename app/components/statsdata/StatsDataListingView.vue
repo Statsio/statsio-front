@@ -24,7 +24,7 @@ onMounted(async () => {
   }
 })
 
-const categories = computed(() => {
+const categoryOptions = computed(() => {
   const set = new Set<string>()
   for (const doc of docs.value) {
     for (const cat of doc.categories ?? []) set.add(cat)
@@ -73,7 +73,7 @@ const filtered = computed(() => {
         </div>
 
         <div class="mt-8">
-          <StatsDataToolbar v-model:search="search" v-model:category="category" v-model:sort="sort" :categories="categories" />
+          <StatsDataToolbar v-model:search="search" v-model:category="category" v-model:sort="sort" :categories="categoryOptions" />
         </div>
       </div>
     </section>

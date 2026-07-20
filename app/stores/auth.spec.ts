@@ -3,24 +3,24 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AuthUser } from '@/types/auth'
 
 vi.mock('@/lib/auth-storage', () => ({
-  clearStoredToken: vi.fn(),
-  getStoredToken: vi.fn(),
-  storeSession: vi.fn(),
-  storeUser: vi.fn(),
+  clearStoredToken: vi.fn<(...args: unknown[]) => void>(),
+  getStoredToken: vi.fn<(...args: unknown[]) => unknown>(),
+  storeSession: vi.fn<(...args: unknown[]) => void>(),
+  storeUser: vi.fn<(...args: unknown[]) => void>(),
 }))
 
 vi.mock('@/lib/http-errors', () => ({
-  isUnauthorizedError: vi.fn(),
+  isUnauthorizedError: vi.fn<(error: unknown) => boolean>(),
 }))
 
 vi.mock('@/services/auth', () => ({
-  loginRequest: vi.fn(),
-  logoutRequest: vi.fn(),
-  meRequest: vi.fn(),
-  registerRequest: vi.fn(),
-  resendVerificationRequest: vi.fn(),
-  verifyEmailRequest: vi.fn(),
-  googleAuthRequest: vi.fn(),
+  loginRequest: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  logoutRequest: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  meRequest: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  registerRequest: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  resendVerificationRequest: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  verifyEmailRequest: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  googleAuthRequest: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
 }))
 
 import { clearStoredToken, getStoredToken, storeSession, storeUser } from '@/lib/auth-storage'
