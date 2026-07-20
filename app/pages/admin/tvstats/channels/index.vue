@@ -16,10 +16,10 @@ const activeFilter = ref<'all' | 'active' | 'inactive'>('all')
 async function load(page = 1) {
   loading.value = true
   try {
-    const params: Record<string, string | number> = { page }
+    const params: { page: number; search?: string; active?: string } = { page }
     if (searchInput.value) params.search = searchInput.value
     if (activeFilter.value !== 'all') params.active = activeFilter.value === 'active' ? '1' : '0'
-    const res = await adminListChannels(params as any)
+    const res = await adminListChannels(params)
     channels.value = res.data
     total.value = res.total
     currentPage.value = res.current_page

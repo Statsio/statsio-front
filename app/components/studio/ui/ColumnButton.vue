@@ -11,7 +11,7 @@ import type { StudioBlock, AggregateFunction } from '@/types/studio'
 import type { ColumnGroup } from './ColumnPickerModal.vue'
 import ColumnPickerModal from './ColumnPickerModal.vue'
 
-const props = defineProps<{
+defineProps<{
   modelValue?: string | null
   block: StudioBlock
   placeholder?: string

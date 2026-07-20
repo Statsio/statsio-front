@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import type { StudioBlock, DatasetColumn, BlockJoin, AggregateFunction } from '@/types/studio'
@@ -29,19 +29,6 @@ const yAxes = computed<string[]>(() => {
   const single = props.block.fieldMapping.yAxis
   return single ? [single] : []
 })
-
-// ColumnGroup helpers for ColumnButton
-function primaryColumnGroup(): ColumnGroup[] {
-  if (!schema.value) return []
-  return [{ label: schema.value.name ?? 'Source principale', columns: schema.value.columns }]
-}
-
-function joinColumnGroup(joinIdx: number): ColumnGroup[] {
-  const j = joins.value[joinIdx]
-  const jSchema = datasets.getSchema(j?.datasetId ?? '')
-  if (!jSchema) return []
-  return [{ label: `Jointure — ${j?.datasetId ?? ''}`, columns: jSchema.columns }]
-}
 
 // All column groups combined
 const allColumnGroups = computed<ColumnGroup[]>(() => {

@@ -2,7 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
-import type { StudioBlock, DatasetMeta, DatasetColumn, BlockJoin, SearchSource, SearchJoin } from '@/types/studio'
+import type { StudioBlock, DatasetMeta, BlockJoin, SearchSource, SearchJoin } from '@/types/studio'
 import type { ColumnGroup } from '@/components/studio/ui/ColumnPickerModal.vue'
 
 const props = defineProps<{

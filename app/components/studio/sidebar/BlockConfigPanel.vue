@@ -6,16 +6,11 @@ import { useActiveEditor } from '@/composables/useActiveEditor'
 import { isTextBlock } from '@/types/studio'
 import { apiHttp } from '@/lib/http'
 import { STATSIO_API } from '@/api/statsio-endpoints'
-import type { BlockFilter, FilterOperator, BlockType, BlockJoin, StudioDocumentPage, DatasetMeta, DatasetColumn } from '@/types/studio'
+import type { BlockFilter, BlockType, BlockJoin, DatasetMeta, DatasetColumn } from '@/types/studio'
 
 const studio   = useStudioStore()
 const datasets = useStudioDatasetsStore()
 const { setActiveInput } = useActiveEditor()
-
-function hasVariable(value: string) { return /\{\{[^}]+\}\}/.test(value) }
-function extractVariables(value: string) {
-  return [...value.matchAll(/\{\{([^}]+)\}\}/g)].map((m) => m[1]!)
-}
 
 const block    = computed(() => studio.selectedBlock)
 const isText   = computed(() => block.value ? isTextBlock(block.value.type) : false)
@@ -99,48 +94,10 @@ const blockMeta = computed(() => block.value ? BLOCK_META[block.value.type as Bl
 
 // ─── Dataset ──────────────────────────────────────────────────────────────────
 
-import type { AppSelectOption, AppSelectGroup } from '@/components/ui/AppSelect.vue'
 import type { ColumnGroup } from '@/components/studio/ui/ColumnPickerModal.vue'
 
 const schema      = computed(() => block.value?.datasetId ? (datasets.getSchema(block.value.datasetId) ?? null) : null)
 const columnNames = computed(() => schema.value?.columns.map((c: DatasetColumn) => c.name) ?? [])
-
-// Primary columns + ALL schema columns from each joined dataset
-const allColumnNames = computed(() => {
-  const cols = new Set<string>(columnNames.value)
-  joins.value.forEach((_: BlockJoin, i: number) => {
-    joinSchema(i)?.columns.forEach((c: DatasetColumn) => cols.add(c.name))
-  })
-  return Array.from(cols)
-})
-
-// Grouped column options: primary source + each join as a collapsible group
-const columnGroups = computed<AppSelectGroup[]>(() => {
-  const groups: AppSelectGroup[] = []
-  if (schema.value?.columns.length) {
-    groups.push({
-      label: schema.value.name ?? 'Source principale',
-      options: schema.value.columns.map((c: DatasetColumn) => ({ value: c.name, label: c.name })),
-    })
-  }
-  joins.value.forEach((j: BlockJoin, i: number) => {
-    const jSchema = joinSchema(i)
-    if (!jSchema?.columns.length) return
-    const ds = datasets.readyDatasets.find((d: DatasetMeta) => d.id === j.datasetId)
-    groups.push({
-      label: ds?.name ?? `Jointure ${i + 1}`,
-      collapsible: true,
-      defaultOpen: true,
-      options: jSchema.columns.map((c: DatasetColumn) => ({ value: c.name, label: c.name })),
-    })
-  })
-  return groups
-})
-
-// Flat column options (no groups) for selects where grouping doesn't add value
-const columnOptions = computed<AppSelectOption[]>(() =>
-  columnNames.value.map((c: string) => ({ value: c, label: c })),
-)
 
 // Like updateMapping but auto-adds the column to join.columns if it belongs to a join
 function updateMappingWithJoinSync(key: string, value: string) {
@@ -226,22 +183,6 @@ const yAxes = computed<string[]>(() => {
 const needsValue    = computed(() => block.value?.type === 'kpi')
 const isTable       = computed(() => block.value?.type === 'table')
 
-// ─── Search block ─────────────────────────────────────────────────────────────
-
-const stringColumns = computed(() =>
-  schema.value?.columns
-    .filter((c: DatasetColumn) => ['string', 'integer', 'float'].includes(c.type))
-    .map((c: DatasetColumn) => c.name) ?? [],
-)
-
-const targetPageToken = computed(() => {
-  const targetId = block.value?.fieldMapping.targetPageId
-  if (!targetId) return null
-  const paramName = studio.pages.find((p: StudioDocumentPage) => p.id === targetId)?.paramName
-  if (!paramName) return null
-  return `{{${paramName}}}`
-})
-
 // ─── Text formatting ──────────────────────────────────────────────────────────
 
 const CALLOUT_COLORS = [
@@ -255,12 +196,6 @@ const CHART_COLORS = ['#8b5cf6','#3b82f6','#10b981','#f59e0b','#ef4444','#06b6d4
 // ─── Filters ──────────────────────────────────────────────────────────────────
 
 const filters = computed<BlockFilter[]>(() => block.value?.filters ?? [])
-const OPERATORS: { value: FilterOperator; label: string }[] = [
-  { value: '=',            label: 'égal à' },         { value: '!=',          label: 'différent de' },
-  { value: '>',            label: 'supérieur à' },    { value: '>=',          label: 'supérieur ou égal' },
-  { value: '<',            label: 'inférieur à' },    { value: '<=',          label: 'inférieur ou égal' },
-  { value: 'contains',     label: 'contient' },       { value: 'not_contains',label: 'ne contient pas' },
-]
 
 // ─── Comparison filters ───────────────────────────────────────────────────────
 
@@ -286,16 +221,6 @@ function joinSchema(joinIdx: number) {
   const id = joins.value[joinIdx]?.datasetId
   return id ? (datasets.getSchema(id) ?? null) : null
 }
-// ─── ColumnGroup helpers for ColumnButton / ColumnPickerModal ─────────────────
-
-function joinColumnGroup(joinIdx: number): ColumnGroup[] {
-  const jSchema = joinSchema(joinIdx)
-  if (!jSchema) return []
-  const j = joins.value[joinIdx]
-  const name = datasets.readyDatasets.find((d: DatasetMeta) => d.id === j?.datasetId)?.name ?? `Jointure ${joinIdx + 1}`
-  return [{ label: `Jointure — ${name}`, columns: jSchema.columns }]
-}
-
 // ─── Search sources ───────────────────────────────────────────────────────────
 
 import type { SearchSource, SearchJoin } from '@/types/studio'
@@ -328,7 +253,6 @@ watch(searchJoins, (joins: SearchJoin[]) => {
 
 
 const urlParams = computed<string[]>(() => block.value?.fieldMapping.urlParams ?? [])
-const urlParamMapping = computed<Record<string, string>>(() => block.value?.fieldMapping.urlParamMapping ?? {})
 
 // Grouped by dataset for the column picker modal — only sources with search columns
 const searchSourceColumnGroups = computed(() => {
@@ -359,27 +283,6 @@ const allSourceColumns = computed(() => {
   return Array.from(cols)
 })
 
-function toggleUrlParam(col: string) {
-  if (!block.value) return
-  const current = urlParams.value
-  const updated = current.includes(col)
-    ? current.filter((c: string) => c !== col)
-    : [...current, col]
-  studio.updateBlockFieldMapping(block.value.id, { urlParams: updated })
-}
-
-function setUrlParamMapping(urlKey: string, sourceCol: string) {
-  if (!block.value) return
-  const current = urlParamMapping.value
-  const updated = { ...current }
-  if (sourceCol === urlKey) {
-    delete updated[urlKey]
-  } else {
-    updated[urlKey] = sourceCol
-  }
-  studio.updateBlockFieldMapping(block.value.id, { urlParamMapping: updated })
-}
-
 // ─── Result display ────────────────────────────────────────────────────────────
 
 const showDataSourceModal        = ref(false)
@@ -392,7 +295,6 @@ const showSearchResultsDispModal = ref(false)
 
 const resultTitleColumn      = computed<string>(() => block.value?.fieldMapping.resultTitleColumn ?? '')
 const resultDescColumns      = computed<string[]>(() => block.value?.fieldMapping.resultDescColumns ?? [])
-const resultDescColumnLabels = computed<Record<string, string>>(() => block.value?.fieldMapping.resultDescColumnLabels ?? {})
 
 // ColumnGroup[] built from search source schemas (for ColumnPickerModal / ColumnButton)
 const displayColumnGroups = computed<ColumnGroup[]>(() => {
@@ -417,37 +319,7 @@ const displayColumnGroups = computed<ColumnGroup[]>(() => {
   return groups
 })
 
-function setResultTitleColumn(col: string) {
-  if (!block.value) return
-  studio.updateBlockFieldMapping(block.value.id, { resultTitleColumn: col || undefined })
-}
 
-function toggleResultDescColumn(col: string) {
-  if (!block.value) return
-  const current = resultDescColumns.value
-  const updated = current.includes(col)
-    ? current.filter((c: string) => c !== col)
-    : [...current, col]
-  // Also clean up the label if the column is removed
-  if (!updated.includes(col)) {
-    const labels = { ...resultDescColumnLabels.value }
-    delete labels[col]
-    studio.updateBlockFieldMapping(block.value.id, { resultDescColumns: updated.length ? updated : undefined, resultDescColumnLabels: Object.keys(labels).length ? labels : undefined })
-  } else {
-    studio.updateBlockFieldMapping(block.value.id, { resultDescColumns: updated.length ? updated : undefined })
-  }
-}
-
-function setResultDescColumnLabel(col: string, label: string) {
-  if (!block.value) return
-  const labels = { ...resultDescColumnLabels.value }
-  if (label && label !== col) {
-    labels[col] = label
-  } else {
-    delete labels[col]
-  }
-  studio.updateBlockFieldMapping(block.value.id, { resultDescColumnLabels: Object.keys(labels).length ? labels : undefined })
-}
 </script>
 
 <template>

@@ -22,6 +22,16 @@ export default defineConfigWithVueTs(
   vueTsConfigs.recommended,
 
   {
+    // Nuxt impose les noms de fichiers (routing par fichiers, layouts, error.vue) :
+    // ces noms ne peuvent pas être multi-mots sans casser les conventions du framework.
+    name: 'app/nuxt-file-based-naming',
+    files: ['app/pages/**/*.vue', 'app/layouts/**/*.vue', 'app/error.vue'],
+    rules: {
+      'vue/multi-word-component-names': 'off',
+    },
+  },
+
+  {
     ...pluginVitest.configs.recommended,
     files: ['app/**/*.spec.ts'],
   },

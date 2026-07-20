@@ -1,7 +1,7 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'default' })
 import { computed } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { useRoute } from 'vue-router'
 import AppButton from '@/components/ui/AppButton.vue'
 import { channels, channelToneClasses, type ChannelEntry } from '@/data/channels'
 
