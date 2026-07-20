@@ -3,8 +3,8 @@ main = ".output/server/index.mjs"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
-[site]
-bucket = ".output/public"
+[assets]
+directory = ".output/public"
 
 [observability.logs]
 enabled = true
@@ -13,8 +13,8 @@ invocation_logs = true
 [env.staging]
 name = "statsio-front-staging"
 
-[env.staging.site]
-bucket = ".output/public"
+[env.staging.assets]
+directory = ".output/public"
 
 [env.staging.observability.logs]
 enabled = true
