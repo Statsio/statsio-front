@@ -9,11 +9,33 @@ export interface BlockResponseOption {
   percent: number
 }
 
+/** Répartition des répondants pour une dimension démographique donnée (voir StudioBlockResponseController::bucketBy). */
+export interface DemographicBucket {
+  key: string
+  label: string
+  count: number
+  percent: number
+}
+
+/**
+ * Chaque dimension est indépendamment absente tant que le visiteur consultant la page n'a
+ * pas renseigné le champ correspondant sur son propre profil (pas besoin d'un profil 100%
+ * complet) — c'est un verrou décidé côté back (voir aggregateWithDemographics), pas
+ * seulement un flou cosmétique côté front.
+ */
+export interface ResponseDemographics {
+  age?: DemographicBucket[]
+  gender?: DemographicBucket[]
+  profession?: DemographicBucket[]
+  region?: DemographicBucket[]
+}
+
 export interface BlockResponseAggregate {
   totalResponses: number
   options?: BlockResponseOption[]
   average?: number
   distribution?: Record<string, number>
+  demographics?: ResponseDemographics
 }
 
 export interface BlockResponseState {
@@ -52,6 +74,7 @@ function mapResponseState(raw: Record<string, unknown>): BlockResponseState {
       options: (aggregate.options as BlockResponseOption[] | undefined) ?? undefined,
       average: aggregate.average !== undefined && aggregate.average !== null ? Number(aggregate.average) : undefined,
       distribution: (aggregate.distribution as Record<string, number> | undefined) ?? undefined,
+      demographics: (aggregate.demographics as ResponseDemographics | undefined) ?? undefined,
     },
   }
 }

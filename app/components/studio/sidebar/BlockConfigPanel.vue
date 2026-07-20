@@ -4,6 +4,8 @@ import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import { useActiveEditor } from '@/composables/useActiveEditor'
 import { isTextBlock } from '@/types/studio'
+import { apiHttp } from '@/lib/http'
+import { STATSIO_API } from '@/api/statsio-endpoints'
 import type { BlockFilter, FilterOperator, BlockType, BlockJoin, StudioDocumentPage, DatasetMeta, DatasetColumn } from '@/types/studio'
 
 const studio   = useStudioStore()
@@ -156,6 +158,50 @@ watch(() => block.value?.datasetId, async (id: string | undefined) => { if (id) 
 
 function updateConfig(key: string, value: unknown)  { if (!block.value) return; studio.updateBlockConfig(block.value.id, { [key]: value }) }
 function updateMapping(key: string, value: string)  { if (!block.value) return; studio.updateBlockFieldMapping(block.value.id, { [key]: value }) }
+
+// ─── Image block upload (bloc "image") ─────────────────────────────────────────
+
+const imageFileInputRef = ref<HTMLInputElement | null>(null)
+const imageDragOver     = ref(false)
+const imageUploading    = ref(false)
+const imageUploadError  = ref('')
+
+async function uploadImageFile(file: File) {
+  if (!block.value) return
+  imageUploadError.value = ''
+  imageUploading.value = true
+  try {
+    const form = new FormData()
+    form.append('file', file)
+    form.append('directory', 'studio/images')
+    const { data } = await apiHttp.post(STATSIO_API.media.upload, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    updateConfig('imageUrl', data.data.url)
+  } catch (e: unknown) {
+    const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message
+    imageUploadError.value = msg ?? "Erreur lors de l'upload de l'image"
+  } finally {
+    imageUploading.value = false
+  }
+}
+
+function onImageFileChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  if (input.files?.[0]) uploadImageFile(input.files[0])
+  input.value = ''
+}
+
+function onImageDrop(event: DragEvent) {
+  imageDragOver.value = false
+  const file = event.dataTransfer?.files[0]
+  if (file) uploadImageFile(file)
+}
+
+function removeImage() {
+  imageUploadError.value = ''
+  updateConfig('imageUrl', '')
+}
 
 // ─── Form block config (choice / checkboxes / dropdown / scale / rating) ──────
 
@@ -614,8 +660,47 @@ function setResultDescColumnLabel(col: string, label: string) {
               </button>
               <div v-show="open('img-src')" class="accordion-body flex flex-col gap-2">
                 <div>
-                  <label class="cfg-label">URL de l'image</label>
-                  <input :value="block.config.imageUrl ?? ''" type="url" placeholder="https://…" class="cfg-input" @input="updateConfig('imageUrl', ($event.target as HTMLInputElement).value)" />
+                  <label class="cfg-label">Image</label>
+                  <div
+                    class="relative rounded-xl border-2 border-dashed transition-colors cursor-pointer overflow-hidden"
+                    :class="imageDragOver
+                      ? 'border-[var(--color-primary)] bg-purple-50'
+                      : block.config.imageUrl ? 'border-slate-200' : 'border-slate-200 hover:border-slate-300 bg-slate-50'"
+                    @click="imageFileInputRef?.click()"
+                    @dragover.prevent="imageDragOver = true"
+                    @dragleave="imageDragOver = false"
+                    @drop.prevent="onImageDrop"
+                  >
+                    <input ref="imageFileInputRef" type="file" accept="image/*" class="sr-only" @change="onImageFileChange" />
+
+                    <img v-if="block.config.imageUrl" :src="block.config.imageUrl" class="w-full h-28 object-cover" />
+                    <div v-else class="flex flex-col items-center gap-1.5 py-8 px-4 text-center pointer-events-none">
+                      <svg class="w-6 h-6 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                      </svg>
+                      <p class="text-xs font-medium text-slate-500">Glisser une image ici</p>
+                      <p class="text-[11px] text-slate-400">ou cliquer pour parcourir</p>
+                    </div>
+
+                    <div v-if="imageUploading" class="absolute inset-0 flex items-center justify-center bg-white/70">
+                      <svg class="w-5 h-5 animate-spin text-[var(--color-primary)]" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                    </div>
+
+                    <button
+                      v-if="block.config.imageUrl && !imageUploading"
+                      type="button"
+                      class="absolute top-1.5 right-1.5 p-1 rounded-lg bg-white/90 text-slate-500 hover:text-red-500 shadow-sm"
+                      @click.stop="removeImage"
+                    >
+                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  <p v-if="imageUploadError" class="mt-1 text-[11px] text-red-500">{{ imageUploadError }}</p>
                 </div>
                 <div>
                   <label class="cfg-label">Texte alternatif</label>

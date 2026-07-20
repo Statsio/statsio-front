@@ -11,6 +11,9 @@ export const STATSIO_API = {
   account: {
     anonymize: '/account/anonymize',
   },
+  referenceData: {
+    profile: '/reference-data/profile',
+  },
   healthcheck: '/healthcheck',
   media: {
     upload: '/media/upload',
