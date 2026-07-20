@@ -1,9 +1,73 @@
 <script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
 import { POPULAR_MEDICAMENTS, useMedicaments } from '@/composables/useMedicaments'
 import MedicamentsCard from '@/components/medicaments/MedicamentsCard.vue'
-import type { Medicament } from '@/types/medicaments'
+import AppRankingList, { type RankingItem } from '@/components/ui/AppRankingList.vue'
+import { fetchMedicamentImage, fetchMedicamentsSearch, fetchMedicamentsTopVentes } from '@/api/medicaments'
+import { extractMedicamentBrandName } from '@/utils/medicaments'
+import { formatCompactNumber } from '@/utils/number'
+import type { Medicament, TopVenteMedicament } from '@/types/medicaments'
 
-const { query, results, isLoading, error, hasQuery, suggestionsEmpty, searchPopular } = useMedicaments()
+const { query, results, isLoading, error, hasQuery, suggestionsEmpty } = useMedicaments()
+
+const popularMedicaments = ref<Medicament[]>([])
+const isLoadingPopular = ref(true)
+
+onMounted(async () => {
+  try {
+    const matches = await Promise.all(
+      POPULAR_MEDICAMENTS.map(async (name) => {
+        try {
+          const found = await fetchMedicamentsSearch(name)
+          return found[0] ?? null
+        } catch {
+          return null
+        }
+      }),
+    )
+    popularMedicaments.value = matches.filter((m): m is Medicament => m !== null)
+  } finally {
+    isLoadingPopular.value = false
+  }
+})
+
+const topVentes = ref<TopVenteMedicament[]>([])
+const isLoadingTopVentes = ref(true)
+/** cip13 -> URL d'image (ou null si aucune trouvée) — résolues en parallèle, best-effort. */
+const topVentesImages = ref<Record<string, string | null>>({})
+
+onMounted(async () => {
+  try {
+    topVentes.value = await fetchMedicamentsTopVentes()
+  } catch {
+    topVentes.value = []
+  } finally {
+    isLoadingTopVentes.value = false
+  }
+
+  await Promise.all(
+    topVentes.value.map(async (m) => {
+      if (!m.label) return
+      try {
+        topVentesImages.value[m.cip13] = await fetchMedicamentImage(extractMedicamentBrandName(m.label))
+      } catch {
+        topVentesImages.value[m.cip13] = null
+      }
+    }),
+  )
+})
+
+const topVentesItems = computed<RankingItem[]>(() =>
+  topVentes.value.map((m) => ({
+    key: m.cip13,
+    to: m.cis ? `/medistats/medicaments/${m.cis}` : undefined,
+    label: m.label ?? m.cip13,
+    value: m.boxes,
+    valueLabel: formatCompactNumber(m.boxes),
+    leading: '💊',
+    imageUrl: topVentesImages.value[m.cip13],
+  })),
+)
 </script>
 
 <template>
@@ -59,16 +123,16 @@ const { query, results, isLoading, error, hasQuery, suggestionsEmpty, searchPopu
     </div>
 
     <p class="mb-3.5 text-xs font-bold tracking-[0.04em] text-slate-500 uppercase">Recherches fréquentes</p>
-    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
-      <button
-        v-for="name in POPULAR_MEDICAMENTS"
-        :key="name"
-        type="button"
-        class="cursor-pointer rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-left text-[14px] font-semibold text-slate-800 transition hover:border-[var(--color-primary)]/30 hover:shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)]"
-        @click="searchPopular(name)"
-      >
-        {{ name }}
-      </button>
+    <div class="mb-9 grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <p v-if="isLoadingPopular" class="col-span-full py-6 text-center text-[13.5px] text-slate-400">Chargement…</p>
+      <MedicamentsCard v-for="m in popularMedicaments" :key="m.cis" :medicament="m" variant="grid" />
+    </div>
+
+    <div v-if="isLoadingTopVentes || topVentesItems.length" class="rounded-2xl border border-slate-100 bg-white p-6 shadow-[0_1px_3px_rgba(20,20,30,0.06)]">
+      <p class="mb-1 text-sm font-bold text-slate-900">Médicaments les plus vendus</p>
+      <p class="mb-4 text-xs text-slate-400">Nombre de boîtes délivrées — source : Open Medic (Assurance Maladie)</p>
+      <p v-if="isLoadingTopVentes" class="py-4 text-center text-[13.5px] text-slate-400">Chargement…</p>
+      <AppRankingList v-else :items="topVentesItems" />
     </div>
   </div>
 </template>

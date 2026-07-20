@@ -247,23 +247,23 @@ export async function createStudioContent(payload: CreateStudioContentPayload): 
   return data.data
 }
 
-export async function fetchPublicStatsDataCatalog(categories?: string[]): Promise<StatsDataDocument[]> {
+export async function fetchPublicStatsDataCatalog(categories?: string[], channelId?: number): Promise<StatsDataDocument[]> {
   const { data } = await apiHttp.get(STATSIO_API.studioContent.publicCollection, {
-    params: { type: 'statsdata', ...(categories?.length ? { categories } : {}) },
+    params: { type: 'statsdata', ...(categories?.length ? { categories } : {}), ...(channelId ? { channel_id: channelId } : {}) },
   })
   return data.data ?? []
 }
 
-export async function fetchPublicSurveys(categories?: string[]): Promise<StatsDataDocument[]> {
+export async function fetchPublicSurveys(categories?: string[], channelId?: number): Promise<StatsDataDocument[]> {
   const { data } = await apiHttp.get(STATSIO_API.studioContent.publicCollection, {
-    params: { type: 'survey', ...(categories?.length ? { categories } : {}) },
+    params: { type: 'survey', ...(categories?.length ? { categories } : {}), ...(channelId ? { channel_id: channelId } : {}) },
   })
   return data.data ?? []
 }
 
-export async function fetchPublicArticles(categories?: string[]): Promise<StatsDataDocument[]> {
+export async function fetchPublicArticles(categories?: string[], channelId?: number): Promise<StatsDataDocument[]> {
   const { data } = await apiHttp.get(STATSIO_API.studioContent.publicCollection, {
-    params: { type: 'article', ...(categories?.length ? { categories } : {}) },
+    params: { type: 'article', ...(categories?.length ? { categories } : {}), ...(channelId ? { channel_id: channelId } : {}) },
   })
   return data.data ?? []
 }

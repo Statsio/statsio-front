@@ -2,29 +2,15 @@
 import { computed, onMounted, ref } from 'vue'
 import PollFeatureCard from '@/components/polls/PollFeatureCard.vue'
 import PollListRow from '@/components/polls/PollListRow.vue'
-import { fetchPublicSurveys, type StatsDataDocument } from '@/api/studio'
-import { fetchBlockResponse } from '@/api/studio-responses'
-import { isFormBlock, type StudioBlock } from '@/types/studio'
+import { fetchPublicSurveys } from '@/api/studio'
 import { useRespondentToken } from '@/composables/useRespondentToken'
 import { useContentBasePath } from '@/composables/useContentBasePath'
-import { publicContentPath } from '@/lib/content-display'
-import { getPollStatus, type PollStatus } from '@/lib/poll-status'
-import { buildPollOptions, getQuestionTypeLabel } from '@/lib/poll-visuals'
+import { enrichPoll, type EnrichedPoll } from '@/lib/poll-enrich'
 import { relativeUpdate } from '@/utils/statsDataFormat'
 
 const props = defineProps<{
   categories?: string[]
 }>()
-
-interface EnrichedPoll {
-  poll: StatsDataDocument
-  to: string
-  category: string
-  questionType: string
-  options: { label: string; pct: number }[]
-  totalVotes: number
-  status: PollStatus
-}
 
 const basePath = useContentBasePath()
 const token = useRespondentToken()
@@ -35,46 +21,10 @@ const search = ref('')
 const sort = ref<'votes' | 'recent'>('votes')
 const activeCategory = ref('Tous')
 
-function primaryFormBlock(poll: StatsDataDocument): StudioBlock | undefined {
-  const blocks = (poll.blocks ?? []).filter((b) => isFormBlock(b.type))
-  return blocks.find((b) => b.type === 'choice' || b.type === 'checkboxes' || b.type === 'dropdown') ?? blocks[0]
-}
-
-function categoryLabel(poll: StatsDataDocument) {
-  const first = poll.categories?.[0]
-  return first ? first.charAt(0).toUpperCase() + first.slice(1) : 'Sondage'
-}
-
-async function enrich(poll: StatsDataDocument): Promise<EnrichedPoll> {
-  const block = primaryFormBlock(poll)
-  let options: { label: string; pct: number }[] = []
-  let totalVotes = 0
-
-  if (block && poll.slug) {
-    try {
-      const state = await fetchBlockResponse(poll.slug, block.id, token.value)
-      options = buildPollOptions(state.aggregate, block)
-      totalVotes = state.aggregate.totalResponses
-    } catch {
-      options = (block.config.formOptions ?? []).map((label) => ({ label, pct: 0 }))
-    }
-  }
-
-  return {
-    poll,
-    to: publicContentPath('survey', poll.slug ?? '', basePath.value),
-    category: categoryLabel(poll),
-    questionType: getQuestionTypeLabel(block?.type),
-    options,
-    totalVotes,
-    status: getPollStatus(poll),
-  }
-}
-
 onMounted(async () => {
   try {
     const raw = await fetchPublicSurveys(props.categories)
-    polls.value = await Promise.all(raw.map(enrich))
+    polls.value = await Promise.all(raw.map((poll) => enrichPoll(poll, basePath.value, token.value)))
   } finally {
     loading.value = false
   }

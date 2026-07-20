@@ -1,22 +1,26 @@
 <script setup lang="ts">
-import type { FeedItem } from '@/composables/useChannelProfile'
+import PollListRow from '@/components/polls/PollListRow.vue'
+import type { EnrichedPoll } from '@/lib/poll-enrich'
 
 defineProps<{
-  items: FeedItem[]
+  items: EnrichedPoll[]
   emptyText: string
 }>()
 </script>
 
 <template>
-  <div v-if="items.length" class="flex flex-col gap-3 py-8">
-    <article
-      v-for="(item, i) in items"
-      :key="`${item.title}-${i}`"
-      class="rounded-[14px] border border-[#18181f]/[0.08] bg-white px-[22px] py-5"
-    >
-      <p class="text-[15px] font-bold leading-[1.3] text-[#18181f]">{{ item.title }}</p>
-      <p v-if="item.meta" class="mt-1.5 text-xs text-[#18181f]/50">{{ item.meta }}</p>
-    </article>
+  <div v-if="items.length" class="flex flex-col py-8">
+    <PollListRow
+      v-for="p in items"
+      :key="p.poll.id"
+      :to="p.to"
+      :category="p.category"
+      :question-type="p.questionType"
+      :question="p.poll.title"
+      :status="p.status"
+      :options="p.options"
+      :total-votes="p.totalVotes"
+    />
   </div>
   <p v-else class="py-8 text-sm text-[#18181f]/50">{{ emptyText }}</p>
 </template>
