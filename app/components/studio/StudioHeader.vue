@@ -3,6 +3,7 @@ import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useStudioStore } from '@/stores/studio'
 import { publishStatsDataDocument } from '@/api/studio'
+import { contentPropertiesPath } from '@/lib/content-display'
 import AppButton from '@/components/ui/AppButton.vue'
 import ColumnPickerModal from '@/components/studio/ui/ColumnPickerModal.vue'
 import type { StudioBlock } from '@/types/studio'
@@ -17,11 +18,10 @@ const studio = useStudioStore()
 const isPublishing = ref(false)
 const isPublished = computed(() => studio.content?.status === 'published')
 
-// Settings page only exists for statsdata content today (see app/pages/statsdata/[slug]/proprietes.vue).
 const settingsPath = computed(() => {
   const content = studio.content
-  if (!content || content.type !== 'statsdata' || !content.slug) return null
-  return `/statsdata/${content.slug}/proprietes`
+  if (!content) return null
+  return contentPropertiesPath(content.type ?? 'statsdata', content.slug)
 })
 
 // ─── Page management ──────────────────────────────────────────────────────────

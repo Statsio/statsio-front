@@ -1,157 +1,170 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import PollCard from '@/components/polls/PollCard.vue'
-import AppButton from '@/components/ui/AppButton.vue'
+import PollFeatureCard from '@/components/polls/PollFeatureCard.vue'
+import PollListRow from '@/components/polls/PollListRow.vue'
 import { fetchPublicSurveys, type StatsDataDocument } from '@/api/studio'
-import { isFormBlock } from '@/types/studio'
+import { fetchBlockResponse } from '@/api/studio-responses'
+import { isFormBlock, type StudioBlock } from '@/types/studio'
+import { useRespondentToken } from '@/composables/useRespondentToken'
+import { useContentBasePath } from '@/composables/useContentBasePath'
+import { publicContentPath } from '@/lib/content-display'
+import { getPollStatus, type PollStatus } from '@/lib/poll-status'
+import { buildPollOptions, getQuestionTypeLabel } from '@/lib/poll-visuals'
+import { relativeUpdate } from '@/utils/statsDataFormat'
 
 const props = defineProps<{
   categories?: string[]
 }>()
 
-const filterLabels = ['Tous', 'Question unique', 'Multi-questions'] as const
-const activeFilter = ref<(typeof filterLabels)[number]>('Tous')
+interface EnrichedPoll {
+  poll: StatsDataDocument
+  to: string
+  category: string
+  questionType: string
+  options: { label: string; pct: number }[]
+  totalVotes: number
+  status: PollStatus
+}
+
+const basePath = useContentBasePath()
+const token = useRespondentToken()
 
 const loading = ref(true)
-const polls = ref<StatsDataDocument[]>([])
+const polls = ref<EnrichedPoll[]>([])
+const search = ref('')
+const sort = ref<'votes' | 'recent'>('votes')
+const activeCategory = ref('Tous')
+
+function primaryFormBlock(poll: StatsDataDocument): StudioBlock | undefined {
+  const blocks = (poll.blocks ?? []).filter((b) => isFormBlock(b.type))
+  return blocks.find((b) => b.type === 'choice' || b.type === 'checkboxes' || b.type === 'dropdown') ?? blocks[0]
+}
+
+function categoryLabel(poll: StatsDataDocument) {
+  const first = poll.categories?.[0]
+  return first ? first.charAt(0).toUpperCase() + first.slice(1) : 'Sondage'
+}
+
+async function enrich(poll: StatsDataDocument): Promise<EnrichedPoll> {
+  const block = primaryFormBlock(poll)
+  let options: { label: string; pct: number }[] = []
+  let totalVotes = 0
+
+  if (block && poll.slug) {
+    try {
+      const state = await fetchBlockResponse(poll.slug, block.id, token.value)
+      options = buildPollOptions(state.aggregate, block)
+      totalVotes = state.aggregate.totalResponses
+    } catch {
+      options = (block.config.formOptions ?? []).map((label) => ({ label, pct: 0 }))
+    }
+  }
+
+  return {
+    poll,
+    to: publicContentPath('survey', poll.slug ?? '', basePath.value),
+    category: categoryLabel(poll),
+    questionType: getQuestionTypeLabel(block?.type),
+    options,
+    totalVotes,
+    status: getPollStatus(poll),
+  }
+}
 
 onMounted(async () => {
   try {
-    polls.value = await fetchPublicSurveys(props.categories)
+    const raw = await fetchPublicSurveys(props.categories)
+    polls.value = await Promise.all(raw.map(enrich))
   } finally {
     loading.value = false
   }
 })
 
-function questionCount(poll: StatsDataDocument) {
-  return (poll.blocks ?? []).filter((block) => isFormBlock(block.type)).length
-}
+const categoryTabs = computed(() => ['Tous', ...new Set(polls.value.map((p) => p.category))])
 
-const totalQuestions = computed(() => polls.value.reduce((total, poll) => total + questionCount(poll), 0))
-const multiQuestionCount = computed(() => polls.value.filter((poll) => questionCount(poll) > 1).length)
+const searchedPolls = computed(() => {
+  const q = search.value.trim().toLowerCase()
+  if (!q) return polls.value
+  return polls.value.filter(
+    (p) => p.poll.title.toLowerCase().includes(q) || (p.poll.description ?? '').toLowerCase().includes(q),
+  )
+})
 
-const filteredPolls = computed(() =>
-  polls.value.filter((poll) => {
-    if (activeFilter.value === 'Question unique') {
-      return questionCount(poll) === 1
-    }
+const filteredPolls = computed(() => {
+  const byCategory =
+    activeCategory.value === 'Tous'
+      ? searchedPolls.value
+      : searchedPolls.value.filter((p) => p.category === activeCategory.value)
 
-    if (activeFilter.value === 'Multi-questions') {
-      return questionCount(poll) > 1
-    }
+  return [...byCategory].sort((a, b) =>
+    sort.value === 'votes'
+      ? b.totalVotes - a.totalVotes
+      : new Date(b.poll.created_at ?? 0).getTime() - new Date(a.poll.created_at ?? 0).getTime(),
+  )
+})
 
-    return true
+const heroPoll = computed(() => filteredPolls.value[0])
+const mediumPolls = computed(() => filteredPolls.value.slice(1, 4))
+const remainingPolls = computed(() =>
+  filteredPolls.value.slice(4).sort((a, b) => {
+    if (a.status.closed !== b.status.closed) return a.status.closed ? 1 : -1
+    const aDeadline = a.poll.response_deadline ? new Date(a.poll.response_deadline).getTime() : Infinity
+    const bDeadline = b.poll.response_deadline ? new Date(b.poll.response_deadline).getTime() : Infinity
+    if (aDeadline !== bDeadline) return aDeadline - bDeadline
+    return new Date(b.poll.created_at ?? 0).getTime() - new Date(a.poll.created_at ?? 0).getTime()
   }),
 )
 
-const editorialPoints = [
-  {
-    title: 'Réponse depuis le détail',
-    detail: 'Le listing sert à comparer les vagues, pas à répondre directement.',
-  },
-  {
-    title: 'Résultats en direct',
-    detail: 'Chaque réponse met à jour immédiatement les résultats agrégés du sondage.',
-  },
-  {
-    title: 'Questions flexibles',
-    detail: 'La structure supporte aussi bien une question unique qu’un formulaire multi-questions.',
-  },
-]
+const hasUpcomingDeadline = computed(() => filteredPolls.value.some((p) => p.poll.response_deadline && !p.status.closed))
+const totalVotesCollected = computed(() => polls.value.reduce((sum, p) => sum + p.totalVotes, 0))
+const mostRecentUpdate = computed(() =>
+  polls.value.reduce<string | undefined>((latest, p) => {
+    if (!p.poll.updated_at) return latest
+    if (!latest || new Date(p.poll.updated_at) > new Date(latest)) return p.poll.updated_at
+    return latest
+  }, undefined),
+)
 </script>
 
 <template>
   <main class="pb-24 pt-4">
-    <section class="section pb-8">
-      <div class="container grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_320px] lg:items-start">
-        <div class="flex flex-col gap-8">
-          <div class="flex flex-col gap-5">
-            <p class="eyebrow text-primary">Sondages & baromètres</p>
-            <div class="flex max-w-4xl flex-col gap-4">
-              <h1 class="text-4xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-5xl lg:text-6xl">
-                Une page sondages pensée pour comparer les vagues et répondre au bon niveau.
-              </h1>
-              <p class="max-w-3xl text-lg leading-8 text-slate-600">
-                Parcourez les consultations publiées par la rédaction, puis ouvrez le détail pour répondre question par question.
-              </p>
-            </div>
-          </div>
-
-            <div class="grid gap-4 sm:grid-cols-3">
-              <div class="rounded-[1.75rem] border border-slate-200 bg-white/85 px-5 py-4 shadow-[0_20px_60px_-42px_rgba(15,23,42,0.35)]">
-                <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Sondages publiés</p>
-                <p class="mt-3 text-2xl font-semibold text-slate-950">
-                  {{ polls.length }}
-                </p>
-              </div>
-              <div class="rounded-[1.75rem] border border-slate-200 bg-white/85 px-5 py-4 shadow-[0_20px_60px_-42px_rgba(15,23,42,0.35)]">
-                <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Questions totales</p>
-                <p class="mt-3 text-2xl font-semibold text-slate-950">
-                  {{ totalQuestions }}
-                </p>
-              </div>
-              <div class="rounded-[1.75rem] border border-slate-200 bg-white/85 px-5 py-4 shadow-[0_20px_60px_-42px_rgba(15,23,42,0.35)]">
-                <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Multi-questions</p>
-                <p class="mt-3 text-2xl font-semibold text-slate-950">
-                  {{ multiQuestionCount }}
-                </p>
-              </div>
-            </div>
-
-            <div class="flex flex-wrap gap-2">
-              <button
-                v-for="filter in filterLabels"
-                :key="filter"
-                type="button"
-                class="rounded-full border px-4 py-2 text-sm font-semibold transition"
-                :class="
-                  activeFilter === filter
-                    ? 'border-primary bg-primary text-white'
-                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
-                "
-                @click="activeFilter = filter"
-              >
-                {{ filter }}
-              </button>
-            </div>
-          </div>
-
-          <aside class="flex flex-col gap-4">
-            <div class="rounded-[2rem] border border-slate-200 bg-slate-950 p-6 text-white">
-              <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Principes produit</p>
-              <div class="mt-5 flex flex-col gap-4">
-                <div v-for="item in editorialPoints" :key="item.title" class="rounded-[1.5rem] bg-white/8 p-4">
-                  <p class="text-sm font-semibold text-white">{{ item.title }}</p>
-                  <p class="mt-2 text-sm leading-6 text-slate-300">{{ item.detail }}</p>
-                </div>
-              </div>
-            </div>
-
-            <div class="rounded-[2rem] border border-slate-200 bg-white p-6">
-              <p class="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">Créer un sondage</p>
-              <p class="mt-4 text-sm leading-7 text-slate-600">
-                Le Studio permet de publier vos propres sondages et de suivre les réponses en direct.
-              </p>
-              <div class="mt-5">
-                <AppButton as="router-link" to="/user" variant="secondary" size="md" full-width>
-                  Ouvrir l’espace créateur
-                </AppButton>
-              </div>
-            </div>
-          </aside>
-      </div>
-    </section>
-
-    <section class="section pt-6">
-      <div class="container">
-        <div class="mb-6 flex items-center justify-between gap-4">
+    <section class="section pb-10">
+      <div class="container flex flex-col gap-6">
+        <div class="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p class="eyebrow">Catalogue</p>
-            <h2 class="text-3xl font-semibold text-slate-950">Tous les sondages disponibles</h2>
+            <h1 class="text-3xl font-bold tracking-[-0.03em] text-slate-950">Sondages</h1>
+            <p class="mt-1.5 text-[13px] text-slate-500">
+              {{ filteredPolls.length }} sondage<span v-if="filteredPolls.length > 1">s</span>
+              <template v-if="mostRecentUpdate"> · {{ relativeUpdate(mostRecentUpdate) }}</template>
+            </p>
           </div>
-          <p v-if="!loading" class="text-sm text-slate-500">
-            {{ filteredPolls.length }} sondage<span v-if="filteredPolls.length > 1">s</span>
-          </p>
+
+          <div class="flex flex-wrap items-center gap-4">
+            <input
+              v-model="search"
+              type="search"
+              placeholder="Rechercher un sondage…"
+              class="w-56 border-b border-slate-300 bg-transparent py-1 text-sm text-slate-600 placeholder:text-slate-400 focus:border-primary focus:outline-none"
+            />
+            <div class="h-4 w-px bg-slate-200" />
+            <select v-model="sort" class="bg-transparent text-sm font-semibold text-slate-950 focus:outline-none">
+              <option value="votes">Les plus votés</option>
+              <option value="recent">Plus récents</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap gap-6 border-b border-slate-100">
+          <button
+            v-for="cat in categoryTabs"
+            :key="cat"
+            type="button"
+            class="border-b-2 pb-3 text-[13.5px] font-bold transition-colors"
+            :class="activeCategory === cat ? 'border-primary text-slate-950' : 'border-transparent text-slate-500 hover:text-slate-700'"
+            @click="activeCategory = cat"
+          >
+            {{ cat }}
+          </button>
         </div>
 
         <div v-if="loading" class="flex items-center justify-center py-24">
@@ -161,12 +174,68 @@ const editorialPoints = [
           </svg>
         </div>
 
-        <div v-else-if="filteredPolls.length > 0" class="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
-          <PollCard v-for="poll in filteredPolls" :key="poll.slug" :poll="poll" />
-        </div>
+        <template v-else-if="filteredPolls.length > 0">
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:auto-rows-[220px]">
+            <div v-if="heroPoll" class="sm:col-span-2 sm:row-span-2">
+              <PollFeatureCard
+                size="hero"
+                :to="heroPoll.to"
+                :category="heroPoll.category"
+                :question-type="heroPoll.questionType"
+                :question="heroPoll.poll.title"
+                :status="heroPoll.status"
+                :options="heroPoll.options"
+                :total-votes="heroPoll.totalVotes"
+              />
+            </div>
+
+            <PollFeatureCard
+              v-for="p in mediumPolls"
+              :key="p.poll.id"
+              size="medium"
+              :to="p.to"
+              :category="p.category"
+              :question-type="p.questionType"
+              :question="p.poll.title"
+              :status="p.status"
+              :options="p.options"
+              :total-votes="p.totalVotes"
+            />
+
+            <div class="flex flex-col justify-between rounded-2xl border border-slate-200 p-5">
+              <div>
+                <span class="text-[11px] font-bold uppercase tracking-wide text-primary">En chiffres</span>
+                <p class="mt-2 font-mono text-[28px] font-bold text-slate-950">{{ totalVotesCollected }}</p>
+                <p class="mt-1 text-[12.5px] text-slate-500">réponses collectées au total</p>
+              </div>
+              <p class="text-[12.5px] text-slate-400">
+                {{ polls.length }} sondage<span v-if="polls.length > 1">s</span> publiés
+              </p>
+            </div>
+          </div>
+
+          <div v-if="remainingPolls.length > 0" class="flex flex-col">
+            <div class="mb-4 flex items-baseline justify-between">
+              <span class="text-[15px] font-bold text-slate-950">
+                {{ hasUpcomingDeadline ? 'Se terminent bientôt' : 'Plus de sondages' }}
+              </span>
+            </div>
+            <PollListRow
+              v-for="p in remainingPolls"
+              :key="p.poll.id"
+              :to="p.to"
+              :category="p.category"
+              :question-type="p.questionType"
+              :question="p.poll.title"
+              :status="p.status"
+              :options="p.options"
+              :total-votes="p.totalVotes"
+            />
+          </div>
+        </template>
 
         <div v-else class="py-20 text-center text-slate-400">
-          <p class="text-sm">Aucun sondage publié pour le moment.</p>
+          <p class="text-sm">Aucun sondage dans cette catégorie pour le moment.</p>
         </div>
       </div>
     </section>
