@@ -30,6 +30,11 @@ export default defineNuxtConfig({
 
   nitro: {
     preset: 'cloudflare_module',
+    alias: {
+      // axios importe https-proxy-agent (→ agent-base → debug) de façon statique dans son
+      // adaptateur HTTP Node ; cette chaîne casse à l'exécution sur Workers (voir le stub).
+      'https-proxy-agent': fileURLToPath(new URL('./server/stubs/https-proxy-agent.mjs', import.meta.url)),
+    },
   },
 
   modules: ['@pinia/nuxt'],

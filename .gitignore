@@ -16,6 +16,7 @@ dist-ssr
 .output
 coverage
 *.local
+.wrangler
 
 # Editor directories and files
 .vscode/*
