@@ -37,3 +37,8 @@ export function publicContentListPath(type: ContentType, basePath = ''): string 
   if (type === 'article') return `${basePath}/articles`
   return `${basePath}/statsdata`
 }
+
+export function contentPropertiesPath(type: ContentType, slug: string | null | undefined): string | null {
+  if (!slug) return null
+  return `${publicContentPath(type, slug)}/proprietes`
+}

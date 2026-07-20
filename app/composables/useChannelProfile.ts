@@ -9,7 +9,6 @@ import { getHttpErrorStatus } from '@/lib/http-errors'
 
 export type ChannelProfileTab = 'articles' | 'statsdata' | 'sondages' | 'apropos'
 export type FeedItem = { title: string; meta?: string }
-export type SondageSort = 'recent' | 'populaire' | 'note'
 
 const TABS: { key: ChannelProfileTab; label: string }[] = [
   { key: 'articles', label: 'Articles' },
@@ -17,23 +16,6 @@ const TABS: { key: ChannelProfileTab; label: string }[] = [
   { key: 'sondages', label: 'Sondages' },
   { key: 'apropos', label: 'À propos' },
 ]
-
-const SONDAGE_SORT_OPTIONS: { key: SondageSort; label: string }[] = [
-  { key: 'recent', label: 'Récents' },
-  { key: 'populaire', label: 'Populaires' },
-  { key: 'note', label: 'Mieux notés' },
-]
-
-// Score déterministe (non basé sur de vraies métriques d'engagement, l'API ne les expose pas encore)
-// utilisé uniquement pour démontrer les tris de l'onglet Sondages.
-function hashString(value: string) {
-  let hash = 0
-  for (let i = 0; i < value.length; i++) {
-    hash = (hash << 5) - hash + value.charCodeAt(i)
-    hash |= 0
-  }
-  return Math.abs(hash)
-}
 
 export function useChannelProfile() {
   const route = useRoute()
@@ -45,7 +27,6 @@ export function useChannelProfile() {
   const isFollowing = ref(false)
   const isOwner = ref(false)
   const activeTab = ref<ChannelProfileTab>('articles')
-  const sondageSort = ref<SondageSort>('recent')
 
   async function load() {
     loading.value = true
@@ -113,24 +94,7 @@ export function useChannelProfile() {
     () => channel.value?.statsData.map((title) => ({ title })) ?? [],
   )
 
-  const pollItems = computed(() =>
-    (channel.value?.polls ?? []).map((title, index) => {
-      const hash = hashString(title)
-      return {
-        title,
-        index,
-        participants: 180 + (hash % 4200),
-        rating: (30 + (hash % 20)) / 10,
-      }
-    }),
-  )
-
-  const sortedPollItems = computed(() => {
-    const items = [...pollItems.value]
-    if (sondageSort.value === 'populaire') return items.sort((a, b) => b.participants - a.participants)
-    if (sondageSort.value === 'note') return items.sort((a, b) => b.rating - a.rating)
-    return items.sort((a, b) => a.index - b.index)
-  })
+  const pollFeedItems = computed<FeedItem[]>(() => channel.value?.polls.map((title) => ({ title })) ?? [])
 
   return {
     channel,
@@ -144,8 +108,6 @@ export function useChannelProfile() {
     createdAtLabel,
     articleFeedItems,
     statsDataFeedItems,
-    sondageSort,
-    sondageSortOptions: SONDAGE_SORT_OPTIONS,
-    sortedPollItems,
+    pollFeedItems,
   }
 }
