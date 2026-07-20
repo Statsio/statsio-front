@@ -14,7 +14,7 @@ withDefaults(
   <svg
     v-if="kind === 'programme'"
     viewBox="0 0 24 24"
-    :class="class"
+    :class="$props.class"
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
   >

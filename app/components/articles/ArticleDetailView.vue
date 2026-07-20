@@ -14,7 +14,7 @@ import { getHttpErrorStatus } from '@/lib/http-errors'
 import { getCategoryColorClass } from '@/lib/articleCategoryColor'
 import { getNameInitials } from '@/lib/format'
 import { resolveChannelColors } from '@/lib/channel-brand'
-import { publicContentPath, publicContentListPath } from '@/lib/content-display'
+import { publicContentListPath } from '@/lib/content-display'
 import { useContentBasePath } from '@/composables/useContentBasePath'
 
 const props = defineProps<{
@@ -120,9 +120,6 @@ function formatDate(iso?: string) {
 }
 
 const listPath = computed(() => publicContentListPath('article', basePath.value))
-function relatedPath(itemSlug?: string) {
-  return publicContentPath('article', itemSlug ?? '', basePath.value)
-}
 
 onMounted(async () => {
   try {

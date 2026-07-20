@@ -2,7 +2,6 @@
 import { ref, onMounted } from 'vue'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import type { DatasetMeta, DatasetWithSchema } from '@/types/studio'
-import type { DatasetPreview } from '@/api/studio'
 import { fetchDataSource, type DataSourceDetail } from '@/api/data-sources'
 import AddSourceModal from './AddSourceModal.vue'
 import EditSourceModal from './EditSourceModal.vue'

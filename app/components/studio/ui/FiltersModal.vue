@@ -14,8 +14,6 @@ const emit = defineEmits<{ (e: 'close'): void }>()
 const studio = useStudioStore()
 
 const isComparison = computed(() => props.mode === 'comparison')
-const accentCls    = computed(() => isComparison.value ? 'text-rose-600' : 'text-[var(--color-primary)]')
-const activeBorder = computed(() => isComparison.value ? 'border-rose-300 bg-rose-50' : 'border-[var(--color-primary)] bg-[var(--color-primary)]/5')
 const chipCls      = computed(() => isComparison.value ? 'bg-rose-100 text-rose-700 border-rose-200' : 'bg-amber-100 text-amber-700 border-amber-200')
 
 const filters  = computed<BlockFilter[]>(() => (isComparison.value ? props.block.comparisonFilters : props.block.filters) ?? [])

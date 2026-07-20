@@ -150,7 +150,7 @@ async function handleUpdateProfile() {
     const result = await updateProfile({
       first_name: profileForm.first_name || undefined,
       last_name: profileForm.last_name || undefined,
-    }) as any
+    }) as { user?: AuthUser } | undefined
     if (result?.user && authStore.user) {
       authStore.user.profile = result.user.profile
     }

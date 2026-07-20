@@ -30,6 +30,9 @@ const speechError = ref('')
 const speechSupported = computed(
   () => typeof window !== 'undefined' && 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window,
 )
+// Référence forte conservée : certains navigateurs (Chrome) interrompent un SpeechSynthesisUtterance
+// en cours si aucune référence externe n'est gardée en vie (bug connu du moteur de synthèse vocale).
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 let activeUtterance: SpeechSynthesisUtterance | null = null
 
 function toggleReading() {

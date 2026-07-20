@@ -2,24 +2,17 @@
 import { ref, computed } from 'vue'
 import draggable from 'vuedraggable'
 import { useStudioStore } from '@/stores/studio'
-import { type SectionLayout, type Section } from '@/types/studio'
+import { type SectionLayout } from '@/types/studio'
 import CanvasSection from './CanvasSection.vue'
 
 const studio = useStudioStore()
 
 const activeParams = computed(() => Object.entries(studio.pageParams))
 
-// ─── Section drag & drop to reorder ─────────────────────────────────────────
-
-const sectionList = {
-  get: () => studio.currentPageSections,
-  set: (newOrder: Section[]) => studio.reorderCurrentPageSections(newOrder),
-}
-
 // ─── Drop zone for adding sections from sidebar ───────────────────────────────
 
 const isDropTargetActive = ref(false)
-let dropInsertIndex = ref<number | null>(null)
+const dropInsertIndex = ref<number | null>(null)
 
 function onSectionDragEnter(event: DragEvent, index?: number) {
   if (!event.dataTransfer?.types.includes('studio-section-layout')) return

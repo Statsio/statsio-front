@@ -442,7 +442,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMousedown))
               </div>
               <template v-if="!group.collapsible || groupOpenState.has(group.label)">
                 <button
-                  v-for="(opt, i) in group.options"
+                  v-for="opt in group.options"
                   :key="String(opt.value)"
                   type="button" role="option"
                   class="flex w-full items-center justify-between gap-2 pl-5 pr-3 py-1.5 text-left transition font-medium"

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'admin', middleware: ['admin'], ssr: false })
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import {
   adminListUsers,
   adminUpdateUser,
@@ -87,7 +87,7 @@ async function saveEdit() {
     await adminUpdateUser(editUser.value.id, { status: editUser.value.status, is_admin: editUser.value.is_admin })
     editUser.value = null
     load()
-  } catch (e: unknown) {
+  } catch {
     saveError.value = 'Erreur lors de la sauvegarde.'
   } finally {
     isSaving.value = false
