@@ -50,7 +50,7 @@ useClickOutside(sortMenuRef, closeSortMenu)
 
 const sortLabel = computed(() => (sortMode.value === 'popular' ? 'Les plus lus' : 'Plus récents'))
 
-const categories = computed(() => {
+const categoryOptions = computed(() => {
   const set = new Set<string>()
   for (const doc of docs.value) {
     for (const cat of doc.categories ?? []) set.add(cat)
@@ -90,7 +90,7 @@ const statHighlight = computed(() => ({
 
 const pageTitle = computed(() => props.title || 'Articles')
 const pageSubtitle = computed(
-  () => `${filtered.value.length} article${filtered.value.length > 1 ? 's' : ''} · ${categories.value.length} thématiques`,
+  () => `${filtered.value.length} article${filtered.value.length > 1 ? 's' : ''} · ${categoryOptions.value.length} thématiques`,
 )
 
 function selectCategory(category: string) {
@@ -150,7 +150,7 @@ function articlePath(slug?: string) {
           </div>
         </div>
 
-        <div v-if="categories.length > 0" class="mt-6 flex gap-7 overflow-x-auto border-b border-slate-200 pb-px">
+        <div v-if="categoryOptions.length > 0" class="mt-6 flex gap-7 overflow-x-auto border-b border-slate-200 pb-px">
           <button
             type="button"
             class="shrink-0 whitespace-nowrap pb-3 text-[13.5px] font-bold transition-colors"
@@ -164,7 +164,7 @@ function articlePath(slug?: string) {
             Toutes
           </button>
           <button
-            v-for="cat in categories"
+            v-for="cat in categoryOptions"
             :key="cat"
             type="button"
             class="shrink-0 whitespace-nowrap pb-3 text-[13.5px] font-bold transition-colors"

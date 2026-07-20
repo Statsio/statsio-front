@@ -2,7 +2,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { nextTick, reactive } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const push = vi.fn()
+const push = vi.fn<(...args: unknown[]) => void>()
 const route = reactive<{ query: Record<string, string> }>({ query: {} })
 
 vi.mock('vue-router', () => ({

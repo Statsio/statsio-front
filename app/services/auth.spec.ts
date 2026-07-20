@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AuthUser } from '@/types/auth'
 
 vi.mock('@/lib/http', () => ({
-  http: { post: vi.fn(), get: vi.fn() },
+  http: {
+    post: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+    get: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  },
 }))
 
 import { http } from '@/lib/http'
