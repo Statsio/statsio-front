@@ -7,9 +7,13 @@ import { getStatsDataVisual } from '@/utils/statsDataVisuals'
 import { formatRowCount, relativeUpdate } from '@/utils/statsDataFormat'
 import { useContentBasePath } from '@/composables/useContentBasePath'
 
-const props = defineProps<{
-  document: StatsDataDocument
-}>()
+const props = withDefaults(
+  defineProps<{
+    document: StatsDataDocument
+    featured?: boolean
+  }>(),
+  { featured: false },
+)
 
 const visual = computed(() => getStatsDataVisual(props.document.categories, props.document.emoji))
 
@@ -44,7 +48,13 @@ const detailLink = computed(() => {
   <RouterLink :to="detailLink" class="card group flex flex-col gap-3.5 p-5 transition hover:-translate-y-0.5 hover:shadow-md">
     <div class="flex items-start justify-between gap-3">
       <div class="flex h-9 w-9 items-center justify-center rounded-xl text-base" :class="visual.bg">{{ visual.emoji }}</div>
-      <span v-if="document.categories?.[0]" class="mono text-[10px] text-slate-400">{{ document.categories[0] }}</span>
+      <span
+        v-if="featured"
+        class="rounded-full bg-[var(--color-primary)]/10 px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-[0.03em] text-[var(--color-primary)]"
+      >
+        Dataset live
+      </span>
+      <span v-else-if="document.categories?.[0]" class="mono text-[10px] text-slate-400">{{ document.categories[0] }}</span>
     </div>
 
     <div>

@@ -50,3 +50,17 @@ export interface GenericGroup {
   libelle: string
   medicaments: GenericGroupMedicament[]
 }
+
+/** Tendance des ventes (Open Medic) d'un médicament, agrégée sur tous ses CIP13. */
+export interface MedicamentVentesTrend {
+  value: number
+  year: number
+  trend: { year: number; value: number }[]
+}
+
+export interface TopVenteMedicament {
+  cip13: string
+  label: string | null
+  boxes: number
+  cis: number | null
+}

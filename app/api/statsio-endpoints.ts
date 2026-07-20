@@ -26,6 +26,7 @@ export const STATSIO_API = {
     ban: (id: string) => `/channels/${encodeURIComponent(id)}/ban`,
     activate: (id: string) => `/channels/${encodeURIComponent(id)}/activate`,
     anonymize: (id: string) => `/channels/${encodeURIComponent(id)}/anonymize`,
+    featured: (id: string) => `/channels/${encodeURIComponent(id)}/featured`,
   },
   /** OpenAPI : `POST /api/source-api/probe-connection` — test d’URL + clé Bearer (sans lier au document). */
   sourceApi: {
@@ -109,6 +110,9 @@ export const STATSIO_API = {
     search: (q: string) => `/medicaments/search?q=${encodeURIComponent(q)}`,
     generiques: (libelle: string) => `/medicaments/generiques?libelle=${encodeURIComponent(libelle)}`,
     one: (cis: number | string) => `/medicaments/${encodeURIComponent(String(cis))}`,
+    ventes: (cis: number | string) => `/medicaments/${encodeURIComponent(String(cis))}/ventes`,
+    topVentes: '/medicaments/ventes/top',
+    image: (nom: string) => `/medicaments/image?nom=${encodeURIComponent(nom)}`,
   },
   pays: {
     list: (indicator?: string) => (indicator ? `/pays?indicator=${encodeURIComponent(indicator)}` : '/pays'),

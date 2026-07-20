@@ -1,4 +1,4 @@
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { channelCategoryLabels, getMyChannels, type ChannelCategory } from '@/api/channels'
 import type { ChannelEntry } from '@/data/channels'
@@ -6,11 +6,15 @@ import { fetchChannelByHandle } from '@/lib/channels-api'
 import { useAuthStore } from '@/stores/auth'
 import { AUTH_REDIRECT_KEY } from '@/lib/auth-storage'
 import { getHttpErrorStatus } from '@/lib/http-errors'
+import { useChannelPublicContent } from '@/composables/useChannelPublicContent'
+import { useContentBasePath } from '@/composables/useContentBasePath'
+import { useRespondentToken } from '@/composables/useRespondentToken'
+import { enrichPoll, type EnrichedPoll } from '@/lib/poll-enrich'
 
-export type ChannelProfileTab = 'articles' | 'statsdata' | 'sondages' | 'apropos'
-export type FeedItem = { title: string; meta?: string }
+export type ChannelProfileTab = 'featured' | 'articles' | 'statsdata' | 'sondages' | 'apropos'
 
 const TABS: { key: ChannelProfileTab; label: string }[] = [
+  { key: 'featured', label: 'À la une' },
   { key: 'articles', label: 'Articles' },
   { key: 'statsdata', label: 'StatsData' },
   { key: 'sondages', label: 'Sondages' },
@@ -21,12 +25,17 @@ export function useChannelProfile() {
   const route = useRoute()
   const router = useRouter()
   const auth = useAuthStore()
+  const basePath = useContentBasePath()
+  const respondentToken = useRespondentToken()
 
   const channel = ref<ChannelEntry | null>(null)
   const loading = ref(true)
   const isFollowing = ref(false)
   const isOwner = ref(false)
-  const activeTab = ref<ChannelProfileTab>('articles')
+  const activeTab = ref<ChannelProfileTab>('featured')
+
+  const channelId = computed(() => (channel.value ? Number(channel.value.slug) : undefined))
+  const { articles, statsData, polls, loading: contentLoading } = useChannelPublicContent(channelId)
 
   async function load() {
     loading.value = true
@@ -87,14 +96,28 @@ export function useChannelProfile() {
     return new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(iso))
   })
 
-  const articleFeedItems = computed<FeedItem[]>(
-    () => channel.value?.articles.map((title) => ({ title })) ?? [],
-  )
-  const statsDataFeedItems = computed<FeedItem[]>(
-    () => channel.value?.statsData.map((title) => ({ title })) ?? [],
+  const featured = computed(() => channel.value?.featured ?? null)
+
+  // Les pourcentages/votes d'un sondage ne sont jamais stockés sur le document : chaque
+  // sondage réel (liste + featured) doit être enrichi via un appel réseau dédié.
+  const enrichedPolls = ref<EnrichedPoll[]>([])
+  const featuredEnrichedSurvey = ref<EnrichedPoll | null>(null)
+
+  watch(
+    polls,
+    async (list) => {
+      enrichedPolls.value = await Promise.all(list.map((p) => enrichPoll(p, basePath.value, respondentToken.value)))
+    },
+    { immediate: true },
   )
 
-  const pollFeedItems = computed<FeedItem[]>(() => channel.value?.polls.map((title) => ({ title })) ?? [])
+  watch(
+    featured,
+    async (f) => {
+      featuredEnrichedSurvey.value = f?.survey ? await enrichPoll(f.survey, basePath.value, respondentToken.value) : null
+    },
+    { immediate: true },
+  )
 
   return {
     channel,
@@ -106,8 +129,11 @@ export function useChannelProfile() {
     activeTab,
     categoryLabels,
     createdAtLabel,
-    articleFeedItems,
-    statsDataFeedItems,
-    pollFeedItems,
+    articles,
+    statsData,
+    contentLoading,
+    featured,
+    enrichedPolls,
+    featuredEnrichedSurvey,
   }
 }
