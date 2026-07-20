@@ -1,3 +1,10 @@
+/** Ligne d'une table de référence profil (genres, tranches d'âge, CSP, situations matrimoniales…). */
+export interface ProfileLookupOption {
+  id: number
+  key: string
+  label: string
+}
+
 export interface AuthProfile {
   id?: number
   user_id?: number
@@ -11,6 +18,18 @@ export interface AuthProfile {
   city?: string | null
   zip_code?: string | null
   avatar?: string | null
+  gender_id?: number | null
+  age_range_id?: number | null
+  socio_professional_category_id?: number | null
+  education_level_id?: number | null
+  employment_status_id?: number | null
+  marital_status_id?: number | null
+  gender?: ProfileLookupOption | null
+  age_range?: ProfileLookupOption | null
+  socio_professional_category?: ProfileLookupOption | null
+  education_level?: ProfileLookupOption | null
+  employment_status?: ProfileLookupOption | null
+  marital_status?: ProfileLookupOption | null
 }
 
 export interface AuthUser {
@@ -25,6 +44,8 @@ export interface AuthUser {
   created_at?: string
   updated_at?: string
   profile: AuthProfile | null
+  /** true si tous les champs de UserProfile::REQUIRED_FOR_COMPLETION sont renseignés côté back. */
+  profile_complete?: boolean
 }
 
 export type AuthUserPayload = AuthUser
