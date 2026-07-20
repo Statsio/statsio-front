@@ -53,7 +53,7 @@ export const useContextStore = defineStore('context', () => {
    * Update context and sync to URL
    */
   function updateContext(updates: Partial<ContextState>, replace = false) {
-    const newContext = replace ? { ...updates } : { ...context.value, ...updates }
+    const newContext = (replace ? { ...updates } : { ...context.value, ...updates }) as ContextState
 
     // Remove null/undefined values
     Object.keys(newContext).forEach(key => {

@@ -34,7 +34,7 @@ const {
 
 usePageSeo({
   title: computed(() => broadcast.value?.program?.title),
-  description: computed(() => broadcast.value?.program?.description),
+  description: computed(() => broadcast.value?.program?.description ?? undefined),
 })
 
 onMounted(() => load())

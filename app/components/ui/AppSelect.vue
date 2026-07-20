@@ -128,9 +128,9 @@ const filteredGroups = computed<readonly AppSelectGroup<Exclude<Primitive, null>
 
 // ── Selected state ────────────────────────────────────────────────────────────
 
-const selectedValues = computed(() => {
+const selectedValues = computed<Primitive[]>(() => {
   if (props.multiple) return Array.isArray(props.modelValue) ? props.modelValue : []
-  return props.modelValue != null ? [props.modelValue] : []
+  return props.modelValue != null && !Array.isArray(props.modelValue) ? [props.modelValue] : []
 })
 
 const selectedLabels = computed(() =>
@@ -301,7 +301,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMousedown))
             <button
               type="button"
               class="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full hover:bg-[var(--color-primary)]/20"
-              @click="removeValue(selectedValues[idx], $event)"
+              @click="selectedValues[idx] !== undefined && removeValue(selectedValues[idx]!, $event)"
             >
               <svg class="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
                 <path d="M6 18L18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round" />

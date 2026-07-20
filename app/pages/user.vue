@@ -229,7 +229,7 @@ const runCommuneLookup = useDebounceFn(async () => {
   try {
     const results = await lookupCommunesByPostalCode(code)
     if (results.length === 1) {
-      selectCommune(results[0])
+      selectCommune(results[0]!)
     } else if (results.length > 1) {
       communeResults.value = results
     } else {

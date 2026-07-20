@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { POPULAR_MEDICAMENTS, useMedicaments } from '@/composables/useMedicaments'
 import MedicamentsCard from '@/components/medicaments/MedicamentsCard.vue'
+import type { Medicament } from '@/types/medicaments'
 
 const { query, results, isLoading, error, hasQuery, suggestionsEmpty, searchPopular } = useMedicaments()
 </script>
@@ -47,7 +48,7 @@ const { query, results, isLoading, error, hasQuery, suggestionsEmpty, searchPopu
           <MedicamentsCard
             v-for="m in results.slice(0, 6)"
             :key="m.cis"
-            :medicament="m"
+            :medicament="(m as Medicament)"
             variant="row"
           />
           <p v-if="suggestionsEmpty" class="p-5 text-center text-[13.5px] text-slate-400">

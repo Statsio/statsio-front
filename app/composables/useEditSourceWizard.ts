@@ -49,7 +49,7 @@ export function useEditSourceWizard(source: DataSourceDetail) {
   const visibility = ref<'private' | 'public'>(source.visibility)
   const categories = ref<string[]>(source.categories ?? [])
 
-  const currentStepId = ref<string>(EDIT_SOURCE_WIZARD_STEPS[0].id)
+  const currentStepId = ref<string>(EDIT_SOURCE_WIZARD_STEPS[0]!.id)
 
   const canGoNext = computed(() => {
     if (currentStepId.value === 'configure') {

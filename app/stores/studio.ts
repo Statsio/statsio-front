@@ -242,12 +242,12 @@ export const useStudioStore = defineStore('studio', () => {
       if (originalSection.locked) {
         result.push(originalSection)
       } else if (nonLockedIndex < newNonLocked.length) {
-        result.push(newNonLocked[nonLockedIndex++])
+        result.push(newNonLocked[nonLockedIndex++]!)
       }
     }
     // Add any remaining non-locked sections (shouldn't happen, but just in case)
     while (nonLockedIndex < newNonLocked.length) {
-      result.push(newNonLocked[nonLockedIndex++])
+      result.push(newNonLocked[nonLockedIndex++]!)
     }
     
     sections.value = result
@@ -267,11 +267,11 @@ export const useStudioStore = defineStore('studio', () => {
       if (originalSection.locked) {
         mergedCurrentPage.push(originalSection)
       } else if (nonLockedIdx < currentNonLocked.length) {
-        mergedCurrentPage.push(currentNonLocked[nonLockedIdx++])
+        mergedCurrentPage.push(currentNonLocked[nonLockedIdx++]!)
       }
     }
     while (nonLockedIdx < currentNonLocked.length) {
-      mergedCurrentPage.push(currentNonLocked[nonLockedIdx++])
+      mergedCurrentPage.push(currentNonLocked[nonLockedIdx++]!)
     }
     
     sections.value = [...otherSections, ...mergedCurrentPage]

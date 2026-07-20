@@ -1,5 +1,14 @@
-import { getManager } from 'klaro/dist/klaro-no-css.js'
 import { klaroConfig } from '@/lib/klaro'
+import type { KlaroManager } from '@/lib/klaro'
+
+// @ts-expect-error klaro ne fournit aucune déclaration de type et allowJs empêche toute augmentation de module pour son fichier réel — cf. app/lib/klaro.ts pour les types applicables une fois importé.
+import * as klaroNoCss from 'klaro/dist/klaro-no-css.js'
+
+const { getManager } = klaroNoCss as unknown as {
+  setup: (config?: Record<string, unknown>) => void
+  getManager: (config?: Record<string, unknown>) => KlaroManager
+  show: (config?: Record<string, unknown>, modal?: boolean) => void
+}
 
 export default defineNuxtPlugin((nuxtApp) => {
   const manager = getManager(klaroConfig)

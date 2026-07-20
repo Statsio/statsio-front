@@ -899,7 +899,7 @@ function setResultDescColumnLabel(col: string, label: string) {
               </span>
               <div class="flex-1 min-w-0">
                 <p v-if="block.datasetId" class="text-xs font-semibold text-slate-700 truncate">
-                  {{ datasets.readyDatasets.find((d: DatasetMeta) => d.id === block.datasetId)?.name ?? 'Dataset sélectionné' }}
+                  {{ datasets.readyDatasets.find((d: DatasetMeta) => d.id === block?.datasetId)?.name ?? 'Dataset sélectionné' }}
                 </p>
                 <p v-else class="text-xs text-slate-400">Aucun dataset sélectionné</p>
                 <p class="mt-0.5 text-[11px] text-slate-400">

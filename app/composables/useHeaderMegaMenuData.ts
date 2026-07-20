@@ -55,7 +55,12 @@ function deriveCategories(docs: { categories?: string[] }[], palette: string[], 
   }
   return Array.from(seen)
     .slice(0, max)
-    .map((name, index) => ({ name, color: palette[index % palette.length] }))
+    .map((name, index) => ({ name, color: paletteColor(palette, index) }))
+}
+
+/** `palette` est toujours non vide en pratique — un fallback neutre couvre le cas contraire pour TypeScript. */
+function paletteColor(palette: string[], index: number): string {
+  return palette[index % palette.length] ?? '#94a3b8'
 }
 
 function withLinks(categories: MegaMenuCategory[], menu: MegaMenuContent): HeaderMenuData {
@@ -115,7 +120,7 @@ export async function loadChannelsMenu(palette: string[]): Promise<HeaderMenuDat
     ])
     const categories: MegaMenuCategory[] = categoryList
       .slice(0, 5)
-      .map((c, index) => ({ name: c.label, color: palette[index % palette.length] }))
+      .map((c, index) => ({ name: c.label, color: paletteColor(palette, index) }))
     const cards: MegaMenuChannelCard[] = channels.map((channel, index) => {
       const profile = channel.profile
       const categoryLabel = profile.categories[0] ? channelCategoryLabels[profile.categories[0]] : ''
@@ -125,7 +130,7 @@ export async function loadChannelsMenu(palette: string[]): Promise<HeaderMenuDat
         meta: categoryLabel
           ? `${formatCompactNumber(profile.subscriber_count)} abonnés · ${categoryLabel}`
           : `${formatCompactNumber(profile.subscriber_count)} abonnés`,
-        avatarColor: profile.custom_color_primary ?? palette[index % palette.length],
+        avatarColor: profile.custom_color_primary ?? paletteColor(palette, index),
       }
     })
     return withLinks(categories, { variant: 'plane', cards })
@@ -159,7 +164,7 @@ export async function loadAudiencesMenu(palette: string[]): Promise<HeaderMenuDa
       const channel = channelMap.get(entry.channelId)
       return {
         name: channel?.displayName ?? entry.channelId,
-        color: CHANNEL_CHART_COLORS[entry.channelId] ?? palette[index % palette.length],
+        color: CHANNEL_CHART_COLORS[entry.channelId] ?? paletteColor(palette, index),
       }
     })
     return withLinks(categories, { variant: 'bar', cards })
@@ -200,7 +205,7 @@ export async function loadProgrammeTvMenu(palette: string[]): Promise<HeaderMenu
     }
     const categories: MegaMenuCategory[] = Array.from(genres)
       .slice(0, 5)
-      .map((name, index) => ({ name, color: palette[index % palette.length] }))
+      .map((name, index) => ({ name, color: paletteColor(palette, index) }))
 
     return withLinks(categories, { variant: 'doc', cards })
   } catch {
@@ -218,7 +223,7 @@ export async function loadMaladiesMenu(palette: string[]): Promise<HeaderMenuDat
       sparkline: maladie.trend.length ? maladie.trend.map((t) => t.value) : seededSparkline(maladie.id),
     }))
     const categoryNames = Array.from(new Set(list.map((m) => m.category).filter((c): c is string => !!c))).slice(0, 5)
-    const categories = categoryNames.map((name, index) => ({ name, color: palette[index % palette.length] }))
+    const categories = categoryNames.map((name, index) => ({ name, color: paletteColor(palette, index) }))
     return withLinks(categories, { variant: 'bar', cards })
   } catch {
     return emptyMenu('bar')
@@ -240,7 +245,7 @@ export async function loadMedicamentsMenu(palette: string[]): Promise<HeaderMenu
 
     const forms = Array.from(new Set(matched.map((m) => m.formePharmaceutique).filter(Boolean))).slice(0, 5)
     const categoryNames = forms.length ? forms : names.slice(0, 5)
-    const categories = categoryNames.map((name, index) => ({ name, color: palette[index % palette.length] }))
+    const categories = categoryNames.map((name, index) => ({ name, color: paletteColor(palette, index) }))
 
     return withLinks(categories, { variant: 'bar', cards })
   } catch {
@@ -263,7 +268,7 @@ export async function loadSoinsMenu(palette: string[]): Promise<HeaderMenuData> 
     }))
     const categories = res.options
       .slice(0, 5)
-      .map((option, index) => ({ name: option.label, color: palette[index % palette.length] }))
+      .map((option, index) => ({ name: option.label, color: paletteColor(palette, index) }))
     return withLinks(categories, { variant: 'bar', cards })
   } catch {
     return emptyMenu('bar')
