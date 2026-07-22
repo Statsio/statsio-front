@@ -191,6 +191,7 @@ export async function fetchDistinctValues(datasetId: string, column: string, sea
 export interface ContentChannel {
   id: number
   name?: string | null
+  logo_url?: string | null
   custom_color_primary?: string | null
   custom_color_secondary?: string | null
 }

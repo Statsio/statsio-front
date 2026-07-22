@@ -8,8 +8,7 @@ import { homeContent } from '@/data/brands/statsio/home'
 
 <template>
   <div>
-    <a href="#main-content" class="sr-skip-link">Passer au contenu principal</a>
-    <main id="main-content" tabindex="-1" class="pb-0 pt-0">
+    <div class="pb-0 pt-0">
       <HomeHero :content="homeContent" primary-cta-to="/statsdata" secondary-cta-to="/register" />
       <HomeArticles />
       <HomeChannels />
@@ -18,6 +17,6 @@ import { homeContent } from '@/data/brands/statsio/home'
           <PollPulseBanner v-bind="homeContent.poll" />
         </div>
       </section>
-    </main>
+    </div>
   </div>
 </template>

@@ -16,6 +16,7 @@ async function logout() {
 
 <template>
   <div class="flex h-screen overflow-hidden bg-slate-100">
+    <a href="#main-content" class="sr-skip-link">Passer au contenu principal</a>
     <AdminSidebar v-if="sidebarOpen" />
 
     <div class="flex flex-1 flex-col overflow-hidden">
@@ -47,7 +48,7 @@ async function logout() {
         </div>
       </header>
 
-      <main class="flex-1 overflow-y-auto p-6">
+      <main id="main-content" tabindex="-1" class="flex-1 overflow-y-auto p-6">
         <slot />
       </main>
     </div>

@@ -3,6 +3,7 @@ import { fetchUserStudioContents, type StatsDataDocument } from '@/api/studio'
 import type { Channel } from '@/api/channels'
 import { CONTENT_TYPE_META, contentPropertiesPath, getStatusMeta, publicContentPath } from '@/lib/content-display'
 import { formatShortDate, getNameInitials } from '@/lib/format'
+import { channelBannerStyle, resolveChannelColors } from '@/lib/channel-brand'
 import type { ContentType } from '@/types/content-creation'
 import type { DisplayContent } from '@/composables/useMyStudioContents'
 
@@ -43,6 +44,11 @@ export function useChannelContents(channelId: Ref<number>, channel: Ref<Channel 
     const typeMeta = CONTENT_TYPE_META[type]
     const status = getStatusMeta(doc.status, doc.visibility)
     const name = channel.value?.profile?.name ?? 'Chaîne'
+    const colors = resolveChannelColors(
+      String(channel.value?.id ?? name),
+      channel.value?.profile?.custom_color_primary,
+      channel.value?.profile?.custom_color_secondary,
+    )
 
     return {
       id: doc.id,
@@ -58,7 +64,8 @@ export function useChannelContents(channelId: Ref<number>, channel: Ref<Channel 
       ownerKind: 'chaine',
       ownerLabel: name,
       avatarInitials: getNameInitials(name),
-      avatarBg: channel.value?.profile?.custom_color_primary || '#8b5cf6',
+      avatarLogoUrl: channel.value?.profile?.logo_url ?? null,
+      avatarBg: channelBannerStyle(colors.primary, colors.secondary).background,
       avatarShape: 'square',
       date: formatShortDate(doc.updated_at ?? doc.created_at),
       viewsCount: doc.views_count ?? 0,

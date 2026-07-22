@@ -1,5 +1,7 @@
 <script setup lang="ts">
-withDefaults(
+import { nextTick, ref, watch } from 'vue'
+
+const props = withDefaults(
   defineProps<{
     open: boolean
     title: string
@@ -26,6 +28,55 @@ const sizeClasses = {
   lg: 'max-w-4xl',
   xl: 'max-w-6xl',
 }
+
+// ─── Accessibilité : piège à focus + restauration (RGAA / WCAG 2.4.3, 2.1.2) ──
+const panelRef = ref<HTMLElement | null>(null)
+let previouslyFocused: HTMLElement | null = null
+
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
+function focusableElements(): HTMLElement[] {
+  if (!panelRef.value) return []
+  return Array.from(panelRef.value.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
+}
+
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') {
+    handleClose()
+    return
+  }
+  if (e.key !== 'Tab') return
+
+  const items = focusableElements()
+  const first = items[0]
+  const last = items[items.length - 1]
+  if (!first || !last) return
+
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault()
+    last.focus()
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault()
+    first.focus()
+  }
+}
+
+watch(
+  () => props.open,
+  async (isOpen) => {
+    if (isOpen) {
+      previouslyFocused = document.activeElement as HTMLElement | null
+      document.addEventListener('keydown', onKeydown)
+      await nextTick()
+      focusableElements()[0]?.focus()
+    } else {
+      document.removeEventListener('keydown', onKeydown)
+      previouslyFocused?.focus()
+      previouslyFocused = null
+    }
+  }
+)
 </script>
 
 <template>
@@ -53,12 +104,16 @@ const sizeClasses = {
         >
           <div
             v-if="open"
+            ref="panelRef"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="app-modal-title"
             class="flex max-h-[90vh] w-full flex-col rounded-2xl bg-white shadow-2xl"
             :class="sizeClasses[size]"
           >
             <!-- Header -->
             <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-              <h2 class="text-lg font-semibold text-slate-900">{{ title }}</h2>
+              <h2 id="app-modal-title" class="text-lg font-semibold text-slate-900">{{ title }}</h2>
               <button
                 type="button"
                 class="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"

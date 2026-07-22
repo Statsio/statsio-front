@@ -2,12 +2,22 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useChannelDashboard } from '@/composables/useChannelDashboard'
+import { channelBannerStyle, resolveChannelColors } from '@/lib/channel-brand'
 
 const route = useRoute()
 const { channel, channelInitials } = useChannelDashboard()
 
 const channelId = computed(() => Number(route.params.id))
 const basePath = computed(() => `/channels/${channelId.value}/dashboard`)
+
+const brandColors = computed(() =>
+  resolveChannelColors(
+    String(channel.value?.id ?? channelId.value),
+    channel.value?.profile?.custom_color_primary,
+    channel.value?.profile?.custom_color_secondary,
+  ),
+)
+const brandStyle = computed(() => channelBannerStyle(brandColors.value.primary, brandColors.value.secondary))
 
 type NavItem = { to: string; label: string; icon: string; exact?: boolean }
 
@@ -58,12 +68,7 @@ const isActive = (item: NavItem) =>
   <aside class="flex h-full w-72 shrink-0 flex-col border-r border-slate-200 bg-white">
     <!-- Identité de la chaîne -->
     <div class="border-b border-slate-100">
-      <div
-        class="h-20 w-full"
-        :style="channel?.profile?.custom_color_primary
-          ? `background:linear-gradient(135deg,${channel.profile.custom_color_primary}33,${channel.profile.custom_color_secondary ?? channel.profile.custom_color_primary}55)`
-          : 'background:linear-gradient(135deg,#f1f5f9,#e2e8f0)'"
-      >
+      <div class="h-20 w-full" :style="channel?.profile?.banner_url ? undefined : brandStyle">
         <img
           v-if="channel?.profile?.banner_url"
           :src="channel.profile.banner_url"
@@ -82,9 +87,7 @@ const isActive = (item: NavItem) =>
           <div
             v-else
             class="flex h-14 w-14 items-center justify-center rounded-2xl text-lg font-bold text-white ring-4 ring-white"
-            :style="channel?.profile?.custom_color_primary
-              ? `background:${channel.profile.custom_color_primary}`
-              : 'background:var(--color-primary)'"
+            :style="brandStyle"
           >
             {{ channelInitials }}
           </div>

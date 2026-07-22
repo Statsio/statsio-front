@@ -12,7 +12,7 @@ const gradientStyle = computed(() => channelBannerStyle(props.colorPrimary, prop
 </script>
 
 <template>
-  <div class="relative h-32 w-full overflow-hidden rounded-b-[20px] bg-slate-950 sm:h-[180px]">
+  <div class="relative h-32 w-full overflow-hidden rounded-br-[20px] bg-slate-950 sm:h-[180px]">
     <img v-if="bannerUrl" :src="bannerUrl" alt="" class="h-full w-full object-cover" />
     <div v-else class="h-full w-full" :style="gradientStyle" />
   </div>
