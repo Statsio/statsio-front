@@ -2,7 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import { useBlockData, resolveAggregationParams } from '@/composables/useBlockData'
 import { fetchBlockData } from '@/api/studio'
-import { formatDisplayValue } from '@/utils/statsDataFormat'
+import { formatDisplayValue, parseNumericValue } from '@/utils/statsDataFormat'
 import type { StudioBlock, BlockQueryResult, BlockFilter } from '@/types/studio'
 
 const props = defineProps<{ block: StudioBlock; readonly?: boolean }>()
@@ -87,8 +87,8 @@ const previousValue = computed(() => {
 // ─── Delta ────────────────────────────────────────────────────────────────────
 
 const delta = computed(() => {
-  const curr = rawValue.value !== null ? Number(rawValue.value) : NaN
-  const prev = previousValue.value !== null ? Number(previousValue.value) : NaN
+  const curr = rawValue.value !== null ? parseNumericValue(rawValue.value) : NaN
+  const prev = previousValue.value !== null ? parseNumericValue(previousValue.value) : NaN
   if (isNaN(curr) || isNaN(prev)) return null
   return { curr, prev, diff: curr - prev }
 })

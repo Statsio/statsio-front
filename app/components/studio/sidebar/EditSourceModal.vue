@@ -13,7 +13,7 @@ const emit = defineEmits<{ close: [] }>()
 const datasets = useStudioDatasetsStore()
 
 const {
-  sourceType, name, newFileObj, apiForm, existingFileLabel,
+  sourceType, name, newFileObj, sheetName, headerRow, excludedRows, apiForm, existingFileLabel,
   provenanceId, provenanceOtherLabel,
   visibility, categories,
   currentStepId, canGoNext,
@@ -99,6 +99,9 @@ async function handleSubmit() {
         :source-type="sourceType"
         :file-obj="newFileObj"
         :file-name="name"
+        :sheet-name="sheetName"
+        :header-row="headerRow"
+        :excluded-rows="excludedRows"
         :existing-file-label="existingFileLabel"
         :api-form="apiForm"
         :is-editing-api="sourceType === 'api'"
@@ -110,6 +113,9 @@ async function handleSubmit() {
         @refresh-now="handleRefreshNow"
         @update:file-obj="newFileObj = $event"
         @update:file-name="name = $event"
+        @update:sheet-name="sheetName = $event"
+        @update:header-row="headerRow = $event"
+        @update:excluded-rows="excludedRows = $event"
         @update:api-form="apiForm = $event"
       />
       <StepProvenance

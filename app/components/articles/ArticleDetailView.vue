@@ -91,7 +91,7 @@ const authorAvatarBg = computed(() => {
   const colors = resolveChannelColors(String(channel.value.id), channel.value.custom_color_primary, channel.value.custom_color_secondary)
   return channelBannerStyle(colors.primary, colors.secondary).background
 })
-const channelPath = computed(() => (channel.value ? `/chaines/${channel.value.id}` : null))
+const channelPath = computed(() => (channel.value?.handle ? `/channels/${encodeURIComponent(channel.value.handle)}` : null))
 
 const following = ref(false)
 const followBusy = ref(false)
