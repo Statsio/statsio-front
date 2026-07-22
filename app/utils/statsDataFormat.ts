@@ -42,7 +42,7 @@ export function parseNumericValue(value: unknown): number {
     const n = Number(value)
     return Number.isNaN(n) ? 0 : n
   }
-  const cleaned = value.replace(/[,\s]/g, '').replace(/[^0-9.\-]/g, '')
+  const cleaned = value.replace(/[,\s]/g, '').replace(/[^0-9.-]/g, '')
   const n = Number(cleaned)
   return Number.isNaN(n) ? 0 : n
 }
