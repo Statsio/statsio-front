@@ -55,6 +55,10 @@ export function useAddSourceWizard() {
   // ─── File ────────────────────────────────────────────────────────────────
   const fileObj = ref<File | null>(null)
   const fileName = ref('')
+  /** xlsx/xls uniquement — feuille et ligne d'en-têtes choisies via l'aperçu (StepSourceConfigure). */
+  const sheetName = ref<string | null>(null)
+  const headerRow = ref<number | null>(null)
+  const excludedRows = ref<number[]>([])
 
   // ─── API ─────────────────────────────────────────────────────────────────
   const apiForm = ref({
@@ -101,6 +105,9 @@ export function useAddSourceWizard() {
     sourceType.value = null
     fileObj.value = null
     fileName.value = ''
+    sheetName.value = null
+    headerRow.value = null
+    excludedRows.value = []
     apiForm.value = {
       name: '',
       url: '',
@@ -161,6 +168,9 @@ export function useAddSourceWizard() {
     sourceType,
     fileObj,
     fileName,
+    sheetName,
+    headerRow,
+    excludedRows,
     apiForm,
     provenanceId,
     provenanceOtherLabel,

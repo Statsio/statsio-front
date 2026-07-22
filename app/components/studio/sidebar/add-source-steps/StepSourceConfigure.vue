@@ -3,7 +3,8 @@ import { ref, computed } from 'vue'
 import { apiHttp } from '@/lib/http'
 import { STATSIO_API } from '@/api/statsio-endpoints'
 import type { SourceType, AuthType, HttpMethod, ApiFormPagination } from '@/composables/useAddSourceWizard'
-import type { Materialization, RefreshFrequency } from '@/api/data-sources'
+import type { Materialization, RefreshFrequency, SpreadsheetPreview } from '@/api/data-sources'
+import { previewSpreadsheet } from '@/api/data-sources'
 
 interface ApiFormShape {
   name: string
@@ -31,6 +32,11 @@ const props = defineProps<{
   sourceType: SourceType | null
   fileObj: File | null
   fileName: string
+  /** xlsx/xls uniquement — feuille et ligne d'en-têtes choisies via l'aperçu ci-dessous. */
+  sheetName?: string | null
+  headerRow?: number | null
+  /** Numéros de ligne (1-indexés, dans la feuille) à exclure du parsing, sous la ligne d'en-têtes. */
+  excludedRows?: number[]
   apiForm: ApiFormShape
   /** Mode édition : libellé du fichier déjà en place, affiché tant qu'aucun nouveau fichier n'est choisi. */
   existingFileLabel?: string
@@ -52,6 +58,9 @@ const PARTIAL_REASON_LABELS: Record<string, string> = {
 const emit = defineEmits<{
   'update:fileObj': [File | null]
   'update:fileName': [string]
+  'update:sheetName': [string | null]
+  'update:headerRow': [number | null]
+  'update:excludedRows': [number[]]
   'update:apiForm': [ApiFormShape]
   'refresh-now': []
 }>()
@@ -83,10 +92,20 @@ const isDragOver = ref(false)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const ACCEPTED = '.csv,.xlsx,.xls,.json,.parquet'
 
+const isSpreadsheet = computed(() => /\.(xlsx|xls)$/i.test(props.fileObj?.name ?? ''))
+
 function setFile(file: File) {
   emit('update:fileObj', file)
   if (!props.fileName) {
     emit('update:fileName', file.name.replace(/\.[^/.]+$/, ''))
+  }
+  emit('update:sheetName', null)
+  emit('update:headerRow', null)
+  emit('update:excludedRows', [])
+  spreadsheetPreview.value = null
+  previewError.value = ''
+  if (/\.(xlsx|xls)$/i.test(file.name)) {
+    loadSpreadsheetPreview(undefined, file)
   }
 }
 
@@ -117,6 +136,52 @@ const fileSize = computed(() => {
   if (bytes > 1_048_576) return `${(bytes / 1_048_576).toFixed(1)} Mo`
   return `${(bytes / 1024).toFixed(0)} Ko`
 })
+
+// ─── Spreadsheet preview (xlsx/xls — choix de la feuille et de la ligne d'en-têtes) ──
+
+const spreadsheetPreview = ref<SpreadsheetPreview | null>(null)
+const previewLoading = ref(false)
+const previewError = ref('')
+
+async function loadSpreadsheetPreview(sheet?: string, fileOverride?: File) {
+  const file = fileOverride ?? props.fileObj
+  if (!file) return
+  previewLoading.value = true
+  previewError.value = ''
+  try {
+    const preview = await previewSpreadsheet(file, sheet)
+    spreadsheetPreview.value = preview
+    emit('update:sheetName', preview.sheetName)
+    emit('update:headerRow', props.headerRow ?? preview.suggestedHeaderRow ?? 1)
+  } catch (e: unknown) {
+    const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message
+    previewError.value = msg ?? "Impossible de lire ce fichier pour l'aperçu"
+  } finally {
+    previewLoading.value = false
+  }
+}
+
+function onSheetChange(sheet: string) {
+  emit('update:headerRow', null)
+  emit('update:excludedRows', [])
+  loadSpreadsheetPreview(sheet)
+}
+
+function selectHeaderRow(rowIndex1Based: number) {
+  emit('update:headerRow', rowIndex1Based)
+  // La ligne d'en-têtes ne peut pas aussi être exclue.
+  emit('update:excludedRows', (props.excludedRows ?? []).filter((r) => r !== rowIndex1Based))
+}
+
+function toggleExcludeRow(rowIndex1Based: number) {
+  const current = props.excludedRows ?? []
+  emit(
+    'update:excludedRows',
+    current.includes(rowIndex1Based)
+      ? current.filter((r) => r !== rowIndex1Based)
+      : [...current, rowIndex1Based],
+  )
+}
 
 // ─── API test connection ─────────────────────────────────────────────────────
 
@@ -225,6 +290,94 @@ async function testConnection() {
         placeholder="ex : Inflation 2026"
         @input="emit('update:fileName', ($event.target as HTMLInputElement).value)"
       />
+    </div>
+
+    <div v-if="isSpreadsheet" class="rounded-xl border border-slate-200 p-3">
+      <div class="flex items-center justify-between mb-2">
+        <label class="text-xs font-semibold uppercase tracking-wider text-slate-400">
+          Feuille et ligne d'en-têtes
+        </label>
+        <svg v-if="previewLoading" class="w-3.5 h-3.5 animate-spin text-slate-400" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z" />
+        </svg>
+      </div>
+
+      <p v-if="previewError" class="text-xs text-red-500">{{ previewError }}</p>
+
+      <template v-else-if="spreadsheetPreview">
+        <AppSelect
+          v-if="spreadsheetPreview.sheets.length > 1"
+          :model-value="sheetName ?? spreadsheetPreview.sheetName"
+          :options="spreadsheetPreview.sheets.map((s) => ({ value: s, label: s }))"
+          class="mb-2"
+          teleport
+          @update:model-value="onSheetChange($event as string)"
+        />
+
+        <p class="text-[11px] text-slate-400 mb-2">
+          Cliquez sur la ligne qui contient les en-têtes de colonnes ({{ headerRow ? `ligne ${headerRow} sélectionnée` : 'aucune sélection' }}).
+          Pour les lignes sous l'en-tête, utilisez l'icône pour exclure une note ou une ligne parasite du jeu de données.
+        </p>
+
+        <div class="overflow-x-auto rounded-lg border border-slate-100 max-h-56 overflow-y-auto">
+          <table class="w-full text-[11px]">
+            <tbody>
+              <tr
+                v-for="(row, i) in spreadsheetPreview.rows"
+                :key="i"
+                class="border-t border-slate-100 first:border-t-0"
+                :class="[
+                  headerRow === i + 1 ? 'bg-emerald-50' : (excludedRows ?? []).includes(i + 1) ? 'bg-slate-50' : 'hover:bg-slate-50',
+                ]"
+              >
+                <td class="w-5 shrink-0 px-1">
+                  <button
+                    v-if="headerRow != null && i + 1 > headerRow"
+                    type="button"
+                    class="flex items-center justify-center w-4 h-4 rounded transition-colors"
+                    :class="(excludedRows ?? []).includes(i + 1)
+                      ? 'text-red-500 hover:text-red-600'
+                      : 'text-slate-300 hover:text-slate-500'"
+                    :title="(excludedRows ?? []).includes(i + 1) ? 'Réinclure cette ligne' : 'Exclure cette ligne'"
+                    @click.stop="toggleExcludeRow(i + 1)"
+                  >
+                    <svg v-if="(excludedRows ?? []).includes(i + 1)" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                    <svg v-else class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                    </svg>
+                  </button>
+                </td>
+                <td
+                  class="px-1 py-1 text-slate-300 font-mono w-6 text-right shrink-0 cursor-pointer"
+                  @click="selectHeaderRow(i + 1)"
+                >
+                  {{ i + 1 }}
+                </td>
+                <td
+                  v-for="(cell, j) in row.slice(0, 8)"
+                  :key="j"
+                  class="px-2 py-1 text-slate-600 truncate max-w-[120px] cursor-pointer"
+                  :class="[
+                    headerRow === i + 1 ? 'font-semibold text-emerald-700' : '',
+                    (excludedRows ?? []).includes(i + 1) ? 'line-through text-slate-300' : '',
+                  ]"
+                  @click="selectHeaderRow(i + 1)"
+                >
+                  {{ cell ?? '—' }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p v-if="(excludedRows ?? []).length" class="text-[11px] text-slate-400 mt-1.5">
+          {{ excludedRows!.length }} ligne{{ excludedRows!.length > 1 ? 's' : '' }} exclue{{ excludedRows!.length > 1 ? 's' : '' }} :
+          {{ [...excludedRows!].sort((a, b) => a - b).join(', ') }}
+        </p>
+      </template>
     </div>
   </div>
 

@@ -17,7 +17,7 @@ const datasets = useStudioDatasetsStore()
 const studio = useStudioStore()
 
 const {
-  sourceType, fileObj, fileName, apiForm,
+  sourceType, fileObj, fileName, sheetName, headerRow, excludedRows, apiForm,
   provenanceId, provenanceOtherLabel,
   visibility, categories,
   currentStepId, canGoNext,
@@ -67,6 +67,9 @@ async function submitFile() {
   const form = new FormData()
   form.append('file', fileObj.value!)
   if (fileName.value.trim()) form.append('name', fileName.value.trim())
+  if (sheetName.value) form.append('sheet_name', sheetName.value)
+  if (headerRow.value) form.append('header_row', String(headerRow.value))
+  excludedRows.value.forEach((r) => form.append('excluded_rows[]', String(r)))
 
   const meta = buildMetadataPayload()
   form.append('visibility', meta.visibility)
@@ -159,9 +162,15 @@ async function handleAttached() {
         :source-type="sourceType"
         :file-obj="fileObj"
         :file-name="fileName"
+        :sheet-name="sheetName"
+        :header-row="headerRow"
+        :excluded-rows="excludedRows"
         :api-form="apiForm"
         @update:file-obj="fileObj = $event"
         @update:file-name="fileName = $event"
+        @update:sheet-name="sheetName = $event"
+        @update:header-row="headerRow = $event"
+        @update:excluded-rows="excludedRows = $event"
         @update:api-form="apiForm = $event"
       />
       <StepProvenance

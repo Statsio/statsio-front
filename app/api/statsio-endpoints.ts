@@ -40,6 +40,7 @@ export const STATSIO_API = {
   },
   dataSources: {
     upload: '/data-sources/upload',
+    previewSpreadsheet: '/data-sources/preview-spreadsheet',
     public: '/data-sources/public',
     one: (id: string | number) => `/data-sources/${encodeURIComponent(String(id))}`,
     attach: (id: string | number) => `/data-sources/${encodeURIComponent(String(id))}/attach`,

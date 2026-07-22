@@ -3,7 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { useChart, PALETTE } from '@/composables/useChart'
 import { useBlockData } from '@/composables/useBlockData'
 import { useStudioStore } from '@/stores/studio'
-import { formatDisplayValue } from '@/utils/statsDataFormat'
+import { formatDisplayValue, parseNumericValue } from '@/utils/statsDataFormat'
 import type { StudioBlock } from '@/types/studio'
 
 const props = defineProps<{ block: StudioBlock; readonly?: boolean }>()
@@ -47,7 +47,7 @@ const chartData = computed(() => {
     const valueByKey = new Map<string, number>()
     for (const r of rows as Record<string, unknown>[]) {
       const key = `${formatDisplayValue(r[xKey], '')} ${String(r[seriesKey] ?? '')}`
-      if (!valueByKey.has(key)) valueByKey.set(key, Number(r[yKey] ?? 0))
+      if (!valueByKey.has(key)) valueByKey.set(key, parseNumericValue(r[yKey]))
     }
 
     return {
@@ -75,7 +75,7 @@ const chartData = computed(() => {
         const color = PALETTE[i % PALETTE.length]
         return {
           label: col,
-          data: rows.map((r: Record<string, unknown>) => Number(r[col] ?? 0)),
+          data: rows.map((r: Record<string, unknown>) => parseNumericValue(r[col])),
           borderColor: color,
           backgroundColor: color + '22',
           tension: props.block.config.smooth ? 0.4 : 0,
@@ -94,7 +94,7 @@ const chartData = computed(() => {
     datasets: [
       {
         label: props.block.config.title ?? yKey,
-        data: rows.map((r: Record<string, unknown>) => Number(r[yKey] ?? 0)),
+        data: rows.map((r: Record<string, unknown>) => parseNumericValue(r[yKey])),
         borderColor: color,
         backgroundColor: color + '22',
         tension: props.block.config.smooth ? 0.4 : 0,
