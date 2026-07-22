@@ -29,6 +29,24 @@ export function formatDisplayValue(value: unknown, fallback = '—'): string {
   return value
 }
 
+/**
+ * Coerces a raw dataset cell into a number for charting/aggregation. Handles values stored
+ * as formatted strings (e.g. "500,000,000+", "1 234", "12%") by stripping thousands separators
+ * and non-numeric decoration before parsing — a bare `Number(...)` returns NaN on these and
+ * silently drops the point (no bar/line segment drawn).
+ */
+export function parseNumericValue(value: unknown): number {
+  if (typeof value === 'number') return value
+  if (value === null || value === undefined || value === '') return 0
+  if (typeof value !== 'string') {
+    const n = Number(value)
+    return Number.isNaN(n) ? 0 : n
+  }
+  const cleaned = value.replace(/[,\s]/g, '').replace(/[^0-9.-]/g, '')
+  const n = Number(cleaned)
+  return Number.isNaN(n) ? 0 : n
+}
+
 export function formatRowCount(n?: number): string | null {
   if (!n) return null
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M lignes`

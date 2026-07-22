@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { PALETTE } from '@/composables/useChart'
 import { useBlockData } from '@/composables/useBlockData'
-import { formatDisplayValue } from '@/utils/statsDataFormat'
+import { formatDisplayValue, parseNumericValue } from '@/utils/statsDataFormat'
 import type { StudioBlock } from '@/types/studio'
 
 const props = defineProps<{ block: StudioBlock; readonly?: boolean }>()
@@ -23,7 +23,7 @@ const segments = computed<Segment[]>(() => {
   const colors = props.block.config.colors?.length ? props.block.config.colors : PALETTE
 
   const sliced = rows.slice(0, limit) as Record<string, unknown>[]
-  const values = sliced.map((r) => Number(r[valueKey] ?? 0))
+  const values = sliced.map((r) => parseNumericValue(r[valueKey]))
   const total = values.reduce((sum, v) => sum + v, 0)
 
   return sliced.map((r, i) => {
