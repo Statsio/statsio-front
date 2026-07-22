@@ -102,6 +102,8 @@ export interface BlockConfig {
   showValueLabels?: boolean
   /** Bar block rendering mode — 'chart' (default, Chart.js canvas) or 'progress' (thin labeled progress-bar list) */
   barStyle?: 'chart' | 'progress'
+  /** Bar/line value axis on a logarithmic scale — keeps small values visible when the dataset spans several orders of magnitude */
+  logScale?: boolean
   // KPI comparison
   comparisonFormat?: 'percent' | 'number' | 'currency'
   // Line/bar chart trend badge shown in the block header (free text, not computed)

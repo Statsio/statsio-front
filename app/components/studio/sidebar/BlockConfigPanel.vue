@@ -1128,6 +1128,15 @@ const displayColumnGroups = computed<ColumnGroup[]>(() => {
                   <div class="toggle-knob" :class="block.config.showValueLabels ? 'translate-x-3.5' : 'translate-x-0.5'" />
                 </div>
               </div>
+              <div class="toggle-row" @click="updateConfig('logScale', !block.config.logScale)">
+                <div>
+                  <span class="text-sm text-slate-700">Échelle logarithmique</span>
+                  <p class="text-[11px] text-slate-400 mt-0.5">Garde les petites valeurs visibles quand l'écart avec les plus grandes est important</p>
+                </div>
+                <div class="toggle shrink-0" :class="block.config.logScale ? 'toggle-on' : 'toggle-off'">
+                  <div class="toggle-knob" :class="block.config.logScale ? 'translate-x-3.5' : 'translate-x-0.5'" />
+                </div>
+              </div>
               <div>
                 <label class="text-xs font-semibold text-slate-500 mb-1.5 block">Style d'affichage</label>
                 <div class="grid grid-cols-2 gap-2">

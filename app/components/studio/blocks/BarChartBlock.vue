@@ -3,7 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { useChart, PALETTE } from '@/composables/useChart'
 import { useBlockData } from '@/composables/useBlockData'
 import { useStudioStore } from '@/stores/studio'
-import { formatDisplayValue } from '@/utils/statsDataFormat'
+import { formatDisplayValue, parseNumericValue } from '@/utils/statsDataFormat'
 import type { StudioBlock } from '@/types/studio'
 
 const props = defineProps<{ block: StudioBlock; readonly?: boolean }>()
@@ -47,7 +47,7 @@ const chartData = computed(() => {
     const valueByKey = new Map<string, number>()
     for (const r of rows as Record<string, unknown>[]) {
       const key = `${formatDisplayValue(r[xKey], '')} ${String(r[seriesKey] ?? '')}`
-      if (!valueByKey.has(key)) valueByKey.set(key, Number(r[yKey] ?? 0))
+      if (!valueByKey.has(key)) valueByKey.set(key, parseNumericValue(r[yKey]))
     }
 
     return {
@@ -67,7 +67,7 @@ const chartData = computed(() => {
       labels: rows.map((r: Record<string, unknown>) => formatDisplayValue(r[xKey], '')),
       datasets: yCols.map((col, i) => ({
         label: col,
-        data: rows.map((r: Record<string, unknown>) => Number(r[col] ?? 0)),
+        data: rows.map((r: Record<string, unknown>) => parseNumericValue(r[col])),
         backgroundColor: PALETTE[i % PALETTE.length],
         borderRadius: 6,
       })),
@@ -81,7 +81,7 @@ const chartData = computed(() => {
     datasets: [
       {
         label: props.block.config.title ?? yKey,
-        data: rows.map((r: Record<string, unknown>) => Number(r[yKey] ?? 0)),
+        data: rows.map((r: Record<string, unknown>) => parseNumericValue(r[yKey])),
         backgroundColor: props.block.config.colors?.[0] ?? PALETTE[0],
         borderRadius: 6,
       },
@@ -111,7 +111,7 @@ const progressRows = computed<ProgressRow[]>(() => {
   const isPercent = props.block.config.format === 'percent'
 
   const sliced = (rows as Record<string, unknown>[]).slice(0, limit)
-  const values = sliced.map((r) => Number(r[yKey] ?? 0))
+  const values = sliced.map((r) => parseNumericValue(r[yKey]))
   const max = Math.max(0, ...values)
 
   return sliced.map((r, i) => {
@@ -133,6 +133,13 @@ const showProgress = computed(() =>
 )
 
 const isHorizontal = computed(() => props.block.config.orientation === 'horizontal')
+// Value axis (the one carrying magnitudes, not category labels) on a log10 scale —
+// keeps small values visible when a dataset spans several orders of magnitude
+// (e.g. 500 000 vs 500 000 000, where the smaller bar is invisible on a linear axis).
+// The `type` key must be omitted entirely (not set to `undefined`) on the category axis —
+// Chart.js only auto-infers the 'category' scale type when the key is absent, so an explicit
+// `undefined` there was blanking out the x-axis labels (falls back to a numeric index axis).
+const useLogScale = computed(() => Boolean(props.block.config.logScale))
 
 const { scheduleResize } = useChart(canvasRef, 'bar', () => chartData.value, () => ({
   indexAxis: isHorizontal.value ? 'y' : 'x',
@@ -143,11 +150,13 @@ const { scheduleResize } = useChart(canvasRef, 'bar', () => chartData.value, () 
   },
   scales: {
     x: {
+      ...(isHorizontal.value && useLogScale.value ? { type: 'logarithmic' as const } : {}),
       grid: { display: isHorizontal.value, color: 'rgba(24,24,31,0.06)' },
       border: { display: false },
       ticks: { font: { family: "'JetBrains Mono', monospace", size: 11 }, color: 'rgba(24,24,31,0.45)' },
     },
     y: {
+      ...(!isHorizontal.value && useLogScale.value ? { type: 'logarithmic' as const } : {}),
       display: isHorizontal.value,
       grid: { display: false },
       border: { display: false },

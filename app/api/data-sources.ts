@@ -82,6 +82,11 @@ export interface DataSourceDetail {
   /** Non pertinent pour source_kind !== 'api' — toujours 'snapshot' par défaut. */
   materialization: Materialization
   originalFilename: string | null
+  /** xlsx/xls uniquement — feuille et ligne d'en-têtes utilisées pour le parsing. */
+  sheetName: string | null
+  headerRow: number | null
+  /** Numéros de ligne (1-indexés, dans la feuille) exclus du parsing sous la ligne d'en-têtes. */
+  excludedRows: number[]
   fileSizeBytes: number | null
   status: string
   isPartial: boolean
@@ -186,6 +191,9 @@ function mapDataSource(raw: Record<string, unknown>): DataSourceDetail {
     sourceKind: (raw.source_kind as DataSourceDetail['sourceKind']) ?? 'upload',
     materialization: (raw.materialization as Materialization) ?? 'snapshot',
     originalFilename: raw.original_filename ? String(raw.original_filename) : null,
+    sheetName: raw.sheet_name ? String(raw.sheet_name) : null,
+    headerRow: raw.header_row != null ? Number(raw.header_row) : null,
+    excludedRows: Array.isArray(raw.excluded_rows) ? raw.excluded_rows.map(Number) : [],
     fileSizeBytes: raw.file_size_bytes != null ? Number(raw.file_size_bytes) : null,
     status: String(raw.status ?? ''),
     isPartial: raw.is_partial === true,
@@ -215,6 +223,31 @@ export async function fetchDataSource(id: string): Promise<DataSourceDetail> {
   return mapDataSource(data.data)
 }
 
+export interface SpreadsheetPreview {
+  sheets: string[]
+  sheetName: string
+  rows: Array<Array<string | null>>
+  suggestedHeaderRow: number | null
+}
+
+/** Aperçu d'un fichier xlsx/xls (feuilles + premières lignes) avant upload définitif. */
+export async function previewSpreadsheet(file: File, sheetName?: string): Promise<SpreadsheetPreview> {
+  const form = new FormData()
+  form.append('file', file)
+  if (sheetName) form.append('sheet_name', sheetName)
+
+  const { data } = await apiHttp.post(STATSIO_API.dataSources.previewSpreadsheet, form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+
+  return {
+    sheets: data.data.sheets ?? [],
+    sheetName: data.data.sheet_name,
+    rows: data.data.rows ?? [],
+    suggestedHeaderRow: data.data.suggested_header_row ?? null,
+  }
+}
+
 /** Crée une source API (snapshot ou live selon `payload.materialization`). */
 export async function createApiDataSource(payload: Record<string, unknown>): Promise<DataSourceDetail> {
   const { data } = await apiHttp.post(STATSIO_API.apiSources.collection, payload)
@@ -236,6 +269,10 @@ export interface UpdateDataSourcePayload {
   refresh_frequency?: RefreshFrequency
   /** Reconfiguration du mapping de filtres d'une source "live" (matérialization non modifiable après création). */
   query_mapping?: Record<string, unknown>
+  /** xlsx/xls uniquement, avec `file` — feuille et ligne d'en-têtes choisies via l'aperçu. */
+  sheet_name?: string | null
+  header_row?: number | null
+  excluded_rows?: number[] | null
 }
 
 /** Relance immédiatement le fetch d'une source API, sans changer sa configuration. */
@@ -272,6 +309,9 @@ function appendPayload(form: FormData, payload: UpdateDataSourcePayload) {
   payload.categories?.forEach((c) => form.append('categories[]', c))
   if (payload.provenance_id != null) form.append('provenance_id', String(payload.provenance_id))
   if (payload.provenance_other_label) form.append('provenance_other_label', payload.provenance_other_label)
+  if (payload.sheet_name) form.append('sheet_name', payload.sheet_name)
+  if (payload.header_row != null) form.append('header_row', String(payload.header_row))
+  payload.excluded_rows?.forEach((r) => form.append('excluded_rows[]', String(r)))
   if (payload.url !== undefined) form.append('url', payload.url)
   if (payload.method !== undefined) form.append('method', payload.method)
   if (payload.auth_type !== undefined) form.append('auth_type', payload.auth_type)

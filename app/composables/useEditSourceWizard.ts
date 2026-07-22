@@ -17,6 +17,10 @@ export function useEditSourceWizard(source: DataSourceDetail) {
   // ─── Configure ───────────────────────────────────────────────────────────
   const name = ref(source.name)
   const newFileObj = ref<File | null>(null)
+  /** xlsx/xls uniquement — reconfigurées via l'aperçu quand un nouveau fichier est choisi. */
+  const sheetName = ref<string | null>(source.sheetName ?? null)
+  const headerRow = ref<number | null>(source.headerRow ?? null)
+  const excludedRows = ref<number[]>(source.excludedRows ?? [])
 
   const apiForm = ref({
     name: source.name,
@@ -92,6 +96,12 @@ export function useEditSourceWizard(source: DataSourceDetail) {
       }
     }
 
+    if (sourceType === 'file' && newFileObj.value) {
+      payload.sheet_name = sheetName.value
+      payload.header_row = headerRow.value
+      payload.excluded_rows = excludedRows.value
+    }
+
     return payload
   }
 
@@ -99,6 +109,9 @@ export function useEditSourceWizard(source: DataSourceDetail) {
     sourceType,
     name,
     newFileObj,
+    sheetName,
+    headerRow,
+    excludedRows,
     apiForm,
     existingFileLabel,
     provenanceId,
