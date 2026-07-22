@@ -34,7 +34,7 @@ export function resolveChannelColors(
   return { primary, secondary }
 }
 
-export function channelBannerStyle(primary: string, secondary: string): Record<string, string> {
+export function channelBannerStyle(primary: string, secondary: string): { background: string } {
   return { background: `linear-gradient(135deg, ${primary}, ${secondary})` }
 }
 

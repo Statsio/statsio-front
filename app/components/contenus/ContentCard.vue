@@ -21,11 +21,12 @@ defineProps<{ content: DisplayContent }>()
       </span>
 
       <div
-        class="absolute -bottom-4 left-4 flex h-[34px] w-[34px] items-center justify-center border-[2.5px] border-white text-[12.5px] font-bold text-white"
+        class="absolute -bottom-4 left-4 flex h-[34px] w-[34px] items-center justify-center overflow-hidden border-[2.5px] border-white text-[12.5px] font-bold text-white"
         :class="content.avatarShape === 'circle' ? 'rounded-full' : 'rounded-[9px]'"
-        :style="{ background: content.avatarBg }"
+        :style="content.avatarLogoUrl ? undefined : { background: content.avatarBg }"
       >
-        {{ content.avatarInitials }}
+        <img v-if="content.avatarLogoUrl" :src="content.avatarLogoUrl" alt="" class="h-full w-full object-cover" />
+        <template v-else>{{ content.avatarInitials }}</template>
       </div>
     </div>
 

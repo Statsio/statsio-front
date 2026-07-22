@@ -20,6 +20,7 @@ usePageSeo()
     :data-theme="appTheme"
     class="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#ffffff_16%,#eef4ff_100%)] text-slate-900"
   >
+    <a href="#main-content" class="sr-skip-link">Passer au contenu principal</a>
     <AppPromoBanner :items="sharedPromoItems" />
     <AppHeader />
     <!--
@@ -28,7 +29,7 @@ usePageSeo()
       under the header (HomeHero/MedistatsHero/TvstatsHero via PageHero.vue) cancel this
       with a matching -mt-44 lg:-mt-28 — keep both in sync if the header height changes.
     -->
-    <main class="pt-44 lg:pt-28">
+    <main id="main-content" tabindex="-1" class="pt-44 lg:pt-28">
       <slot />
     </main>
     <AppFooter />

@@ -13,6 +13,7 @@ import { getStatsDataVisual } from '@/utils/statsDataVisuals'
 import { formatRowCount, relativeUpdate } from '@/utils/statsDataFormat'
 import { formatCompactNumber, getNameInitials } from '@/lib/format'
 import { isFormBlock } from '@/types/studio'
+import { resolveChannelColors } from '@/lib/channel-brand'
 import type {
   MegaMenuCategory,
   MegaMenuContent,
@@ -121,16 +122,19 @@ export async function loadChannelsMenu(palette: string[]): Promise<HeaderMenuDat
     const categories: MegaMenuCategory[] = categoryList
       .slice(0, 5)
       .map((c, index) => ({ name: c.label, color: paletteColor(palette, index) }))
-    const cards: MegaMenuChannelCard[] = channels.map((channel, index) => {
+    const cards: MegaMenuChannelCard[] = channels.map((channel) => {
       const profile = channel.profile
       const categoryLabel = profile.categories[0] ? channelCategoryLabels[profile.categories[0]] : ''
+      const colors = resolveChannelColors(String(channel.id), profile.custom_color_primary, profile.custom_color_secondary)
       return {
         name: profile.name,
         initials: getNameInitials(profile.name),
         meta: categoryLabel
           ? `${formatCompactNumber(profile.subscriber_count)} abonnés · ${categoryLabel}`
           : `${formatCompactNumber(profile.subscriber_count)} abonnés`,
-        avatarColor: profile.custom_color_primary ?? paletteColor(palette, index),
+        logoUrl: profile.logo_url ?? null,
+        avatarPrimary: colors.primary,
+        avatarSecondary: colors.secondary,
       }
     })
     return withLinks(categories, { variant: 'plane', cards })

@@ -61,6 +61,7 @@ const brandColors = computed(() =>
             :is-owner="isOwner"
             :is-following="isFollowing"
             :brand-color="brandColors.primary"
+            :brand-color-secondary="brandColors.secondary"
             @toggle-follow="toggleFollow"
           />
 

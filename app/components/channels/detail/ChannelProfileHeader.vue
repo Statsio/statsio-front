@@ -2,18 +2,20 @@
 import { computed } from 'vue'
 import AppButton from '@/components/ui/AppButton.vue'
 import type { ChannelEntry } from '@/data/channels'
-import { channelAccentStyle } from '@/lib/channel-brand'
+import { channelAccentStyle, channelBannerStyle } from '@/lib/channel-brand'
 
 const props = defineProps<{
   channel: ChannelEntry
   isOwner: boolean
   isFollowing: boolean
   brandColor: string
+  brandColorSecondary: string
 }>()
 
 const emit = defineEmits<{ 'toggle-follow': [] }>()
 
 const accentStyle = computed(() => channelAccentStyle(props.brandColor))
+const avatarFallbackStyle = computed(() => channelBannerStyle(props.brandColor, props.brandColorSecondary))
 </script>
 
 <template>
@@ -21,7 +23,7 @@ const accentStyle = computed(() => channelAccentStyle(props.brandColor))
     <div class="flex flex-col items-start gap-4 sm:flex-row sm:items-end">
       <div
         class="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[24px] border-4 border-white text-2xl font-bold text-white sm:h-[104px] sm:w-[104px] sm:text-[32px]"
-        :style="{ background: brandColor }"
+        :style="channel.logoUrl ? undefined : avatarFallbackStyle"
       >
         <img v-if="channel.logoUrl" :src="channel.logoUrl" alt="" class="h-full w-full object-cover" />
         <span v-else>{{ channel.initials }}</span>

@@ -17,6 +17,7 @@ import { useRespondentToken } from '@/composables/useRespondentToken'
 import { AUTH_REDIRECT_KEY } from '@/lib/auth-storage'
 import { getPollStatus } from '@/lib/poll-status'
 import { profileLabel } from '@/lib/profile-labels'
+import { channelBannerStyle, resolveChannelColors } from '@/lib/channel-brand'
 
 const props = defineProps<{
   categories?: string[]
@@ -58,7 +59,13 @@ const authorLabel = computed(() => poll.value?.channel?.name ?? poll.value?.auth
 /* ───────── Chaîne éditrice + suivi (si le sondage est publié via une chaîne) ───────── */
 
 const channelName = computed(() => poll.value?.channel?.name ?? null)
-const channelColor = computed(() => poll.value?.channel?.custom_color_primary || '#8b5cf6')
+const channelLogoUrl = computed(() => poll.value?.channel?.logo_url ?? null)
+const channelAvatarBg = computed(() => {
+  const c = poll.value?.channel
+  if (!c) return '#8b5cf6'
+  const colors = resolveChannelColors(String(c.id), c.custom_color_primary, c.custom_color_secondary)
+  return channelBannerStyle(colors.primary, colors.secondary).background
+})
 const channelInitials = computed(() =>
   (channelName.value ?? '')
     .split(' ')
@@ -231,10 +238,11 @@ onUnmounted(() => {
 
             <div v-if="channelName" class="flex flex-wrap items-center gap-2.5">
               <div
-                class="flex h-8 w-8 flex-none items-center justify-center rounded-[10px] text-xs font-bold text-white"
-                :style="{ background: channelColor }"
+                class="flex h-8 w-8 flex-none items-center justify-center overflow-hidden rounded-[10px] text-xs font-bold text-white"
+                :style="channelLogoUrl ? undefined : { background: channelAvatarBg }"
               >
-                {{ channelInitials }}
+                <img v-if="channelLogoUrl" :src="channelLogoUrl" :alt="channelName ?? ''" class="h-full w-full object-cover" />
+                <template v-else>{{ channelInitials }}</template>
               </div>
               <span class="text-[13.5px] font-semibold text-[#18181f]">{{ channelName }}</span>
               <span class="text-[12.5px] text-[#18181f]/45">
@@ -276,10 +284,11 @@ onUnmounted(() => {
               <div v-if="channelName" class="flex items-center justify-between border-t border-[#18181f]/[0.08] pt-5">
                 <div class="flex items-center gap-2.5">
                   <div
-                    class="flex h-8 w-8 flex-none items-center justify-center rounded-[10px] text-xs font-bold text-white"
-                    :style="{ background: channelColor }"
+                    class="flex h-8 w-8 flex-none items-center justify-center overflow-hidden rounded-[10px] text-xs font-bold text-white"
+                    :style="channelLogoUrl ? undefined : { background: channelAvatarBg }"
                   >
-                    {{ channelInitials }}
+                    <img v-if="channelLogoUrl" :src="channelLogoUrl" :alt="channelName ?? ''" class="h-full w-full object-cover" />
+                    <template v-else>{{ channelInitials }}</template>
                   </div>
                   <span class="text-[13.5px] font-semibold text-[#18181f]">{{ channelName }}</span>
                 </div>

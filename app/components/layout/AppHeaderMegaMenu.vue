@@ -88,10 +88,11 @@ const sparklineMax = (values: number[]) => Math.max(...values)
           class="flex min-w-0 cursor-pointer flex-col items-start gap-3 rounded-2xl bg-slate-50 p-5"
         >
           <div
-            class="flex h-11 w-11 shrink-0 items-center justify-center rounded-[11px] text-sm font-bold text-white"
-            :style="{ background: card.avatarColor }"
+            class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-[11px] text-sm font-bold text-white"
+            :style="card.logoUrl ? undefined : { background: `linear-gradient(135deg, ${card.avatarPrimary}, ${card.avatarSecondary})` }"
           >
-            {{ card.initials }}
+            <img v-if="card.logoUrl" :src="card.logoUrl" :alt="card.name" class="h-full w-full object-cover" />
+            <template v-else>{{ card.initials }}</template>
           </div>
           <div>
             <div class="mb-1 text-[14.5px] font-bold text-slate-950">{{ card.name }}</div>
