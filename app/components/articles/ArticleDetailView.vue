@@ -13,7 +13,7 @@ import type { StudioBlock } from '@/types/studio'
 import { getHttpErrorStatus } from '@/lib/http-errors'
 import { getCategoryColorClass } from '@/lib/articleCategoryColor'
 import { getNameInitials } from '@/lib/format'
-import { resolveChannelColors } from '@/lib/channel-brand'
+import { channelBannerStyle, resolveChannelColors } from '@/lib/channel-brand'
 import { publicContentListPath } from '@/lib/content-display'
 import { useContentBasePath } from '@/composables/useContentBasePath'
 
@@ -85,6 +85,12 @@ const authorColor = computed(() =>
     ? resolveChannelColors(String(channel.value.id), channel.value.custom_color_primary, channel.value.custom_color_secondary).primary
     : 'var(--color-primary)',
 )
+const authorLogoUrl = computed(() => channel.value?.logo_url ?? null)
+const authorAvatarBg = computed(() => {
+  if (!channel.value) return 'var(--color-primary)'
+  const colors = resolveChannelColors(String(channel.value.id), channel.value.custom_color_primary, channel.value.custom_color_secondary)
+  return channelBannerStyle(colors.primary, colors.secondary).background
+})
 const channelPath = computed(() => (channel.value ? `/chaines/${channel.value.id}` : null))
 
 const following = ref(false)
@@ -180,19 +186,21 @@ onMounted(async () => {
             <div class="mt-5 flex flex-wrap items-center gap-2.5">
               <RouterLink v-if="channelPath" :to="channelPath" class="flex items-center gap-2.5">
                 <span
-                  class="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] text-xs font-bold text-white"
-                  :style="{ background: authorColor }"
+                  class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-[10px] text-xs font-bold text-white"
+                  :style="authorLogoUrl ? undefined : { background: authorAvatarBg }"
                 >
-                  {{ authorInitials }}
+                  <img v-if="authorLogoUrl" :src="authorLogoUrl" :alt="authorName" class="h-full w-full object-cover" />
+                  <template v-else>{{ authorInitials }}</template>
                 </span>
                 <span class="text-[13.5px] font-semibold text-slate-950">{{ authorName }}</span>
               </RouterLink>
               <template v-else>
                 <span
-                  class="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] text-xs font-bold text-white"
-                  :style="{ background: authorColor }"
+                  class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-[10px] text-xs font-bold text-white"
+                  :style="authorLogoUrl ? undefined : { background: authorAvatarBg }"
                 >
-                  {{ authorInitials }}
+                  <img v-if="authorLogoUrl" :src="authorLogoUrl" :alt="authorName" class="h-full w-full object-cover" />
+                  <template v-else>{{ authorInitials }}</template>
                 </span>
                 <span class="text-[13.5px] font-semibold text-slate-950">{{ authorName }}</span>
               </template>
@@ -229,10 +237,11 @@ onMounted(async () => {
             <div v-if="isChannelAuthored" class="mt-10 flex items-center justify-between gap-4 border-t border-slate-200 pt-5">
               <RouterLink v-if="channelPath" :to="channelPath" class="flex items-center gap-2.5">
                 <span
-                  class="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] text-xs font-bold text-white"
-                  :style="{ background: authorColor }"
+                  class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-[10px] text-xs font-bold text-white"
+                  :style="authorLogoUrl ? undefined : { background: authorAvatarBg }"
                 >
-                  {{ authorInitials }}
+                  <img v-if="authorLogoUrl" :src="authorLogoUrl" :alt="authorName" class="h-full w-full object-cover" />
+                  <template v-else>{{ authorInitials }}</template>
                 </span>
                 <span class="text-[13.5px] font-semibold text-slate-950">{{ authorName }}</span>
               </RouterLink>

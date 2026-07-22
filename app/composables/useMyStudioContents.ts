@@ -4,6 +4,7 @@ import { useMyChannels } from '@/composables/useMyChannels'
 import { useAuthStore } from '@/stores/auth'
 import { CONTENT_TYPE_META, contentPropertiesPath, getStatusMeta, publicContentPath } from '@/lib/content-display'
 import { formatShortDate, getNameInitials, getUserInitials } from '@/lib/format'
+import { channelBannerStyle, resolveChannelColors } from '@/lib/channel-brand'
 import type { ContentType } from '@/types/content-creation'
 
 export type OwnerFilter = 'all' | 'perso' | 'chaine'
@@ -28,6 +29,7 @@ export interface DisplayContent {
   ownerKind: 'perso' | 'chaine'
   ownerLabel: string
   avatarInitials: string
+  avatarLogoUrl: string | null
   avatarBg: string
   avatarShape: 'circle' | 'square'
   date: string
@@ -67,19 +69,23 @@ export function useMyStudioContents() {
 
     let ownerLabel: string
     let avatarInitials: string
+    let avatarLogoUrl: string | null
     let avatarBg: string
     let avatarShape: 'circle' | 'square'
 
     if (ownerKind === 'chaine') {
       const channel = channels.value.find((c) => c.id === doc.channel_id)
       const name = channel?.profile?.name ?? `Chaîne #${doc.channel_id ?? '?'}`
+      const colors = resolveChannelColors(String(doc.channel_id ?? name), channel?.profile?.custom_color_primary, channel?.profile?.custom_color_secondary)
       ownerLabel = `${name} · Chaîne`
       avatarInitials = getNameInitials(name)
-      avatarBg = channel?.profile?.custom_color_primary || '#166534'
+      avatarLogoUrl = channel?.profile?.logo_url ?? null
+      avatarBg = channelBannerStyle(colors.primary, colors.secondary).background
       avatarShape = 'square'
     } else {
       ownerLabel = `${auth.displayName} · Perso`
       avatarInitials = getUserInitials(auth.user?.profile?.first_name, auth.user?.profile?.last_name, auth.displayName[0] ?? '?')
+      avatarLogoUrl = null
       avatarBg = 'linear-gradient(135deg,#8b5cf6,#3b82f6)'
       avatarShape = 'circle'
     }
@@ -98,6 +104,7 @@ export function useMyStudioContents() {
       ownerKind,
       ownerLabel,
       avatarInitials,
+      avatarLogoUrl,
       avatarBg,
       avatarShape,
       date: formatShortDate(doc.updated_at ?? doc.created_at),

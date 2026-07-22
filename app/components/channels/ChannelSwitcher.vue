@@ -5,11 +5,26 @@ import { useChannelDashboard } from '@/composables/useChannelDashboard'
 import { useMyChannels } from '@/composables/useMyChannels'
 import { useClickOutside } from '@/composables/useClickOutside'
 import { getNameInitials, formatCompactNumber } from '@/lib/format'
+import { channelBannerStyle, resolveChannelColors } from '@/lib/channel-brand'
 
 const route = useRoute()
 const router = useRouter()
 const { channel, channelInitials } = useChannelDashboard()
 const { channels, fetch: fetchChannels } = useMyChannels()
+
+const brandStyle = computed(() => {
+  const colors = resolveChannelColors(
+    String(channel.value?.id ?? ''),
+    channel.value?.profile?.custom_color_primary,
+    channel.value?.profile?.custom_color_secondary,
+  )
+  return channelBannerStyle(colors.primary, colors.secondary)
+})
+
+function optionStyle(opt: { id: number; profile: { custom_color_primary?: string | null; custom_color_secondary?: string | null } }) {
+  const colors = resolveChannelColors(String(opt.id), opt.profile.custom_color_primary, opt.profile.custom_color_secondary)
+  return channelBannerStyle(colors.primary, colors.secondary)
+}
 
 const open = ref(false)
 const rootRef = ref<HTMLElement | null>(null)
@@ -44,7 +59,7 @@ function switchTo(id: number) {
     >
       <div
         class="flex h-[42px] w-[42px] shrink-0 items-center justify-center overflow-hidden rounded-[11px] text-sm font-bold text-white"
-        :style="{ background: channel?.profile?.custom_color_primary || 'var(--color-primary)' }"
+        :style="channel?.profile?.logo_url ? undefined : brandStyle"
       >
         <img v-if="channel?.profile?.logo_url" :src="channel.profile.logo_url" :alt="channel.profile.name" class="h-full w-full object-cover" />
         <span v-else>{{ channelInitials }}</span>
@@ -79,10 +94,11 @@ function switchTo(id: number) {
           @click="switchTo(opt.id)"
         >
           <span
-            class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[11px] font-bold text-white"
-            :style="{ background: opt.profile.custom_color_primary || 'var(--color-primary)' }"
+            class="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-lg text-[11px] font-bold text-white"
+            :style="opt.profile.logo_url ? undefined : optionStyle(opt)"
           >
-            {{ getNameInitials(opt.profile.name) }}
+            <img v-if="opt.profile.logo_url" :src="opt.profile.logo_url" :alt="opt.profile.name" class="h-full w-full object-cover" />
+            <template v-else>{{ getNameInitials(opt.profile.name) }}</template>
           </span>
           <span class="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-slate-800">{{ opt.profile.name }}</span>
           <span v-if="opt.id === currentChannelId" class="text-[13px]" :style="{ color: opt.profile.custom_color_primary || 'var(--color-primary)' }">✓</span>

@@ -10,6 +10,9 @@ export default defineNuxtConfig({
 
   app: {
     head: {
+      htmlAttrs: {
+        lang: 'fr',
+      },
       script: [
         {
           // Google Consent Mode v2 — defaults AVANT GTM (obligatoire)

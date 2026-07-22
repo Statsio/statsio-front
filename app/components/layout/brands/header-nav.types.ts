@@ -39,7 +39,9 @@ export type MegaMenuChannelCard = {
   name: string
   initials: string
   meta: string
-  avatarColor: string
+  logoUrl: string | null
+  avatarPrimary: string
+  avatarSecondary: string
 }
 
 export type MegaMenuContent =

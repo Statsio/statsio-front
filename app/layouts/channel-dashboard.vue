@@ -20,6 +20,7 @@ async function logout() {
 
 <template>
   <div class="flex h-screen overflow-hidden text-slate-900">
+    <a href="#main-content" class="sr-skip-link">Passer au contenu principal</a>
     <ChannelDashboardSidebar v-if="sidebarOpen" />
 
     <div class="flex flex-1 flex-col overflow-hidden">
@@ -69,6 +70,8 @@ async function logout() {
 
       <!-- Contenu -->
       <main
+        id="main-content"
+        tabindex="-1"
         class="flex-1 overflow-y-auto p-6 lg:p-8"
         style="background: var(--app-body-background); background-size: 32px 32px, 32px 32px, auto, auto;"
       >

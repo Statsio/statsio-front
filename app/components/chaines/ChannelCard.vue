@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { formatCompactNumber, getNameInitials } from '@/lib/format'
 import type { Channel } from '@/api/channels'
+import { channelBannerStyle, resolveChannelColors } from '@/lib/channel-brand'
 
 const props = defineProps<{ channel: Channel }>()
 
@@ -17,21 +18,17 @@ const STATUS_META: Record<string, { label: string; bg: string; color: string }> 
 
 const status = computed(() => STATUS_META[props.channel.status] ?? DEFAULT_STATUS)
 
-const primaryColor = computed(() => props.channel.profile.custom_color_primary || 'var(--color-primary)')
-
-const banner = computed(() => {
-  const primary = props.channel.profile.custom_color_primary
-  if (!primary) return 'linear-gradient(135deg, #f1f5f9, #e2e8f0)'
-  const secondary = props.channel.profile.custom_color_secondary || '#18181f'
-  return `linear-gradient(135deg, ${primary}, ${secondary})`
-})
+const colors = computed(() =>
+  resolveChannelColors(String(props.channel.id), props.channel.profile.custom_color_primary, props.channel.profile.custom_color_secondary),
+)
+const banner = computed(() => channelBannerStyle(colors.value.primary, colors.value.secondary))
 
 const initials = computed(() => getNameInitials(props.channel.profile.name))
 </script>
 
 <template>
   <div class="card">
-    <div class="relative h-16 w-full" :style="{ background: banner }">
+    <div class="relative h-16 w-full" :style="channel.profile.banner_url ? undefined : banner">
       <img
         v-if="channel.profile.banner_url"
         :src="channel.profile.banner_url"
@@ -56,7 +53,7 @@ const initials = computed(() => getNameInitials(props.channel.profile.name))
       <div
         v-else
         class="mb-3 flex h-[52px] w-[52px] items-center justify-center rounded-[14px] border-[3px] border-white text-[17px] font-bold text-white"
-        :style="{ background: primaryColor }"
+        :style="banner"
       >
         {{ initials }}
       </div>

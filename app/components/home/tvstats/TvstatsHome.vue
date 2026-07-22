@@ -7,8 +7,7 @@ import { homeContent } from '@/data/brands/tvstats/home'
 
 <template>
   <div class="tvstats-home">
-    <a href="#main-content" class="sr-skip-link">Passer au contenu principal</a>
-    <main id="main-content" tabindex="-1" class="pb-0 pt-0">
+    <div class="pb-0 pt-0">
       <TvstatsHero />
       <TvstatsHighlights />
       <section class="bg-white">
@@ -16,7 +15,7 @@ import { homeContent } from '@/data/brands/tvstats/home'
           <PollPulseBanner v-bind="homeContent.poll" />
         </div>
       </section>
-    </main>
+    </div>
   </div>
 </template>
 
