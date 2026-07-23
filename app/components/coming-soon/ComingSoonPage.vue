@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 
-const LAUNCH = new Date('2026-07-23T00:00:00')
+const LAUNCH = new Date('2026-08-23T00:00:00')
 
 const days = ref(0)
 const hours = ref(0)
@@ -109,7 +109,7 @@ const usecases = [
 
       <!-- Hero -->
       <section class="mx-auto mt-20 max-w-3xl text-center sm:mt-28 lg:mt-36">
-        <p class="eyebrow mb-6">Ouverture le 23 juillet 2026</p>
+        <p class="eyebrow mb-6">Ouverture le 23 août 2026</p>
 
         <h1 class="text-5xl font-semibold leading-[1.05] tracking-tight text-white sm:text-6xl lg:text-7xl xl:text-8xl">
           Le data journalism
