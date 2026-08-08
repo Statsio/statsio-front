@@ -2,7 +2,7 @@ name: Tests Frontend
 
 on:
   pull_request:
-    branches: [main, staging]
+    branches: [main, staging, dev]
   workflow_call:
 
 jobs:
