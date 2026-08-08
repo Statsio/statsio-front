@@ -11,6 +11,7 @@
     "postinstall": "nuxt prepare",
     "type-check": "nuxt typecheck",
     "test:unit": "vitest",
+    "test:coverage": "vitest run --coverage",
     "lint": "run-s lint:oxlint lint:eslint",
     "lint:oxlint": "oxlint . --fix",
     "lint:eslint": "eslint . --fix --cache",
