@@ -1,3 +1,4 @@
+import { useRuntimeConfig } from '#imports'
 import * as Sentry from '@sentry/nuxt'
 
 // N'initialise Sentry que si un DSN est configuré : pas d'activation par défaut en
