@@ -28,6 +28,13 @@ export default defineConfig({
     environment: 'jsdom',
     exclude: [...configDefaults.exclude, 'e2e/**'],
     root: fileURLToPath(new URL('./', import.meta.url)),
+    coverage: {
+      provider: 'v8',
+      all: true,
+      include: ['app/**/*.{ts,vue}'],
+      exclude: [...configDefaults.exclude, 'app/**/*.spec.ts', 'app/**/*.d.ts'],
+      reporter: ['text', 'json-summary', 'html'],
+    },
   },
   resolve: {
     alias: {

@@ -15,8 +15,11 @@ export default defineNuxtConfig({
       },
       script: [
         {
-          // Google Consent Mode v2 — defaults AVANT GTM (obligatoire)
-          innerHTML: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('consent','default',{analytics_storage:'denied',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied',functionality_storage:'denied',wait_for_update:500});`,
+          // Google Consent Mode v2 — defaults AVANT GTM (obligatoire).
+          // region: refus strict limité à l'EEE + UK + CH (zones où le consentement est
+          // légalement requis) pour ne pas bloquer analytics_storage pour le reste du monde,
+          // où Google applique 'granted' par défaut en l'absence de commande 'default' ciblée.
+          innerHTML: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('consent','default',{analytics_storage:'denied',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied',functionality_storage:'denied',wait_for_update:500,region:['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE','IS','LI','NO','GB','CH']});`,
         },
         {
           innerHTML: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','GTM-5J28CWLR');`,
@@ -40,7 +43,7 @@ export default defineNuxtConfig({
     },
   },
 
-  modules: ['@pinia/nuxt'],
+  modules: ['@pinia/nuxt', '@sentry/nuxt/module'],
 
   css: [
     '~/assets/main.css',
@@ -66,8 +69,18 @@ export default defineNuxtConfig({
       passwordMiddleware: process.env.NUXT_PUBLIC_PASSWORD_MIDDLEWARE ?? '',
       comingSoon: process.env.NUXT_PUBLIC_COMING_SOON ?? 'false',
       comingSoonBypassCode: process.env.NUXT_PUBLIC_COMING_SOON_BYPASS_CODE ?? '',
+      sentryDsn: process.env.NUXT_PUBLIC_SENTRY_DSN ?? '',
     },
   },
+
+  // DSN volontairement absent ici : Sentry n'est initialisé que si NUXT_PUBLIC_SENTRY_DSN est
+  // défini (cf. sentry.client.config.ts / sentry.server.config.ts), pour ne rien activer par
+  // défaut en développement local sans configuration.
+  sentry: {
+    autoInjectServerSentry: 'top-level-import',
+  },
+
+  sourcemap: { client: 'hidden' },
 
   imports: {
     dirs: ['stores', 'composables', 'api'],
