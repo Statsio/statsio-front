@@ -1,14 +1,14 @@
 import * as Sentry from '@sentry/nuxt'
 
-// N'initialise Sentry que si un DSN est configuré : pas d'activation par défaut en
-// développement local ou si le secret n'a pas encore été renseigné côté déploiement.
-const config = useRuntimeConfig()
-const dsn = config.public.sentryDsn
+// useRuntimeConfig() ne fonctionne pas dans ce fichier : il est chargé avant l'initialisation de
+// Nuxt (cf. doc officielle @sentry/nuxt). Contrairement à sentry.client.config.ts, il faut lire
+// la variable d'environnement directement.
+const dsn = process.env.NUXT_PUBLIC_SENTRY_DSN
 
 if (dsn) {
   Sentry.init({
     dsn,
-    environment: config.public.appEnv,
+    environment: process.env.NUXT_PUBLIC_APP_ENV ?? 'development',
     tracesSampleRate: 0.1,
   })
 }
