@@ -43,7 +43,7 @@ export default defineNuxtConfig({
     },
   },
 
-  modules: ['@pinia/nuxt'],
+  modules: ['@pinia/nuxt', '@sentry/nuxt/module'],
 
   css: [
     '~/assets/main.css',
@@ -69,8 +69,18 @@ export default defineNuxtConfig({
       passwordMiddleware: process.env.NUXT_PUBLIC_PASSWORD_MIDDLEWARE ?? '',
       comingSoon: process.env.NUXT_PUBLIC_COMING_SOON ?? 'false',
       comingSoonBypassCode: process.env.NUXT_PUBLIC_COMING_SOON_BYPASS_CODE ?? '',
+      sentryDsn: process.env.NUXT_PUBLIC_SENTRY_DSN ?? '',
     },
   },
+
+  // DSN volontairement absent ici : Sentry n'est initialisé que si NUXT_PUBLIC_SENTRY_DSN est
+  // défini (cf. sentry.client.config.ts / sentry.server.config.ts), pour ne rien activer par
+  // défaut en développement local sans configuration.
+  sentry: {
+    autoInjectServerSentry: 'top-level-import',
+  },
+
+  sourcemap: { client: 'hidden' },
 
   imports: {
     dirs: ['stores', 'composables', 'api'],
