@@ -6,7 +6,7 @@ import { useStudioAutosave } from './useStudioAutosave'
 import { saveStatsDataDocument } from '@/api/studio'
 
 vi.mock('@/api/studio', () => ({
-  saveStatsDataDocument: vi.fn(),
+  saveStatsDataDocument: vi.fn<typeof saveStatsDataDocument>(),
 }))
 
 const DEBOUNCE_MS = 1500

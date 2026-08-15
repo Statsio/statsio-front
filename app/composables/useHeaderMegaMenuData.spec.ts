@@ -16,23 +16,23 @@ import { fetchSoinsList } from '@/api/soins'
 import type { StatsDataDocument } from '@/api/studio'
 
 vi.mock('@/api/studio', () => ({
-  fetchPublicArticles: vi.fn(),
-  fetchPublicStatsDataCatalog: vi.fn(),
-  fetchPublicSurveys: vi.fn(),
+  fetchPublicArticles: vi.fn<typeof fetchPublicArticles>(),
+  fetchPublicStatsDataCatalog: vi.fn<typeof fetchPublicStatsDataCatalog>(),
+  fetchPublicSurveys: vi.fn<typeof fetchPublicSurveys>(),
 }))
 
 vi.mock('@/api/channels', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/api/channels')>()
   return {
     ...actual,
-    getPublicChannels: vi.fn(),
-    getChannelCategories: vi.fn(),
+    getPublicChannels: vi.fn<typeof getPublicChannels>(),
+    getChannelCategories: vi.fn<typeof getChannelCategories>(),
   }
 })
 
-vi.mock('@/api/maladies', () => ({ fetchMaladiesPopulaires: vi.fn() }))
-vi.mock('@/api/medicaments', () => ({ fetchMedicamentsSearch: vi.fn() }))
-vi.mock('@/api/soins', () => ({ fetchSoinsList: vi.fn() }))
+vi.mock('@/api/maladies', () => ({ fetchMaladiesPopulaires: vi.fn<typeof fetchMaladiesPopulaires>() }))
+vi.mock('@/api/medicaments', () => ({ fetchMedicamentsSearch: vi.fn<typeof fetchMedicamentsSearch>() }))
+vi.mock('@/api/soins', () => ({ fetchSoinsList: vi.fn<typeof fetchSoinsList>() }))
 
 const PALETTE = ['#111111', '#222222']
 

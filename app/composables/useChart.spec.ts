@@ -4,13 +4,13 @@ import { mount } from '@vue/test-utils'
 import type { ChartData } from 'chart.js'
 
 class MockChart {
-  static register = vi.fn()
+  static register = vi.fn<() => void>()
   static instances: MockChart[] = []
   data: ChartData
   options: unknown
-  update = vi.fn()
-  resize = vi.fn()
-  destroy = vi.fn()
+  update = vi.fn<() => void>()
+  resize = vi.fn<() => void>()
+  destroy = vi.fn<() => void>()
 
   constructor(
     public canvas: unknown,

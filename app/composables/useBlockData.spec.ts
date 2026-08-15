@@ -6,8 +6,8 @@ import { fetchBlockData, fetchPublicBlockData } from '@/api/studio'
 import type { StudioBlock, BlockQueryResult } from '@/types/studio'
 
 vi.mock('@/api/studio', () => ({
-  fetchBlockData: vi.fn(),
-  fetchPublicBlockData: vi.fn(),
+  fetchBlockData: vi.fn<typeof fetchBlockData>(),
+  fetchPublicBlockData: vi.fn<typeof fetchPublicBlockData>(),
 }))
 
 function makeBlock(overrides: Partial<StudioBlock> = {}): StudioBlock {
