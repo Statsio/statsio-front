@@ -20,12 +20,17 @@ export type PaginatedUsers = {
   total: number
 }
 
-export async function adminListUsers(params: { page?: number; search?: string; status?: string } = {}): Promise<PaginatedUsers> {
+export async function adminListUsers(
+  params: { page?: number; search?: string; status?: string } = {},
+): Promise<PaginatedUsers> {
   const { data } = await apiHttp.get<PaginatedUsers>('/admin/users', { params })
   return data
 }
 
-export async function adminUpdateUser(id: number, payload: { is_admin?: boolean; status?: string }): Promise<AdminUser> {
+export async function adminUpdateUser(
+  id: number,
+  payload: { is_admin?: boolean; status?: string },
+): Promise<AdminUser> {
   const { data } = await apiHttp.patch<AdminUser>(`/admin/users/${id}`, payload)
   return data
 }
@@ -62,7 +67,9 @@ export type PaginatedChannels = {
   total: number
 }
 
-export async function adminListChannels(params: { page?: number; search?: string; active?: string } = {}): Promise<PaginatedChannels> {
+export async function adminListChannels(
+  params: { page?: number; search?: string; active?: string } = {},
+): Promise<PaginatedChannels> {
   const { data } = await apiHttp.get<PaginatedChannels>('/admin/tv/channels', { params })
   return data
 }
@@ -72,12 +79,17 @@ export async function adminGetChannel(id: number): Promise<AdminChannel> {
   return data
 }
 
-export async function adminCreateChannel(payload: Omit<AdminChannel, 'id' | 'broadcasts_count' | 'created_at' | 'updated_at'>): Promise<AdminChannel> {
+export async function adminCreateChannel(
+  payload: Omit<AdminChannel, 'id' | 'broadcasts_count' | 'created_at' | 'updated_at'>,
+): Promise<AdminChannel> {
   const { data } = await apiHttp.post<AdminChannel>('/admin/tv/channels', payload)
   return data
 }
 
-export async function adminUpdateChannel(id: number, payload: Partial<AdminChannel>): Promise<AdminChannel> {
+export async function adminUpdateChannel(
+  id: number,
+  payload: Partial<AdminChannel>,
+): Promise<AdminChannel> {
   const { data } = await apiHttp.patch<AdminChannel>(`/admin/tv/channels/${id}`, payload)
   return data
 }
@@ -134,7 +146,10 @@ export async function adminUpdateReviewQuestion(
     sort_order?: number
   },
 ): Promise<AdminReviewQuestion> {
-  const { data } = await apiHttp.patch<AdminReviewQuestion>(`/admin/tv/review-questions/${id}`, payload)
+  const { data } = await apiHttp.patch<AdminReviewQuestion>(
+    `/admin/tv/review-questions/${id}`,
+    payload,
+  )
   return data
 }
 
@@ -159,12 +174,18 @@ export async function adminListCategories(): Promise<AdminCategory[]> {
   return data
 }
 
-export async function adminCreateCategory(payload: { name: string; color?: string | null }): Promise<AdminCategory> {
+export async function adminCreateCategory(payload: {
+  name: string
+  color?: string | null
+}): Promise<AdminCategory> {
   const { data } = await apiHttp.post<AdminCategory>('/admin/tv/categories', payload)
   return data
 }
 
-export async function adminUpdateCategory(id: number, payload: { name?: string; color?: string | null }): Promise<AdminCategory> {
+export async function adminUpdateCategory(
+  id: number,
+  payload: { name?: string; color?: string | null },
+): Promise<AdminCategory> {
   const { data } = await apiHttp.patch<AdminCategory>(`/admin/tv/categories/${id}`, payload)
   return data
 }
@@ -190,13 +211,21 @@ export async function adminListSourceProvenances(): Promise<AdminSourceProvenanc
   return data
 }
 
-export async function adminCreateSourceProvenance(payload: { name: string }): Promise<AdminSourceProvenance> {
+export async function adminCreateSourceProvenance(payload: {
+  name: string
+}): Promise<AdminSourceProvenance> {
   const { data } = await apiHttp.post<AdminSourceProvenance>('/admin/source-provenances', payload)
   return data
 }
 
-export async function adminUpdateSourceProvenance(id: number, payload: { name?: string }): Promise<AdminSourceProvenance> {
-  const { data } = await apiHttp.patch<AdminSourceProvenance>(`/admin/source-provenances/${id}`, payload)
+export async function adminUpdateSourceProvenance(
+  id: number,
+  payload: { name?: string },
+): Promise<AdminSourceProvenance> {
+  const { data } = await apiHttp.patch<AdminSourceProvenance>(
+    `/admin/source-provenances/${id}`,
+    payload,
+  )
   return data
 }
 
@@ -233,7 +262,9 @@ export type PaginatedPrograms = {
   total: number
 }
 
-export async function adminListPrograms(params: { page?: number; search?: string; channel?: string; type?: string } = {}): Promise<PaginatedPrograms> {
+export async function adminListPrograms(
+  params: { page?: number; search?: string; channel?: string; type?: string } = {},
+): Promise<PaginatedPrograms> {
   const { data } = await apiHttp.get<PaginatedPrograms>('/admin/tv/programs', { params })
   return data
 }
@@ -266,14 +297,14 @@ export async function adminDeleteProgram(id: number): Promise<void> {
 // ---- Broadcasts ----
 
 export const BROADCAST_TYPES = [
-  { value: 'inedit',      label: 'Inédit' },
+  { value: 'inedit', label: 'Inédit' },
   { value: 'rediffusion', label: 'Rediffusion' },
-  { value: 'direct',      label: 'Direct' },
-  { value: 'replay',      label: 'Replay' },
+  { value: 'direct', label: 'Direct' },
+  { value: 'replay', label: 'Replay' },
   { value: 'exclusivite', label: 'Exclusivité' },
 ] as const
 
-export type BroadcastType = typeof BROADCAST_TYPES[number]['value']
+export type BroadcastType = (typeof BROADCAST_TYPES)[number]['value']
 
 export type AdminBroadcast = {
   id: number
@@ -302,7 +333,16 @@ export type PaginatedBroadcasts = {
   total: number
 }
 
-export async function adminListBroadcasts(params: { page?: number; search?: string; channel?: string; date?: string; date_from?: string; date_to?: string } = {}): Promise<PaginatedBroadcasts> {
+export async function adminListBroadcasts(
+  params: {
+    page?: number
+    search?: string
+    channel?: string
+    date?: string
+    date_from?: string
+    date_to?: string
+  } = {},
+): Promise<PaginatedBroadcasts> {
   const { data } = await apiHttp.get<PaginatedBroadcasts>('/admin/tv/broadcasts', { params })
   return data
 }
@@ -314,7 +354,11 @@ export async function adminGetBroadcast(id: number): Promise<AdminBroadcast> {
 
 export async function adminUpdateBroadcast(
   id: number,
-  payload: { season?: number | null; episode?: number | null; broadcast_type?: BroadcastType | null },
+  payload: {
+    season?: number | null
+    episode?: number | null
+    broadcast_type?: BroadcastType | null
+  },
 ): Promise<AdminBroadcast> {
   const { data } = await apiHttp.patch<AdminBroadcast>(`/admin/tv/broadcasts/${id}`, payload)
   return data
@@ -324,10 +368,62 @@ export async function adminUpdateBroadcastAudience(
   id: number,
   payload: { pda?: number | null; rank?: number | null; mediametrie_viewers?: number | null },
 ): Promise<AdminBroadcast> {
-  const { data } = await apiHttp.patch<AdminBroadcast>(`/admin/tv/broadcasts/${id}/audience`, payload)
+  const { data } = await apiHttp.patch<AdminBroadcast>(
+    `/admin/tv/broadcasts/${id}/audience`,
+    payload,
+  )
   return data
 }
 
 export async function adminDeleteBroadcast(id: number): Promise<void> {
   await apiHttp.delete(`/admin/tv/broadcasts/${id}`)
+}
+
+// ---- Contact messages ----
+
+export type ContactMessageReason = 'general' | 'partenariat' | 'presse' | 'commercial'
+export type ContactMessageStatus = 'new' | 'in_progress' | 'resolved'
+
+export type AdminContactMessage = {
+  id: number
+  reason: ContactMessageReason
+  name: string
+  email: string
+  company: string | null
+  message: string
+  status: ContactMessageStatus
+  created_at: string
+  updated_at: string
+}
+
+export type PaginatedContactMessages = {
+  data: AdminContactMessage[]
+  current_page: number
+  last_page: number
+  per_page: number
+  total: number
+}
+
+export async function adminListContactMessages(
+  params: { page?: number; search?: string; reason?: string; status?: string } = {},
+): Promise<PaginatedContactMessages> {
+  const { data } = await apiHttp.get<PaginatedContactMessages>('/admin/contact-messages', {
+    params,
+  })
+  return data
+}
+
+export async function adminUpdateContactMessageStatus(
+  id: number,
+  status: ContactMessageStatus,
+): Promise<AdminContactMessage> {
+  const { data } = await apiHttp.patch<{ data: AdminContactMessage }>(
+    `/admin/contact-messages/${id}`,
+    { status },
+  )
+  return data.data
+}
+
+export async function adminDeleteContactMessage(id: number): Promise<void> {
+  await apiHttp.delete(`/admin/contact-messages/${id}`)
 }
