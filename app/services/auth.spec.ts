@@ -39,9 +39,13 @@ describe('services/auth', () => {
         data: { success: true, message: 'ok', data: { access_token: 'tok', type: 'Bearer', expires_in: 3600, user } },
       })
 
-      const session = await loginRequest({ email: user.email, password: 'secret' })
+      const session = await loginRequest({ email: user.email, password: 'secret', turnstile_token: 'test-token' })
 
-      expect(http.post).toHaveBeenCalledWith('/login', { email: user.email, password: 'secret' })
+      expect(http.post).toHaveBeenCalledWith('/login', {
+        email: user.email,
+        password: 'secret',
+        turnstile_token: 'test-token',
+      })
       expect(session).toEqual({ token: 'tok', type: 'Bearer', refreshToken: undefined, expiresIn: 3600, user })
     })
 
@@ -50,7 +54,7 @@ describe('services/auth', () => {
         data: { success: true, message: 'ok', data: { token: 'legacy-tok', type: 'Bearer', user } },
       })
 
-      const session = await loginRequest({ email: user.email, password: 'secret' })
+      const session = await loginRequest({ email: user.email, password: 'secret', turnstile_token: 'test-token' })
 
       expect(session.token).toBe('legacy-tok')
     })
@@ -68,6 +72,7 @@ describe('services/auth', () => {
         birthday: '1867-11-07',
         email: user.email,
         password: 'secret',
+        turnstile_token: 'test-token',
       })
 
       expect(http.post).toHaveBeenCalledWith('/register', expect.objectContaining({ email: user.email }))

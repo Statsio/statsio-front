@@ -22,6 +22,7 @@ describe('contact api', () => {
       name: 'Jeanne Dupont',
       email: 'jeanne@example.com',
       message: 'Une question sur Statsio.',
+      turnstile_token: 'test-token',
     })
 
     expect(mock.history.post).toHaveLength(1)
@@ -30,6 +31,7 @@ describe('contact api', () => {
       name: 'Jeanne Dupont',
       email: 'jeanne@example.com',
       message: 'Une question sur Statsio.',
+      turnstile_token: 'test-token',
     })
   })
 
@@ -42,6 +44,7 @@ describe('contact api', () => {
         name: '',
         email: '',
         message: '',
+        turnstile_token: 'test-token',
       }),
     ).rejects.toThrow('Request failed with status code 422')
   })
