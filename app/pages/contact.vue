@@ -8,6 +8,7 @@ definePageMeta({
 
 import { computed, ref } from 'vue'
 import { getBrandFromPath } from '@/data/brands'
+import { submitContactMessage } from '@/api/contact'
 import AppBadge from '@/components/ui/AppBadge.vue'
 import AppButton from '@/components/ui/AppButton.vue'
 
@@ -66,17 +67,37 @@ const email = ref('')
 const company = ref('')
 const message = ref('')
 const submitted = ref(false)
+const isSubmitting = ref(false)
+const submitError = ref('')
 
 const currentReason = computed(() => REASONS.find((r) => r.key === reasonKey.value)!)
-const canSubmit = computed(() => Boolean(name.value.trim() && email.value.trim() && message.value.trim()))
+const canSubmit = computed(() =>
+  Boolean(name.value.trim() && email.value.trim() && message.value.trim()),
+)
 
 function selectReason(key: ReasonKey) {
   reasonKey.value = key
 }
 
-function onSubmit() {
-  if (!canSubmit.value) return
-  submitted.value = true
+async function onSubmit() {
+  if (!canSubmit.value || isSubmitting.value) return
+  isSubmitting.value = true
+  submitError.value = ''
+  try {
+    await submitContactMessage({
+      reason: reasonKey.value,
+      name: name.value.trim(),
+      email: email.value.trim(),
+      company: company.value.trim() || undefined,
+      message: message.value.trim(),
+    })
+    submitted.value = true
+  } catch {
+    submitError.value =
+      "L'envoi a échoué. Réessayez ou écrivez-nous directement à contact@statsio.fr."
+  } finally {
+    isSubmitting.value = false
+  }
 }
 
 function resetForm() {
@@ -86,6 +107,7 @@ function resetForm() {
   company.value = ''
   message.value = ''
   submitted.value = false
+  submitError.value = ''
 }
 
 const route = useRoute()
@@ -127,7 +149,11 @@ const xUrl = computed(() => getBrandFromPath(route.path).xUrl)
               class="flex h-[34px] w-[34px] items-center justify-center rounded-[9px]"
               :style="{ background: r.bg }"
             >
-              <span class="block h-[11px] w-[11px]" :class="r.shape" :style="{ background: r.color }" />
+              <span
+                class="block h-[11px] w-[11px]"
+                :class="r.shape"
+                :style="{ background: r.color }"
+              />
             </span>
             <span class="text-sm font-bold text-slate-900">{{ r.title }}</span>
             <span class="text-xs leading-relaxed text-slate-500">{{ r.desc }}</span>
@@ -146,7 +172,9 @@ const xUrl = computed(() => getBrandFromPath(route.path).xUrl)
 
           <div class="grid gap-3.5 sm:grid-cols-2">
             <div>
-              <label for="contact-name" class="mb-1.5 block text-[13px] font-bold text-slate-900">Nom</label>
+              <label for="contact-name" class="mb-1.5 block text-[13px] font-bold text-slate-900"
+                >Nom</label
+              >
               <input
                 id="contact-name"
                 v-model="name"
@@ -156,7 +184,9 @@ const xUrl = computed(() => getBrandFromPath(route.path).xUrl)
               />
             </div>
             <div>
-              <label for="contact-email" class="mb-1.5 block text-[13px] font-bold text-slate-900">E-mail</label>
+              <label for="contact-email" class="mb-1.5 block text-[13px] font-bold text-slate-900"
+                >E-mail</label
+              >
               <input
                 id="contact-email"
                 v-model="email"
@@ -193,20 +223,24 @@ const xUrl = computed(() => getBrandFromPath(route.path).xUrl)
             />
           </div>
 
+          <p v-if="submitError" class="text-[13px] font-medium text-red-600">{{ submitError }}</p>
+
           <AppButton
             type="button"
             variant="gradient"
             size="lg"
             class="self-start"
-            :disabled="!canSubmit"
+            :disabled="!canSubmit || isSubmitting"
             @click="onSubmit"
           >
-            Envoyer le message
+            {{ isSubmitting ? 'Envoi…' : 'Envoyer le message' }}
           </AppButton>
         </div>
 
         <div v-else class="card flex flex-col items-center gap-4 p-10 text-center sm:p-14">
-          <div class="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-2xl text-emerald-700">
+          <div
+            class="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-2xl text-emerald-700"
+          >
             ✓
           </div>
           <h2 class="text-[22px] font-bold text-slate-900">Message envoyé</h2>
@@ -229,7 +263,10 @@ const xUrl = computed(() => getBrandFromPath(route.path).xUrl)
             <div class="flex flex-col gap-3">
               <div>
                 <p class="mb-0.5 text-xs text-slate-500">E-mail</p>
-                <a href="mailto:contact@statsio.fr" class="text-sm font-bold text-slate-900 hover:text-[var(--color-primary)]">
+                <a
+                  href="mailto:contact@statsio.fr"
+                  class="text-sm font-bold text-slate-900 hover:text-[var(--color-primary)]"
+                >
                   contact@statsio.fr
                 </a>
               </div>
@@ -237,7 +274,9 @@ const xUrl = computed(() => getBrandFromPath(route.path).xUrl)
           </div>
 
           <div class="card p-5.5">
-            <p class="mb-2 text-sm font-bold text-slate-900">Besoin d'assistance technique&nbsp;?</p>
+            <p class="mb-2 text-sm font-bold text-slate-900">
+              Besoin d'assistance technique&nbsp;?
+            </p>
             <p class="mb-2.5 text-[13px] leading-relaxed text-slate-500">
               Pour un problème avec votre compte ou un bug, passez plutôt par le support dédié.
             </p>
