@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { getErrorMessage, getValidationErrors } from '@/lib/http-errors'
 import { computePasswordStrength } from '@/lib/password-strength'
 import { useAuthStore } from '@/stores/auth'
+import AppTurnstile from '@/components/ui/AppTurnstile.vue'
 
 const firstName = ref('')
 const lastName = ref('')
@@ -12,6 +13,8 @@ const password = ref('')
 const acceptTerms = ref(false)
 const submitError = ref('')
 const fieldErrors = ref<Record<string, string>>({})
+const turnstileToken = ref('')
+const turnstileRef = ref<InstanceType<typeof AppTurnstile> | null>(null)
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -25,7 +28,8 @@ const isFormValid = computed(
     birthday.value.trim().length > 0 &&
     email.value.trim().length > 0 &&
     password.value.trim().length >= 8 &&
-    acceptTerms.value,
+    acceptTerms.value &&
+    turnstileToken.value.length > 0,
 )
 
 const handleGoogleSuccess = async () => {
@@ -48,11 +52,14 @@ const handleSubmit = async () => {
       birthday: birthday.value,
       email: email.value.trim(),
       password: password.value,
+      turnstile_token: turnstileToken.value,
     })
 
     await router.push({ path: '/verify-email', query: { email: result.email } })
   } catch (error) {
     fieldErrors.value = getValidationErrors(error)
+    turnstileToken.value = ''
+    turnstileRef.value?.reset()
 
     if (Object.keys(fieldErrors.value).length > 0) {
       return
@@ -131,6 +138,14 @@ const handleSubmit = async () => {
             et la <a href="#" class="font-semibold text-[var(--color-primary)]">politique de confidentialité</a>
           </span>
         </AppCheckbox>
+
+        <AppTurnstile
+          ref="turnstileRef"
+          action="register"
+          @verified="(token) => (turnstileToken = token)"
+          @expired="turnstileToken = ''"
+          @error="turnstileToken = ''"
+        />
 
         <AppButton
           :disabled="!isFormValid || authStore.isAuthenticating"
