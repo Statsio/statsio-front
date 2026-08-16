@@ -84,6 +84,7 @@ export interface ApiAuthUserResponse {
 export interface LoginPayload {
   email: string
   password: string
+  turnstile_token: string
 }
 
 export interface GoogleAuthPayload {
@@ -96,6 +97,7 @@ export interface RegisterPayload {
   birthday: string
   email: string
   password: string
+  turnstile_token: string
 }
 
 export interface RegisterPendingData {

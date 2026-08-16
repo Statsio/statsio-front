@@ -11,6 +11,7 @@ import { getBrandFromPath } from '@/data/brands'
 import { submitContactMessage } from '@/api/contact'
 import AppBadge from '@/components/ui/AppBadge.vue'
 import AppButton from '@/components/ui/AppButton.vue'
+import AppTurnstile from '@/components/ui/AppTurnstile.vue'
 
 type ReasonKey = 'general' | 'partenariat' | 'presse' | 'commercial'
 
@@ -69,10 +70,12 @@ const message = ref('')
 const submitted = ref(false)
 const isSubmitting = ref(false)
 const submitError = ref('')
+const turnstileToken = ref('')
+const turnstileRef = ref<InstanceType<typeof AppTurnstile> | null>(null)
 
 const currentReason = computed(() => REASONS.find((r) => r.key === reasonKey.value)!)
 const canSubmit = computed(() =>
-  Boolean(name.value.trim() && email.value.trim() && message.value.trim()),
+  Boolean(name.value.trim() && email.value.trim() && message.value.trim() && turnstileToken.value),
 )
 
 function selectReason(key: ReasonKey) {
@@ -90,11 +93,14 @@ async function onSubmit() {
       email: email.value.trim(),
       company: company.value.trim() || undefined,
       message: message.value.trim(),
+      turnstile_token: turnstileToken.value,
     })
     submitted.value = true
   } catch {
     submitError.value =
       "L'envoi a échoué. Réessayez ou écrivez-nous directement à contact@statsio.fr."
+    turnstileToken.value = ''
+    turnstileRef.value?.reset()
   } finally {
     isSubmitting.value = false
   }
@@ -108,6 +114,7 @@ function resetForm() {
   message.value = ''
   submitted.value = false
   submitError.value = ''
+  turnstileToken.value = ''
 }
 
 const route = useRoute()
@@ -222,6 +229,14 @@ const xUrl = computed(() => getBrandFromPath(route.path).xUrl)
               class="w-full resize-y rounded-[10px] border border-slate-200 px-3.5 py-3 text-sm text-slate-900 outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20"
             />
           </div>
+
+          <AppTurnstile
+            ref="turnstileRef"
+            action="contact"
+            @verified="(token) => (turnstileToken = token)"
+            @expired="turnstileToken = ''"
+            @error="turnstileToken = ''"
+          />
 
           <p v-if="submitError" class="text-[13px] font-medium text-red-600">{{ submitError }}</p>
 

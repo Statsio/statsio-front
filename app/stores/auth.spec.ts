@@ -45,7 +45,7 @@ describe('useAuthStore', () => {
       vi.mocked(loginRequest).mockResolvedValue({ token: 'tok', type: 'Bearer', user })
       const store = useAuthStore()
 
-      const loginPromise = store.login({ email: user.email, password: 'secret' })
+      const loginPromise = store.login({ email: user.email, password: 'secret', turnstile_token: 'test-token' })
       expect(store.isAuthenticating).toBe(true)
       const result = await loginPromise
 
@@ -61,7 +61,9 @@ describe('useAuthStore', () => {
       vi.mocked(loginRequest).mockRejectedValue(new Error('invalid credentials'))
       const store = useAuthStore()
 
-      await expect(store.login({ email: user.email, password: 'wrong' })).rejects.toThrow('invalid credentials')
+      await expect(
+        store.login({ email: user.email, password: 'wrong', turnstile_token: 'test-token' }),
+      ).rejects.toThrow('invalid credentials')
 
       expect(store.isAuthenticating).toBe(false)
       expect(store.hasSession).toBe(false)
