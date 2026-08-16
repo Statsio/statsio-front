@@ -3,17 +3,22 @@ import { computed, ref } from 'vue'
 import { getErrorMessage, getValidationErrors, isUnauthorizedError } from '@/lib/http-errors'
 import { AUTH_REDIRECT_KEY } from '@/lib/auth-storage'
 import { useAuthStore } from '@/stores/auth'
+import AppTurnstile from '@/components/ui/AppTurnstile.vue'
 
 const email = ref('')
 const password = ref('')
 const keepSignedIn = ref(true)
 const submitError = ref('')
 const fieldErrors = ref<Record<string, string>>({})
+const turnstileToken = ref('')
+const turnstileRef = ref<InstanceType<typeof AppTurnstile> | null>(null)
 
 const router = useRouter()
 const authStore = useAuthStore()
 
-const isFormValid = computed(() => email.value.trim().length > 0 && password.value.trim().length > 0)
+const isFormValid = computed(
+  () => email.value.trim().length > 0 && password.value.trim().length > 0 && turnstileToken.value.length > 0,
+)
 
 function normalizeRedirectTarget(raw: unknown): string | null {
   const target = typeof raw === 'string' ? raw : ''
@@ -51,7 +56,7 @@ const handleSubmit = async () => {
 
   try {
     await authStore.login(
-      { email: email.value.trim(), password: password.value },
+      { email: email.value.trim(), password: password.value, turnstile_token: turnstileToken.value },
       keepSignedIn.value ? 'local' : 'session',
     )
     const to = redirectTarget.value
@@ -59,6 +64,8 @@ const handleSubmit = async () => {
     else await router.push('/')
   } catch (error) {
     fieldErrors.value = getValidationErrors(error)
+    turnstileToken.value = ''
+    turnstileRef.value?.reset()
     if (Object.keys(fieldErrors.value).length > 0) return
     submitError.value = isUnauthorizedError(error)
       ? 'Adresse e-mail ou mot de passe incorrect.'
@@ -110,6 +117,14 @@ const handleSubmit = async () => {
         </AuthInputField>
 
         <AppCheckbox v-model="keepSignedIn" label="Se souvenir de moi" class="mt-0.5" />
+
+        <AppTurnstile
+          ref="turnstileRef"
+          action="login"
+          @verified="(token) => (turnstileToken = token)"
+          @expired="turnstileToken = ''"
+          @error="turnstileToken = ''"
+        />
 
         <AppButton
           :disabled="!isFormValid || authStore.isAuthenticating"

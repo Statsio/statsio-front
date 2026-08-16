@@ -8,6 +8,7 @@ export interface ContactMessagePayload {
   email: string
   company?: string
   message: string
+  turnstile_token: string
 }
 
 export async function submitContactMessage(payload: ContactMessagePayload): Promise<void> {

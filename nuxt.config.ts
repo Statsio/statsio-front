@@ -70,6 +70,7 @@ export default defineNuxtConfig({
       comingSoon: process.env.NUXT_PUBLIC_COMING_SOON ?? 'false',
       comingSoonBypassCode: process.env.NUXT_PUBLIC_COMING_SOON_BYPASS_CODE ?? '',
       sentryDsn: process.env.NUXT_PUBLIC_SENTRY_DSN ?? '',
+      turnstileSiteKey: process.env.NUXT_PUBLIC_TURNSTILE_SITE_KEY ?? '0x4AAAAAADreXCM3U-LKGq0q',
     },
   },
 
