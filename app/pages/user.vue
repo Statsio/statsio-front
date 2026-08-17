@@ -4,6 +4,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useDebounceFn } from '@vueuse/core'
 import AppButton from '@/components/ui/AppButton.vue'
+import AccountSidebar, { type TabKey } from '@/components/user/AccountSidebar.vue'
 import { useAuthStore } from '@/stores/auth'
 import { updateProfile, anonymizeAccount, fetchProfileReferenceData, type ProfileReferenceData } from '@/api/statsio-user'
 import { profileLabel } from '@/lib/profile-labels'
@@ -13,8 +14,6 @@ import type { AuthUser } from '@/types/auth'
 const authStore = useAuthStore()
 const router = useRouter()
 const route = useRoute()
-
-type TabKey = 'apercu' | 'historique' | 'favoris' | 'abonnements' | 'parametres'
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'apercu', label: 'Aperçu' },
@@ -28,25 +27,7 @@ const initialTab = TABS.some((t) => t.key === route.query.tab) ? (route.query.ta
 const activeTab = ref<TabKey>(initialTab)
 const selectTab = (key: TabKey) => { activeTab.value = key }
 
-const userInitials = computed(() => {
-  const firstName = authStore.user?.profile?.first_name?.[0] ?? ''
-  const lastName = authStore.user?.profile?.last_name?.[0] ?? ''
-  return `${firstName}${lastName}`.trim() || authStore.user?.email?.[0]?.toUpperCase() || 'ST'
-})
-
 const firstNameOnly = computed(() => authStore.user?.profile?.first_name || authStore.displayName.split(' ')[0])
-
-const handle = computed(() => {
-  const local = authStore.user?.email?.split('@')[0] ?? ''
-  return local ? `@${local}` : ''
-})
-
-const memberSince = computed(() => {
-  const createdAt = authStore.user?.created_at
-  if (!createdAt) return '—'
-  const year = new Date(createdAt).getFullYear()
-  return Number.isNaN(year) ? '—' : String(year)
-})
 
 /* ───────── Aperçu — activité (données de démonstration, en attendant l'API dédiée) ───────── */
 
@@ -336,88 +317,13 @@ const handleCreateChannel = () => router.push('/mes-chaines?create=1')
       <div class="container flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-9">
 
         <!-- ===== SIDEBAR ===== -->
-        <aside class="flex w-full flex-col gap-5 lg:sticky lg:top-28 lg:w-[288px] lg:flex-none">
-          <div class="rounded-[1.75rem] border border-slate-200 bg-white p-6 text-center shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)]">
-            <div class="mx-auto flex h-[84px] w-[84px] items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-primary to-accent text-3xl font-bold text-white">
-              <img
-                v-if="authStore.user?.profile?.avatar"
-                :src="authStore.user.profile.avatar"
-                alt="Photo de profil"
-                class="h-full w-full object-cover"
-              />
-              <span v-else>{{ userInitials }}</span>
-            </div>
-            <div class="mt-4 text-[19px] font-bold text-slate-950">{{ authStore.displayName }}</div>
-            <div v-if="handle" class="mt-0.5 text-[13px] text-slate-400">{{ handle }}</div>
-
-            <button
-              type="button"
-              class="mt-[18px] w-full rounded-[10px] border border-slate-200 bg-white py-2.5 text-[13.5px] font-bold text-slate-950 transition hover:bg-slate-50"
-              @click="selectTab('parametres')"
-            >
-              Modifier le profil
-            </button>
-
-            <div class="mt-[22px] flex border-t border-slate-100 pt-5">
-              <div class="flex-1">
-                <div class="font-mono text-base font-semibold text-slate-950">{{ subCount }}</div>
-                <div class="mt-0.5 text-[11px] text-slate-400">Abonnements</div>
-              </div>
-              <div class="flex-1">
-                <div class="font-mono text-base font-semibold text-slate-950">{{ favorites.length }}</div>
-                <div class="mt-0.5 text-[11px] text-slate-400">Favoris</div>
-              </div>
-              <div class="flex-1">
-                <div class="font-mono text-base font-semibold text-slate-950">{{ memberSince }}</div>
-                <div class="mt-0.5 text-[11px] text-slate-400">Membre depuis</div>
-              </div>
-            </div>
-          </div>
-
-          <nav class="flex flex-col gap-0.5 rounded-[1.75rem] border border-slate-200 bg-white p-2.5 shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)]">
-            <button
-              v-for="tab in TABS"
-              :key="tab.key"
-              type="button"
-              class="flex items-center gap-[11px] rounded-xl px-3.5 py-3 text-left transition"
-              :class="activeTab === tab.key ? 'bg-primary/10' : 'hover:bg-slate-50'"
-              @click="selectTab(tab.key)"
-            >
-              <span
-                class="h-2 w-2 shrink-0 rounded-full"
-                :class="activeTab === tab.key ? 'bg-primary' : 'bg-slate-300'"
-              />
-              <span
-                class="text-[14.5px] font-semibold"
-                :class="activeTab === tab.key ? 'text-primary' : 'text-slate-700'"
-              >
-                {{ tab.label }}
-              </span>
-            </button>
-
-            <div class="my-2 mx-1.5 h-px bg-slate-100" />
-
-            <RouterLink to="/contenus" class="flex items-center gap-[11px] rounded-xl px-3.5 py-3 transition hover:bg-slate-50">
-              <span class="h-2 w-2 shrink-0 rounded-full bg-slate-200" />
-              <span class="text-[14.5px] font-semibold text-slate-700">Mes contenus</span>
-            </RouterLink>
-            <RouterLink to="/mes-chaines" class="flex items-center gap-[11px] rounded-xl px-3.5 py-3 transition hover:bg-slate-50">
-              <span class="h-2 w-2 shrink-0 rounded-full bg-slate-200" />
-              <span class="text-[14.5px] font-semibold text-slate-700">Mes chaînes</span>
-            </RouterLink>
-
-            <div class="my-2 mx-1.5 h-px bg-slate-100" />
-
-            <button
-              type="button"
-              class="rounded-xl px-3.5 py-3 text-left transition hover:bg-rose-50 disabled:opacity-60"
-              :disabled="isLoggingOut"
-              @click="handleLogout"
-            >
-              <span class="text-sm font-semibold text-rose-600">{{ isLoggingOut ? 'Déconnexion…' : 'Se déconnecter' }}</span>
-            </button>
-          </nav>
-        </aside>
+        <AccountSidebar
+          :active="activeTab"
+          :sub-count="subCount"
+          :fav-count="favorites.length"
+          prevent-navigation
+          @select-tab="selectTab"
+        />
 
         <!-- ===== CONTENT ===== -->
         <div class="min-w-0 flex-1">

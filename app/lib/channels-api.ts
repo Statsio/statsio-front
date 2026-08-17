@@ -1,6 +1,6 @@
 import { apiHttp } from '@/lib/http'
 import type { ChannelEntry } from '@/data/channels'
-import type { FeaturedContent } from '@/api/channels'
+import type { FeaturedContent, ChannelOrganization } from '@/api/channels'
 
 interface ApiChannelProfile {
   id: number
@@ -16,7 +16,6 @@ interface ApiChannelProfile {
   view_count: number
   custom_color_primary: string | null
   custom_color_secondary: string | null
-  age_restriction: string | null
   subscriber_count: number
   categories: string[]
   logo_url: string | null
@@ -34,6 +33,8 @@ interface ApiChannel {
   created_at: string
   updated_at: string
   profile: ApiChannelProfile | null
+  badges: string[]
+  organization: ChannelOrganization | null
 }
 
 interface ApiPaginatedResponse<T> {
@@ -72,7 +73,8 @@ function mapApiChannelToEntry(apiChannel: ApiChannel): ChannelEntry {
     name,
     handle,
     initials,
-    isOfficial: false, // Pas de champ dans l'API, à déterminer autrement
+    badges: apiChannel.badges ?? [],
+    organization: apiChannel.organization ?? null,
     description: profile?.description || '',
     longDescription: profile?.description || '',
     themes,
@@ -86,7 +88,6 @@ function mapApiChannelToEntry(apiChannel: ApiChannel): ChannelEntry {
     subscriptionPrice: undefined,
     logoUrl: profile?.logo_url || null,
     bannerUrl: profile?.banner_url || null,
-    ageRestriction: profile?.age_restriction ? Number(profile.age_restriction) || undefined : undefined,
     createdAt: apiChannel.created_at,
     country: profile?.country || null,
     viewCount: profile?.view_count || 0,

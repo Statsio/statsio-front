@@ -1,0 +1,215 @@
+<script setup lang="ts">
+import { ref, watch } from 'vue'
+import AppButton from '@/components/ui/AppButton.vue'
+import StepChannelCategories from '@/components/channels/steps/StepChannelCategories.vue'
+import { updateChannelProfile, updateChannelMedia, type Channel, type ChannelCategory } from '@/api/channels'
+import { getErrorMessage } from '@/lib/http-errors'
+
+const props = defineProps<{ channelId: number; channel: Channel }>()
+const emit = defineEmits<{ reload: [] }>()
+
+const inputClass = 'rounded-[1.25rem] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 transition focus:border-primary/30 focus:outline-none focus:ring-2 focus:ring-primary/20'
+
+// --- Identité ---
+const profileForm = ref({ name: '', handle: '', description: '', categories: [] as ChannelCategory[] })
+const profileSaving = ref(false)
+const profileSuccess = ref(false)
+const profileError = ref('')
+
+const logoFile = ref<File | null>(null)
+const logoPreview = ref<string | null>(null)
+const bannerFile = ref<File | null>(null)
+const bannerPreview = ref<string | null>(null)
+const mediaSaving = ref(false)
+const mediaSuccess = ref(false)
+
+// --- Couleurs ---
+const colorPrimary = ref('#8b5cf6')
+const colorSecondary = ref('#3b82f6')
+const colorSaving = ref(false)
+const colorSuccess = ref(false)
+
+const initForm = () => {
+  profileForm.value = {
+    name: props.channel.profile.name,
+    handle: props.channel.profile.handle,
+    description: props.channel.profile.description ?? '',
+    categories: [...(props.channel.profile.categories ?? [])],
+  }
+  colorPrimary.value = props.channel.profile.custom_color_primary || '#8b5cf6'
+  colorSecondary.value = props.channel.profile.custom_color_secondary || '#3b82f6'
+}
+
+initForm()
+watch(() => props.channel, initForm)
+
+const saveProfile = async () => {
+  profileSaving.value = true
+  profileError.value = ''
+  profileSuccess.value = false
+  try {
+    await updateChannelProfile(props.channelId, {
+      name: profileForm.value.name,
+      handle: profileForm.value.handle,
+      description: profileForm.value.description,
+      categories: profileForm.value.categories,
+    })
+    emit('reload')
+    profileSuccess.value = true
+    setTimeout(() => profileSuccess.value = false, 3000)
+  } catch (e) {
+    profileError.value = getErrorMessage(e, 'Erreur lors de la sauvegarde.')
+  } finally {
+    profileSaving.value = false
+  }
+}
+
+const onLogoChange = (e: Event) => {
+  const f = (e.target as HTMLInputElement).files?.[0]
+  if (!f) return
+  logoFile.value = f
+  logoPreview.value = URL.createObjectURL(f)
+}
+
+const onBannerChange = (e: Event) => {
+  const f = (e.target as HTMLInputElement).files?.[0]
+  if (!f) return
+  bannerFile.value = f
+  bannerPreview.value = URL.createObjectURL(f)
+}
+
+const saveMedia = async () => {
+  if (!logoFile.value && !bannerFile.value) return
+  mediaSaving.value = true
+  mediaSuccess.value = false
+  try {
+    await updateChannelMedia(props.channelId, {
+      ...(logoFile.value ? { logo: logoFile.value } : {}),
+      ...(bannerFile.value ? { banner: bannerFile.value } : {}),
+    })
+    emit('reload')
+    logoFile.value = null
+    bannerFile.value = null
+    mediaSuccess.value = true
+    setTimeout(() => mediaSuccess.value = false, 3000)
+  } catch {}
+  finally { mediaSaving.value = false }
+}
+
+const saveColors = async () => {
+  colorSaving.value = true
+  colorSuccess.value = false
+  try {
+    await updateChannelProfile(props.channelId, {
+      custom_color_primary: colorPrimary.value,
+      custom_color_secondary: colorSecondary.value,
+    })
+    emit('reload')
+    colorSuccess.value = true
+    setTimeout(() => colorSuccess.value = false, 3000)
+  } catch {}
+  finally { colorSaving.value = false }
+}
+</script>
+
+<template>
+  <div class="flex flex-col gap-6">
+    <!-- Identité -->
+    <div class="card-xl p-6 sm:p-7">
+      <p class="eyebrow text-primary">Identité</p>
+      <form class="mt-5 flex flex-col gap-4" @submit.prevent="saveProfile">
+        <label class="flex flex-col gap-2">
+          <span class="text-sm font-semibold text-slate-700">Nom de la chaîne</span>
+          <input v-model="profileForm.name" type="text" :class="inputClass" placeholder="Nom de la chaîne" required />
+        </label>
+        <label class="flex flex-col gap-2">
+          <span class="text-sm font-semibold text-slate-700">Identifiant (@handle)</span>
+          <input v-model="profileForm.handle" type="text" :class="inputClass" placeholder="mon_handle" required />
+        </label>
+        <label class="flex flex-col gap-2">
+          <span class="text-sm font-semibold text-slate-700">Description</span>
+          <textarea v-model="profileForm.description" rows="3" :class="inputClass + ' resize-none'" placeholder="Décrivez votre chaîne..." />
+        </label>
+        <div class="flex flex-col gap-2">
+          <span class="text-sm font-semibold text-slate-700">Catégories</span>
+          <StepChannelCategories v-model="profileForm.categories" />
+        </div>
+        <p v-if="profileError" class="text-sm text-rose-600">{{ profileError }}</p>
+        <div class="mt-1 flex items-center gap-3">
+          <AppButton type="submit" variant="primary" size="md" :disabled="profileSaving">
+            {{ profileSaving ? 'Enregistrement...' : 'Enregistrer' }}
+          </AppButton>
+          <span v-if="profileSuccess" class="text-sm font-semibold text-emerald-600">✓ Sauvegardé</span>
+        </div>
+      </form>
+    </div>
+
+    <!-- Logo & bannière -->
+    <div class="card-xl p-6 sm:p-7">
+      <p class="eyebrow text-primary">Visuels</p>
+      <div class="mt-5 grid gap-4 sm:grid-cols-2">
+        <label class="group flex cursor-pointer flex-col items-center gap-3 rounded-[1.5rem] border-2 border-dashed border-slate-200 p-6 text-center transition hover:border-primary/40">
+          <input type="file" accept="image/*" class="sr-only" @change="onLogoChange" />
+          <div class="h-16 w-16 overflow-hidden rounded-2xl bg-slate-100">
+            <img v-if="logoPreview || channel.profile.logo_url" :src="logoPreview ?? channel.profile.logo_url ?? ''" alt="" class="h-full w-full object-cover" />
+            <div v-else class="flex h-full w-full items-center justify-center text-slate-300">
+              <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+            </div>
+          </div>
+          <div>
+            <p class="text-sm font-semibold text-slate-700">Logo</p>
+            <p class="mt-0.5 text-xs text-slate-400">PNG, JPG — max 5 Mo</p>
+          </div>
+        </label>
+        <label class="group flex cursor-pointer flex-col items-center gap-3 rounded-[1.5rem] border-2 border-dashed border-slate-200 p-6 text-center transition hover:border-primary/40">
+          <input type="file" accept="image/*" class="sr-only" @change="onBannerChange" />
+          <div class="h-16 w-full overflow-hidden rounded-xl bg-slate-100">
+            <img v-if="bannerPreview || channel.profile.banner_url" :src="bannerPreview ?? channel.profile.banner_url ?? ''" alt="" class="h-full w-full object-cover" />
+            <div v-else class="flex h-full w-full items-center justify-center text-slate-300">
+              <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+            </div>
+          </div>
+          <div>
+            <p class="text-sm font-semibold text-slate-700">Bannière</p>
+            <p class="mt-0.5 text-xs text-slate-400">PNG, JPG — max 10 Mo</p>
+          </div>
+        </label>
+      </div>
+      <div class="mt-4 flex items-center gap-3">
+        <AppButton variant="primary" size="md" :disabled="mediaSaving || (!logoFile && !bannerFile)" @click="saveMedia">
+          {{ mediaSaving ? 'Upload...' : 'Enregistrer les visuels' }}
+        </AppButton>
+        <span v-if="mediaSuccess" class="text-sm font-semibold text-emerald-600">✓ Sauvegardé</span>
+      </div>
+    </div>
+
+    <!-- Couleurs -->
+    <div class="card-xl p-6 sm:p-7">
+      <p class="eyebrow text-primary">Apparence</p>
+      <p class="mt-2 text-lg font-bold text-slate-950">Couleur de la chaîne</p>
+      <div class="mt-4 h-16 w-full overflow-hidden rounded-2xl" :style="`background:linear-gradient(135deg,${colorPrimary}33,${colorSecondary}55)`" />
+      <div class="mt-4 grid gap-4 sm:grid-cols-2">
+        <label class="flex flex-col gap-2">
+          <span class="text-sm font-semibold text-slate-700">Couleur principale</span>
+          <div class="flex items-center gap-3 rounded-[1.25rem] border border-slate-200 bg-white px-4 py-3">
+            <input v-model="colorPrimary" type="color" class="h-8 w-8 cursor-pointer rounded-lg border-0 bg-transparent p-0" />
+            <span class="font-mono text-sm text-slate-600">{{ colorPrimary }}</span>
+          </div>
+        </label>
+        <label class="flex flex-col gap-2">
+          <span class="text-sm font-semibold text-slate-700">Couleur secondaire</span>
+          <div class="flex items-center gap-3 rounded-[1.25rem] border border-slate-200 bg-white px-4 py-3">
+            <input v-model="colorSecondary" type="color" class="h-8 w-8 cursor-pointer rounded-lg border-0 bg-transparent p-0" />
+            <span class="font-mono text-sm text-slate-600">{{ colorSecondary }}</span>
+          </div>
+        </label>
+      </div>
+      <div class="mt-4 flex items-center gap-3">
+        <AppButton variant="primary" size="md" :disabled="colorSaving" @click="saveColors">
+          {{ colorSaving ? 'Enregistrement...' : 'Enregistrer' }}
+        </AppButton>
+        <span v-if="colorSuccess" class="text-sm font-semibold text-emerald-600">✓ Sauvegardé</span>
+      </div>
+    </div>
+  </div>
+</template>

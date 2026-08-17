@@ -3,12 +3,16 @@ definePageMeta({ layout: 'channel-dashboard', middleware: ['auth'], ssr: false, 
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import AppButton from '@/components/ui/AppButton.vue'
+import AppAvatar from '@/components/ui/AppAvatar.vue'
 import { getChannelSubscribers, type ChannelSubscriber } from '@/api/channels'
 import { useChannelDashboard } from '@/composables/useChannelDashboard'
+import { useChannelStats } from '@/composables/useChannelStats'
+import { getNameInitials, formatCompactNumber } from '@/lib/format'
 
 const route = useRoute()
 const channelId = computed(() => Number(route.params.id))
 const { channel, isLoading, loadError, ensureLoaded } = useChannelDashboard()
+const { stats, loading: statsLoading } = useChannelStats(channelId)
 
 const subscribers = ref<ChannelSubscriber[]>([])
 const subscribersTotal = ref(0)
@@ -48,14 +52,31 @@ onMounted(async () => {
 
     <template v-else-if="channel">
       <div>
-        <p class="eyebrow text-primary">Audience</p>
-        <h1 class="mt-2 text-3xl font-semibold tracking-[-0.03em] text-slate-950">
-          Abonnés <span class="text-slate-400">({{ subscribersTotal }})</span>
-        </h1>
-        <p class="mt-2 text-slate-500">Les personnes abonnées à votre chaîne.</p>
+        <h1 class="text-[26px] font-bold text-slate-950">Abonnés</h1>
+        <p class="mt-1.5 text-[14.5px] text-slate-500">
+          {{ formatCompactNumber(channel.profile.subscriber_count ?? 0) }} personnes suivent {{ channel.profile.name }}.
+        </p>
       </div>
 
-      <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)]">
+      <!-- Stats -->
+      <div class="grid gap-4 sm:grid-cols-3">
+        <div class="card-xl p-[18px]">
+          <p class="text-[11.5px] text-slate-500">Total</p>
+          <p class="mono mt-2 text-[22px] font-semibold text-slate-950">{{ formatCompactNumber(channel.profile.subscriber_count ?? 0) }}</p>
+        </div>
+        <div class="card-xl p-[18px]">
+          <p class="text-[11.5px] text-slate-500">Nouveaux (7j)</p>
+          <p class="mono mt-2 text-[22px] font-semibold text-emerald-600">{{ statsLoading ? '…' : `+${stats?.subscribers.growth.newCount ?? 0}` }}</p>
+        </div>
+        <div class="card-xl p-[18px]">
+          <p class="text-[11.5px] text-slate-500">Croissance (7j)</p>
+          <p class="mono mt-2 text-[22px] font-semibold text-slate-950">{{ statsLoading ? '…' : `${stats?.subscribers.growth.growthPercent ?? 0}%` }}</p>
+        </div>
+      </div>
+
+      <!-- Liste -->
+      <div class="card-xl p-6">
+        <p class="mb-4 text-sm font-bold text-slate-950">Tous les abonnés</p>
         <div v-if="subscribersLoading" class="space-y-3">
           <div v-for="i in 3" :key="i" class="h-14 animate-pulse rounded-[1.5rem] bg-slate-100" />
         </div>
@@ -66,9 +87,7 @@ onMounted(async () => {
             class="flex items-center justify-between rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4"
           >
             <div class="flex items-center gap-3">
-              <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-bold text-slate-600">
-                {{ sub.name.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase() || '?' }}
-              </div>
+              <AppAvatar size="sm" :src="sub.avatar ?? undefined" :initials="getNameInitials(sub.name)" background="var(--color-primary)" />
               <div>
                 <p class="text-sm font-semibold text-slate-950">{{ sub.name }}</p>
                 <p class="text-xs text-slate-500">{{ sub.email }}</p>

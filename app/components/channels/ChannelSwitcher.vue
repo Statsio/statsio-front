@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useChannelDashboard } from '@/composables/useChannelDashboard'
 import { useMyChannels } from '@/composables/useMyChannels'
 import { useClickOutside } from '@/composables/useClickOutside'
+import ChannelBadgeList from '@/components/channels/ChannelBadgeList.vue'
 import { getNameInitials, formatCompactNumber } from '@/lib/format'
 import { channelBannerStyle, resolveChannelColors } from '@/lib/channel-brand'
 
@@ -65,10 +66,27 @@ function switchTo(id: number) {
         <span v-else>{{ channelInitials }}</span>
       </div>
       <div class="min-w-0 flex-1">
-        <p class="truncate text-[14.5px] font-bold text-slate-950">{{ channel?.profile?.name ?? 'Chargement...' }}</p>
+        <div class="flex items-center gap-1.5">
+          <p class="truncate text-[14.5px] font-bold text-slate-950">{{ channel?.profile?.name ?? 'Chargement...' }}</p>
+          <ChannelBadgeList v-if="channel" :slugs="channel.badges" :organization="channel.organization" size="sm" />
+        </div>
         <p class="text-[11.5px] text-slate-400">{{ formatCompactNumber(channel?.profile?.subscriber_count ?? 0) }} abonnés</p>
       </div>
-      <span class="shrink-0 text-[11px] text-slate-400 transition-transform" :class="open ? 'rotate-180' : ''">▾</span>
+      <svg
+        viewBox="0 0 20 20"
+        class="h-4 w-4 shrink-0 text-slate-400 transition"
+        :class="open ? 'rotate-180' : ''"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M5 7.5L10 12.5L15 7.5"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
     </button>
 
     <Transition
@@ -101,6 +119,7 @@ function switchTo(id: number) {
             <template v-else>{{ getNameInitials(opt.profile.name) }}</template>
           </span>
           <span class="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-slate-800">{{ opt.profile.name }}</span>
+          <ChannelBadgeList :slugs="opt.badges" :organization="opt.organization" size="sm" />
           <span v-if="opt.id === currentChannelId" class="text-[13px]" :style="{ color: opt.profile.custom_color_primary || 'var(--color-primary)' }">✓</span>
         </button>
 

@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import AppAvatar from '@/components/ui/AppAvatar.vue'
+import ChannelBadgeList from '@/components/channels/ChannelBadgeList.vue'
 import type { Channel } from '@/api/channels'
 import { formatCompactNumber } from '@/lib/format'
 import { channelBannerStyle, resolveChannelColors } from '@/lib/channel-brand'
@@ -43,7 +44,10 @@ const avatarBackground = computed(() => {
       size="md"
     />
     <div class="min-w-0">
-      <p class="truncate text-sm font-bold text-slate-900">{{ channel.profile.name }}</p>
+      <div class="flex items-center gap-1.5">
+        <p class="truncate text-sm font-bold text-slate-900">{{ channel.profile.name }}</p>
+        <ChannelBadgeList :slugs="channel.badges" :organization="channel.organization" size="sm" />
+      </div>
       <p class="text-xs text-slate-500">{{ formatCompactNumber(channel.profile.subscriber_count) }} abonnés</p>
     </div>
   </RouterLink>

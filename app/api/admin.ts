@@ -1,4 +1,5 @@
 import { apiHttp } from '@/lib/http'
+import type { ChannelOrganization } from '@/api/channels'
 
 // ---- Users ----
 
@@ -105,6 +106,136 @@ export async function adminUploadChannelLogo(id: number, file: File): Promise<{ 
 
 export async function adminDeleteChannel(id: number): Promise<void> {
   await apiHttp.delete(`/admin/tv/channels/${id}`)
+}
+
+// ---- Chaînes éditoriales (Channel/ChannelProfile — distinct des chaînes TV ci-dessus) ----
+
+export type AdminEditorialChannelOwner = {
+  id: number
+  email: string
+  profile: { first_name: string | null; last_name: string | null } | null
+}
+
+export type AdminEditorialChannel = {
+  id: number
+  status: 'active' | 'suspended' | 'banned' | 'anonymized'
+  suspended_until: string | null
+  anonymized_at: string | null
+  created_at: string
+  updated_at: string
+  profile: {
+    name: string
+    handle: string
+    logo_url: string | null
+    subscriber_count: number
+  } | null
+  owners: AdminEditorialChannelOwner[]
+  subscribers_count: number
+  badges: string[]
+  organization: ChannelOrganization | null
+}
+
+export type PaginatedEditorialChannels = {
+  data: AdminEditorialChannel[]
+  current_page: number
+  last_page: number
+  per_page: number
+  total: number
+}
+
+export async function adminListEditorialChannels(
+  params: { page?: number; search?: string; status?: string } = {},
+): Promise<PaginatedEditorialChannels> {
+  const { data } = await apiHttp.get<PaginatedEditorialChannels>('/admin/channels', { params })
+  return data
+}
+
+export type AdminEditorialChannelMember = {
+  id: number
+  email: string
+  profile: { first_name: string | null; last_name: string | null } | null
+  pivot: { role: 'owner' | 'admin' | 'redactor' | 'guest' | 'subscriber' }
+}
+
+export type AdminEditorialChannelDetail = {
+  id: number
+  status: 'active' | 'suspended' | 'banned' | 'anonymized'
+  suspended_until: string | null
+  anonymized_at: string | null
+  created_at: string
+  updated_at: string
+  subscribers_count: number
+  profile: {
+    id: number
+    name: string
+    handle: string
+    description: string | null
+    logo_url: string | null
+    banner_url: string | null
+    custom_color_primary: string | null
+    custom_color_secondary: string | null
+    country: string | null
+    categories: string[]
+    subscriber_count: number
+    view_count: number
+  } | null
+  management_team: AdminEditorialChannelMember[]
+  badges: string[]
+  organization: ChannelOrganization | null
+}
+
+export async function adminGetEditorialChannel(id: number): Promise<AdminEditorialChannelDetail> {
+  const { data } = await apiHttp.get<{ data: AdminEditorialChannelDetail }>(`/admin/channels/${id}`)
+  return data.data
+}
+
+export type UpdateAdminEditorialChannelPayload = {
+  name?: string
+  handle?: string
+  description?: string | null
+  categories?: string[]
+  custom_color_primary?: string | null
+  custom_color_secondary?: string | null
+  country?: string | null
+}
+
+export async function adminUpdateEditorialChannel(
+  id: number,
+  payload: UpdateAdminEditorialChannelPayload,
+): Promise<AdminEditorialChannelDetail> {
+  const { data } = await apiHttp.patch<{ data: AdminEditorialChannelDetail }>(`/admin/channels/${id}`, payload)
+  return data.data
+}
+
+// Les 4 actions de modération renvoient toutes la même forme que show()/update()
+// (voir AdminEditorialChannelController::detail() côté API) : profil + équipe complète.
+export async function adminSuspendEditorialChannel(id: number): Promise<AdminEditorialChannelDetail> {
+  const { data } = await apiHttp.post<{ data: AdminEditorialChannelDetail }>(`/admin/channels/${id}/suspend`)
+  return data.data
+}
+
+export async function adminBanEditorialChannel(id: number): Promise<AdminEditorialChannelDetail> {
+  const { data } = await apiHttp.post<{ data: AdminEditorialChannelDetail }>(`/admin/channels/${id}/ban`)
+  return data.data
+}
+
+export async function adminActivateEditorialChannel(id: number): Promise<AdminEditorialChannelDetail> {
+  const { data } = await apiHttp.post<{ data: AdminEditorialChannelDetail }>(`/admin/channels/${id}/activate`)
+  return data.data
+}
+
+export async function adminAnonymizeEditorialChannel(id: number): Promise<AdminEditorialChannelDetail> {
+  const { data } = await apiHttp.post<{ data: AdminEditorialChannelDetail }>(`/admin/channels/${id}/anonymize`)
+  return data.data
+}
+
+export async function adminSyncEditorialChannelBadges(id: number, badges: string[]): Promise<AdminEditorialChannelDetail> {
+  const { data } = await apiHttp.post<{ data: AdminEditorialChannelDetail }>(`/admin/channels/${id}/badges`, { badges })
+  return data.data
+}
+
+export async function adminDeleteEditorialChannel(id: number): Promise<void> {
+  await apiHttp.delete(`/admin/channels/${id}`)
 }
 
 // ---- Review Questions ----
