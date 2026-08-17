@@ -10,6 +10,7 @@ const sections: NavSection[] = [
     items: [
       { label: 'Dashboard', to: '/admin' },
       { label: 'Utilisateurs', to: '/admin/users' },
+      { label: 'Chaînes éditoriales', to: '/admin/channels' },
     ],
   },
   {

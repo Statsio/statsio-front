@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useChannelProfile } from '@/composables/useChannelProfile'
 import { resolveChannelColors } from '@/lib/channel-brand'
+import ChannelBreadcrumb from './ChannelBreadcrumb.vue'
 import ChannelBanner from './ChannelBanner.vue'
 import ChannelProfileHeader from './ChannelProfileHeader.vue'
 import ChannelStatsStrip from './ChannelStatsStrip.vue'
@@ -11,6 +12,7 @@ import ChannelFeedList from './ChannelFeedList.vue'
 import ChannelDatasetList from './ChannelDatasetList.vue'
 import ChannelPollsTab from './ChannelPollsTab.vue'
 import ChannelAboutTab from './ChannelAboutTab.vue'
+import ChannelSimilarSlider from './ChannelSimilarSlider.vue'
 
 const {
   channel,
@@ -39,6 +41,12 @@ const brandColors = computed(() =>
     ? resolveChannelColors(channel.value.slug, channel.value.customColorPrimary, channel.value.customColorSecondary)
     : { primary: '#8b5cf6', secondary: '#3b82f6' },
 )
+
+const categoryLabel = computed(() => categoryLabels.value.join(' — '))
+const recentArticles = computed(() => articles.value.slice(0, 3))
+const bannerEditHref = computed(() =>
+  isOwner.value && channel.value ? `/channels/${channel.value.slug}/dashboard/profil` : null,
+)
 </script>
 
 <template>
@@ -48,31 +56,46 @@ const brandColors = computed(() =>
     </div>
 
     <template v-else-if="channel">
-      <section class="pt-0">
-        <div class="container">
-          <ChannelBanner
-            :banner-url="channel.bannerUrl"
-            :color-primary="brandColors.primary"
-            :color-secondary="brandColors.secondary"
-          />
+      <!--
+        -mt-44 lg:-mt-28 cancels the layout's <main class="pt-44 lg:pt-28"> (app/layouts/default.vue)
+        so the lilac wash bleeds under the fixed header, matching the "Détail chaîne" mockup's flat
+        #eeecf5 page background — same pattern as app/pages/chaines/index.vue.
+      -->
+      <section class="relative -mt-44 min-h-screen bg-[var(--color-auth-wash)] pt-44 lg:-mt-28 lg:pt-28">
+        <div class="bg-white">
+          <div class="container lg:px-16">
+            <ChannelBreadcrumb :channel-name="channel.name" />
 
-          <ChannelProfileHeader
-            :channel="channel"
-            :is-owner="isOwner"
-            :is-following="isFollowing"
-            :brand-color="brandColors.primary"
-            :brand-color-secondary="brandColors.secondary"
-            @toggle-follow="toggleFollow"
-          />
+            <ChannelBanner
+              :banner-url="channel.bannerUrl"
+              :color-primary="brandColors.primary"
+              :color-secondary="brandColors.secondary"
+              :edit-href="bannerEditHref"
+            />
 
-          <ChannelStatsStrip :channel="channel" :articles-count="articles.length" :stats-data-count="statsData.length" />
+            <ChannelProfileHeader
+              :channel="channel"
+              :is-owner="isOwner"
+              :is-following="isFollowing"
+              :category-label="categoryLabel"
+              :brand-color="brandColors.primary"
+              :brand-color-secondary="brandColors.secondary"
+              @toggle-follow="toggleFollow"
+            />
 
-          <ChannelDetailTabs v-model="activeTab" :tabs="tabs" :accent-color="brandColors.primary" />
+            <ChannelStatsStrip :channel="channel" :articles-count="articles.length" :stats-data-count="statsData.length" />
 
+            <ChannelDetailTabs v-model="activeTab" :tabs="tabs" />
+          </div>
+        </div>
+
+        <div class="container pb-16 lg:px-16">
           <ChannelFeaturedTab
             v-if="activeTab === 'featured'"
             :featured="featured"
             :enriched-survey="featuredEnrichedSurvey"
+            :recent-articles="recentArticles"
+            @view-all-articles="activeTab = 'articles'"
           />
 
           <ChannelFeedList
@@ -99,6 +122,8 @@ const brandColors = computed(() =>
             :category-labels="categoryLabels"
             :created-at-label="createdAtLabel"
           />
+
+          <ChannelSimilarSlider :channel="channel" />
         </div>
       </section>
     </template>

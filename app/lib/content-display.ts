@@ -42,3 +42,13 @@ export function contentPropertiesPath(type: ContentType, slug: string | null | u
   if (!slug) return null
   return `${publicContentPath(type, slug)}/proprietes`
 }
+
+/** A StatsData document opens on its first page when it has one, else on the document itself. */
+export function statsDataDetailPath(
+  doc: { id: string; slug?: string; pages?: { id: string; slug?: string }[] },
+  basePath = '',
+): string {
+  if (!doc.slug) return `${basePath}/statsdata/${doc.id}`
+  const first = doc.pages?.[0]
+  return first ? `${basePath}/statsdata/${doc.slug}/${first.slug ?? first.id}` : `${basePath}/statsdata/${doc.slug}`
+}

@@ -5,11 +5,13 @@ definePageMeta({
   description: "Explorez les chaînes Statsio : sources officielles, experts indépendants et collectifs thématiques sur la politique, l'économie, la société et plus.",
 })
 
-import { onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import AppPagination from '@/components/ui/AppPagination.vue'
 import ChannelDirectoryToolbar from '@/components/channels/ChannelDirectoryToolbar.vue'
 import ChannelDirectoryGrid from '@/components/channels/ChannelDirectoryGrid.vue'
 import { useChannelsDirectory } from '@/composables/useChannelsDirectory'
+import { useMyChannels } from '@/composables/useMyChannels'
+import { useAuthStore } from '@/stores/auth'
 
 const {
   channels,
@@ -27,7 +29,33 @@ const {
   init,
 } = useChannelsDirectory()
 
-onMounted(init)
+const auth = useAuthStore()
+const { channels: myChannels, fetch: fetchMyChannels } = useMyChannels()
+const ownedIds = computed(() => new Set(myChannels.value.map((c) => c.id)))
+
+const view = ref<'grid' | 'list'>('grid')
+const verifiedOnly = ref(false)
+const followedOnly = ref(false)
+
+// Le tri/la pagination viennent de l'API ; "vérifiées" et "mes abonnements" n'ont pas
+// d'équivalent côté serveur, donc on les applique côté client sur la page chargée.
+const filteredChannels = computed(() => {
+  let list = channels.value
+  if (verifiedOnly.value) list = list.filter((c) => c.badges.includes('verified'))
+  if (followedOnly.value) list = list.filter((c) => c.profile?.is_following || ownedIds.value.has(c.id))
+  return list
+})
+
+function handleReset() {
+  verifiedOnly.value = false
+  followedOnly.value = false
+  resetFilters()
+}
+
+onMounted(() => {
+  init()
+  if (auth.isAuthenticated) fetchMyChannels()
+})
 </script>
 
 <template>
@@ -43,18 +71,24 @@ onMounted(init)
           v-model:search="search"
           v-model:category="category"
           v-model:sort="sort"
+          v-model:view="view"
+          v-model:verified-only="verifiedOnly"
+          v-model:followed-only="followedOnly"
           :categories="categories"
           :total="total"
+          :result-count="filteredChannels.length"
           :loading="loading"
-          @reset="resetFilters"
+          @reset="handleReset"
         />
 
         <ChannelDirectoryGrid
-          :channels="channels"
+          :channels="filteredChannels"
+          :view="view"
           :loading="loading"
           :error="error"
+          :owned-ids="ownedIds"
           @retry="init"
-          @reset="resetFilters"
+          @reset="handleReset"
         />
 
         <AppPagination

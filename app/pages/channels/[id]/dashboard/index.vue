@@ -3,37 +3,34 @@ definePageMeta({ layout: 'channel-dashboard', middleware: ['auth'], ssr: false, 
 import { computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useChannelDashboard } from '@/composables/useChannelDashboard'
+import { useChannelStats } from '@/composables/useChannelStats'
+import { useChannelContents } from '@/composables/useChannelContents'
+import { formatCompactNumber } from '@/lib/format'
 
 const route = useRoute()
 const channelId = computed(() => Number(route.params.id))
-const { channel, isLoading, loadError, getCategoryLabel } = useChannelDashboard()
+const { channel, isLoading, loadError } = useChannelDashboard()
 
 onMounted(() => useChannelDashboard().ensureLoaded(channelId.value))
 
-const formatCount = (n: number | undefined) => {
-  if (n === undefined || n === null) return '0'
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`
-  return String(n)
-}
+const { stats, loading: statsLoading } = useChannelStats(channelId)
+const { filteredContents, loading: contentsLoading } = useChannelContents(channelId, channel)
+const recentContents = computed(() => filteredContents.value.slice(0, 4))
 
-const statusLabel: Record<string, { label: string; classes: string }> = {
-  active:     { label: 'Active',     classes: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  suspended:  { label: 'Suspendue',  classes: 'bg-amber-50 text-amber-700 border-amber-200' },
-  banned:     { label: 'Bannie',     classes: 'bg-rose-50 text-rose-700 border-rose-200' },
-  anonymized: { label: 'Anonymisée', classes: 'bg-slate-100 text-slate-500 border-slate-200' },
-}
-const getStatus = (s: string) => statusLabel[s] ?? { label: s, classes: 'bg-slate-100 text-slate-500 border-slate-200' }
+const chartPoints = computed(() => stats.value?.views.series.map((p) => p.views) ?? [])
+const chartLabels = computed(() =>
+  stats.value?.views.series.map((p) => new Date(p.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })) ?? [],
+)
 </script>
 
 <template>
-  <div class="mx-auto flex max-w-4xl flex-col gap-6">
+  <div class="mx-auto flex max-w-6xl flex-col gap-7">
 
     <!-- Skeleton -->
     <template v-if="isLoading">
       <div class="h-10 w-64 animate-pulse rounded-2xl bg-slate-200" />
-      <div class="grid gap-4 sm:grid-cols-3">
-        <div v-for="i in 3" :key="i" class="h-28 animate-pulse rounded-[1.5rem] bg-slate-100" />
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div v-for="i in 4" :key="i" class="h-28 animate-pulse rounded-[1.5rem] bg-slate-100" />
       </div>
       <div class="h-40 animate-pulse rounded-[2rem] bg-slate-100" />
     </template>
@@ -45,79 +42,84 @@ const getStatus = (s: string) => statusLabel[s] ?? { label: s, classes: 'bg-slat
 
     <template v-else-if="channel">
       <!-- Titre -->
-      <div>
-        <p class="eyebrow text-primary">Vue d'ensemble</p>
-        <h1 class="mt-2 text-3xl font-semibold tracking-[-0.03em] text-slate-950">
-          Bonjour, voici votre chaîne
-        </h1>
-        <p class="mt-2 text-slate-500">Suivez les performances de {{ channel.profile.name }} en un coup d'œil.</p>
+      <div class="flex items-center gap-3">
+        <h1 class="text-[26px] font-bold text-slate-950">{{ channel.profile.name }}</h1>
+        <span class="rounded-full px-2.5 py-1 text-[11.5px] font-bold" :class="'bg-primary/10 text-primary'">Vue d'ensemble</span>
       </div>
 
       <!-- Stats -->
-      <div class="grid gap-4 sm:grid-cols-3">
-        <div class="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)]">
-          <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Abonnés</p>
-          <p class="mt-2 text-3xl font-bold text-slate-950">{{ formatCount(channel.profile.subscriber_count) }}</p>
-        </div>
-        <div class="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)]">
-          <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Vues totales</p>
-          <p class="mt-2 text-3xl font-bold text-slate-950">{{ formatCount(channel.profile.view_count) }}</p>
-        </div>
-        <div class="rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)]">
-          <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Statut</p>
-          <p class="mt-3">
-            <span class="rounded-full border px-3 py-1 text-sm font-semibold" :class="getStatus(channel.status).classes">
-              {{ getStatus(channel.status).label }}
-            </span>
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="card-xl p-[18px]">
+          <p class="text-[11.5px] text-slate-500">Abonnés</p>
+          <p class="mono mt-2 text-[22px] font-semibold text-slate-950">{{ formatCompactNumber(channel.profile.subscriber_count ?? 0) }}</p>
+          <p v-if="stats" class="mt-1 text-[11.5px] font-semibold" :class="stats.subscribers.growth.growthPercent >= 0 ? 'text-emerald-600' : 'text-rose-600'">
+            {{ stats.subscribers.growth.growthPercent >= 0 ? '▲' : '▼' }} {{ stats.subscribers.growth.newCount }} / 7j
           </p>
         </div>
-      </div>
-
-      <!-- Ligne éditoriale -->
-      <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)]">
-        <p class="text-xs font-semibold uppercase tracking-[0.24em] text-primary">Catégories</p>
-        <h2 class="mt-2 text-2xl font-semibold text-slate-950">Ligne éditoriale</h2>
-        <div class="mt-4 flex flex-wrap gap-2">
-          <span
-            v-for="cat in channel.profile.categories"
-            :key="cat"
-            class="rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary"
-          >
-            {{ getCategoryLabel(cat) }}
-          </span>
-          <span v-if="!channel.profile.categories?.length" class="text-sm text-slate-400">Aucune catégorie définie</span>
+        <div class="card-xl p-[18px]">
+          <p class="text-[11.5px] text-slate-500">Vues (30j)</p>
+          <p class="mono mt-2 text-[22px] font-semibold text-slate-950">{{ statsLoading ? '…' : formatCompactNumber(stats?.views.total ?? 0) }}</p>
+          <p v-if="stats" class="mt-1 text-[11.5px] font-semibold" :class="stats.views.growthPercent >= 0 ? 'text-emerald-600' : 'text-rose-600'">
+            {{ stats.views.growthPercent >= 0 ? '▲' : '▼' }} {{ Math.abs(stats.views.growthPercent) }}%
+          </p>
         </div>
-        <p v-if="channel.profile.description" class="mt-4 text-sm leading-7 text-slate-600">
-          {{ channel.profile.description }}
-        </p>
+        <div class="card-xl p-[18px]">
+          <p class="text-[11.5px] text-slate-500">Vues totales</p>
+          <p class="mono mt-2 text-[22px] font-semibold text-slate-950">{{ statsLoading ? '…' : formatCompactNumber(stats?.lifetimeViews ?? 0) }}</p>
+          <p class="mt-1 text-[11.5px] text-slate-400">depuis la création</p>
+        </div>
+        <div class="card-xl p-[18px]">
+          <p class="text-[11.5px] text-slate-500">Membres actifs</p>
+          <p class="mono mt-2 text-[22px] font-semibold text-slate-950">{{ statsLoading ? '…' : (stats?.teamMemberCount ?? 0) }}</p>
+          <p class="mt-1 text-[11.5px] text-slate-400">équipe éditoriale</p>
+        </div>
       </div>
 
-      <!-- Raccourcis -->
-      <div class="grid gap-4 sm:grid-cols-2">
-        <NuxtLink
-          :to="`/channels/${channelId}/dashboard/profil`"
-          class="group rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)] transition hover:-translate-y-0.5 hover:border-primary/30"
-        >
-          <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487z" />
-            </svg>
+      <!-- Chart -->
+      <div class="card-xl p-6">
+        <p class="mb-4 text-sm font-bold text-slate-950">Vues sur 30 jours</p>
+        <div v-if="statsLoading" class="h-[120px] animate-pulse rounded-2xl bg-slate-100" />
+        <AppSparkline
+          v-else-if="chartPoints.length > 1"
+          :points="chartPoints"
+          :labels="chartLabels"
+          :height="120"
+          show-axis
+        />
+        <p v-else class="py-8 text-center text-sm text-slate-400">Pas encore assez de données pour afficher un graphique.</p>
+      </div>
+
+      <!-- Contenus récents -->
+      <div class="card-xl p-6">
+        <div class="mb-4 flex items-baseline justify-between">
+          <p class="text-sm font-bold text-slate-950">Contenus récents</p>
+          <NuxtLink :to="`/channels/${channelId}/dashboard/contenus`" class="text-[12.5px] font-semibold text-primary hover:text-accent">
+            Voir tous les contenus →
+          </NuxtLink>
+        </div>
+
+        <div v-if="contentsLoading" class="space-y-3">
+          <div v-for="i in 4" :key="i" class="h-10 animate-pulse rounded-xl bg-slate-100" />
+        </div>
+
+        <div v-else-if="recentContents.length" class="-mx-6 overflow-x-auto px-6">
+          <div class="grid min-w-[480px] grid-cols-[2fr_1fr_1fr_1fr] text-[12.5px]">
+            <div class="pb-2 font-bold text-slate-500">Titre</div>
+            <div class="pb-2 font-bold text-slate-500">Type</div>
+            <div class="pb-2 font-bold text-slate-500">Vues</div>
+            <div class="pb-2 font-bold text-slate-500">Statut</div>
+            <template v-for="rc in recentContents" :key="rc.id">
+              <div class="truncate border-t border-slate-100 py-2.5 pr-3">{{ rc.title }}</div>
+              <div class="border-t border-slate-100 py-2.5">{{ rc.typeLabel }}</div>
+              <div class="mono border-t border-slate-100 py-2.5">{{ formatCompactNumber(rc.viewsCount) }}</div>
+              <div class="border-t border-slate-100 py-2.5">
+                <span class="font-semibold" :style="{ color: rc.statusColor }">{{ rc.statusLabel }}</span>
+              </div>
+            </template>
           </div>
-          <h3 class="mt-4 text-base font-semibold text-slate-950 transition group-hover:text-primary">Compléter mon profil</h3>
-          <p class="mt-1 text-sm text-slate-500">Nom, description, catégories, logo et bannière.</p>
-        </NuxtLink>
-        <NuxtLink
-          :to="`/channels/${channelId}/dashboard/membres`"
-          class="group rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)] transition hover:-translate-y-0.5 hover:border-primary/30"
-        >
-          <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-accent/10 text-accent">
-            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM3 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 019.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
-            </svg>
-          </div>
-          <h3 class="mt-4 text-base font-semibold text-slate-950 transition group-hover:text-primary">Gérer mon équipe</h3>
-          <p class="mt-1 text-sm text-slate-500">Membres, rôles et permissions de la chaîne.</p>
-        </NuxtLink>
+        </div>
+
+        <p v-else class="py-8 text-center text-sm text-slate-400">Aucun contenu publié pour l'instant.</p>
       </div>
     </template>
 
