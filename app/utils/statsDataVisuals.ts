@@ -18,3 +18,18 @@ export function getStatsDataVisual(categories?: string[], emoji?: string | null)
   const visual = CATEGORY_VISUALS.find((v) => v.match.test(label)) ?? DEFAULT_VISUAL
   return emoji ? { ...visual, emoji } : visual
 }
+
+/**
+ * Decorative rhythm only — no per-dataset time series is exposed by the API yet, seeded
+ * from the given id so a given document always renders the same shape.
+ */
+export function seededSparklinePoints(seedKey: string, count = 9): number[] {
+  let seed = 0
+  for (const char of seedKey) seed = (seed * 31 + char.charCodeAt(0)) % 9973
+  const points: number[] = []
+  for (let i = 0; i < count; i++) {
+    seed = (seed * 1103515245 + 12345) % 2147483648
+    points.push(seed % 100)
+  }
+  return points
+}
