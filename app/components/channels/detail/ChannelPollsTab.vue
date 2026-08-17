@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import PollListRow from '@/components/polls/PollListRow.vue'
+import ChannelPollGridCard from './ChannelPollGridCard.vue'
 import type { EnrichedPoll } from '@/lib/poll-enrich'
 
 defineProps<{
@@ -9,8 +9,8 @@ defineProps<{
 </script>
 
 <template>
-  <div v-if="items.length" class="flex flex-col py-8">
-    <PollListRow
+  <div v-if="items.length" class="grid gap-4 py-8 sm:grid-cols-2">
+    <ChannelPollGridCard
       v-for="p in items"
       :key="p.poll.id"
       :to="p.to"

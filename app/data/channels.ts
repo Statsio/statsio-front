@@ -1,4 +1,4 @@
-import type { FeaturedContent } from '@/api/channels'
+import type { FeaturedContent, ChannelOrganization } from '@/api/channels'
 
 export type ChannelTone = 'primary' | 'accent' | 'secondary'
 
@@ -7,7 +7,8 @@ export type ChannelEntry = {
   name: string
   handle: string
   initials: string
-  isOfficial: boolean
+  badges: string[]
+  organization?: ChannelOrganization | null
   description: string
   longDescription: string
   themes: string[]
@@ -21,7 +22,6 @@ export type ChannelEntry = {
   subscriptionPrice?: string
   logoUrl?: string | null
   bannerUrl?: string | null
-  ageRestriction?: number
   createdAt?: string
   country?: string | null
   viewCount?: number

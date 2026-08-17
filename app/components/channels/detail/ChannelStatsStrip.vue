@@ -18,10 +18,12 @@ const stats = computed(() => [
 </script>
 
 <template>
-  <div class="flex gap-8 border-b border-[#18181f]/[0.08] pb-4 pt-7">
-    <div v-for="stat in stats" :key="stat.label">
-      <p class="font-mono text-[18px] font-semibold text-[#18181f]">{{ stat.value }}</p>
-      <p class="mt-1 text-[11.5px] text-[#18181f]/50">{{ stat.label }}</p>
+  <div
+    class="mt-8 grid grid-cols-2 gap-px overflow-hidden rounded-[18px] border border-[#18181f]/[0.09] bg-[#18181f]/[0.09] sm:grid-cols-4"
+  >
+    <div v-for="stat in stats" :key="stat.label" class="bg-white px-5 py-[18px] sm:px-6 sm:py-5">
+      <p class="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-[#18181f]/45">{{ stat.label }}</p>
+      <p class="mono mt-2 text-[22px] font-semibold tracking-[-0.02em] text-[#18181f] sm:text-[26px]">{{ stat.value }}</p>
     </div>
   </div>
 </template>

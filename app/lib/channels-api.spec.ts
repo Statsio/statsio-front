@@ -28,7 +28,6 @@ const apiChannel = (overrides: Record<string, unknown> = {}) => ({
     view_count: 120,
     custom_color_primary: null,
     custom_color_secondary: null,
-    age_restriction: null,
     subscriber_count: 42,
     categories: ['politique', 'economie'],
     logo_url: null,
