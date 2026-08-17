@@ -176,8 +176,11 @@ describe('app/api/channels', () => {
 
   describe('updateChannelProfile', () => {
     it('only appends fields explicitly present in the payload (undefined-checked, not truthy-checked)', async () => {
-      apiMock.onPut('/channels/1').reply((config) => {
+      // POST + spoofing Laravel (_method=PUT), pas un vrai PUT : PHP ne parse pas les corps
+      // multipart pour PUT (cf. commentaire dans updateChannelProfile).
+      apiMock.onPost('/channels/1').reply((config) => {
         const form = config.data as FormData
+        expect(form.get('_method')).toBe('PUT')
         expect(form.get('name')).toBe('New name')
         expect(form.get('description')).toBe('') // empty string is still "present" (!== undefined)
         expect(form.get('handle')).toBeNull()
