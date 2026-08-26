@@ -11,7 +11,8 @@ import StudioHeader from '@/components/studio/StudioHeader.vue'
 import TextFormatToolbar from '@/components/studio/TextFormatToolbar.vue'
 import StudioSidebarLeft from '@/components/studio/StudioSidebarLeft.vue'
 import StudioSidebarRight from '@/components/studio/StudioSidebarRight.vue'
-import CanvasGrid from '@/components/studio/canvas/CanvasGrid.vue'
+// CanvasGrid is resolved via Nuxt's auto-import so its .client.vue suffix
+// excludes vuedraggable (SSR-incompatible) from the server bundle.
 
 const route = useRoute()
 const studio = useStudioStore()
