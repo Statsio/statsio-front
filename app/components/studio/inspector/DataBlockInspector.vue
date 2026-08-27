@@ -6,6 +6,7 @@ import { useActiveEditor } from '@/composables/useActiveEditor'
 import type { BlockFilter, BlockJoin, DatasetColumn, DatasetMeta, StudioBlock } from '@/types/studio'
 import FieldPicker from '@/components/studio/fields/FieldPicker.vue'
 import FieldNote from '@/components/studio/fields/FieldNote.vue'
+import FieldColumnChips from '@/components/studio/fields/FieldColumnChips.vue'
 import DataSourcePickerModal from '@/components/studio/ui/DataSourcePickerModal.vue'
 import FiltersModal from '@/components/studio/ui/FiltersModal.vue'
 import ColumnsMappingModal from '@/components/studio/ui/ColumnsMappingModal.vue'
@@ -35,6 +36,15 @@ const schema = computed(() => props.block.datasetId ? (datasets.getSchema(props.
 const columnNames = computed(() => schema.value?.columns.map((c: DatasetColumn) => c.name) ?? [])
 
 const joins = computed<BlockJoin[]>(() => props.block.joins ?? [])
+
+/** Colonnes de la source principale + des jointures, à plat (pour les sélecteurs). */
+const allColumnNames = computed<string[]>(() => {
+  const names = new Set<string>(columnNames.value)
+  joins.value.forEach((j: BlockJoin) => {
+    datasets.getSchema(j.datasetId)?.columns.forEach((c: DatasetColumn) => names.add(c.name))
+  })
+  return [...names]
+})
 function joinSchema(joinIdx: number) {
   const id = joins.value[joinIdx]?.datasetId
   return id ? (datasets.getSchema(id) ?? null) : null
@@ -207,11 +217,10 @@ const compFiltersSummary = computed(() =>
               </div>
             </button>
             <div v-show="open('distinct')" class="accordion-body flex flex-col gap-1.5">
-              <ColumnButton
+              <FieldColumnChips
                 :model-value="block.config.distinctColumn ?? null"
-                :block="block"
-                placeholder="— Aucun —"
-                clearable
+                :columns="allColumnNames"
+                none-label="Aucun"
                 @update:model-value="updateConfig('distinctColumn', $event || null)"
               />
               <p class="text-[11px] text-[var(--studio-faint)] leading-relaxed">Garde une seule ligne par valeur unique de la colonne sélectionnée.</p>
@@ -234,16 +243,13 @@ const compFiltersSummary = computed(() =>
             <div v-show="open('sort')" class="accordion-body flex flex-col gap-3">
 
               <!-- Colonne de tri -->
-              <div class="flex flex-col gap-1.5">
-                <label class="text-xs font-semibold text-[var(--studio-muted)]">Colonne</label>
-                <ColumnButton
-                  :model-value="block.config.sortColumn ?? null"
-                  :block="block"
-                  placeholder="— Aucun tri —"
-                  clearable
-                  @update:model-value="updateConfig('sortColumn', $event || null); if (!$event) updateConfig('sortDirection', null)"
-                />
-              </div>
+              <FieldColumnChips
+                label="Colonne"
+                :model-value="block.config.sortColumn ?? null"
+                :columns="allColumnNames"
+                none-label="Aucun tri"
+                @update:model-value="updateConfig('sortColumn', $event || null); if (!$event) updateConfig('sortDirection', null)"
+              />
 
               <!-- Direction -->
               <div v-if="block.config.sortColumn" class="flex flex-col gap-1.5">
@@ -293,11 +299,10 @@ const compFiltersSummary = computed(() =>
               </button>
               <div v-show="open('comp-ref')" class="accordion-body">
                 <p class="text-[11px] text-[var(--studio-faint)] mb-2 leading-relaxed">Par défaut, même colonne que la valeur principale.</p>
-                <ColumnButton
+                <FieldColumnChips
                   :model-value="block.fieldMapping.comparisonColumn ?? null"
-                  :block="block"
-                  placeholder="— Même que la valeur principale —"
-                  clearable
+                  :columns="allColumnNames"
+                  none-label="Même que la valeur"
                   @update:model-value="updateMappingWithJoinSync('comparisonColumn', ($event ?? '') as string)"
                 />
               </div>
