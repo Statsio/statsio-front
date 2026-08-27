@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import type { ModalStep } from '@/components/ui/AppStepModal.vue'
-import type { Materialization, PaginationStyle, RefreshFrequency } from '@/api/data-sources'
-import { mapPaginationToApi } from '@/api/data-sources'
+import type { DataSourcePagination, DetectStructureResult, Materialization, PaginationStyle, RefreshFrequency } from '@/api/data-sources'
+import { detectApiStructure, mapPaginationToApi } from '@/api/data-sources'
 
 export type SourceType = 'file' | 'api' | 'catalog'
 export type AuthType = 'none' | 'api_key' | 'bearer'
@@ -42,12 +42,112 @@ export function defaultPagination(): ApiFormPagination {
 /** number = a real source_provenances.id, 'other' = free-text website field. */
 export type ProvenanceSelection = number | 'other' | null
 
+export interface ApiFormShape {
+  name: string
+  url: string
+  method: HttpMethod
+  authType: AuthType
+  apiKeyHeader: string
+  apiKeyValue: string
+  bearerToken: string
+  dataPath: string
+  refreshFrequency: RefreshFrequency
+  pagination: ApiFormPagination
+  materialization: Materialization
+}
+
 export const ADD_SOURCE_WIZARD_STEPS: ModalStep[] = [
   { id: 'type', title: 'Type de source', description: 'Choisissez la provenance de vos données' },
+  { id: 'detect', title: 'Détection', description: "Connectez votre API pour pré-remplir la configuration" },
   { id: 'configure', title: 'Configuration', description: 'Importez votre fichier ou connectez une API' },
   { id: 'provenance', title: 'Provenance', description: "D'où proviennent vos données ?" },
   { id: 'visibility', title: 'Visibilité', description: 'Privée ou accessible à tous' },
 ]
+
+/** Construit les headers d'authentification à partir du formulaire API — partagé entre détection, test de connexion et soumission. */
+export function apiFormAuthHeaders(apiForm: Pick<ApiFormShape, 'authType' | 'apiKeyHeader' | 'apiKeyValue' | 'bearerToken'>): Record<string, string> {
+  const headers: Record<string, string> = {}
+  if (apiForm.authType === 'api_key' && apiForm.apiKeyValue) {
+    headers[apiForm.apiKeyHeader || 'X-API-Key'] = apiForm.apiKeyValue
+  }
+  if (apiForm.authType === 'bearer' && apiForm.bearerToken) {
+    headers['Authorization'] = `Bearer ${apiForm.bearerToken}`
+  }
+  return headers
+}
+
+function mergeDetectedPagination(pagination: DataSourcePagination | undefined): ApiFormPagination {
+  const defaults = defaultPagination()
+  if (!pagination) return defaults
+  return {
+    style: pagination.style ?? defaults.style,
+    paramName: pagination.paramName ?? defaults.paramName,
+    paramStart: pagination.paramStart ?? defaults.paramStart,
+    sizeParam: pagination.sizeParam ?? defaults.sizeParam,
+    pageSize: pagination.pageSize ?? defaults.pageSize,
+    totalPath: pagination.totalPath ?? defaults.totalPath,
+    totalMode: pagination.totalMode ?? defaults.totalMode,
+    cursorParam: pagination.cursorParam ?? defaults.cursorParam,
+    cursorPath: pagination.cursorPath ?? defaults.cursorPath,
+    nextLinkSource: pagination.nextLinkSource ?? defaults.nextLinkSource,
+    nextLinkPath: pagination.nextLinkPath ?? defaults.nextLinkPath,
+    maxPages: pagination.maxPages ?? defaults.maxPages,
+  }
+}
+
+/**
+ * Détection auto de la structure d'une API REST — partagée entre l'étape dédiée du wizard
+ * de création (StepApiDetect) et le bouton de re-détection en édition (StepSourceConfigure).
+ * `getApiForm`/`setApiForm` plutôt qu'un Ref : les composants appelants exposent apiForm via
+ * un prop + un emit `update:apiForm`, pas une ref locale.
+ */
+export function useApiStructureDetection(getApiForm: () => ApiFormShape, setApiForm: (patch: Partial<ApiFormShape>) => void) {
+  const detectStatus = ref<'idle' | 'loading' | 'detected' | 'error'>('idle')
+  const detectResult = ref<DetectStructureResult | null>(null)
+  const detectError = ref('')
+
+  async function runDetection() {
+    const apiForm = getApiForm()
+    if (!apiForm.url) return
+    detectStatus.value = 'loading'
+    detectError.value = ''
+    detectResult.value = null
+
+    try {
+      const result = await detectApiStructure(apiForm.url.trim(), apiFormAuthHeaders(apiForm))
+      detectResult.value = result
+
+      if (result.partial) {
+        detectStatus.value = 'error'
+        detectError.value = result.message
+          ?? (result.reason === 'no_records_array_found'
+            ? "Aucun tableau d'enregistrements n'a été trouvé dans la réponse."
+            : "La détection n'a pas pu aboutir complètement — vérifiez la configuration manuellement.")
+        if (result.method) setApiForm({ method: result.method })
+        return
+      }
+
+      detectStatus.value = 'detected'
+      setApiForm({
+        method: result.method,
+        dataPath: result.dataPath ?? '',
+        pagination: mergeDetectedPagination(result.pagination),
+      })
+    } catch (e: unknown) {
+      detectStatus.value = 'error'
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message
+      detectError.value = msg ?? "Impossible d'analyser cette API. Vérifiez l'URL ou configurez manuellement."
+    }
+  }
+
+  function resetDetection() {
+    detectStatus.value = 'idle'
+    detectResult.value = null
+    detectError.value = ''
+  }
+
+  return { detectStatus, detectResult, detectError, runDetection, resetDetection }
+}
 
 export function useAddSourceWizard() {
   const sourceType = ref<SourceType | null>(null)
@@ -61,7 +161,7 @@ export function useAddSourceWizard() {
   const excludedRows = ref<number[]>([])
 
   // ─── API ─────────────────────────────────────────────────────────────────
-  const apiForm = ref({
+  const apiForm = ref<ApiFormShape>({
     name: '',
     url: '',
     method: 'GET' as HttpMethod,
@@ -88,6 +188,9 @@ export function useAddSourceWizard() {
   const canGoNext = computed(() => {
     if (currentStepId.value === 'type') {
       return sourceType.value === 'file' || sourceType.value === 'api'
+    }
+    if (currentStepId.value === 'detect') {
+      return !!apiForm.value.url.trim()
     }
     if (currentStepId.value === 'configure') {
       if (sourceType.value === 'file') return fileObj.value !== null

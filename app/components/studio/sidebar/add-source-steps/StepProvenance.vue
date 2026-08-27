@@ -27,7 +27,7 @@ onMounted(async () => {
 
 <template>
   <div class="flex flex-col gap-4 py-2">
-    <p class="text-sm text-slate-500">D'où proviennent les données de cette source ?</p>
+    <p class="text-sm text-[var(--studio-muted)]">D'où proviennent les données de cette source ?</p>
 
     <div v-if="loading" class="flex items-center justify-center py-10">
       <svg class="h-6 w-6 animate-spin text-[var(--color-primary)]" fill="none" viewBox="0 0 24 24">
@@ -44,7 +44,7 @@ onMounted(async () => {
         class="inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-semibold transition hover:-translate-y-0.5"
         :class="modelValue === provenance.id
           ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white shadow-[0_8px_20px_color-mix(in_srgb,var(--color-primary)_30%,transparent)]'
-          : 'border-slate-200 bg-white text-slate-700 hover:border-[var(--color-primary)]/40 hover:text-[var(--color-primary)]'"
+          : 'border-[var(--studio-line-strong)] bg-white text-[var(--studio-ink)] hover:border-[var(--color-primary)]/40 hover:text-[var(--color-primary)]'"
         @click="emit('update:modelValue', provenance.id)"
       >
         {{ provenance.name }}
@@ -55,7 +55,7 @@ onMounted(async () => {
         class="inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-semibold transition hover:-translate-y-0.5"
         :class="modelValue === 'other'
           ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white shadow-[0_8px_20px_color-mix(in_srgb,var(--color-primary)_30%,transparent)]'
-          : 'border-slate-200 bg-white text-slate-700 hover:border-[var(--color-primary)]/40 hover:text-[var(--color-primary)]'"
+          : 'border-[var(--studio-line-strong)] bg-white text-[var(--studio-ink)] hover:border-[var(--color-primary)]/40 hover:text-[var(--color-primary)]'"
         @click="emit('update:modelValue', 'other')"
       >
         Autre
@@ -63,13 +63,13 @@ onMounted(async () => {
     </div>
 
     <div v-if="modelValue === 'other'">
-      <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+      <label class="block text-xs font-semibold uppercase tracking-wider text-[var(--studio-faint)] mb-1.5">
         Site internet de la source
       </label>
       <input
         :value="otherLabel"
         type="text"
-        class="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] transition-all"
+        class="w-full rounded-xl border border-[var(--studio-line-strong)] px-4 py-2.5 text-sm text-[var(--studio-ink)] focus:outline-none  focus:border-[var(--color-primary)] transition-all"
         placeholder="ex : www.exemple.com"
         @input="emit('update:otherLabel', ($event.target as HTMLInputElement).value)"
       />

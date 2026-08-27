@@ -65,8 +65,8 @@ function tokenDisplay(name: string) {
 </script>
 
 <template>
-  <div v-if="isTemplate && availableTokens.length > 0" class="border-t border-slate-100 px-3 py-2.5 shrink-0">
-    <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Variables disponibles</p>
+  <div v-if="isTemplate && availableTokens.length > 0" class="border-t border-[var(--studio-line)] px-3 py-2.5 shrink-0">
+    <p class="text-[10px] font-semibold text-[var(--studio-faint)] uppercase tracking-wider mb-1.5">Variables disponibles</p>
     <div class="flex flex-wrap gap-1">
       <button
         v-for="token in availableTokens"
@@ -74,7 +74,7 @@ function tokenDisplay(name: string) {
         class="group flex items-center gap-1 px-2 py-0.5 rounded-md border transition-all text-[11px] font-mono font-semibold select-none"
         :class="studio.pageParams[token]
           ? 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100'
-          : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700'"
+          : 'bg-[var(--studio-note)] border-[var(--studio-line-strong)] text-[var(--studio-muted)] hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700'"
         :title="studio.pageParams[token] ? `= ${studio.pageParams[token]}` : 'Cliquer pour insérer dans le champ actif'"
         @mousedown.prevent="insertToken(token)"
       >

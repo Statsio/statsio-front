@@ -43,36 +43,36 @@ const formatRows = (n: number) => n.toLocaleString('fr-FR')
 <template>
   <div class="flex flex-col gap-4">
     <div>
-      <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+      <p class="text-[10px] font-bold uppercase tracking-wider text-[var(--studio-faint)] mb-2">
         Colonnes
         <span class="font-normal normal-case">({{ columns.length }})</span>
       </p>
-      <div class="rounded-xl border border-slate-200 overflow-hidden">
+      <div class="rounded-xl border border-[var(--studio-line-strong)] overflow-hidden">
         <table class="w-full text-xs">
-          <thead class="bg-slate-50">
+          <thead class="bg-[var(--studio-note)]">
             <tr>
-              <th class="px-3 py-2 text-left font-semibold text-slate-500">Nom</th>
-              <th class="px-3 py-2 text-left font-semibold text-slate-500">Type</th>
-              <th class="px-3 py-2 text-left font-semibold text-slate-500">Rôle</th>
-              <th class="px-3 py-2 text-left font-semibold text-slate-500">Nullable</th>
+              <th class="px-3 py-2 text-left font-semibold text-[var(--studio-muted)]">Nom</th>
+              <th class="px-3 py-2 text-left font-semibold text-[var(--studio-muted)]">Type</th>
+              <th class="px-3 py-2 text-left font-semibold text-[var(--studio-muted)]">Rôle</th>
+              <th class="px-3 py-2 text-left font-semibold text-[var(--studio-muted)]">Nullable</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="col in columns" :key="col.name" class="border-t border-slate-100">
-              <td class="px-3 py-1.5 font-mono text-slate-700">{{ col.name }}</td>
+            <tr v-for="col in columns" :key="col.name" class="border-t border-[var(--studio-line)]">
+              <td class="px-3 py-1.5 font-mono text-[var(--studio-ink)]">{{ col.name }}</td>
               <td class="px-3 py-1.5">
                 <span
                   class="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded"
-                  :class="typeColors[col.type] ?? 'bg-slate-100 text-slate-400'"
+                  :class="typeColors[col.type] ?? 'bg-slate-100 text-[var(--studio-faint)]'"
                 >{{ col.type }}</span>
               </td>
-              <td class="px-3 py-1.5 text-slate-500">
+              <td class="px-3 py-1.5 text-[var(--studio-muted)]">
                 <span v-if="col.semanticRole && semanticRoleBadges[col.semanticRole]" class="whitespace-nowrap">
                   {{ semanticRoleBadges[col.semanticRole]!.icon }} {{ semanticRoleBadges[col.semanticRole]!.label }}
                 </span>
-                <span v-else class="text-slate-300">—</span>
+                <span v-else class="text-[var(--studio-faint)]">—</span>
               </td>
-              <td class="px-3 py-1.5 text-slate-400">{{ col.nullable ? 'Oui' : 'Non' }}</td>
+              <td class="px-3 py-1.5 text-[var(--studio-faint)]">{{ col.nullable ? 'Oui' : 'Non' }}</td>
             </tr>
           </tbody>
         </table>
@@ -80,20 +80,20 @@ const formatRows = (n: number) => n.toLocaleString('fr-FR')
     </div>
 
     <div>
-      <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+      <p class="text-[10px] font-bold uppercase tracking-wider text-[var(--studio-faint)] mb-2">
         Aperçu des données
         <span v-if="rowCountHint != null" class="font-normal normal-case">
           ({{ rows.length }} sur ~{{ formatRows(rowCountHint) }} lignes estimées)
         </span>
       </p>
-      <div v-if="rows.length" class="overflow-auto rounded-xl border border-slate-200" :style="{ maxHeight }">
+      <div v-if="rows.length" class="overflow-auto rounded-xl border border-[var(--studio-line-strong)]" :style="{ maxHeight }">
         <table class="w-full text-xs border-collapse">
-          <thead class="sticky top-0 bg-slate-50">
+          <thead class="sticky top-0 bg-[var(--studio-note)]">
             <tr>
               <th
                 v-for="col in columns"
                 :key="col.name"
-                class="px-3 py-2 text-left font-semibold text-slate-500 border-b border-slate-200 whitespace-nowrap"
+                class="px-3 py-2 text-left font-semibold text-[var(--studio-muted)] border-b border-[var(--studio-line-strong)] whitespace-nowrap"
               >{{ col.name }}</th>
             </tr>
           </thead>
@@ -101,19 +101,19 @@ const formatRows = (n: number) => n.toLocaleString('fr-FR')
             <tr
               v-for="(row, ri) in rows"
               :key="ri"
-              class="border-b border-slate-100 last:border-0 hover:bg-slate-50"
+              class="border-b border-[var(--studio-line)] last:border-0 hover:bg-[var(--studio-note)]"
             >
               <td
                 v-for="col in columns"
                 :key="col.name"
-                class="px-3 py-1.5 text-slate-700 font-mono whitespace-nowrap"
+                class="px-3 py-1.5 text-[var(--studio-ink)] font-mono whitespace-nowrap"
                 :title="row[col.name] != null ? String(row[col.name]) : ''"
               >{{ row[col.name] != null ? row[col.name] : '—' }}</td>
             </tr>
           </tbody>
         </table>
       </div>
-      <p v-else class="text-xs text-slate-400 italic">Aucune donnée disponible.</p>
+      <p v-else class="text-xs text-[var(--studio-faint)] italic">Aucune donnée disponible.</p>
     </div>
   </div>
 </template>

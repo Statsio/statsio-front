@@ -293,6 +293,8 @@ export interface DatasetMeta {
   dataSourceId?: string
   /** Uniquement renseigné pour le propriétaire d'une source de type "api" — voir DatasetController::formatDataset. */
   sourceKind?: 'api'
+  /** Uniquement renseigné pour une source "api" — une source "live" n'a de row_count fiable que si un count_path a été détecté (voir query_mapping). */
+  materialization?: 'snapshot' | 'live'
   refreshFrequency?: 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly'
   lastRefreshedAt?: string | null
   nextRefreshAt?: string | null

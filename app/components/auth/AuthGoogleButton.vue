@@ -94,7 +94,7 @@ onMounted(async () => {
     await nextTick()
     await mountGoogleButton()
   } catch (error) {
-    localError.value = getErrorMessage(error, "Impossible d'initialiser Google Auth.")
+    localError.value = error instanceof Error ? error.message : "Impossible d'initialiser Google Auth."
   }
 })
 </script>

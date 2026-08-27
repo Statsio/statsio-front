@@ -31,6 +31,8 @@ export const STATSIO_API = {
   /** OpenAPI : `POST /api/source-api/probe-connection` — test d’URL + clé Bearer (sans lier au document). */
   sourceApi: {
     probeConnection: '/source-api/probe-connection',
+    /** `POST /api/source-api/detect-structure` — détecte méthode, enveloppe, pagination, schéma et filtres exploitables à partir de la seule URL. */
+    detectStructure: '/source-api/detect-structure',
   },
   apiSources: {
     collection: '/api-sources',

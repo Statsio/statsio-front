@@ -349,6 +349,7 @@ function mapDatasetMeta(raw: Record<string, unknown>): DatasetMeta {
     isOwner: raw.is_owner !== false,
     dataSourceId: raw.data_source_id != null ? String(raw.data_source_id) : undefined,
     sourceKind: raw.source_kind === 'api' ? 'api' : undefined,
+    materialization: raw.materialization as DatasetMeta['materialization'],
     refreshFrequency: raw.refresh_frequency as DatasetMeta['refreshFrequency'],
     lastRefreshedAt: raw.last_refreshed_at ? String(raw.last_refreshed_at) : null,
     nextRefreshAt: raw.next_refresh_at ? String(raw.next_refresh_at) : null,

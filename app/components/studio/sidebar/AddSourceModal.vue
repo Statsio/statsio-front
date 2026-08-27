@@ -8,6 +8,7 @@ import AppStepModal from '@/components/ui/AppStepModal.vue'
 import { useAddSourceWizard, ADD_SOURCE_WIZARD_STEPS } from '@/composables/useAddSourceWizard'
 import { createApiDataSource, type QueryMapping } from '@/api/data-sources'
 import StepSourceType from './add-source-steps/StepSourceType.vue'
+import StepApiDetect from './add-source-steps/StepApiDetect.vue'
 import StepSourceConfigure from './add-source-steps/StepSourceConfigure.vue'
 import StepProvenance from './add-source-steps/StepProvenance.vue'
 import StepVisibility from './add-source-steps/StepVisibility.vue'
@@ -27,9 +28,12 @@ const {
 // Pré-coche les catégories de visibilité publique avec celles du contenu Studio ouvert.
 categories.value = studio.content?.categories ?? []
 
-const activeSteps = computed(() =>
-  sourceType.value === 'catalog' ? ADD_SOURCE_WIZARD_STEPS.slice(0, 1) : ADD_SOURCE_WIZARD_STEPS,
-)
+const activeSteps = computed(() => {
+  if (sourceType.value === 'catalog') return ADD_SOURCE_WIZARD_STEPS.slice(0, 1)
+  // L'étape "Détection" ne concerne que les sources API (rien à détecter pour un fichier).
+  if (sourceType.value === 'file') return ADD_SOURCE_WIZARD_STEPS.filter((s) => s.id !== 'detect')
+  return ADD_SOURCE_WIZARD_STEPS
+})
 
 const submitting = ref(false)
 const submitStatus = ref<'idle' | 'success' | 'error'>('idle')
@@ -123,30 +127,30 @@ async function handleAttached() {
           <template v-else>Source ajoutée — traitement en cours</template>
         </div>
 
-        <div v-if="detectedQueryMapping" class="rounded-xl border border-slate-200 p-3">
-          <p class="text-xs font-semibold text-slate-600 mb-2">Filtres détectés automatiquement</p>
+        <div v-if="detectedQueryMapping" class="rounded-xl border border-[var(--studio-line-strong)] p-3">
+          <p class="text-xs font-semibold text-[var(--studio-muted)] mb-2">Filtres détectés automatiquement</p>
           <table v-if="Object.keys(detectedQueryMapping.filters).length" class="w-full text-xs">
             <thead>
-              <tr class="text-left text-slate-400">
+              <tr class="text-left text-[var(--studio-faint)]">
                 <th class="font-medium pb-1">Colonne</th>
                 <th class="font-medium pb-1">Paramètre upstream</th>
                 <th class="font-medium pb-1">Opérateurs</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(f, col) in detectedQueryMapping.filters" :key="col" class="border-t border-slate-100">
-                <td class="py-1 font-mono text-slate-700">{{ col }}</td>
-                <td class="py-1 font-mono text-slate-500">
+              <tr v-for="(f, col) in detectedQueryMapping.filters" :key="col" class="border-t border-[var(--studio-line)]">
+                <td class="py-1 font-mono text-[var(--studio-ink)]">{{ col }}</td>
+                <td class="py-1 font-mono text-[var(--studio-muted)]">
                   {{ f.param ?? `${f.range?.gteParam} / ${f.range?.lteParam}` }}
                 </td>
-                <td class="py-1 text-slate-500">{{ f.operators.join(', ') }}</td>
+                <td class="py-1 text-[var(--studio-muted)]">{{ f.operators.join(', ') }}</td>
               </tr>
             </tbody>
           </table>
-          <p v-else class="text-xs text-slate-400">
+          <p v-else class="text-xs text-[var(--studio-faint)]">
             Aucun filtre n'a pu être détecté automatiquement — modifiez la source pour en déclarer manuellement.
           </p>
-          <p class="text-[11px] text-slate-400 mt-2">
+          <p class="text-[11px] text-[var(--studio-faint)] mt-2">
             Vous pouvez corriger ce mapping à tout moment depuis "Modifier la source".
           </p>
         </div>
@@ -156,6 +160,12 @@ async function handleAttached() {
         v-if="step?.id === 'type'"
         v-model="sourceType"
         @attached="handleAttached"
+      />
+      <StepApiDetect
+        v-else-if="step?.id === 'detect'"
+        :api-form="apiForm"
+        @update:api-form="apiForm = $event"
+        @advance="currentStepId = 'configure'"
       />
       <StepSourceConfigure
         v-else-if="step?.id === 'configure'"
