@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
+import { fetchDistinctValues } from '@/api/studio'
 import type { StudioBlock, BlockFilter, DatasetColumn } from '@/types/studio'
 import StudioSubModal from './StudioSubModal.vue'
 import FieldFilters from '@/components/studio/fields/FieldFilters.vue'
@@ -49,6 +50,29 @@ function write(updated: BlockFilter[]) {
 }
 
 const activeCount = computed(() => filters.value.filter((f) => f.column).length)
+
+// ─── Valeurs distinctes proposées (par colonne, chargées à la demande) ───────
+
+const suggestions = ref<Record<string, string[]>>({})
+
+watch(
+  [filters, () => props.show],
+  async () => {
+    const dsId = props.block.datasetId
+    if (!props.show || !dsId) return
+    for (const f of filters.value) {
+      if (!f.column || f.column in suggestions.value) continue
+      suggestions.value = { ...suggestions.value, [f.column]: [] }
+      try {
+        const values = await fetchDistinctValues(dsId, f.column, '')
+        suggestions.value = { ...suggestions.value, [f.column]: values.slice(0, 8) }
+      } catch {
+        /* pas de suggestions pour cette colonne */
+      }
+    }
+  },
+  { deep: true, immediate: true },
+)
 </script>
 
 <template>
@@ -64,6 +88,7 @@ const activeCount = computed(() => filters.value.filter((f) => f.column).length)
     <FieldFilters
       :model-value="filters"
       :columns="columns"
+      :suggestions="suggestions"
       :add-label="isComparison ? '+ Ajouter une règle de comparaison' : '+ Ajouter un filtre'"
       :empty-label="isComparison
         ? 'Aucune règle : la comparaison porte sur les mêmes lignes que la valeur.'
