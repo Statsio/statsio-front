@@ -9,6 +9,7 @@ import FieldNote from '@/components/studio/fields/FieldNote.vue'
 import FormBlockInspector from '@/components/studio/inspector/FormBlockInspector.vue'
 import MediaBlockInspector from '@/components/studio/inspector/MediaBlockInspector.vue'
 import RichBlockInspector from '@/components/studio/inspector/RichBlockInspector.vue'
+import SearchBlockInspector from '@/components/studio/inspector/SearchBlockInspector.vue'
 import type { BlockFilter, BlockType, BlockJoin, DatasetMeta, DatasetColumn } from '@/types/studio'
 
 const studio   = useStudioStore()
@@ -97,7 +98,6 @@ const blockMeta = computed(() => block.value ? BLOCK_META[block.value.type as Bl
 
 // ─── Dataset ──────────────────────────────────────────────────────────────────
 
-import type { ColumnGroup } from '@/components/studio/ui/ColumnPickerModal.vue'
 
 const schema      = computed(() => block.value?.datasetId ? (datasets.getSchema(block.value.datasetId) ?? null) : null)
 const columnNames = computed(() => schema.value?.columns.map((c: DatasetColumn) => c.name) ?? [])
@@ -164,79 +164,13 @@ function joinSchema(joinIdx: number) {
   const id = joins.value[joinIdx]?.datasetId
   return id ? (datasets.getSchema(id) ?? null) : null
 }
-// ─── Search sources ───────────────────────────────────────────────────────────
-
-import type { SearchSource, SearchJoin } from '@/types/studio'
-
-const searchSources = computed<SearchSource[]>(() => block.value?.fieldMapping.searchSources ?? [])
-
-watch(() => block.value?.id, () => {
-  searchSources.value.forEach((s: SearchSource) => { if (s.datasetId) datasets.loadSchema(s.datasetId) })
-}, { immediate: true })
-
-function searchSourceSchema(si: number) {
-  const id = searchSources.value[si]?.datasetId
-  return id ? (datasets.getSchema(id) ?? null) : null
-}
-function searchSourceColumnNames(si: number) {
-  return searchSourceSchema(si)?.columns.map((c: DatasetColumn) => c.name) ?? []
-}
-
-// ─── Search joins (global, not per-source) ────────────────────────────────────
-
-const searchJoins = computed<SearchJoin[]>(() => block.value?.fieldMapping.searchJoins ?? [])
-
-function searchJoinSecondaryColumns(ji: number) {
-  const id = searchJoins.value[ji]?.datasetId
-  return id ? (datasets.getSchema(id)?.columns.map((c: DatasetColumn) => c.name) ?? []) : []
-}
-watch(searchJoins, (joins: SearchJoin[]) => {
-  joins.forEach((j: SearchJoin) => { if (j.datasetId) datasets.loadSchema(j.datasetId) })
-}, { immediate: true, deep: true })
-
-
-const urlParams = computed<string[]>(() => block.value?.fieldMapping.urlParams ?? [])
-
-// Grouped by dataset for the column picker modal — only sources with search columns
-const searchSourceColumnGroups = computed(() => {
-  const groups: { label: string; datasetId: string; columns: string[] }[] = []
-  searchSources.value.forEach((src: SearchSource, si: number) => {
-    if (!src.columns.length) return
-    const cols = searchSourceColumnNames(si)
-    if (cols.length) {
-      const name = datasets.readyDatasets.find((d: DatasetMeta) => d.id === src.datasetId)?.name ?? `Source ${si + 1}`
-      groups.push({ label: name, datasetId: src.datasetId, columns: cols })
-    }
-  })
-  searchJoins.value.forEach((join: SearchJoin, ji: number) => {
-    if (!join.columns.length) return
-    const cols = searchJoinSecondaryColumns(ji)
-    if (cols.length) {
-      const name = datasets.readyDatasets.find((d: DatasetMeta) => d.id === join.datasetId)?.name ?? `Jointure ${ji + 1}`
-      groups.push({ label: `Jointure — ${name}`, datasetId: join.datasetId, columns: cols })
-    }
-  })
-  return groups
-})
-
-// Flat list of ALL columns from all source datasets (including non-search columns)
-const allSourceColumns = computed(() => {
-  const cols = new Set<string>()
-  searchSourceColumnGroups.value.forEach((g) => g.columns.forEach((c: string) => cols.add(c)))
-  return Array.from(cols)
-})
-
 // ─── Result display ────────────────────────────────────────────────────────────
 
 const showDataSourceModal        = ref(false)
 const showFiltersModal           = ref(false)
 const showCompFiltersModal       = ref(false)
 const showColumnsMappingModal    = ref(false)
-const showUrlParamPickerModal    = ref(false)
-const showSearchResultsDispModal = ref(false)
 
-const resultTitleColumn      = computed<string>(() => block.value?.fieldMapping.resultTitleColumn ?? '')
-const resultDescColumns      = computed<string[]>(() => block.value?.fieldMapping.resultDescColumns ?? [])
 
 // ─── Résumés pour les FieldPicker de l'inspecteur (données / colonnes / filtres) ──
 
@@ -277,28 +211,6 @@ const compFiltersSummary = computed(() =>
     : 'Aucune règle de comparaison',
 )
 
-// ColumnGroup[] built from search source schemas (for ColumnPickerModal / ColumnButton)
-const displayColumnGroups = computed<ColumnGroup[]>(() => {
-  const groups: ColumnGroup[] = []
-  searchSources.value.forEach((src: SearchSource, si: number) => {
-    if (!src.datasetId) return
-    const schema = searchSourceSchema(si)
-    if (!schema) return
-    const name = datasets.readyDatasets.find((d: DatasetMeta) => d.id === src.datasetId)?.name ?? `Source ${si + 1}`
-    groups.push({ label: name, columns: schema.columns })
-  })
-  searchJoins.value.forEach((join: SearchJoin, ji: number) => {
-    if (!join.datasetId) return
-    const schema = datasets.getSchema(join.datasetId)
-    if (!schema) return
-    const name = datasets.readyDatasets.find((d: DatasetMeta) => d.id === join.datasetId)?.name ?? `Jointure ${ji + 1}`
-    const cols = join.columns.length
-      ? schema.columns.filter((c: DatasetColumn) => join.columns.includes(c.name))
-      : schema.columns
-    if (cols.length) groups.push({ label: `Jointure — ${name}`, columns: cols })
-  })
-  return groups
-})
 
 
 </script>
@@ -347,156 +259,7 @@ const displayColumnGroups = computed<ColumnGroup[]>(() => {
     <div class="flex-1 overflow-y-auto min-h-0">
 
       <!-- ══════════════ SEARCH BLOCK ══════════════ -->
-      <template v-if="isSearch">
-        <template v-if="activeTab === 'config'">
-
-          <!-- Section: Titre & description -->
-          <div class="accordion-item">
-            <button class="accordion-header" @click="toggle('search-title')">
-              <span>Titre &amp; description</span>
-              <svg class="chevron" :class="open('search-title') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-              </svg>
-            </button>
-            <div v-show="open('search-title')" class="accordion-body flex flex-col gap-2">
-              <div>
-                <label class="cfg-label">Titre</label>
-                <input
-                  type="text"
-                  class="cfg-input"
-                  placeholder="Ex : Rechercher une commune"
-                  :value="block.config.title ?? ''"
-                  @focus="setActiveInput($event.target as HTMLInputElement)"
-                  @input="updateConfig('title', ($event.target as HTMLInputElement).value)"
-                />
-              </div>
-              <div>
-                <label class="cfg-label">Description</label>
-                <textarea
-                  rows="2"
-                  class="cfg-input resize-none"
-                  placeholder="Ex : Tapez le nom d'une commune pour voir ses résultats"
-                  :value="block.config.description ?? ''"
-                  @focus="setActiveInput($event.target as HTMLTextAreaElement)"
-                  @input="updateConfig('description', ($event.target as HTMLTextAreaElement).value)"
-                ></textarea>
-              </div>
-            </div>
-          </div>
-
-          <!-- Section: Sources & jointures → modal -->
-          <div class="px-3 pt-2.5 pb-1">
-            <button
-              class="group flex w-full items-center gap-3 rounded-xl border border-[var(--studio-line)] bg-white px-3 py-2.5 text-left transition-all hover:border-[var(--color-primary)] hover:bg-[var(--color-primary)]/3"
-              @click="showDataSourceModal = true"
-            >
-              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-[var(--studio-faint)] transition-colors group-hover:bg-[var(--color-primary)]/10 group-hover:text-[var(--color-primary)]">
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-                </svg>
-              </span>
-              <div class="flex-1 min-w-0">
-                <p v-if="searchSources.some((s: SearchSource) => s.datasetId)" class="text-xs font-semibold text-[var(--studio-ink)]">
-                  {{ searchSources.filter((s: SearchSource) => s.datasetId).length }} source{{ searchSources.filter((s: SearchSource) => s.datasetId).length > 1 ? 's' : '' }} de recherche
-                </p>
-                <p v-else class="text-xs text-[var(--studio-faint)]">Aucune source configurée</p>
-                <p class="mt-0.5 text-[11px] text-[var(--studio-faint)]">
-                  {{ searchJoins.length > 0 ? `+ ${searchJoins.length} jointure${searchJoins.length > 1 ? 's' : ''}` : 'Configurer les sources →' }}
-                </p>
-              </div>
-              <svg class="h-4 w-4 shrink-0 text-[var(--studio-faint)] transition-colors group-hover:text-[var(--color-primary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-              </svg>
-            </button>
-            <DataSourceModal :show="showDataSourceModal" :block="block" @close="showDataSourceModal = false" />
-          </div>
-
-          <!-- Section: Placeholder -->
-          <div class="accordion-item">
-            <button class="accordion-header" @click="toggle('search-placeholder')">
-              <span>Texte placeholder</span>
-              <svg class="chevron" :class="open('search-placeholder') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-              </svg>
-            </button>
-            <div v-show="open('search-placeholder')" class="accordion-body">
-              <input
-                type="text"
-                class="cfg-input"
-                :value="block.config.searchPlaceholder ?? ''"
-                placeholder="Rechercher…"
-                @change="updateConfig('searchPlaceholder', ($event.target as HTMLInputElement).value)"
-              />
-            </div>
-          </div>
-
-          <!-- Section: Affichage des résultats -->
-          <!-- Affichage des résultats → modal -->
-          <div v-if="displayColumnGroups.length > 0" class="px-3 pt-1 pb-1">
-            <button
-              class="group flex w-full items-center gap-3 rounded-xl border border-[var(--studio-line)] bg-white px-3 py-2.5 text-left transition-all hover:border-emerald-400 hover:bg-emerald-50/40"
-              @click="showSearchResultsDispModal = true"
-            >
-              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-500 transition-colors group-hover:bg-emerald-100">
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178Z" />
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                </svg>
-              </span>
-              <div class="flex-1 min-w-0">
-                <p class="text-xs font-semibold text-[var(--studio-ink)]">Affichage des résultats</p>
-                <p class="mt-0.5 text-[11px] text-[var(--studio-faint)]">
-                  <span v-if="resultTitleColumn">Titre : <strong class="font-mono font-normal text-[var(--studio-muted)]">{{ resultTitleColumn }}</strong></span>
-                  <span v-else-if="resultDescColumns.length">{{ resultDescColumns.length }} colonne{{ resultDescColumns.length > 1 ? 's' : '' }} de description</span>
-                  <span v-else>Auto — configurer →</span>
-                </p>
-              </div>
-              <svg class="h-4 w-4 shrink-0 text-[var(--studio-faint)] group-hover:text-emerald-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-              </svg>
-            </button>
-            <SearchResultsDisplayModal
-              :show="showSearchResultsDispModal"
-              :block="block"
-              :column-groups="displayColumnGroups"
-              @close="showSearchResultsDispModal = false"
-            />
-          </div>
-
-          <!-- Paramètres URL → modal -->
-          <div class="px-3 pt-1 pb-2">
-            <button
-              class="group flex w-full items-center gap-3 rounded-xl border border-[var(--studio-line)] bg-white px-3 py-2.5 text-left transition-all hover:border-violet-300 hover:bg-violet-50/40"
-              :disabled="allSourceColumns.length === 0"
-              @click="showUrlParamPickerModal = true"
-            >
-              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-[var(--studio-faint)] transition-colors group-hover:bg-violet-100 group-hover:text-violet-500">
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
-                </svg>
-              </span>
-              <div class="flex-1 min-w-0">
-                <p class="text-xs font-semibold text-[var(--studio-ink)]">Paramètres URL</p>
-                <p class="mt-0.5 text-[11px] text-[var(--studio-faint)]">
-                  <span v-if="urlParams.length">{{ urlParams.length }} colonne{{ urlParams.length > 1 ? 's' : '' }} → <code class="font-mono text-[10px]">?{{ urlParams.slice(0,2).map(c => c + '=…').join('&') }}{{ urlParams.length > 2 ? '…' : '' }}</code></span>
-                  <span v-else-if="allSourceColumns.length === 0">Configurez d'abord les sources</span>
-                  <span v-else>Aucun paramètre configuré →</span>
-                </p>
-              </div>
-              <svg class="h-4 w-4 shrink-0 text-[var(--studio-faint)] group-hover:text-violet-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-              </svg>
-            </button>
-            <URLParamPickerModal
-              :show="showUrlParamPickerModal"
-              :block="block"
-              :column-groups="searchSourceColumnGroups"
-              @close="showUrlParamPickerModal = false"
-            />
-          </div>
-
-        </template>
-      </template>
+      <SearchBlockInspector v-if="isSearch && block && activeTab === 'config'" :block="block" />
 
       <!-- ══════════════ EDITORIAL BLOCKS (image / video / button / link-card / retenir) ══════════════ -->
       <MediaBlockInspector v-if="isEditorial && block && activeTab === 'editorial'" :block="block" />
