@@ -2,8 +2,10 @@
 import { computed } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
+import { blockColumnGroups } from '@/lib/studio-columns'
 import type { StudioBlock, DatasetColumn, BlockJoin, AggregateFunction } from '@/types/studio'
 import StudioSubModal from './StudioSubModal.vue'
+import FieldColumns from '@/components/studio/fields/FieldColumns.vue'
 
 const props = defineProps<{ show: boolean; block: StudioBlock }>()
 const emit = defineEmits<{ (e: 'close'): void }>()
@@ -16,43 +18,16 @@ const needsLabelVal = computed(() => props.block.type === 'pie')
 const needsValue = computed(() => props.block.type === 'kpi')
 const isTable = computed(() => props.block.type === 'table')
 
-const schema = computed(() => datasets.getSchema(props.block.datasetId ?? ''))
 const joins = computed<BlockJoin[]>(() => props.block.joins ?? [])
 const fm = computed(() => props.block.fieldMapping)
+const groups = computed(() => blockColumnGroups(props.block, datasets))
+const columnNames = computed(() => datasets.getSchema(props.block.datasetId ?? '')?.columns.map((c: DatasetColumn) => c.name) ?? [])
 
 const yAxes = computed<string[]>(() => {
   const axes = fm.value.yAxes
   if (axes?.length) return axes
   return fm.value.yAxis ? [fm.value.yAxis] : []
 })
-
-// ─── Colonnes disponibles (source principale + jointures), à plat ────────────
-
-interface Col { name: string; type: DatasetColumn['type']; group: string }
-
-const allColumns = computed<Col[]>(() => {
-  const out: Col[] = []
-  const seen = new Set<string>()
-  const push = (cols: DatasetColumn[] | undefined, group: string) => {
-    cols?.forEach((c) => {
-      if (seen.has(c.name)) return
-      seen.add(c.name)
-      out.push({ name: c.name, type: c.type, group })
-    })
-  }
-  push(schema.value?.columns, schema.value?.name ?? 'Source principale')
-  joins.value.forEach((j, i) => {
-    const name = datasets.readyDatasets.find((d) => d.id === j.datasetId)?.name ?? `Jointure ${i + 1}`
-    push(datasets.getSchema(j.datasetId)?.columns, `Jointure — ${name}`)
-  })
-  return out
-})
-
-const columnNames = computed(() => schema.value?.columns.map((c: DatasetColumn) => c.name) ?? [])
-
-const TYPE_BADGE: Record<string, string> = {
-  integer: '#', float: '~', string: 'T', date: 'd', datetime: 'dt', boolean: '?',
-}
 
 const AGGS: { value: AggregateFunction; label: string }[] = [
   { value: 'sum', label: 'Somme' },
@@ -61,8 +36,6 @@ const AGGS: { value: AggregateFunction; label: string }[] = [
   { value: 'min', label: 'Min' },
   { value: 'max', label: 'Max' },
 ]
-
-// ─── Mapping (avec auto-ajout aux colonnes de jointure) ──────────────────────
 
 function syncJoinColumn(value: string) {
   if (!value || columnNames.value.includes(value)) return
@@ -82,17 +55,10 @@ function setAggregate(value: AggregateFunction) {
   studio.updateBlockFieldMapping(props.block.id, { aggregate: value })
 }
 
-// ─── Axe Y (multi) ──────────────────────────────────────────────────────────
-
-function addYAxis(col: string) {
-  if (!col || yAxes.value.includes(col)) return
-  const next = [...yAxes.value, col]
-  studio.updateBlockFieldMapping(props.block.id, { yAxes: next, yAxis: next[0] })
-  syncJoinColumn(col)
-}
-function removeYAxis(col: string) {
-  const next = yAxes.value.filter((c) => c !== col)
+function toggleYAxis(col: string) {
+  const next = yAxes.value.includes(col) ? yAxes.value.filter((c) => c !== col) : [...yAxes.value, col]
   studio.updateBlockFieldMapping(props.block.id, { yAxes: next.length ? next : undefined, yAxis: next[0] ?? undefined })
+  syncJoinColumn(col)
 }
 
 // ─── Tableau : colonnes affichées + libellés ────────────────────────────────
@@ -113,6 +79,7 @@ function toggleTableColumn(col: string) {
     })
   } else {
     studio.updateBlockFieldMapping(props.block.id, { columns: [...cur, col] })
+    syncJoinColumn(col)
   }
 }
 function moveColumn(col: string, dir: -1 | 1) {
@@ -132,9 +99,6 @@ function setColumnLabel(col: string, label: string) {
 function resetTableColumns() {
   studio.updateBlockFieldMapping(props.block.id, { columns: undefined, columnLabels: undefined })
 }
-
-const availableTableColumns = computed(() => allColumns.value.filter((c) => !tableColumns.value.includes(c.name)))
-const availableYColumns = computed(() => allColumns.value.filter((c) => !yAxes.value.includes(c.name)))
 
 const FORMAT_OPTIONS = [
   { v: 'number', l: 'Nombre' },
@@ -158,121 +122,49 @@ const FORMAT_OPTIONS = [
     <template v-else>
       <!-- ── BAR / LINE ── -->
       <template v-if="needsXY">
+        <FieldColumns
+          label="Axe X — catégorie"
+          :groups="groups"
+          :selected="fm.xAxis ?? null"
+          @pick="set('xAxis', $event)"
+        />
         <div>
-          <div class="mb-2.5 text-[11px] font-extrabold uppercase tracking-[0.07em] text-[var(--studio-faint)]">Axe X — catégorie</div>
-          <div class="flex flex-wrap gap-[7px]">
+          <FieldColumns
+            label="Axe Y — valeurs"
+            hint="cliquez pour ajouter / retirer"
+            :groups="groups"
+            :selected="yAxes"
+            @pick="toggleYAxis"
+          />
+          <div class="mt-2 flex flex-wrap gap-1.5">
             <button
-              v-for="c in allColumns"
-              :key="c.name"
+              v-for="a in AGGS"
+              :key="a.value"
               type="button"
-              class="flex items-center gap-[7px] rounded-[20px] border-[1.5px] px-[13px] py-[9px] transition-colors"
-              :class="fm.xAxis === c.name
-                ? 'border-[var(--color-primary)] bg-[var(--studio-accent-wash)]'
-                : 'border-[var(--studio-line-strong)] bg-white hover:border-[var(--color-primary)]'"
-              @click="set('xAxis', c.name)"
-            >
-              <span class="font-mono text-[11.5px] font-semibold" :class="fm.xAxis === c.name ? 'text-[var(--studio-tag-ink)]' : 'text-[var(--studio-muted)]'">{{ c.name }}</span>
-              <span class="text-[10px] text-[var(--studio-faint)]">{{ TYPE_BADGE[c.type] ?? '?' }}</span>
-            </button>
-          </div>
-        </div>
-
-        <div>
-          <div class="mb-2.5 flex items-baseline justify-between gap-3">
-            <span class="text-[11px] font-extrabold uppercase tracking-[0.07em] text-[var(--studio-faint)]">Axe Y — valeurs</span>
-            <span class="font-mono text-[11px] text-[var(--studio-faint)]">{{ yAxes.length }}</span>
-          </div>
-          <div class="flex flex-col gap-[9px]">
-            <div v-for="col in yAxes" :key="col" class="rounded-xl border border-[var(--studio-line)] px-3.5 py-3">
-              <div class="mb-2.5 flex items-center justify-between gap-3">
-                <span class="font-mono text-[12px] font-semibold text-[var(--studio-tag-ink)]">{{ col }}</span>
-                <button type="button" class="text-[12px] text-[var(--studio-faint)] hover:text-[var(--color-error)]" @click="removeYAxis(col)">✕</button>
-              </div>
-              <div class="flex flex-wrap gap-1.5">
-                <button
-                  v-for="a in AGGS"
-                  :key="a.value"
-                  type="button"
-                  class="rounded-lg border-[1.5px] px-2.5 py-1.5 text-[11.5px] font-bold transition-colors"
-                  :class="(fm.aggregate ?? 'sum') === a.value
-                    ? 'border-[var(--studio-ink)] bg-[var(--studio-ink)] text-white'
-                    : 'border-[var(--studio-line-strong)] text-[var(--studio-muted)]'"
-                  @click="setAggregate(a.value)"
-                >{{ a.label }}</button>
-              </div>
-            </div>
-            <div v-if="availableYColumns.length" class="rounded-xl border-[1.5px] border-dashed border-[var(--studio-line-strong)] px-3.5 py-3">
-              <div class="mb-2 text-[11.5px] font-bold text-[var(--studio-faint)]">Ajouter une colonne Y</div>
-              <div class="flex flex-wrap gap-1.5">
-                <button
-                  v-for="c in availableYColumns"
-                  :key="c.name"
-                  type="button"
-                  class="rounded-[16px] bg-[var(--studio-tag)] px-2.5 py-1.5 font-mono text-[11px] font-semibold text-[var(--studio-tag-ink)]"
-                  @click="addYAxis(c.name)"
-                >+ {{ c.name }}</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <div class="mb-2.5 text-[11px] font-extrabold uppercase tracking-[0.07em] text-[var(--studio-faint)]">Série de regroupement</div>
-          <div class="flex flex-wrap gap-[7px]">
-            <button
-              type="button"
-              class="rounded-[20px] border-[1.5px] px-[13px] py-[9px] font-mono text-[11.5px] font-semibold transition-colors"
-              :class="!fm.series
-                ? 'border-[var(--color-primary)] bg-[var(--studio-accent-wash)] text-[var(--studio-tag-ink)]'
+              class="rounded-lg border-[1.5px] px-2.5 py-1.5 text-[11.5px] font-bold transition-colors"
+              :class="(fm.aggregate ?? 'sum') === a.value
+                ? 'border-[var(--studio-ink)] bg-[var(--studio-ink)] text-white'
                 : 'border-[var(--studio-line-strong)] text-[var(--studio-muted)]'"
-              @click="set('series', undefined)"
-            >Aucune</button>
-            <button
-              v-for="c in allColumns"
-              :key="c.name"
-              type="button"
-              class="rounded-[20px] border-[1.5px] px-[13px] py-[9px] font-mono text-[11.5px] font-semibold transition-colors"
-              :class="fm.series === c.name
-                ? 'border-[var(--color-primary)] bg-[var(--studio-accent-wash)] text-[var(--studio-tag-ink)]'
-                : 'border-[var(--studio-line-strong)] text-[var(--studio-muted)] hover:border-[var(--color-primary)]'"
-              @click="set('series', c.name)"
-            >{{ c.name }}</button>
+              @click="setAggregate(a.value)"
+            >{{ a.label }}</button>
           </div>
         </div>
+        <FieldColumns
+          label="Série de regroupement"
+          :groups="groups"
+          :selected="fm.series ?? null"
+          none-label="Aucune"
+          @pick="set('series', $event)"
+          @none="set('series', undefined)"
+        />
       </template>
 
       <!-- ── PIE ── -->
       <template v-else-if="needsLabelVal">
+        <FieldColumns label="Étiquettes" :groups="groups" :selected="fm.label ?? null" @pick="set('label', $event)" />
         <div>
-          <div class="mb-2.5 text-[11px] font-extrabold uppercase tracking-[0.07em] text-[var(--studio-faint)]">Étiquettes</div>
-          <div class="flex flex-wrap gap-[7px]">
-            <button
-              v-for="c in allColumns"
-              :key="c.name"
-              type="button"
-              class="rounded-[20px] border-[1.5px] px-[13px] py-[9px] font-mono text-[11.5px] font-semibold transition-colors"
-              :class="fm.label === c.name
-                ? 'border-[var(--color-primary)] bg-[var(--studio-accent-wash)] text-[var(--studio-tag-ink)]'
-                : 'border-[var(--studio-line-strong)] text-[var(--studio-muted)] hover:border-[var(--color-primary)]'"
-              @click="set('label', c.name)"
-            >{{ c.name }}</button>
-          </div>
-        </div>
-        <div>
-          <div class="mb-2.5 text-[11px] font-extrabold uppercase tracking-[0.07em] text-[var(--studio-faint)]">Valeurs</div>
-          <div class="mb-2.5 flex flex-wrap gap-[7px]">
-            <button
-              v-for="c in allColumns"
-              :key="c.name"
-              type="button"
-              class="rounded-[20px] border-[1.5px] px-[13px] py-[9px] font-mono text-[11.5px] font-semibold transition-colors"
-              :class="fm.value === c.name
-                ? 'border-[var(--color-primary)] bg-[var(--studio-accent-wash)] text-[var(--studio-tag-ink)]'
-                : 'border-[var(--studio-line-strong)] text-[var(--studio-muted)] hover:border-[var(--color-primary)]'"
-              @click="set('value', c.name)"
-            >{{ c.name }}</button>
-          </div>
-          <div class="flex flex-wrap gap-1.5">
+          <FieldColumns label="Valeurs" :groups="groups" :selected="fm.value ?? null" @pick="set('value', $event)" />
+          <div class="mt-2 flex flex-wrap gap-1.5">
             <button
               v-for="a in AGGS"
               :key="a.value"
@@ -290,20 +182,8 @@ const FORMAT_OPTIONS = [
       <!-- ── KPI ── -->
       <template v-else-if="needsValue">
         <div>
-          <div class="mb-2.5 text-[11px] font-extrabold uppercase tracking-[0.07em] text-[var(--studio-faint)]">Valeur principale</div>
-          <div class="mb-2.5 flex flex-wrap gap-[7px]">
-            <button
-              v-for="c in allColumns"
-              :key="c.name"
-              type="button"
-              class="rounded-[20px] border-[1.5px] px-[13px] py-[9px] font-mono text-[11.5px] font-semibold transition-colors"
-              :class="fm.valueColumn === c.name
-                ? 'border-[var(--color-primary)] bg-[var(--studio-accent-wash)] text-[var(--studio-tag-ink)]'
-                : 'border-[var(--studio-line-strong)] text-[var(--studio-muted)] hover:border-[var(--color-primary)]'"
-              @click="set('valueColumn', c.name)"
-            >{{ c.name }}</button>
-          </div>
-          <div class="flex flex-wrap gap-1.5">
+          <FieldColumns label="Valeur principale" :groups="groups" :selected="fm.valueColumn ?? null" @pick="set('valueColumn', $event)" />
+          <div class="mt-2 flex flex-wrap gap-1.5">
             <button
               v-for="a in AGGS"
               :key="a.value"
@@ -337,7 +217,7 @@ const FORMAT_OPTIONS = [
       <template v-else-if="isTable">
         <div>
           <div class="mb-2.5 flex items-baseline justify-between gap-3">
-            <span class="text-[11px] font-extrabold uppercase tracking-[0.07em] text-[var(--studio-faint)]">Colonnes affichées</span>
+            <span class="text-[11px] font-extrabold uppercase tracking-[0.07em] text-[var(--studio-faint)]">Colonnes affichées &amp; ordre</span>
             <button v-if="isCustomized" type="button" class="text-[11px] font-bold text-[var(--color-primary)]" @click="resetTableColumns">Réinitialiser</button>
           </div>
           <div class="flex flex-col gap-2">
@@ -356,20 +236,14 @@ const FORMAT_OPTIONS = [
               />
               <button type="button" class="shrink-0 text-[12px] text-[var(--studio-faint)] hover:text-[var(--color-error)] disabled:opacity-30" :disabled="tableColumns.length <= 1" @click="toggleTableColumn(col)">✕</button>
             </div>
-            <div v-if="availableTableColumns.length" class="rounded-xl border-[1.5px] border-dashed border-[var(--studio-line-strong)] px-3.5 py-3">
-              <div class="mb-2 text-[11.5px] font-bold text-[var(--studio-faint)]">Ajouter une colonne</div>
-              <div class="flex flex-wrap gap-1.5">
-                <button
-                  v-for="c in availableTableColumns"
-                  :key="c.name"
-                  type="button"
-                  class="rounded-[16px] bg-[var(--studio-tag)] px-2.5 py-1.5 font-mono text-[11px] font-semibold text-[var(--studio-tag-ink)]"
-                  @click="toggleTableColumn(c.name)"
-                >+ {{ c.name }}</button>
-              </div>
-            </div>
           </div>
         </div>
+        <FieldColumns
+          label="Ajouter / retirer une colonne"
+          :groups="groups"
+          :selected="tableColumns"
+          @pick="toggleTableColumn"
+        />
       </template>
     </template>
   </StudioSubModal>

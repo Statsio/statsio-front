@@ -178,7 +178,7 @@ function toggleJoinCol(i: number, col: string) {
 
             <div>
               <div class="mb-1.5 text-[11px] font-bold text-[var(--studio-faint)]">Colonnes à inclure</div>
-              <div class="flex flex-wrap gap-1.5">
+              <div class="flex max-h-[128px] flex-wrap gap-1.5 overflow-y-auto">
                 <button
                   v-for="c in joinCols(i)"
                   :key="c"

@@ -3,7 +3,8 @@ import { computed, ref, watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import { fetchDistinctValues } from '@/api/studio'
-import type { StudioBlock, BlockFilter, DatasetColumn } from '@/types/studio'
+import { blockColumnGroups } from '@/lib/studio-columns'
+import type { StudioBlock, BlockFilter } from '@/types/studio'
 import StudioSubModal from './StudioSubModal.vue'
 import FieldFilters from '@/components/studio/fields/FieldFilters.vue'
 import FieldNote from '@/components/studio/fields/FieldNote.vue'
@@ -25,14 +26,7 @@ const filters = computed<BlockFilter[]>(
   () => (isComparison.value ? props.block.comparisonFilters : props.block.filters) ?? [],
 )
 
-const columns = computed<string[]>(() => {
-  const names = new Set<string>()
-  datasets.getSchema(props.block.datasetId ?? '')?.columns.forEach((c: DatasetColumn) => names.add(c.name))
-  ;(props.block.joins ?? []).forEach((j) => {
-    datasets.getSchema(j.datasetId)?.columns.forEach((c: DatasetColumn) => names.add(c.name))
-  })
-  return [...names]
-})
+const groups = computed(() => blockColumnGroups(props.block, datasets))
 
 watch(
   () => props.show,
@@ -87,7 +81,7 @@ watch(
   >
     <FieldFilters
       :model-value="filters"
-      :columns="columns"
+      :groups="groups"
       :suggestions="suggestions"
       :add-label="isComparison ? '+ Ajouter une règle de comparaison' : '+ Ajouter un filtre'"
       :empty-label="isComparison

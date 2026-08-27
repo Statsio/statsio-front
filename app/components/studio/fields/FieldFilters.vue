@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import StudioField from './StudioField.vue'
+import FieldColumns from './FieldColumns.vue'
 import { FILTER_OPERATORS, type BlockFilter } from '@/types/studio'
+import type { StudioColumnGroup } from '@/lib/studio-columns'
 
 const props = withDefaults(
   defineProps<{
     label?: string
     hint?: string
-    columns: readonly string[]
+    groups: StudioColumnGroup[]
     /** Valeurs distinctes proposées par colonne (clic = remplit le champ). */
     suggestions?: Record<string, readonly string[]>
     addLabel?: string
@@ -29,7 +31,7 @@ function remove(i: number) {
   model.value = model.value.filter((_, k) => k !== i)
 }
 function add() {
-  model.value = [...model.value, { column: props.columns[0] ?? '', operator: '=', value: '' }]
+  model.value = [...model.value, { column: props.groups[0]?.columns[0]?.name ?? '', operator: '=', value: '' }]
 }
 </script>
 
@@ -54,20 +56,12 @@ function add() {
 
         <!-- Colonne -->
         <div class="mb-3.5">
-          <div class="mb-2 text-[11px] font-bold text-[var(--studio-faint)]">Colonne</div>
-          <div class="flex max-h-[132px] flex-wrap gap-1.5 overflow-y-auto">
-            <button
-              v-for="c in columns"
-              :key="c"
-              type="button"
-              class="rounded-[16px] border-[1.5px] px-2.5 py-1.5 font-mono text-[11px] font-semibold transition-colors"
-              :class="filter.column === c
-                ? 'border-[var(--color-primary)] bg-[var(--studio-accent-wash)] text-[var(--studio-tag-ink)]'
-                : 'border-[var(--studio-line-strong)] text-[var(--studio-muted)] hover:border-[var(--color-primary)]'"
-              @click="patch(i, { column: c })"
-            >{{ c }}</button>
-            <p v-if="!columns.length" class="text-[12px] text-[var(--studio-faint)]">Aucune colonne disponible.</p>
-          </div>
+          <FieldColumns
+            label="Colonne"
+            :groups="groups"
+            :selected="filter.column"
+            @pick="patch(i, { column: $event })"
+          />
         </div>
 
         <!-- Opérateur -->
