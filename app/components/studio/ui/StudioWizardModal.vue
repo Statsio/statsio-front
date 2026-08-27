@@ -20,8 +20,9 @@ const props = withDefaults(
     summary?: string
     nextLabel?: string
     nextDisabled?: boolean
+    nextLoading?: boolean
   }>(),
-  { subtitle: '', railTitle: '', railBlurb: '', summary: '', nextLabel: 'Suivant', nextDisabled: false },
+  { subtitle: '', railTitle: '', railBlurb: '', summary: '', nextLabel: 'Suivant', nextDisabled: false, nextLoading: false },
 )
 
 const emit = defineEmits<{ close: []; back: []; next: []; go: [key: string] }>()
@@ -125,9 +126,9 @@ function stepState(i: number): 'done' | 'current' | 'todo' {
               <button
                 type="button"
                 class="studio-gradient rounded-[10px] px-[22px] py-3 text-[13.5px] font-bold text-white disabled:opacity-40"
-                :disabled="nextDisabled"
+                :disabled="nextDisabled || nextLoading"
                 @click="emit('next')"
-              >{{ nextLabel }}</button>
+              >{{ nextLoading ? 'Un instant…' : nextLabel }}</button>
             </div>
           </div>
         </div>
