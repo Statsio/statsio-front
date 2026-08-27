@@ -6,7 +6,7 @@ import { useActiveEditor } from '@/composables/useActiveEditor'
 import type { BlockFilter, BlockJoin, DatasetColumn, DatasetMeta, StudioBlock } from '@/types/studio'
 import FieldPicker from '@/components/studio/fields/FieldPicker.vue'
 import FieldNote from '@/components/studio/fields/FieldNote.vue'
-import DataSourceModal from '@/components/studio/ui/DataSourceModal.vue'
+import DataSourcePickerModal from '@/components/studio/ui/DataSourcePickerModal.vue'
 import FiltersModal from '@/components/studio/ui/FiltersModal.vue'
 import ColumnsMappingModal from '@/components/studio/ui/ColumnsMappingModal.vue'
 
@@ -124,7 +124,7 @@ const compFiltersSummary = computed(() =>
               action="Changer"
               @open="showDataSourceModal = true"
             />
-            <DataSourceModal :show="showDataSourceModal" :block="block" @close="showDataSourceModal = false" />
+            <DataSourcePickerModal :show="showDataSourceModal" :block="block" @close="showDataSourceModal = false" />
 
             <template v-if="block.datasetId">
               <FieldPicker
