@@ -253,23 +253,23 @@ const OPERATORS = [
       @keydown="onKeydown"
     >
       <!-- Backdrop -->
-      <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" @click="emit('close')" />
+      <div class="absolute inset-0 bg-[rgba(18,18,26,0.5)] backdrop-blur-[3px]" @click="emit('close')" />
 
       <!-- Panel -->
       <div
-        class="relative z-10 flex w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+        class="relative z-10 flex w-full max-w-2xl flex-col overflow-hidden rounded-[20px] border border-[var(--studio-line)] bg-white shadow-[var(--studio-shadow-modal)]"
         style="max-height: min(85vh, 680px);"
       >
         <!-- Header -->
-        <div class="flex shrink-0 items-center justify-between gap-4 border-b border-slate-100 px-5 py-3.5">
-          <h3 class="shrink-0 text-[13px] font-semibold text-slate-800">
+        <div class="flex shrink-0 items-center justify-between gap-4 border-b border-[var(--studio-line)] px-5 py-3.5">
+          <h3 class="shrink-0 text-[13px] font-semibold text-[var(--studio-ink)]">
             {{ isExpression ? 'Expression / colonne' : isMulti ? 'Choisir des colonnes' : 'Choisir une colonne' }}
           </h3>
 
           <!-- Search -->
           <div class="relative flex-1 max-w-xs">
             <svg
-              class="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"
+              class="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--studio-faint)]"
               fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
             >
               <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
@@ -278,26 +278,26 @@ const OPERATORS = [
               v-model="searchQuery"
               type="text"
               placeholder="Rechercher une colonne…"
-              class="w-full rounded-xl border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-xs text-slate-700 placeholder:text-slate-400 transition-all focus:border-[var(--color-primary)] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
+              class="w-full rounded-xl border border-[var(--studio-line-strong)] bg-[var(--studio-note)] py-1.5 pl-8 pr-3 text-xs text-[var(--studio-ink)] placeholder:text-[var(--studio-faint)] transition-all focus:border-[var(--color-primary)] focus:bg-white focus:outline-none "
             />
           </div>
 
           <button
-            class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+            class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-lg text-[var(--studio-faint)] transition-colors hover:bg-[var(--studio-wash)] hover:text-[var(--studio-ink)]"
             @click="emit('close')"
           >×</button>
         </div>
 
         <!-- Formula bar (expression mode) -->
-        <div v-if="isExpression" class="shrink-0 border-b border-slate-100 bg-slate-50/60 px-5 pt-3 pb-2.5">
-          <label class="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+        <div v-if="isExpression" class="shrink-0 border-b border-[var(--studio-line)] bg-[var(--studio-panel)] px-5 pt-3 pb-2.5">
+          <label class="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--studio-faint)]">
             Valeur / Expression
           </label>
           <input
             v-model="formula"
             type="text"
             placeholder="Saisir ou construire une expression…"
-            class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 font-mono text-sm text-slate-800 placeholder:text-slate-300 transition-all focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/25"
+            class="w-full rounded-xl border border-[var(--studio-line)] bg-white px-3 py-2 font-mono text-sm text-[var(--studio-ink)] placeholder:text-[var(--studio-faint)] transition-all focus:border-[var(--color-primary)] focus:outline-none "
             autofocus
           />
         </div>
@@ -306,18 +306,18 @@ const OPERATORS = [
         <div class="flex flex-1 min-h-0">
 
           <!-- Left nav -->
-          <nav class="w-48 shrink-0 border-r border-slate-100 overflow-y-auto py-3 flex flex-col gap-0.5">
+          <nav class="w-48 shrink-0 border-r border-[var(--studio-line)] overflow-y-auto py-3 flex flex-col gap-0.5">
 
             <!-- Column sources -->
             <template v-if="activeGroups.length > 0">
-              <p class="px-4 pb-1 pt-1 text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Colonnes</p>
+              <p class="px-4 pb-1 pt-1 text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--studio-faint)]">Colonnes</p>
               <button
                 v-for="(g, i) in activeGroups"
                 :key="`col-${i}`"
                 class="flex w-full items-center gap-2 rounded-lg mx-2 px-3 py-2 text-left text-xs transition-all"
                 :class="activeSectionSafe === `col-${i}`
                   ? 'bg-[var(--color-primary)]/8 text-[var(--color-primary)] font-semibold'
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'"
+                  : 'text-[var(--studio-muted)] hover:bg-[var(--studio-note)] hover:text-[var(--studio-ink)]'"
                 style="width: calc(100% - 1rem);"
                 @click="activeSection = `col-${i}`"
               >
@@ -338,7 +338,7 @@ const OPERATORS = [
                 class="flex w-full items-center gap-2 rounded-lg mx-2 px-3 py-2 text-left text-xs transition-all"
                 :class="activeSectionSafe === `var-${i}`
                   ? 'bg-amber-50 text-amber-700 font-semibold'
-                  : 'text-slate-600 hover:bg-amber-50/60 hover:text-amber-700'"
+                  : 'text-[var(--studio-muted)] hover:bg-amber-50/60 hover:text-amber-700'"
                 style="width: calc(100% - 1rem);"
                 @click="activeSection = `var-${i}`"
               >
@@ -352,12 +352,12 @@ const OPERATORS = [
 
             <!-- Operators (expression mode) -->
             <template v-if="showOperators">
-              <p class="px-4 pb-1 pt-3 text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Formule</p>
+              <p class="px-4 pb-1 pt-3 text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--studio-faint)]">Formule</p>
               <button
                 class="flex w-full items-center gap-2 rounded-lg mx-2 px-3 py-2 text-left text-xs transition-all"
                 :class="activeSectionSafe === 'operators'
                   ? 'bg-[var(--color-primary)]/8 text-[var(--color-primary)] font-semibold'
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'"
+                  : 'text-[var(--studio-muted)] hover:bg-[var(--studio-note)] hover:text-[var(--studio-ink)]'"
                 style="width: calc(100% - 1rem);"
                 @click="activeSection = 'operators'"
               >
@@ -370,12 +370,12 @@ const OPERATORS = [
 
             <!-- Aggregation -->
             <template v-if="showAggregation">
-              <p class="px-4 pb-1 pt-3 text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Valeur</p>
+              <p class="px-4 pb-1 pt-3 text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--studio-faint)]">Valeur</p>
               <button
                 class="flex w-full items-center gap-2 rounded-lg mx-2 px-3 py-2 text-left text-xs transition-all"
                 :class="activeSectionSafe === 'aggregation'
                   ? 'bg-[var(--color-primary)]/8 text-[var(--color-primary)] font-semibold'
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'"
+                  : 'text-[var(--studio-muted)] hover:bg-[var(--studio-note)] hover:text-[var(--studio-ink)]'"
                 style="width: calc(100% - 1rem);"
                 @click="activeSection = 'aggregation'"
               >
@@ -388,7 +388,7 @@ const OPERATORS = [
 
             <!-- Empty fallback -->
             <div v-if="!activeGroups.length && !tokenGroups.length && !showOperators" class="px-4 py-6 text-center">
-              <p class="text-[11px] text-slate-400">Aucune source configurée</p>
+              <p class="text-[11px] text-[var(--studio-faint)]">Aucune source configurée</p>
             </div>
           </nav>
 
@@ -404,14 +404,14 @@ const OPERATORS = [
                   class="group flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 transition-all"
                   :class="isMulti && selectedValues?.includes(col.name)
                     ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/8 hover:bg-[var(--color-primary)]/12'
-                    : 'border-slate-200 bg-white hover:border-[var(--color-primary)] hover:bg-[var(--color-primary)]/5'"
+                    : 'border-[var(--studio-line-strong)] bg-white hover:border-[var(--color-primary)] hover:bg-[var(--color-primary)]/5'"
                   @click="pickColumn(col.name)"
                 >
                   <span
                     class="min-w-[20px] shrink-0 rounded px-1 text-center text-[9px] font-bold uppercase leading-[18px]"
-                    :class="TYPE_BADGE[col.type]?.cls ?? 'bg-slate-100 text-slate-500'"
+                    :class="TYPE_BADGE[col.type]?.cls ?? 'bg-slate-100 text-[var(--studio-muted)]'"
                   >{{ TYPE_BADGE[col.type]?.label ?? '?' }}</span>
-                  <span class="font-mono text-[12px] text-slate-700 transition-colors group-hover:text-[var(--color-primary)]"
+                  <span class="font-mono text-[12px] text-[var(--studio-ink)] transition-colors group-hover:text-[var(--color-primary)]"
                     :class="isMulti && selectedValues?.includes(col.name) ? 'text-[var(--color-primary)]' : ''"
                   >
                     {{ col.name }}
@@ -425,7 +425,7 @@ const OPERATORS = [
                   </svg>
                 </button>
               </div>
-              <p v-else class="py-6 text-center text-xs italic text-slate-400">Aucun résultat pour "{{ searchQuery }}"</p>
+              <p v-else class="py-6 text-center text-xs italic text-[var(--studio-faint)]">Aucun résultat pour "{{ searchQuery }}"</p>
             </template>
 
             <!-- Variable chips -->
@@ -448,17 +448,17 @@ const OPERATORS = [
                   </span>
                 </button>
               </div>
-              <p v-else class="py-6 text-center text-xs italic text-slate-400">Aucun résultat pour "{{ searchQuery }}"</p>
+              <p v-else class="py-6 text-center text-xs italic text-[var(--studio-faint)]">Aucun résultat pour "{{ searchQuery }}"</p>
             </template>
 
             <!-- Operators -->
             <template v-else-if="activeSectionSafe === 'operators'">
-              <p class="mb-3 text-[11px] text-slate-500 leading-relaxed">Cliquez sur un opérateur pour l'ajouter à l'expression.</p>
+              <p class="mb-3 text-[11px] text-[var(--studio-muted)] leading-relaxed">Cliquez sur un opérateur pour l'ajouter à l'expression.</p>
               <div class="flex flex-wrap gap-1.5">
                 <button
                   v-for="op in OPERATORS"
                   :key="op.label"
-                  class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 font-mono text-xs text-slate-600 transition-colors hover:border-[var(--color-primary)] hover:bg-[var(--color-primary)]/5 hover:text-[var(--color-primary)]"
+                  class="rounded-lg border border-[var(--studio-line)] bg-white px-3 py-1.5 font-mono text-xs text-[var(--studio-muted)] transition-colors hover:border-[var(--color-primary)] hover:bg-[var(--color-primary)]/5 hover:text-[var(--color-primary)]"
                   @click="insertOp(op.value)"
                 >{{ op.label }}</button>
               </div>
@@ -466,7 +466,7 @@ const OPERATORS = [
 
             <!-- Aggregation -->
             <template v-else-if="activeSectionSafe === 'aggregation'">
-              <p class="mb-3 text-[11px] text-slate-500 leading-relaxed">Applique une fonction d'agrégation sur cette colonne, calculée sur les lignes filtrées.</p>
+              <p class="mb-3 text-[11px] text-[var(--studio-muted)] leading-relaxed">Applique une fonction d'agrégation sur cette colonne, calculée sur les lignes filtrées.</p>
               <AggregationSelect
                 :model-value="aggregateValue"
                 @update:model-value="emit('update:aggregate', $event)"
@@ -477,8 +477,8 @@ const OPERATORS = [
         </div>
 
         <!-- Footer (multi mode) -->
-        <div v-if="isMulti" class="flex shrink-0 items-center justify-between border-t border-slate-100 px-5 py-3">
-          <span class="text-[11px] text-slate-400">
+        <div v-if="isMulti" class="flex shrink-0 items-center justify-between border-t border-[var(--studio-line)] px-5 py-3">
+          <span class="text-[11px] text-[var(--studio-faint)]">
             {{ selectedValues?.length ?? 0 }} colonne{{ (selectedValues?.length ?? 0) !== 1 ? 's' : '' }} sélectionnée{{ (selectedValues?.length ?? 0) !== 1 ? 's' : '' }}
           </span>
           <button
@@ -488,16 +488,16 @@ const OPERATORS = [
         </div>
 
         <!-- Footer (expression mode) -->
-        <div v-else-if="isExpression" class="flex shrink-0 items-center justify-between border-t border-slate-100 px-5 py-3">
+        <div v-else-if="isExpression" class="flex shrink-0 items-center justify-between border-t border-[var(--studio-line)] px-5 py-3">
           <button
             v-if="formula"
-            class="text-[11px] text-slate-400 transition-colors hover:text-red-500"
+            class="text-[11px] text-[var(--studio-faint)] transition-colors hover:text-red-500"
             @click="formula = ''"
           >Effacer</button>
           <span v-else />
           <div class="flex gap-2">
             <button
-              class="rounded-xl px-4 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100"
+              class="rounded-xl px-4 py-1.5 text-xs font-semibold text-[var(--studio-muted)] transition-colors hover:bg-[var(--studio-wash)]"
               @click="emit('close')"
             >Annuler</button>
             <button

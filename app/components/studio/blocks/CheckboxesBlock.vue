@@ -42,28 +42,28 @@ function countFor(value: string): number {
 </script>
 
 <template>
-  <div class="flex flex-col gap-3 p-5">
-    <div v-if="isEmpty" class="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 py-10 text-slate-400">
+  <div class="flex flex-col gap-3">
+    <div v-if="isEmpty" class="flex flex-col items-center justify-center gap-2 rounded-[14px] border-2 border-dashed border-[var(--studio-line)] bg-[var(--studio-note)] py-10 text-[var(--studio-faint)]">
       <span class="text-xs font-medium">Configurer les options →</span>
     </div>
 
     <template v-else>
-      <p class="text-sm font-semibold text-slate-800">
+      <p class="text-sm font-semibold text-[var(--studio-ink)]">
         {{ block.config.title || 'Question sans titre' }}
         <span v-if="block.config.formRequired" class="text-rose-500">*</span>
       </p>
 
       <!-- Studio editor preview (static, disabled) -->
       <div v-if="!readonly" class="flex flex-col gap-2">
-        <label v-for="opt in options" :key="opt" class="flex items-center gap-2.5 text-sm text-slate-500">
-          <input type="checkbox" disabled class="h-4 w-4 rounded border-slate-300" />
+        <label v-for="opt in options" :key="opt" class="flex items-center gap-2.5 text-sm text-[var(--studio-muted)]">
+          <input type="checkbox" disabled class="h-4 w-4 rounded border-[var(--studio-line-strong)]" />
           {{ opt }}
         </label>
-        <p class="mt-1 text-[10px] text-slate-400">Non interactif en mode édition</p>
+        <p class="mt-1 text-[10px] text-[var(--studio-faint)]">Non interactif en mode édition</p>
       </div>
 
       <!-- Public: loading -->
-      <div v-else-if="form?.loading.value" class="py-2 text-xs text-slate-400">Chargement…</div>
+      <div v-else-if="form?.loading.value" class="py-2 text-xs text-[var(--studio-faint)]">Chargement…</div>
 
       <!-- Public: interactive form -->
       <div v-else-if="showForm()" class="flex flex-col gap-2.5">
@@ -86,15 +86,15 @@ function countFor(value: string): number {
       <!-- Public: results -->
       <div v-else class="flex flex-col gap-2">
         <div v-for="opt in options" :key="opt" class="flex flex-col gap-1">
-          <div class="flex items-center justify-between text-xs text-slate-600">
+          <div class="flex items-center justify-between text-xs text-[var(--studio-ink)]">
             <span>{{ opt }}</span>
             <span class="font-semibold">{{ percentFor(opt) }}% ({{ countFor(opt) }})</span>
           </div>
-          <div class="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+          <div class="h-1.5 w-full overflow-hidden rounded-full bg-[var(--studio-note)]">
             <div class="h-full rounded-full bg-[var(--color-primary)]" :style="{ width: `${percentFor(opt)}%` }" />
           </div>
         </div>
-        <p class="mt-1 text-[11px] text-slate-400">
+        <p class="mt-1 text-[11px] text-[var(--studio-faint)]">
           {{ form?.aggregate.value.totalResponses }} réponse{{ (form?.aggregate.value.totalResponses ?? 0) > 1 ? 's' : '' }}
           · <button class="font-semibold text-[var(--color-primary)] hover:underline" @click="edit">Modifier ma réponse</button>
         </p>

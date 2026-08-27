@@ -177,21 +177,21 @@ watch(() => [studio.isPanelOpen, studio.selectedBlockId !== null], scheduleResiz
 </script>
 
 <template>
-  <div class="relative w-full overflow-hidden px-5 pb-5">
+  <div class="relative w-full overflow-hidden">
     <div
       v-if="!showProgress"
       class="relative"
       :class="hasMultipleSeries ? 'h-64 sm:h-80' : 'h-48 sm:h-64'"
     >
       <div v-if="isLoading" class="absolute inset-0 flex items-center justify-center bg-white/70 z-10">
-        <span class="text-sm text-slate-400">Chargement…</span>
+        <span class="text-sm text-[var(--studio-faint)]">Chargement…</span>
       </div>
 
       <div v-else-if="error" class="absolute inset-0 flex items-center justify-center">
         <span class="text-sm text-red-500">{{ error }}</span>
       </div>
 
-      <div v-else-if="!block.datasetId || !block.fieldMapping.xAxis" class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-slate-400">
+      <div v-else-if="!block.datasetId || !block.fieldMapping.xAxis" class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-[var(--studio-faint)]">
         <svg class="w-8 h-8 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 13.5V21h4.5v-7.5H3zm6.75-9V21H14.25V4.5H9.75zm6.75 4.5V21H21v-12h-4.5z" />
         </svg>
@@ -203,11 +203,11 @@ watch(() => [studio.isPanelOpen, studio.selectedBlockId !== null], scheduleResiz
 
     <div v-else class="flex flex-col gap-2.5 py-1">
       <div v-for="row in progressRows" :key="row.label" class="flex items-center gap-2.5">
-        <span class="w-[90px] shrink-0 truncate text-[12.5px] text-[#18181f]/80">{{ row.label }}</span>
-        <div class="h-2.5 flex-1 rounded-full bg-[#f0eefa]">
+        <span class="w-[90px] shrink-0 truncate text-[12.5px] text-[color:color-mix(in_srgb,var(--studio-ink)_80%,transparent)]">{{ row.label }}</span>
+        <div class="h-2.5 flex-1 rounded-full bg-[color:color-mix(in_srgb,var(--color-primary)_12%,white)]">
           <div class="h-full rounded-full" :style="{ width: `${row.width}%`, backgroundColor: row.color }" />
         </div>
-        <span class="mono w-12 shrink-0 text-right text-[11.5px] text-[#18181f]/80">{{ row.display }}</span>
+        <span class="mono w-12 shrink-0 text-right text-[11.5px] text-[color:color-mix(in_srgb,var(--studio-ink)_80%,transparent)]">{{ row.display }}</span>
       </div>
     </div>
   </div>

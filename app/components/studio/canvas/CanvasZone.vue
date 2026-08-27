@@ -86,13 +86,13 @@ function onDrop(event: DragEvent) {
 
 <template>
   <div
-    class="relative flex flex-col min-h-[180px] rounded-xl transition-all min-w-0 overflow-hidden"
+    class="relative flex min-h-[120px] min-w-0 flex-col overflow-hidden rounded-2xl transition-all"
     :class="[
-      isEmpty
-        ? 'border-2 border-dashed border-slate-200 bg-slate-50/60'
+      isEmpty && !studio.isPreview
+        ? 'border-2 border-dashed border-[var(--studio-line-strong)] bg-[var(--studio-wash)]/60'
         : 'bg-transparent',
       isDragOver
-        ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5 border-2 border-dashed'
+        ? 'border-2 border-dashed border-[var(--color-primary)] bg-[var(--studio-accent-wash)]'
         : '',
     ]"
     @dragover="onDragOver"
@@ -102,19 +102,19 @@ function onDrop(event: DragEvent) {
   >
     <!-- Empty placeholder -->
     <div
-      v-if="isEmpty && !isDragOver"
-      class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
+      v-if="isEmpty && !isDragOver && !studio.isPreview"
+      class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center"
     >
-      <svg class="w-6 h-6 text-slate-300 mb-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <svg class="mb-1.5 h-6 w-6 text-[var(--studio-line-strong)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4.5v15m7.5-7.5h-15" />
       </svg>
-      <p class="text-[11px] text-slate-400 font-medium">Glisser un bloc ici</p>
+      <p class="text-[11px] font-medium text-[var(--studio-faint)]">Glisser un bloc ici</p>
     </div>
 
     <!-- Drag over highlight text (empty zone) -->
     <div
       v-if="isDragOver && isEmpty"
-      class="absolute inset-0 flex items-center justify-center pointer-events-none z-10"
+      class="pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
     >
       <span class="text-xs font-semibold text-[var(--color-primary)]">Déposer ici</span>
     </div>
@@ -124,8 +124,9 @@ function onDrop(event: DragEvent) {
       ref="draggableEl"
       v-model="zoneBlocks"
       :group="dragGroup"
+      :disabled="studio.isPreview"
       item-key="id"
-      class="flex flex-col gap-3 p-2 flex-1 min-h-[176px] min-w-0"
+      class="flex min-h-[100px] min-w-0 flex-1 flex-col gap-3.5 p-1"
       ghost-class="opacity-30 ring-2 ring-[var(--color-primary)]/30 rounded-xl"
       animation="150"
     >

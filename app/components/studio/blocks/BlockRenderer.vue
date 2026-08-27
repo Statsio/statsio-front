@@ -50,7 +50,7 @@ const component = computed(() => {
 
 <template>
   <component :is="component" v-if="component" :block="block" :readonly="props.readonly" class="h-full w-full" />
-  <div v-else class="flex items-center justify-center h-full text-slate-400 text-xs">
+  <div v-else class="flex items-center justify-center h-full text-[var(--studio-faint)] text-xs">
     Bloc inconnu : {{ block.type }}
   </div>
 </template>

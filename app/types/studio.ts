@@ -163,6 +163,17 @@ export interface BlockFilter {
   value: string
 }
 
+export const FILTER_OPERATORS: { value: FilterOperator; label: string; short: string }[] = [
+  { value: '=', label: 'égal à', short: '=' },
+  { value: '!=', label: 'différent de', short: '≠' },
+  { value: '>', label: 'supérieur à', short: '>' },
+  { value: '>=', label: 'sup. ou égal', short: '≥' },
+  { value: '<', label: 'inférieur à', short: '<' },
+  { value: '<=', label: 'inf. ou égal', short: '≤' },
+  { value: 'contains', label: 'contient', short: '⊃' },
+  { value: 'not_contains', label: 'ne contient pas', short: '⊄' },
+]
+
 export interface BlockJoin {
   datasetId: string
   leftColumn: string   // column from primary dataset
@@ -348,6 +359,26 @@ export const SECTION_LAYOUT_DEFINITIONS: SectionLayoutDefinition[] = [
   { type: '1-2-cols', label: 'Étroite + large',  cols: 2, gridCols: [4, 8],    preview: [['████', '████████']] },
 ]
 
+// ─── Section presets ──────────────────────────────────────────────────────────
+// Mises en page prêtes à l'emploi de l'onglet « Sections » : une section 1-col
+// préremplie de plusieurs blocs, ajoutée à la fin de la page.
+
+export interface SectionPreset {
+  key: string
+  label: string
+  hint: string
+  blocks: BlockType[]
+  /** Aperçu visuel : largeurs relatives des blocs empilés. */
+  shape: number[]
+}
+
+export const SECTION_PRESETS: SectionPreset[] = [
+  { key: 'hero', label: 'Chapô + KPI', hint: 'Titre, paragraphe et un indicateur', blocks: ['heading', 'paragraph', 'kpi'], shape: [2, 1] },
+  { key: 'chart_text', label: 'Graphique + analyse', hint: 'Barres puis paragraphe', blocks: ['bar', 'paragraph'], shape: [1, 1] },
+  { key: 'trend', label: 'Tendance annuelle', hint: 'Courbe + à retenir', blocks: ['line', 'retenir'], shape: [1] },
+  { key: 'table_block', label: 'Tableau détaillé', hint: 'Table paginée + encadré source', blocks: ['table', 'callout'], shape: [1, 1] },
+]
+
 // ─── Block categories ─────────────────────────────────────────────────────────
 
 export interface BlockCategoryDef {
@@ -404,6 +435,13 @@ export const BLOCK_CATEGORIES: BlockCategoryDef[] = [
       { type: 'dropdown',   label: 'Liste déroulante', description: 'Sélection dans une liste d\'options',    iconPath: 'M8.25 15 12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9' },
       { type: 'scale',      label: 'Échelle linéaire', description: 'Note sur une échelle numérique',         iconPath: 'M3 6.75h18M3 12h18M3 17.25h18M6 6.75v0M12 12v0M18 17.25v0' },
       { type: 'rating',     label: 'Avis',              description: 'Notation en étoiles',                   iconPath: 'M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5z' },
+    ],
+  },
+  {
+    id: 'special',
+    label: 'Spécial',
+    blocks: [
+      { type: 'search', label: 'Recherche', description: 'Barre de recherche vers une page template', iconPath: 'M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z' },
     ],
   },
 ]

@@ -12,7 +12,7 @@ import type {
   Section,
   SectionLayout,
 } from '@/types/studio'
-import { SECTION_LAYOUT_DEFINITIONS } from '@/types/studio'
+import { SECTION_LAYOUT_DEFINITIONS, SECTION_PRESETS } from '@/types/studio'
 
 function uid(): string {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
@@ -51,6 +51,8 @@ export const useStudioStore = defineStore('studio', () => {
   const isSidebarRightOpen = ref(false)
   const isDirty = ref(false)
   const dirtyVersion = ref(0)
+  /** Aperçu : canevas en lecture seule, chrome d'édition masqué. */
+  const isPreview = ref(false)
 
   // ─── History (undo/redo) ─────────────────────────────────────────────────────
 
@@ -190,6 +192,22 @@ export const useStudioStore = defineStore('studio', () => {
     }
     markDirty()
     return section
+  }
+
+  /** Insère une section 1-col préremplie des blocs d'un preset (onglet « Sections »). */
+  function addSectionPreset(presetKey: string) {
+    const preset = SECTION_PRESETS.find((p) => p.key === presetKey)
+    if (!preset) return
+    const section = addSection('1-col')
+    const zoneId = `${section.id}-0`
+    let created: StudioBlock | null = null
+    for (const type of preset.blocks) {
+      created = addBlock(type, zoneId)
+    }
+    if (created) {
+      selectedBlockId.value = created.id
+      isSidebarRightOpen.value = true
+    }
   }
 
   function removeSection(sectionId: string) {
@@ -408,6 +426,25 @@ export const useStudioStore = defineStore('studio', () => {
     return block
   }
 
+  /**
+   * Ajoute un bloc sans drag & drop (clic sur une carte du panneau « Éléments »).
+   * Cible : la zone du bloc sélectionné, sinon la première zone de la dernière
+   * section de la page courante, sinon une nouvelle section 1-col.
+   */
+  function addBlockSmart(type: BlockType): StudioBlock {
+    const selected = selectedBlock.value
+    if (selected) return addBlock(type, selected.zoneId)
+
+    const pageSections = sections.value.filter(
+      (s: Section) => (s.pageId ?? 'default') === currentPageId.value,
+    )
+    const lastSection = pageSections[pageSections.length - 1]
+    if (lastSection) return addBlock(type, `${lastSection.id}-0`)
+
+    const section = addSection('1-col')
+    return addBlock(type, `${section.id}-0`)
+  }
+
   function removeBlock(blockId: string) {
     const target = blocks.value.find((b: StudioBlock) => b.id === blockId)
     if (target?.locked) return
@@ -445,6 +482,23 @@ export const useStudioStore = defineStore('studio', () => {
     const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
     if (!block) return
     block.zoneId = toZoneId
+    markDirty()
+  }
+
+  /** Réordonne un bloc à l'intérieur de sa zone (flèches ↑/↓ de la barre d'outils du bloc). */
+  function moveBlockWithinZone(blockId: string, dir: -1 | 1) {
+    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
+    if (!block) return
+    const zoneBlocks = blocks.value.filter((b: StudioBlock) => b.zoneId === block.zoneId)
+    const posInZone = zoneBlocks.findIndex((b: StudioBlock) => b.id === blockId)
+    const target = zoneBlocks[posInZone + dir]
+    if (!target) return
+    snapshot()
+    const i = blocks.value.findIndex((b: StudioBlock) => b.id === blockId)
+    const j = blocks.value.findIndex((b: StudioBlock) => b.id === target.id)
+    const next = [...blocks.value]
+    ;[next[i], next[j]] = [next[j]!, next[i]!]
+    blocks.value = next
     markDirty()
   }
 
@@ -514,6 +568,17 @@ export const useStudioStore = defineStore('studio', () => {
     markDirty()
   }
 
+  // ─── Preview ─────────────────────────────────────────────────────────────────
+
+  function togglePreview(value?: boolean) {
+    isPreview.value = value ?? !isPreview.value
+    if (isPreview.value) {
+      selectedBlockId.value = null
+      isSidebarRightOpen.value = false
+      isPanelOpen.value = false
+    }
+  }
+
   // ─── Save status ─────────────────────────────────────────────────────────────
 
   function setSaveStatus(status: SaveStatus) {
@@ -568,6 +633,7 @@ export const useStudioStore = defineStore('studio', () => {
     saveStatus,
     isDirty,
     dirtyVersion,
+    isPreview,
     activeLeftTab,
     isPanelOpen,
     isSidebarRightOpen,
@@ -575,7 +641,9 @@ export const useStudioStore = defineStore('studio', () => {
     canRedo,
     initPage,
     setTitle,
+    togglePreview,
     addSection,
+    addSectionPreset,
     removeSection,
     changeSectionLayout,
     reorderSections,
@@ -589,10 +657,12 @@ export const useStudioStore = defineStore('studio', () => {
     switchPageKeepParams,
     reorderCurrentPageSections,
     addBlock,
+    addBlockSmart,
     removeBlock,
     duplicateBlock,
     selectBlock,
     moveBlock,
+    moveBlockWithinZone,
     setZoneBlocks,
     updateBlockConfig,
     updateBlockDataset,

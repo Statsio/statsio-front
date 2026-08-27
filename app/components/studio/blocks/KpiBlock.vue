@@ -114,7 +114,7 @@ const isPositive = computed(() => (delta.value?.diff ?? 0) >= 0)
 </script>
 
 <template>
-  <div class="relative h-full flex flex-col justify-between overflow-hidden p-4 sm:p-5">
+  <div class="relative flex flex-col justify-between gap-3 overflow-hidden">
     <!-- Accent bar top (trend indicator) -->
     <div
       v-if="hasComparisonSetup && trendLabel"
@@ -124,7 +124,7 @@ const isPositive = computed(() => (delta.value?.diff ?? 0) >= 0)
 
     <!-- Loading -->
     <div v-if="isLoading" class="flex items-center justify-center h-full py-6">
-      <span class="text-sm text-slate-400">Chargement…</span>
+      <span class="text-sm text-[var(--studio-faint)]">Chargement…</span>
     </div>
 
     <!-- Error -->
@@ -133,7 +133,7 @@ const isPositive = computed(() => (delta.value?.diff ?? 0) >= 0)
     </div>
 
     <!-- Empty state -->
-    <div v-else-if="!block.datasetId || !valueCol" class="flex flex-col items-center justify-center gap-2 h-full py-6 text-slate-400">
+    <div v-else-if="!block.datasetId || !valueCol" class="flex flex-col items-center justify-center gap-2 h-full py-6 text-[var(--studio-faint)]">
       <svg class="w-8 h-8 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5.25 8.25h15m-16.5 7.5h15m-1.8-13.5-3.9 19.5m-2.1-19.5-3.9 19.5" />
       </svg>
@@ -141,32 +141,26 @@ const isPositive = computed(() => (delta.value?.diff ?? 0) >= 0)
     </div>
 
     <template v-else>
-      <!-- Label -->
-      <p v-if="block.config.title" class="text-[11px] font-medium uppercase tracking-wider text-[#18181f]/50 mb-2.5">
-        {{ block.config.title }}
-      </p>
-
-      <!-- Main value -->
-      <div class="flex items-end gap-3 flex-wrap">
-        <span class="mono text-3xl font-bold text-[#18181f] tabular-nums leading-none sm:text-4xl">
-          {{ block.config.prefix }}{{ formattedValue }}{{ block.config.suffix }}
-        </span>
+      <div class="flex flex-wrap items-end gap-5">
+        <div>
+          <p v-if="block.config.title" class="mb-2 text-[11px] font-extrabold uppercase tracking-[0.06em] text-[var(--studio-faint)]">
+            {{ block.config.title }}
+          </p>
+          <span class="block font-mono text-[40px] font-semibold leading-none text-[var(--studio-ink)] tabular-nums">
+            {{ block.config.prefix }}{{ formattedValue }}{{ block.config.suffix }}
+          </span>
+        </div>
 
         <template v-if="hasComparisonSetup">
-          <span v-if="compLoading" class="mb-1 text-xs text-slate-400 animate-pulse">…</span>
-          <span v-else-if="compError" class="mb-1 text-xs text-red-400">!</span>
-          <span
-            v-else-if="trendLabel"
-            class="mb-1 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-sm font-semibold"
-            :class="isPositive ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'"
-          >
-            <svg class="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-              <path v-if="isPositive" d="M10.293 3.293a1 1 0 0 1 1.414 0l6 6a1 1 0 0 1-1.414 1.414L11 5.414V17a1 1 0 1 1-2 0V5.414L4.707 10.707a1 1 0 0 1-1.414-1.414l6-6z" />
-              <path v-else d="M9.707 16.707a1 1 0 0 1-1.414 0l-6-6a1 1 0 0 1 1.414-1.414L9 14.586V3a1 1 0 0 1 2 0v11.586l4.293-4.293a1 1 0 0 1 1.414 1.414l-6 6z" />
-            </svg>
-            {{ trendLabel }}
-          </span>
-          <span v-else class="mb-1 text-xs text-slate-400">— %</span>
+          <span v-if="compLoading" class="pb-1 text-xs text-[var(--studio-faint)] animate-pulse">…</span>
+          <span v-else-if="compError" class="pb-1 text-xs text-red-400">!</span>
+          <div v-else-if="trendLabel" class="flex flex-col gap-1 pb-1">
+            <span class="text-[15px] font-extrabold" :class="isPositive ? 'text-emerald-600' : 'text-red-500'">
+              {{ isPositive ? '↑' : '↓' }} {{ trendLabel }}
+            </span>
+            <span v-if="block.config.description" class="text-xs text-[var(--studio-muted)]">{{ block.config.description }}</span>
+          </div>
+          <span v-else class="pb-1 text-xs text-[var(--studio-faint)]">— %</span>
         </template>
       </div>
     </template>

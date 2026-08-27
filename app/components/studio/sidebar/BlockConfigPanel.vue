@@ -4,8 +4,11 @@ import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import { useActiveEditor } from '@/composables/useActiveEditor'
 import { isTextBlock } from '@/types/studio'
-import { apiHttp } from '@/lib/http'
-import { STATSIO_API } from '@/api/statsio-endpoints'
+import FieldPicker from '@/components/studio/fields/FieldPicker.vue'
+import FieldNote from '@/components/studio/fields/FieldNote.vue'
+import FormBlockInspector from '@/components/studio/inspector/FormBlockInspector.vue'
+import MediaBlockInspector from '@/components/studio/inspector/MediaBlockInspector.vue'
+import RichBlockInspector from '@/components/studio/inspector/RichBlockInspector.vue'
 import type { BlockFilter, BlockType, BlockJoin, DatasetMeta, DatasetColumn } from '@/types/studio'
 
 const studio   = useStudioStore()
@@ -116,58 +119,6 @@ watch(() => block.value?.datasetId, async (id: string | undefined) => { if (id) 
 function updateConfig(key: string, value: unknown)  { if (!block.value) return; studio.updateBlockConfig(block.value.id, { [key]: value }) }
 function updateMapping(key: string, value: string)  { if (!block.value) return; studio.updateBlockFieldMapping(block.value.id, { [key]: value }) }
 
-// ─── Image block upload (bloc "image") ─────────────────────────────────────────
-
-const imageFileInputRef = ref<HTMLInputElement | null>(null)
-const imageDragOver     = ref(false)
-const imageUploading    = ref(false)
-const imageUploadError  = ref('')
-
-async function uploadImageFile(file: File) {
-  if (!block.value) return
-  imageUploadError.value = ''
-  imageUploading.value = true
-  try {
-    const form = new FormData()
-    form.append('file', file)
-    form.append('directory', 'studio/images')
-    const { data } = await apiHttp.post(STATSIO_API.media.upload, form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
-    updateConfig('imageUrl', data.data.url)
-  } catch (e: unknown) {
-    const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message
-    imageUploadError.value = msg ?? "Erreur lors de l'upload de l'image"
-  } finally {
-    imageUploading.value = false
-  }
-}
-
-function onImageFileChange(event: Event) {
-  const input = event.target as HTMLInputElement
-  if (input.files?.[0]) uploadImageFile(input.files[0])
-  input.value = ''
-}
-
-function onImageDrop(event: DragEvent) {
-  imageDragOver.value = false
-  const file = event.dataTransfer?.files[0]
-  if (file) uploadImageFile(file)
-}
-
-function removeImage() {
-  imageUploadError.value = ''
-  updateConfig('imageUrl', '')
-}
-
-// ─── Form block config (choice / checkboxes / dropdown / scale / rating) ──────
-
-const formOptions = computed<string[]>(() => block.value?.config.formOptions ?? [])
-function updateFormOption(idx: number, val: string) { updateConfig('formOptions', formOptions.value.map((o, i) => (i === idx ? val : o))) }
-function addFormOption() { updateConfig('formOptions', [...formOptions.value, `Option ${formOptions.value.length + 1}`]) }
-function removeFormOption(idx: number) { updateConfig('formOptions', formOptions.value.filter((_, i) => i !== idx)) }
-const RATING_MAX_CHOICES = [3, 5, 10]
-
 const needsXY       = computed(() => block.value?.type === 'bar' || block.value?.type === 'line')
 const needsLabelVal = computed(() => block.value?.type === 'pie')
 
@@ -183,14 +134,6 @@ const yAxes = computed<string[]>(() => {
 const needsValue    = computed(() => block.value?.type === 'kpi')
 const isTable       = computed(() => block.value?.type === 'table')
 
-// ─── Text formatting ──────────────────────────────────────────────────────────
-
-const CALLOUT_COLORS = [
-  { value: '#eff6ff', label: 'Bleu' },   { value: '#f0fdf4', label: 'Vert' },
-  { value: '#fef9c3', label: 'Jaune' },  { value: '#fff7ed', label: 'Orange' },
-  { value: '#fdf2f8', label: 'Rose' },   { value: '#f5f3ff', label: 'Violet' },
-  { value: '#f1f5f9', label: 'Gris' },
-]
 const CHART_COLORS = ['#8b5cf6','#3b82f6','#10b981','#f59e0b','#ef4444','#06b6d4','#ec4899','#f97316']
 
 // ─── Filters ──────────────────────────────────────────────────────────────────
@@ -289,12 +232,50 @@ const showDataSourceModal        = ref(false)
 const showFiltersModal           = ref(false)
 const showCompFiltersModal       = ref(false)
 const showColumnsMappingModal    = ref(false)
-const showEditorialModal         = ref(false)
 const showUrlParamPickerModal    = ref(false)
 const showSearchResultsDispModal = ref(false)
 
 const resultTitleColumn      = computed<string>(() => block.value?.fieldMapping.resultTitleColumn ?? '')
 const resultDescColumns      = computed<string[]>(() => block.value?.fieldMapping.resultDescColumns ?? [])
+
+// ─── Résumés pour les FieldPicker de l'inspecteur (données / colonnes / filtres) ──
+
+const datasetName = computed(() =>
+  block.value?.datasetId
+    ? (datasets.readyDatasets.find((d: DatasetMeta) => d.id === block.value?.datasetId)?.name ?? 'Source sélectionnée')
+    : 'Aucune source',
+)
+
+const sourceSummary = computed(() => {
+  if (!block.value?.datasetId) return 'Aucune source sélectionnée'
+  return datasetName.value + (joins.value.length ? ` · ${joins.value.length} jointure${joins.value.length > 1 ? 's' : ''}` : '')
+})
+
+const columnsSummary = computed(() => {
+  const fm = block.value?.fieldMapping ?? {}
+  if (needsXY.value) {
+    const parts = []
+    if (fm.xAxis) parts.push(`X : ${fm.xAxis}`)
+    if (yAxes.value.length) parts.push(`Y : ${yAxes.value.slice(0, 2).join(', ')}${yAxes.value.length > 2 ? '…' : ''}`)
+    return parts.join(' · ') || 'Configurer les axes'
+  }
+  if (needsLabelVal.value) return (fm.label || fm.value) ? `${fm.label ?? '?'} / ${fm.value ?? '?'}` : 'Configurer étiquettes et valeurs'
+  if (needsValue.value) return fm.valueColumn ? `${(fm.aggregate ?? '').toUpperCase()} (${fm.valueColumn})` : 'Configurer la valeur'
+  if (isTable.value) return fm.columns?.length ? `${fm.columns.length} colonne${fm.columns.length > 1 ? 's' : ''} affichée${fm.columns.length > 1 ? 's' : ''}` : 'Toutes les colonnes affichées'
+  return 'Toutes les colonnes affichées'
+})
+
+const filtersSummary = computed(() =>
+  filters.value.length
+    ? `${filters.value.length} filtre${filters.value.length > 1 ? 's' : ''} appliqué${filters.value.length > 1 ? 's' : ''}`
+    : 'Aucun filtre',
+)
+
+const compFiltersSummary = computed(() =>
+  compFilters.value.length
+    ? `${compFilters.value.length} règle${compFilters.value.length > 1 ? 's' : ''} de comparaison`
+    : 'Aucune règle de comparaison',
+)
 
 // ColumnGroup[] built from search source schemas (for ColumnPickerModal / ColumnButton)
 const displayColumnGroups = computed<ColumnGroup[]>(() => {
@@ -324,42 +305,40 @@ const displayColumnGroups = computed<ColumnGroup[]>(() => {
 
 <template>
   <!-- ─── Block selected ──────────────────────────────────────────────────── -->
-  <div v-if="block" class="flex flex-col h-full overflow-hidden">
+  <div v-if="block" class="flex h-full flex-col overflow-hidden font-sans">
 
     <!-- Header -->
-    <div class="px-4 py-3 border-b border-slate-100 shrink-0">
-      <div class="flex items-center gap-3">
-        <span class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" :class="blockMeta?.colorClass">
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" :d="blockMeta?.iconPath" />
-          </svg>
-        </span>
-        <div class="flex-1 min-w-0">
-          <p class="text-sm font-bold text-slate-800 truncate">{{ blockMeta?.label }}</p>
-          <p class="text-[11px] text-slate-400">Configuration</p>
-        </div>
-        <button class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors shrink-0" @click="studio.selectBlock(null)">
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-          </svg>
-        </button>
+    <div class="flex shrink-0 items-center gap-3 px-5 pb-3.5 pt-[18px]">
+      <span class="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[11px] bg-[var(--studio-tag)]">
+        <svg class="h-4 w-4 text-[var(--studio-tag-ink)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" :d="blockMeta?.iconPath" />
+        </svg>
+      </span>
+      <div class="min-w-0 flex-1">
+        <p class="truncate text-[16px] font-extrabold text-[var(--studio-ink)]">{{ blockMeta?.label }}</p>
+        <p class="text-[12.5px] text-[var(--studio-muted)]">Configuration du bloc</p>
       </div>
+      <button
+        class="shrink-0 text-[16px] leading-none text-[var(--studio-faint)] hover:text-[var(--studio-ink)]"
+        aria-label="Fermer"
+        @click="studio.selectBlock(null)"
+      >✕</button>
     </div>
 
     <!-- Tab bar -->
-    <div class="px-3 pt-2.5 pb-1 shrink-0">
-      <div class="flex bg-slate-100 rounded-xl p-1 gap-0.5">
+    <div v-if="currentTabs.length > 1" class="shrink-0 px-4 pb-1">
+      <div class="flex gap-1 rounded-full bg-[var(--studio-wash)] p-[5px]">
         <button
           v-for="tab in currentTabs" :key="tab.id"
-          class="flex-1 py-1.5 rounded-lg text-[11px] font-semibold transition-all flex items-center justify-center gap-1"
-          :class="activeTab === tab.id ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'"
+          class="flex flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-full py-[9px] text-[12.5px] font-bold transition-colors"
+          :class="activeTab === tab.id ? 'bg-white text-[var(--studio-ink)] shadow-[0_1px_2px_rgba(20,20,30,0.12)]' : 'text-[var(--studio-muted)] hover:text-[var(--studio-ink)]'"
           @click="activeTab = tab.id"
         >
           {{ tab.label }}
           <span v-if="tab.id === 'filters' && filters.length > 0"
-            class="min-w-4 h-4 px-1 rounded-full bg-[var(--color-primary)] text-white text-[9px] flex items-center justify-center font-bold">{{ filters.length }}</span>
+            class="flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--color-primary)] px-1 text-[9px] font-bold text-white">{{ filters.length }}</span>
           <span v-if="tab.id === 'comparison' && compFilters.length > 0"
-            class="min-w-4 h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] flex items-center justify-center font-bold">{{ compFilters.length }}</span>
+            class="flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white">{{ compFilters.length }}</span>
         </button>
       </div>
     </div>
@@ -408,24 +387,24 @@ const displayColumnGroups = computed<ColumnGroup[]>(() => {
           <!-- Section: Sources & jointures → modal -->
           <div class="px-3 pt-2.5 pb-1">
             <button
-              class="group flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left transition-all hover:border-[var(--color-primary)] hover:bg-[var(--color-primary)]/3"
+              class="group flex w-full items-center gap-3 rounded-xl border border-[var(--studio-line)] bg-white px-3 py-2.5 text-left transition-all hover:border-[var(--color-primary)] hover:bg-[var(--color-primary)]/3"
               @click="showDataSourceModal = true"
             >
-              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-400 transition-colors group-hover:bg-[var(--color-primary)]/10 group-hover:text-[var(--color-primary)]">
+              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-[var(--studio-faint)] transition-colors group-hover:bg-[var(--color-primary)]/10 group-hover:text-[var(--color-primary)]">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
                 </svg>
               </span>
               <div class="flex-1 min-w-0">
-                <p v-if="searchSources.some((s: SearchSource) => s.datasetId)" class="text-xs font-semibold text-slate-700">
+                <p v-if="searchSources.some((s: SearchSource) => s.datasetId)" class="text-xs font-semibold text-[var(--studio-ink)]">
                   {{ searchSources.filter((s: SearchSource) => s.datasetId).length }} source{{ searchSources.filter((s: SearchSource) => s.datasetId).length > 1 ? 's' : '' }} de recherche
                 </p>
-                <p v-else class="text-xs text-slate-400">Aucune source configurée</p>
-                <p class="mt-0.5 text-[11px] text-slate-400">
+                <p v-else class="text-xs text-[var(--studio-faint)]">Aucune source configurée</p>
+                <p class="mt-0.5 text-[11px] text-[var(--studio-faint)]">
                   {{ searchJoins.length > 0 ? `+ ${searchJoins.length} jointure${searchJoins.length > 1 ? 's' : ''}` : 'Configurer les sources →' }}
                 </p>
               </div>
-              <svg class="h-4 w-4 shrink-0 text-slate-300 transition-colors group-hover:text-[var(--color-primary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <svg class="h-4 w-4 shrink-0 text-[var(--studio-faint)] transition-colors group-hover:text-[var(--color-primary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
               </svg>
             </button>
@@ -455,7 +434,7 @@ const displayColumnGroups = computed<ColumnGroup[]>(() => {
           <!-- Affichage des résultats → modal -->
           <div v-if="displayColumnGroups.length > 0" class="px-3 pt-1 pb-1">
             <button
-              class="group flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left transition-all hover:border-emerald-400 hover:bg-emerald-50/40"
+              class="group flex w-full items-center gap-3 rounded-xl border border-[var(--studio-line)] bg-white px-3 py-2.5 text-left transition-all hover:border-emerald-400 hover:bg-emerald-50/40"
               @click="showSearchResultsDispModal = true"
             >
               <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-500 transition-colors group-hover:bg-emerald-100">
@@ -465,14 +444,14 @@ const displayColumnGroups = computed<ColumnGroup[]>(() => {
                 </svg>
               </span>
               <div class="flex-1 min-w-0">
-                <p class="text-xs font-semibold text-slate-700">Affichage des résultats</p>
-                <p class="mt-0.5 text-[11px] text-slate-400">
-                  <span v-if="resultTitleColumn">Titre : <strong class="font-mono font-normal text-slate-600">{{ resultTitleColumn }}</strong></span>
+                <p class="text-xs font-semibold text-[var(--studio-ink)]">Affichage des résultats</p>
+                <p class="mt-0.5 text-[11px] text-[var(--studio-faint)]">
+                  <span v-if="resultTitleColumn">Titre : <strong class="font-mono font-normal text-[var(--studio-muted)]">{{ resultTitleColumn }}</strong></span>
                   <span v-else-if="resultDescColumns.length">{{ resultDescColumns.length }} colonne{{ resultDescColumns.length > 1 ? 's' : '' }} de description</span>
                   <span v-else>Auto — configurer →</span>
                 </p>
               </div>
-              <svg class="h-4 w-4 shrink-0 text-slate-300 group-hover:text-emerald-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <svg class="h-4 w-4 shrink-0 text-[var(--studio-faint)] group-hover:text-emerald-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
               </svg>
             </button>
@@ -487,24 +466,24 @@ const displayColumnGroups = computed<ColumnGroup[]>(() => {
           <!-- Paramètres URL → modal -->
           <div class="px-3 pt-1 pb-2">
             <button
-              class="group flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left transition-all hover:border-violet-300 hover:bg-violet-50/40"
+              class="group flex w-full items-center gap-3 rounded-xl border border-[var(--studio-line)] bg-white px-3 py-2.5 text-left transition-all hover:border-violet-300 hover:bg-violet-50/40"
               :disabled="allSourceColumns.length === 0"
               @click="showUrlParamPickerModal = true"
             >
-              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-400 transition-colors group-hover:bg-violet-100 group-hover:text-violet-500">
+              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-[var(--studio-faint)] transition-colors group-hover:bg-violet-100 group-hover:text-violet-500">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
                 </svg>
               </span>
               <div class="flex-1 min-w-0">
-                <p class="text-xs font-semibold text-slate-700">Paramètres URL</p>
-                <p class="mt-0.5 text-[11px] text-slate-400">
+                <p class="text-xs font-semibold text-[var(--studio-ink)]">Paramètres URL</p>
+                <p class="mt-0.5 text-[11px] text-[var(--studio-faint)]">
                   <span v-if="urlParams.length">{{ urlParams.length }} colonne{{ urlParams.length > 1 ? 's' : '' }} → <code class="font-mono text-[10px]">?{{ urlParams.slice(0,2).map(c => c + '=…').join('&') }}{{ urlParams.length > 2 ? '…' : '' }}</code></span>
                   <span v-else-if="allSourceColumns.length === 0">Configurez d'abord les sources</span>
                   <span v-else>Aucun paramètre configuré →</span>
                 </p>
               </div>
-              <svg class="h-4 w-4 shrink-0 text-slate-300 group-hover:text-violet-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <svg class="h-4 w-4 shrink-0 text-[var(--studio-faint)] group-hover:text-violet-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
               </svg>
             </button>
@@ -520,237 +499,11 @@ const displayColumnGroups = computed<ColumnGroup[]>(() => {
       </template>
 
       <!-- ══════════════ EDITORIAL BLOCKS (image / video / button / link-card / retenir) ══════════════ -->
-      <template v-if="isEditorial && block">
-        <template v-if="activeTab === 'editorial'">
+      <MediaBlockInspector v-if="isEditorial && block && activeTab === 'editorial'" :block="block" />
 
-          <!-- ── IMAGE ── -->
-          <template v-if="block.type === 'image'">
-            <div class="accordion-item">
-              <button class="accordion-header" @click="toggle('img-src')">
-                <span>Image</span>
-                <svg class="chevron" :class="open('img-src') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
-              </button>
-              <div v-show="open('img-src')" class="accordion-body flex flex-col gap-2">
-                <div>
-                  <label class="cfg-label">Image</label>
-                  <div
-                    class="relative rounded-xl border-2 border-dashed transition-colors cursor-pointer overflow-hidden"
-                    :class="imageDragOver
-                      ? 'border-[var(--color-primary)] bg-purple-50'
-                      : block.config.imageUrl ? 'border-slate-200' : 'border-slate-200 hover:border-slate-300 bg-slate-50'"
-                    @click="imageFileInputRef?.click()"
-                    @dragover.prevent="imageDragOver = true"
-                    @dragleave="imageDragOver = false"
-                    @drop.prevent="onImageDrop"
-                  >
-                    <input ref="imageFileInputRef" type="file" accept="image/*" class="sr-only" @change="onImageFileChange" />
-
-                    <img v-if="block.config.imageUrl" :src="block.config.imageUrl" class="w-full h-28 object-cover" />
-                    <div v-else class="flex flex-col items-center gap-1.5 py-8 px-4 text-center pointer-events-none">
-                      <svg class="w-6 h-6 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
-                      </svg>
-                      <p class="text-xs font-medium text-slate-500">Glisser une image ici</p>
-                      <p class="text-[11px] text-slate-400">ou cliquer pour parcourir</p>
-                    </div>
-
-                    <div v-if="imageUploading" class="absolute inset-0 flex items-center justify-center bg-white/70">
-                      <svg class="w-5 h-5 animate-spin text-[var(--color-primary)]" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                    </div>
-
-                    <button
-                      v-if="block.config.imageUrl && !imageUploading"
-                      type="button"
-                      class="absolute top-1.5 right-1.5 p-1 rounded-lg bg-white/90 text-slate-500 hover:text-red-500 shadow-sm"
-                      @click.stop="removeImage"
-                    >
-                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                  <p v-if="imageUploadError" class="mt-1 text-[11px] text-red-500">{{ imageUploadError }}</p>
-                </div>
-                <div>
-                  <label class="cfg-label">Texte alternatif</label>
-                  <input :value="block.config.imageAlt ?? ''" type="text" placeholder="Description de l'image" class="cfg-input" @input="updateConfig('imageAlt', ($event.target as HTMLInputElement).value)" />
-                </div>
-                <div>
-                  <label class="cfg-label">Légende</label>
-                  <input :value="block.config.imageCaption ?? ''" type="text" placeholder="Source : …" class="cfg-input" @input="updateConfig('imageCaption', ($event.target as HTMLInputElement).value)" />
-                </div>
-              </div>
-            </div>
-            <div class="accordion-item">
-              <button class="accordion-header" @click="toggle('img-layout')">
-                <span>Mise en page</span>
-                <svg class="chevron" :class="open('img-layout') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
-              </button>
-              <div v-show="open('img-layout')" class="accordion-body flex flex-col gap-3">
-                <div>
-                  <label class="cfg-label">Largeur</label>
-                  <div class="grid grid-cols-4 gap-1.5">
-                    <button v-for="w in ['sm','md','lg','full']" :key="w" class="rounded-lg border py-1.5 text-[11px] font-semibold transition-colors" :class="(block.config.imageWidth ?? 'full') === w ? 'cfg-active' : 'cfg-inactive'" @click="updateConfig('imageWidth', w)">{{ w }}</button>
-                  </div>
-                </div>
-                <div>
-                  <label class="cfg-label">Alignement</label>
-                  <div class="grid grid-cols-3 gap-1.5">
-                    <button v-for="a in [{ v: 'left', icon: 'M3.75 6.75h16.5M3.75 12H12m-8.25 5.25h16.5' }, { v: 'center', icon: 'M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5' }, { v: 'right', icon: 'M3.75 6.75h16.5M12 12h8.25M3.75 17.25h16.5' }]" :key="a.v" class="flex items-center justify-center rounded-lg border py-1.5 transition-colors" :class="(block.config.imageAlign ?? 'center') === a.v ? 'cfg-active' : 'cfg-inactive'" @click="updateConfig('imageAlign', a.v)">
-                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" :d="a.icon" /></svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </template>
-
-          <!-- ── VIDEO ── -->
-          <template v-if="block.type === 'video'">
-            <div class="accordion-item">
-              <button class="accordion-header" @click="toggle('vid-url')">
-                <span>Vidéo</span>
-                <svg class="chevron" :class="open('vid-url') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
-              </button>
-              <div v-show="open('vid-url')" class="accordion-body flex flex-col gap-2">
-                <div>
-                  <label class="cfg-label">Lien vidéo <span class="text-slate-400 font-normal normal-case">(YouTube, Vimeo, Dailymotion)</span></label>
-                  <input :value="block.config.videoUrl ?? ''" type="url" placeholder="https://www.youtube.com/watch?v=…" class="cfg-input" @input="updateConfig('videoUrl', ($event.target as HTMLInputElement).value)" />
-                </div>
-                <div>
-                  <label class="cfg-label">Légende</label>
-                  <input :value="block.config.videoCaption ?? ''" type="text" placeholder="Description de la vidéo" class="cfg-input" @input="updateConfig('videoCaption', ($event.target as HTMLInputElement).value)" />
-                </div>
-              </div>
-            </div>
-          </template>
-
-          <!-- ── BUTTON / LINK-CARD / RETENIR → modal ── -->
-          <template v-if="['button', 'link-card', 'retenir'].includes(block.type)">
-            <div class="px-3 pt-1 pb-1">
-              <button
-                class="group flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left transition-all hover:border-[var(--color-primary)] hover:bg-[var(--color-primary)]/3"
-                @click="showEditorialModal = true"
-              >
-                <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-400 transition-colors group-hover:bg-[var(--color-primary)]/10 group-hover:text-[var(--color-primary)]">
-                  <svg v-if="block.type === 'link-card'" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" /></svg>
-                  <svg v-else-if="block.type === 'retenir'" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" /></svg>
-                  <svg v-else class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 0 1 21.75 8.25Z" /></svg>
-                </span>
-                <div class="flex-1 min-w-0">
-                  <p class="text-xs font-semibold text-slate-700">
-                    {{ block.type === 'button' ? 'Bouton' : block.type === 'link-card' ? 'Carte lien' : 'À retenir' }}
-                  </p>
-                  <p class="mt-0.5 text-[11px] text-slate-400 truncate">
-                    <span v-if="block.type === 'button' && block.config.buttonLabel">{{ block.config.buttonLabel }}</span>
-                    <span v-else-if="block.type === 'link-card' && block.config.linkTitle">{{ block.config.linkTitle }}</span>
-                    <span v-else-if="block.type === 'retenir' && (block.config.retenirItems ?? []).length">{{ (block.config.retenirItems ?? []).length }} point{{ (block.config.retenirItems ?? []).length > 1 ? 's' : '' }} clé{{ (block.config.retenirItems ?? []).length > 1 ? 's' : '' }}</span>
-                    <span v-else>Configurer le contenu →</span>
-                  </p>
-                </div>
-                <svg class="h-4 w-4 shrink-0 text-slate-300 group-hover:text-[var(--color-primary)] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
-              </button>
-              <EditorialContentModal :show="showEditorialModal" :block="block" @close="showEditorialModal = false" />
-            </div>
-          </template>
-
-        </template>
-      </template>
 
       <!-- ══════════════ FORM BLOCKS (choice / checkboxes / dropdown / scale / rating) ══════════════ -->
-      <template v-if="isForm && block">
-        <template v-if="activeTab === 'form'">
-
-          <!-- Section: Question -->
-          <div class="accordion-item">
-            <button class="accordion-header" @click="toggle('form-question')">
-              <span>Question</span>
-              <svg class="chevron" :class="open('form-question') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
-            </button>
-            <div v-show="open('form-question')" class="accordion-body flex flex-col gap-2">
-              <div>
-                <label class="cfg-label">Intitulé</label>
-                <input
-                  type="text"
-                  class="cfg-input"
-                  placeholder="Ex : Que pensez-vous de…"
-                  :value="block.config.title ?? ''"
-                  @focus="setActiveInput($event.target as HTMLInputElement)"
-                  @input="updateConfig('title', ($event.target as HTMLInputElement).value)"
-                />
-              </div>
-              <label class="flex items-center gap-2 text-xs font-medium text-slate-600">
-                <input type="checkbox" :checked="block.config.formRequired ?? false" @change="updateConfig('formRequired', ($event.target as HTMLInputElement).checked)" />
-                Question obligatoire
-              </label>
-            </div>
-          </div>
-
-          <!-- Section: Options (choice / checkboxes / dropdown) -->
-          <div v-if="['choice', 'checkboxes', 'dropdown'].includes(block.type)" class="accordion-item">
-            <button class="accordion-header" @click="toggle('form-options')">
-              <span>Options</span>
-              <svg class="chevron" :class="open('form-options') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
-            </button>
-            <div v-show="open('form-options')" class="accordion-body flex flex-col gap-2">
-              <div v-for="(opt, idx) in formOptions" :key="idx" class="flex items-center gap-2">
-                <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-slate-100 text-[10px] font-semibold text-slate-500">{{ idx + 1 }}</span>
-                <input type="text" class="cfg-input" :value="opt" @input="updateFormOption(idx, ($event.target as HTMLInputElement).value)" />
-                <button class="shrink-0 p-1 text-slate-300 hover:text-rose-500" @click="removeFormOption(idx)">
-                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
-                </button>
-              </div>
-              <button class="mt-1 self-start text-xs font-semibold text-[var(--color-primary)] hover:underline" @click="addFormOption">+ Ajouter une option</button>
-            </div>
-          </div>
-
-          <!-- Section: Échelle (scale) -->
-          <div v-if="block.type === 'scale'" class="accordion-item">
-            <button class="accordion-header" @click="toggle('form-scale')">
-              <span>Échelle</span>
-              <svg class="chevron" :class="open('form-scale') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
-            </button>
-            <div v-show="open('form-scale')" class="accordion-body flex flex-col gap-3">
-              <div class="grid grid-cols-2 gap-2">
-                <div>
-                  <label class="cfg-label">Min</label>
-                  <input type="number" class="cfg-input" :value="block.config.scaleMin ?? 1" @input="updateConfig('scaleMin', Number(($event.target as HTMLInputElement).value))" />
-                </div>
-                <div>
-                  <label class="cfg-label">Max</label>
-                  <input type="number" class="cfg-input" :value="block.config.scaleMax ?? 5" @input="updateConfig('scaleMax', Number(($event.target as HTMLInputElement).value))" />
-                </div>
-              </div>
-              <div>
-                <label class="cfg-label">Libellé côté min <span class="text-slate-400 font-normal normal-case">(facultatif)</span></label>
-                <input type="text" class="cfg-input" :value="block.config.scaleMinLabel ?? ''" @input="updateConfig('scaleMinLabel', ($event.target as HTMLInputElement).value)" />
-              </div>
-              <div>
-                <label class="cfg-label">Libellé côté max <span class="text-slate-400 font-normal normal-case">(facultatif)</span></label>
-                <input type="text" class="cfg-input" :value="block.config.scaleMaxLabel ?? ''" @input="updateConfig('scaleMaxLabel', ($event.target as HTMLInputElement).value)" />
-              </div>
-            </div>
-          </div>
-
-          <!-- Section: Étoiles (rating) -->
-          <div v-if="block.type === 'rating'" class="accordion-item">
-            <button class="accordion-header" @click="toggle('form-rating')">
-              <span>Notation</span>
-              <svg class="chevron" :class="open('form-rating') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
-            </button>
-            <div v-show="open('form-rating')" class="accordion-body">
-              <label class="cfg-label">Nombre d'étoiles</label>
-              <div class="grid grid-cols-3 gap-1.5">
-                <button v-for="n in RATING_MAX_CHOICES" :key="n" class="rounded-lg border py-1.5 text-[11px] font-semibold transition-colors" :class="(block.config.ratingMax ?? 5) === n ? 'cfg-active' : 'cfg-inactive'" @click="updateConfig('ratingMax', n)">{{ n }}</button>
-              </div>
-            </div>
-          </div>
-
-        </template>
-      </template>
+      <FormBlockInspector v-if="isForm && block && activeTab === 'form'" :block="block" />
 
       <!-- ══════════════ DATA BLOCKS ══════════════ -->
       <template v-if="!isText && !isSearch && !isEditorial && !isForm">
@@ -758,110 +511,43 @@ const displayColumnGroups = computed<ColumnGroup[]>(() => {
         <!-- ── Tab: Données ── -->
         <template v-if="activeTab === 'data'">
 
-          <!-- Section: Source & jointures → modal -->
-          <div class="px-3 pt-2.5 pb-1">
-            <button
-              class="group flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left transition-all hover:border-[var(--color-primary)] hover:bg-[var(--color-primary)]/3"
-              @click="showDataSourceModal = true"
-            >
-              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-400 transition-colors group-hover:bg-[var(--color-primary)]/10 group-hover:text-[var(--color-primary)]">
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375" />
-                </svg>
-              </span>
-              <div class="flex-1 min-w-0">
-                <p v-if="block.datasetId" class="text-xs font-semibold text-slate-700 truncate">
-                  {{ datasets.readyDatasets.find((d: DatasetMeta) => d.id === block?.datasetId)?.name ?? 'Dataset sélectionné' }}
-                </p>
-                <p v-else class="text-xs text-slate-400">Aucun dataset sélectionné</p>
-                <p class="mt-0.5 text-[11px] text-slate-400">
-                  {{ joins.length > 0 ? `+ ${joins.length} jointure${joins.length > 1 ? 's' : ''}` : 'Configurer la source →' }}
-                </p>
-              </div>
-              <svg class="h-4 w-4 shrink-0 text-slate-300 transition-colors group-hover:text-[var(--color-primary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-              </svg>
-            </button>
+          <div class="flex flex-col gap-[11px] px-4 pb-1 pt-3">
+            <FieldPicker
+              label="Source"
+              :value="sourceSummary"
+              action="Changer"
+              @open="showDataSourceModal = true"
+            />
             <DataSourceModal :show="showDataSourceModal" :block="block" @close="showDataSourceModal = false" />
-          </div>
 
-          <!-- Section: Colonnes → modal (bar/line/pie/kpi/table) -->
-          <template v-if="block.datasetId">
-            <div class="px-3 pt-1 pb-1">
-              <button
-                class="group flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left transition-all hover:border-blue-400 hover:bg-blue-50/40"
-                @click="showColumnsMappingModal = true"
-              >
-                <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-400 transition-colors group-hover:bg-blue-100 group-hover:text-blue-500">
-                  <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
-                  </svg>
-                </span>
-                <div class="flex-1 min-w-0">
-                  <p class="text-xs font-semibold text-slate-700">Colonnes</p>
-                  <p class="mt-0.5 text-[11px] text-slate-400">
-                    <template v-if="needsXY">
-                      <span v-if="block.fieldMapping.xAxis">X : <strong class="font-mono font-normal text-slate-600">{{ block.fieldMapping.xAxis }}</strong></span>
-                      <span v-if="yAxes.length" :class="block.fieldMapping.xAxis ? 'ml-2' : ''">Y : <strong class="font-mono font-normal text-slate-600">{{ yAxes.slice(0,2).join(', ') }}{{ yAxes.length > 2 ? '…' : '' }}</strong></span>
-                      <span v-if="!block.fieldMapping.xAxis && !yAxes.length">Configurer les axes →</span>
-                    </template>
-                    <template v-else-if="needsLabelVal">
-                      <span v-if="block.fieldMapping.label || block.fieldMapping.value">{{ block.fieldMapping.label }} / {{ block.fieldMapping.value }}</span>
-                      <span v-else>Configurer étiquettes et valeurs →</span>
-                    </template>
-                    <template v-else-if="needsValue">
-                      <span v-if="block.fieldMapping.valueColumn">
-                        <span v-if="block.fieldMapping.aggregate" class="font-semibold text-[var(--color-primary)] uppercase">{{ block.fieldMapping.aggregate }}</span>(<strong class="font-mono font-normal text-slate-600">{{ block.fieldMapping.valueColumn }}</strong>) — {{ block.config.format ?? 'number' }}
-                      </span>
-                      <span v-else>Configurer la valeur →</span>
-                    </template>
-                    <template v-else-if="isTable">
-                      <span v-if="block.fieldMapping.columns?.length">{{ block.fieldMapping.columns.length }} colonne{{ block.fieldMapping.columns.length > 1 ? 's' : '' }} sélectionnée{{ block.fieldMapping.columns.length > 1 ? 's' : '' }}</span>
-                      <span v-else>Toutes les colonnes affichées</span>
-                    </template>
-                    <template v-else>Toutes les colonnes affichées</template>
-                  </p>
-                </div>
-                <svg class="h-4 w-4 shrink-0 text-slate-300 group-hover:text-blue-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-                </svg>
-              </button>
+            <template v-if="block.datasetId">
+              <FieldPicker
+                label="Colonnes"
+                :value="columnsSummary"
+                action="Configurer"
+                @open="showColumnsMappingModal = true"
+              />
               <ColumnsMappingModal :show="showColumnsMappingModal" :block="block" @close="showColumnsMappingModal = false" />
-            </div>
-          </template>
+            </template>
+          </div>
 
         </template>
 
         <!-- ── Tab: Filtres ── -->
         <template v-if="activeTab === 'filters'">
 
-          <!-- Filtres → modal -->
-          <div class="px-3 pt-2 pb-1">
-            <div v-if="!block.datasetId" class="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2.5 text-xs text-slate-400">
-              Connectez d'abord une source dans l'onglet Données.
-            </div>
-            <button
-              v-else
-              class="group flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left transition-all hover:border-[var(--color-primary)] hover:bg-[var(--color-primary)]/3"
-              @click="showFiltersModal = true"
-            >
-              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-400 transition-colors group-hover:bg-[var(--color-primary)]/10 group-hover:text-[var(--color-primary)]">
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
-                </svg>
-              </span>
-              <div class="flex-1 min-w-0">
-                <p class="text-xs font-semibold text-slate-700">Règles de filtrage</p>
-                <p class="mt-0.5 text-[11px] text-slate-400">
-                  <span v-if="filters.length">{{ filters.length }} règle{{ filters.length > 1 ? 's' : '' }} active{{ filters.length > 1 ? 's' : '' }}</span>
-                  <span v-else>Toutes les lignes affichées →</span>
-                </p>
-              </div>
-              <svg class="h-4 w-4 shrink-0 text-slate-300 group-hover:text-[var(--color-primary)] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-              </svg>
-            </button>
-            <FiltersModal :show="showFiltersModal" :block="block" mode="primary" @close="showFiltersModal = false" />
+          <div class="flex flex-col gap-[11px] px-4 pb-1 pt-3">
+            <FieldNote v-if="!block.datasetId">Connectez d'abord une source dans l'onglet Données.</FieldNote>
+            <template v-else>
+              <FieldPicker
+                label="Filtres"
+                :value="filtersSummary"
+                :action="filters.length ? 'Modifier' : 'Ajouter'"
+                @open="showFiltersModal = true"
+              />
+              <FiltersModal :show="showFiltersModal" :block="block" mode="primary" @close="showFiltersModal = false" />
+              <FieldNote>Les filtres s'appliquent avant l'agrégation et se cumulent avec ceux de la source.</FieldNote>
+            </template>
           </div>
 
           <!-- ── Limite ── -->
@@ -893,11 +579,11 @@ const displayColumnGroups = computed<ColumnGroup[]>(() => {
                 />
                 <button
                   v-if="block.config.rowLimit"
-                  class="text-[11px] text-slate-400 hover:text-red-400 transition-colors shrink-0"
+                  class="text-[11px] text-[var(--studio-faint)] hover:text-red-400 transition-colors shrink-0"
                   @click="updateConfig('rowLimit', null)"
                 >↺</button>
               </div>
-              <p class="text-[11px] text-slate-400 leading-relaxed">Tronque les résultats au nombre de lignes souhaité.</p>
+              <p class="text-[11px] text-[var(--studio-faint)] leading-relaxed">Tronque les résultats au nombre de lignes souhaité.</p>
             </div>
           </div>
 
@@ -922,7 +608,7 @@ const displayColumnGroups = computed<ColumnGroup[]>(() => {
                 clearable
                 @update:model-value="updateConfig('distinctColumn', $event || null)"
               />
-              <p class="text-[11px] text-slate-400 leading-relaxed">Garde une seule ligne par valeur unique de la colonne sélectionnée.</p>
+              <p class="text-[11px] text-[var(--studio-faint)] leading-relaxed">Garde une seule ligne par valeur unique de la colonne sélectionnée.</p>
             </div>
           </div>
 
@@ -943,7 +629,7 @@ const displayColumnGroups = computed<ColumnGroup[]>(() => {
 
               <!-- Colonne de tri -->
               <div class="flex flex-col gap-1.5">
-                <label class="text-xs font-semibold text-slate-600">Colonne</label>
+                <label class="text-xs font-semibold text-[var(--studio-muted)]">Colonne</label>
                 <ColumnButton
                   :model-value="block.config.sortColumn ?? null"
                   :block="block"
@@ -955,7 +641,7 @@ const displayColumnGroups = computed<ColumnGroup[]>(() => {
 
               <!-- Direction -->
               <div v-if="block.config.sortColumn" class="flex flex-col gap-1.5">
-                <label class="text-xs font-semibold text-slate-600">Direction</label>
+                <label class="text-xs font-semibold text-[var(--studio-muted)]">Direction</label>
                 <div class="grid grid-cols-2 gap-1.5">
                   <button
                     class="flex items-center justify-center gap-1.5 py-2 rounded-xl border text-xs font-semibold transition-colors"
@@ -988,7 +674,7 @@ const displayColumnGroups = computed<ColumnGroup[]>(() => {
         <!-- ── Tab: Comparaison (KPI) ── -->
         <template v-if="activeTab === 'comparison'">
 
-          <div v-if="!block.datasetId" class="p-4 text-xs text-slate-400 text-center">Connectez d'abord une source dans l'onglet Données.</div>
+          <div v-if="!block.datasetId" class="p-4 text-xs text-[var(--studio-faint)] text-center">Connectez d'abord une source dans l'onglet Données.</div>
           <template v-else>
 
             <!-- Colonne de référence -->
@@ -1000,7 +686,7 @@ const displayColumnGroups = computed<ColumnGroup[]>(() => {
                 </svg>
               </button>
               <div v-show="open('comp-ref')" class="accordion-body">
-                <p class="text-[11px] text-slate-400 mb-2 leading-relaxed">Par défaut, même colonne que la valeur principale.</p>
+                <p class="text-[11px] text-[var(--studio-faint)] mb-2 leading-relaxed">Par défaut, même colonne que la valeur principale.</p>
                 <ColumnButton
                   :model-value="block.fieldMapping.comparisonColumn ?? null"
                   :block="block"
@@ -1012,27 +698,13 @@ const displayColumnGroups = computed<ColumnGroup[]>(() => {
             </div>
 
             <!-- Filtres de comparaison → modal -->
-            <div class="px-3 pb-1">
-              <button
-                class="group flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left transition-all hover:border-rose-300 hover:bg-rose-50/40"
-                @click="showCompFiltersModal = true"
-              >
-                <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-400 transition-colors group-hover:bg-rose-100 group-hover:text-rose-500">
-                  <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 0 1-.659 1.591l-5.432 5.432a2.25 2.25 0 0 0-.659 1.591v2.927a2.25 2.25 0 0 1-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 0 0-.659-1.591L3.659 7.409A2.25 2.25 0 0 1 3 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0 1 12 3Z" />
-                  </svg>
-                </span>
-                <div class="flex-1 min-w-0">
-                  <p class="text-xs font-semibold text-slate-700">Filtres de comparaison</p>
-                  <p class="mt-0.5 text-[11px] text-slate-400">
-                    <span v-if="compFilters.length">{{ compFilters.length }} règle{{ compFilters.length > 1 ? 's' : '' }}</span>
-                    <span v-else>Ex : année = 2023 →</span>
-                  </p>
-                </div>
-                <svg class="h-4 w-4 shrink-0 text-slate-300 group-hover:text-rose-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-                </svg>
-              </button>
+            <div class="px-4 pb-1 pt-1">
+              <FieldPicker
+                label="Filtres de comparaison"
+                :value="compFiltersSummary"
+                :action="compFilters.length ? 'Modifier' : 'Configurer'"
+                @open="showCompFiltersModal = true"
+              />
               <FiltersModal :show="showCompFiltersModal" :block="block" mode="comparison" @close="showCompFiltersModal = false" />
             </div>
 
@@ -1123,22 +795,22 @@ const displayColumnGroups = computed<ColumnGroup[]>(() => {
             </button>
             <div v-show="open('bar-opts')" class="accordion-body flex flex-col gap-3">
               <div class="toggle-row" @click="updateConfig('showValueLabels', !block.config.showValueLabels)">
-                <span class="text-sm text-slate-700">Afficher les valeurs sur les barres</span>
+                <span class="text-sm text-[var(--studio-ink)]">Afficher les valeurs sur les barres</span>
                 <div class="toggle" :class="block.config.showValueLabels ? 'toggle-on' : 'toggle-off'">
                   <div class="toggle-knob" :class="block.config.showValueLabels ? 'translate-x-3.5' : 'translate-x-0.5'" />
                 </div>
               </div>
               <div class="toggle-row" @click="updateConfig('logScale', !block.config.logScale)">
                 <div>
-                  <span class="text-sm text-slate-700">Échelle logarithmique</span>
-                  <p class="text-[11px] text-slate-400 mt-0.5">Garde les petites valeurs visibles quand l'écart avec les plus grandes est important</p>
+                  <span class="text-sm text-[var(--studio-ink)]">Échelle logarithmique</span>
+                  <p class="text-[11px] text-[var(--studio-faint)] mt-0.5">Garde les petites valeurs visibles quand l'écart avec les plus grandes est important</p>
                 </div>
                 <div class="toggle shrink-0" :class="block.config.logScale ? 'toggle-on' : 'toggle-off'">
                   <div class="toggle-knob" :class="block.config.logScale ? 'translate-x-3.5' : 'translate-x-0.5'" />
                 </div>
               </div>
               <div>
-                <label class="text-xs font-semibold text-slate-500 mb-1.5 block">Style d'affichage</label>
+                <label class="text-xs font-semibold text-[var(--studio-muted)] mb-1.5 block">Style d'affichage</label>
                 <div class="grid grid-cols-2 gap-2">
                   <button v-for="o in [
                     { v: 'chart',    l: 'Graphique' },
@@ -1164,13 +836,13 @@ const displayColumnGroups = computed<ColumnGroup[]>(() => {
             </button>
             <div v-show="open('line-opts')" class="accordion-body flex flex-col gap-3">
               <div class="toggle-row" @click="updateConfig('smooth', !block.config.smooth)">
-                <span class="text-sm text-slate-700">Courbe lisse</span>
+                <span class="text-sm text-[var(--studio-ink)]">Courbe lisse</span>
                 <div class="toggle" :class="block.config.smooth ? 'toggle-on' : 'toggle-off'">
                   <div class="toggle-knob" :class="block.config.smooth ? 'translate-x-3.5' : 'translate-x-0.5'" />
                 </div>
               </div>
               <div>
-                <label class="text-xs font-semibold text-slate-500 mb-1.5 block">Pastille de tendance (optionnel)</label>
+                <label class="text-xs font-semibold text-[var(--studio-muted)] mb-1.5 block">Pastille de tendance (optionnel)</label>
                 <input
                   :value="block.config.trendLabel ?? ''"
                   type="text"
@@ -1203,13 +875,13 @@ const displayColumnGroups = computed<ColumnGroup[]>(() => {
             </button>
             <div v-show="open('table-opts')" class="accordion-body flex flex-col gap-2">
               <div class="toggle-row" @click="updateConfig('sortable', !block.config.sortable)">
-                <span class="text-sm text-slate-700">Colonnes triables</span>
+                <span class="text-sm text-[var(--studio-ink)]">Colonnes triables</span>
                 <div class="toggle" :class="block.config.sortable ? 'toggle-on' : 'toggle-off'">
                   <div class="toggle-knob" :class="block.config.sortable ? 'translate-x-3.5' : 'translate-x-0.5'" />
                 </div>
               </div>
               <div class="toggle-row" @click="updateConfig('showPagination', !block.config.showPagination)">
-                <span class="text-sm text-slate-700">Pagination</span>
+                <span class="text-sm text-[var(--studio-ink)]">Pagination</span>
                 <div class="toggle" :class="block.config.showPagination ? 'toggle-on' : 'toggle-off'">
                   <div class="toggle-knob" :class="block.config.showPagination ? 'translate-x-3.5' : 'translate-x-0.5'" />
                 </div>
@@ -1243,71 +915,14 @@ const displayColumnGroups = computed<ColumnGroup[]>(() => {
       </template>
 
       <!-- ══════════════ TEXT BLOCKS ══════════════ -->
-      <template v-else>
-        <template v-if="activeTab === 'style'">
-
-          <!-- Niveau (heading only) -->
-          <div v-if="block.type === 'heading'" class="accordion-item">
-            <button class="accordion-header" @click="toggle('heading-level')">
-              <span>Niveau</span>
-              <div class="flex items-center gap-2">
-                <span class="text-xs font-bold text-slate-500">H{{ block.config.headingLevel ?? 2 }}</span>
-                <svg class="chevron" :class="open('heading-level') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                </svg>
-              </div>
-            </button>
-            <div v-show="open('heading-level')" class="accordion-body">
-              <div class="grid grid-cols-3 gap-1.5">
-                <button v-for="lvl in [1, 2, 3]" :key="lvl"
-                  class="py-2.5 rounded-xl border font-bold transition-colors"
-                  :class="[(block.config.headingLevel ?? 2) === lvl ? 'cfg-active' : 'cfg-inactive', lvl === 1 ? 'text-lg' : lvl === 2 ? 'text-base' : 'text-sm']"
-                  @click="updateConfig('headingLevel', lvl)">H{{ lvl }}</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Couleur de fond (callout only) -->
-          <div v-if="block.type === 'callout'" class="accordion-item">
-            <button class="accordion-header" @click="toggle('bg-color')">
-              <span>Couleur de fond</span>
-              <div class="flex items-center gap-2">
-                <span class="w-4 h-4 rounded border border-slate-200" :style="{ backgroundColor: block.config.calloutColor ?? '#eff6ff' }" />
-                <svg class="chevron" :class="open('bg-color') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                </svg>
-              </div>
-            </button>
-            <div v-show="open('bg-color')" class="accordion-body">
-              <div class="grid grid-cols-7 gap-2">
-                <button v-for="c in CALLOUT_COLORS" :key="c.value"
-                  class="aspect-square rounded-xl border-2 transition-all hover:scale-105"
-                  :style="{ backgroundColor: c.value }"
-                  :class="(block.config.calloutColor ?? '#eff6ff') === c.value ? 'border-slate-600 scale-110' : 'border-slate-200'"
-                  :title="c.label"
-                  @click="updateConfig('calloutColor', c.value)" />
-              </div>
-            </div>
-          </div>
-
-          <!-- Info when no block-specific options -->
-          <div v-if="block.type !== 'heading' && block.type !== 'callout'" class="flex flex-col items-center justify-center py-10 px-4 text-center">
-            <svg class="w-8 h-8 text-slate-200 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5" />
-            </svg>
-            <p class="text-xs font-semibold text-slate-400">Mise en forme disponible</p>
-            <p class="text-[11px] text-slate-300 mt-1 leading-relaxed">Utilisez la barre d'outils<br>en haut de la page</p>
-          </div>
-
-        </template>
-      </template>
+      <RichBlockInspector v-if="isText && block && activeTab === 'style'" :block="block" />
 
     </div>
 
     <!-- Footer: duplicate / delete -->
-    <div class="px-3 py-3 border-t border-slate-100 shrink-0 flex gap-2">
+    <div class="px-3 py-3 border-t border-[var(--studio-line)] shrink-0 flex gap-2">
       <button
-        class="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
+        class="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-[var(--studio-muted)] hover:bg-[var(--studio-wash)] rounded-xl transition-colors"
         @click="studio.duplicateBlock(block.id)"
       >
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -1329,14 +944,14 @@ const displayColumnGroups = computed<ColumnGroup[]>(() => {
   </div>
 
   <!-- ─── Empty state ─────────────────────────────────────────────────────── -->
-  <div v-else class="flex flex-col items-center justify-center h-full text-center px-6">
-    <div class="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
-      <svg class="w-8 h-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+  <div v-else class="flex h-full flex-col items-center justify-center px-6 text-center">
+    <div class="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--studio-tag)]">
+      <svg class="h-8 w-8 text-[var(--studio-tag-ink)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.042 21.672 13.684 16.6m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672ZM12 2.25V4.5m5.834.166-1.591 1.591M20.25 10.5H18M7.757 14.743l-1.59 1.59M6 10.5H3.75m4.007-4.243-1.59-1.59" />
       </svg>
     </div>
-    <p class="text-sm font-bold text-slate-600">Aucun bloc sélectionné</p>
-    <p class="text-xs text-slate-400 mt-1.5 leading-relaxed">Cliquez sur un bloc du canvas<br>pour accéder à sa configuration</p>
+    <p class="text-sm font-bold text-[var(--studio-ink)]">Aucun bloc sélectionné</p>
+    <p class="mt-1.5 text-xs leading-relaxed text-[var(--studio-faint)]">Cliquez sur un bloc du canevas<br />pour accéder à sa configuration</p>
   </div>
 </template>
 
@@ -1345,49 +960,91 @@ const displayColumnGroups = computed<ColumnGroup[]>(() => {
 
 /* ── Accordion ── */
 .accordion-item {
-  @apply border-b border-slate-100 last:border-0;
+  @apply border-b border-[var(--studio-line)] last:border-0;
 }
 .accordion-header {
-  @apply w-full flex items-center justify-between px-4 py-3 text-left cursor-pointer hover:bg-slate-50 transition-colors;
-  @apply text-[11px] font-bold text-slate-600 uppercase tracking-widest;
+  @apply w-full flex items-center justify-between px-4 py-3 text-left cursor-pointer transition-colors;
+  @apply text-[10.5px] font-extrabold uppercase tracking-[0.07em];
+  color: var(--studio-faint);
+}
+.accordion-header:hover {
+  background: var(--studio-note);
 }
 .accordion-body {
   @apply px-4 pb-4;
 }
 .chevron {
-  @apply w-3.5 h-3.5 text-slate-400 transition-transform duration-150 shrink-0;
+  @apply w-3.5 h-3.5 transition-transform duration-150 shrink-0;
+  color: var(--studio-faint);
 }
 
 /* ── Filter card ── */
 .filter-card {
-  @apply rounded-xl border border-slate-200 bg-white p-3 flex flex-col shadow-sm;
+  @apply flex flex-col p-3;
+  border-radius: 12px;
+  border: 1px solid var(--studio-line);
+  background: #fff;
 }
 
 /* ── Form controls ── */
 .cfg-label {
-  @apply flex items-center text-[10px] font-bold text-slate-500 mb-1.5 uppercase tracking-widest;
+  @apply flex items-center mb-[7px] text-[12.5px] font-bold;
+  color: var(--studio-ink);
 }
-.cfg-select {
-  @apply w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/25 focus:border-[var(--color-primary)] transition-all;
-}
-.cfg-select-sm {
-  @apply w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-800 bg-white focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]/30 focus:border-[var(--color-primary)] transition-all;
-}
+.cfg-select,
 .cfg-input {
-  @apply w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 bg-white placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/25 focus:border-[var(--color-primary)] transition-all;
+  @apply w-full;
+  box-sizing: border-box;
+  padding: 11px 13px;
+  border-radius: 10px;
+  border: 1.5px solid var(--studio-line-strong);
+  font-size: 13px;
+  color: var(--studio-ink);
+  background: #fff;
 }
+.cfg-select-sm,
 .cfg-input-sm {
-  @apply w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-800 bg-white placeholder:text-slate-300 focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]/30 focus:border-[var(--color-primary)] transition-all;
+  @apply w-full;
+  box-sizing: border-box;
+  padding: 9px 11px;
+  border-radius: 9px;
+  border: 1.5px solid var(--studio-line-strong);
+  font-size: 12px;
+  color: var(--studio-ink);
+  background: #fff;
 }
-.cfg-active  { @apply border-[var(--color-primary)] bg-[var(--color-primary)]/10 text-[var(--color-primary)]; }
-.cfg-inactive { @apply border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700; }
+.cfg-select:focus,
+.cfg-select-sm:focus,
+.cfg-input:focus,
+.cfg-input-sm:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+.cfg-input::placeholder,
+.cfg-input-sm::placeholder {
+  color: var(--studio-faint);
+}
+.cfg-active {
+  border-color: var(--studio-ink);
+  background: var(--studio-ink);
+  color: #fff;
+}
+.cfg-inactive {
+  border-color: var(--studio-line-strong);
+  color: color-mix(in srgb, var(--studio-ink) 70%, transparent);
+}
+.cfg-inactive:hover {
+  border-color: var(--color-primary);
+}
 
 /* ── Toggle switch ── */
 .toggle-row {
-  @apply flex items-center justify-between px-3 py-2.5 rounded-xl border border-slate-200 hover:border-slate-300 cursor-pointer transition-colors;
+  @apply flex items-center justify-between px-3.5 py-3 cursor-pointer transition-colors;
+  border-radius: 12px;
+  border: 1px solid var(--studio-line);
 }
 .toggle      { @apply w-8 h-5 rounded-full relative shrink-0 transition-colors; }
-.toggle-on   { @apply bg-[var(--color-primary)]; }
-.toggle-off  { @apply bg-slate-200; }
+.toggle-on   { background: var(--color-primary); }
+.toggle-off  { background: color-mix(in srgb, var(--studio-ink) 16%, transparent); }
 .toggle-knob { @apply absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform; }
 </style>

@@ -10,120 +10,104 @@ const studio = useStudioStore()
 
 const showLayoutMenu = ref(false)
 
-const def = computed(() =>
-  SECTION_LAYOUT_DEFINITIONS.find((d) => d.type === props.section.layout)!
+const def = computed(
+  () => SECTION_LAYOUT_DEFINITIONS.find((d) => d.type === props.section.layout)!,
 )
 
 const zoneIds = computed(() =>
-  Array.from({ length: def.value.cols }, (_, i) => `${props.section.id}-${i}`)
+  Array.from({ length: def.value.cols }, (_, i) => `${props.section.id}-${i}`),
 )
 
 function changeLayout(layout: SectionLayout) {
   studio.changeSectionLayout(props.section.id, layout)
   showLayoutMenu.value = false
 }
-
-const layoutIcons: Record<SectionLayout, string> = {
-  '1-col':    '████████████',
-  '2-cols':   '██████ ██████',
-  '3-cols':   '████ ████ ████',
-  '2-1-cols': '████████ ████',
-  '1-2-cols': '████ ████████',
-}
 </script>
 
 <template>
-  <!-- Outer wrapper includes the toolbar area: hover zone is continuous from toolbar to card bottom -->
-  <div class="group/section relative pt-8" :class="section.locked ? 'cursor-not-allowed' : ''">
-    <!-- Section toolbar (in the pt-8 space above the card) -->
+  <div
+    class="group/section relative"
+    :class="[studio.isPreview ? '' : 'pt-8', section.locked ? 'cursor-not-allowed' : '']"
+  >
+    <!-- Section toolbar -->
     <div
-      v-if="!section.locked"
-      class="absolute top-0 left-0 right-0 h-8 flex items-center justify-between opacity-0 group-hover/section:opacity-100 transition-opacity z-10"
+      v-if="!section.locked && !studio.isPreview"
+      class="absolute left-0 right-0 top-0 z-10 flex h-8 items-center justify-between opacity-0 transition-opacity group-hover/section:opacity-100"
     >
-      <!-- Left: drag handle -->
-      <div class="flex items-center gap-1.5">
-        <div
-          class="section-drag-handle flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 py-1 cursor-grab active:cursor-grabbing shadow-sm hover:bg-slate-50"
-          title="Réordonner cette section"
-        >
-          <svg class="w-3.5 h-3.5 text-slate-400" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M7 2a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM7 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM7 14a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM13 2a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM13 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM13 14a2 2 0 1 1-4 0 2 2 0 0 1 4 0z" />
-          </svg>
-          <span class="text-[10px] text-slate-500 font-medium">Section</span>
-        </div>
+      <div
+        class="section-drag-handle flex cursor-grab items-center gap-1 rounded-lg border border-[var(--studio-line)] bg-white px-2 py-1 shadow-[var(--studio-shadow-card)] hover:bg-[var(--studio-wash)] active:cursor-grabbing"
+        title="Réordonner cette section"
+      >
+        <svg class="h-3.5 w-3.5 text-[var(--studio-faint)]" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M7 2a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM7 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM7 14a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM13 2a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM13 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM13 14a2 2 0 1 1-4 0 2 2 0 0 1 4 0z" />
+        </svg>
+        <span class="text-[10px] font-medium text-[var(--studio-muted)]">Section</span>
       </div>
 
-      <!-- Right: layout selector + delete -->
       <div class="flex items-center gap-1">
-        <!-- Layout picker -->
         <div class="relative">
           <button
-            class="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 py-1 text-[10px] font-medium text-slate-500 hover:bg-slate-50 shadow-sm"
+            class="flex items-center gap-1 rounded-lg border border-[var(--studio-line)] bg-white px-2 py-1 text-[10px] font-medium text-[var(--studio-muted)] shadow-[var(--studio-shadow-card)] hover:bg-[var(--studio-wash)]"
             @click.stop="showLayoutMenu = !showLayoutMenu"
           >
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
-            </svg>
             {{ def.label }}
           </button>
-
-          <!-- Layout dropdown -->
           <div
             v-if="showLayoutMenu"
-            class="absolute right-0 top-7 bg-white border border-slate-200 rounded-xl shadow-xl z-30 p-1.5 w-48"
+            class="absolute right-0 top-7 z-30 w-52 rounded-xl border border-[var(--studio-line)] bg-white p-1.5 shadow-[var(--studio-shadow-pop)]"
             @click.stop
           >
             <button
               v-for="ld in SECTION_LAYOUT_DEFINITIONS"
               :key="ld.type"
-              class="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-left hover:bg-slate-50 transition-colors"
-              :class="ld.type === section.layout ? 'text-[var(--color-primary)] font-semibold bg-purple-50' : 'text-slate-700'"
+              class="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors hover:bg-[var(--studio-wash)]"
+              :class="ld.type === section.layout ? 'bg-[var(--studio-accent-wash)] font-semibold text-[var(--color-primary)]' : 'text-[var(--studio-ink)]'"
               @click="changeLayout(ld.type)"
             >
-              <span class="font-mono text-[9px] text-slate-400 shrink-0 w-20">{{ layoutIcons[ld.type] }}</span>
+              <span class="flex h-3.5 w-16 shrink-0 gap-0.5">
+                <span
+                  v-for="(span, i) in ld.gridCols"
+                  :key="i"
+                  class="rounded-[2px] bg-[var(--color-secondary)]"
+                  :style="{ flex: span }"
+                />
+              </span>
               {{ ld.label }}
             </button>
           </div>
         </div>
 
-        <!-- Delete section -->
         <button
-          class="flex items-center justify-center w-6 h-6 bg-white border border-slate-200 rounded-lg hover:bg-red-50 hover:border-red-200 hover:text-red-500 text-slate-400 shadow-sm transition-colors"
+          class="flex h-6 w-6 items-center justify-center rounded-lg border border-[var(--studio-line)] bg-white text-[var(--studio-faint)] shadow-[var(--studio-shadow-card)] transition-colors hover:border-red-200 hover:bg-red-50 hover:text-[var(--color-error)]"
           title="Supprimer cette section"
           @click.stop="studio.removeSection(section.id)"
         >
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12" />
           </svg>
         </button>
       </div>
     </div>
 
-    <!-- Section card -->
-    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm group-hover/section:shadow-md transition-all" :class="section.locked ? 'border-amber-300' : ''">
-      <!-- Locked badge -->
-      <div v-if="section.locked" class="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border-b border-amber-200 rounded-t-2xl">
-        <svg class="w-3.5 h-3.5 text-amber-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-        </svg>
-        <span class="text-[11px] font-semibold text-amber-700">Section verrouillée</span>
-      </div>
-      <!-- Section body: columns -->
-      <div class="grid items-start gap-3 p-3" :style="{ gridTemplateColumns: def.gridCols.map((s: number) => `${s}fr`).join(' ') }">
-        <CanvasZone
-          v-for="(zoneId, i) in zoneIds"
-          :key="zoneId"
-          :zone-id="zoneId"
-          :col-index="i"
-        />
-      </div>
+    <!-- Locked badge -->
+    <div
+      v-if="section.locked && !studio.isPreview"
+      class="mb-2 flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-1.5"
+    >
+      <svg class="h-3.5 w-3.5 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+      </svg>
+      <span class="text-[11px] font-semibold text-amber-700">Section verrouillée</span>
+    </div>
+
+    <!-- Columns -->
+    <div
+      class="grid items-start gap-3.5"
+      :style="{ gridTemplateColumns: def.gridCols.map((s: number) => `${s}fr`).join(' ') }"
+    >
+      <CanvasZone v-for="(zoneId, i) in zoneIds" :key="zoneId" :zone-id="zoneId" :col-index="i" />
     </div>
   </div>
 
-  <!-- Click outside to close layout menu -->
-  <div
-    v-if="showLayoutMenu"
-    class="fixed inset-0 z-20"
-    @click="showLayoutMenu = false"
-  />
+  <div v-if="showLayoutMenu" class="fixed inset-0 z-20" @click="showLayoutMenu = false" />
 </template>
