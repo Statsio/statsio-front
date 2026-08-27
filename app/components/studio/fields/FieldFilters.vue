@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import StudioField from './StudioField.vue'
 import FieldColumns from './FieldColumns.vue'
+import VariableButton from './VariableButton.vue'
 import { FILTER_OPERATORS, type BlockFilter } from '@/types/studio'
 import type { StudioColumnGroup } from '@/lib/studio-columns'
 
@@ -32,6 +33,10 @@ function remove(i: number) {
 }
 function add() {
   model.value = [...model.value, { column: props.groups[0]?.columns[0]?.name ?? '', operator: '=', value: '' }]
+}
+function insertVariable(i: number, token: string) {
+  const cur = model.value[i]?.value ?? ''
+  patch(i, { value: cur.trim() ? `${cur} ${token}` : token })
 }
 </script>
 
@@ -87,13 +92,16 @@ function add() {
         <!-- Valeur -->
         <div>
           <div class="mb-2 text-[11px] font-bold text-[var(--studio-faint)]">Valeur</div>
-          <input
-            :value="filter.value"
-            type="text"
-            class="studio-input studio-input--mono"
-            placeholder="valeur exacte, ou un paramètre de page"
-            @input="patch(i, { value: ($event.target as HTMLInputElement).value })"
-          />
+          <div class="flex items-stretch gap-2">
+            <input
+              :value="filter.value"
+              type="text"
+              class="studio-input studio-input--mono min-w-0 flex-1"
+              placeholder="valeur exacte, ou une variable"
+              @input="patch(i, { value: ($event.target as HTMLInputElement).value })"
+            />
+            <VariableButton context="valeur de filtre" @pick="insertVariable(i, $event)" />
+          </div>
           <div v-if="(props.suggestions?.[filter.column] ?? []).length" class="mt-2 flex flex-wrap gap-1.5">
             <button
               v-for="v in props.suggestions?.[filter.column]"
