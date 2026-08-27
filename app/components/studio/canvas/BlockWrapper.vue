@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useStudioStore } from '@/stores/studio'
-import type { BlockType, StudioBlock } from '@/types/studio'
-import { isTextBlock } from '@/types/studio'
+import { BLOCK_META, isTextBlock, type StudioBlock } from '@/types/studio'
 import BlockRenderer from '../blocks/BlockRenderer.vue'
 
 const props = defineProps<{ block: StudioBlock }>()
@@ -12,14 +11,7 @@ const isSelected = computed(() => studio.selectedBlockId === props.block.id)
 const isText = computed(() => isTextBlock(props.block.type))
 const showChrome = computed(() => !studio.isPreview)
 
-const BLOCK_LABELS: Record<BlockType, string> = {
-  bar: 'Barres', line: 'Lignes', pie: 'Camembert', table: 'Tableau', kpi: 'KPI',
-  heading: 'Titre', paragraph: 'Paragraphe', quote: 'Citation', callout: 'Encadré',
-  image: 'Image', video: 'Vidéo', button: 'Bouton', 'link-card': 'Carte de lien', retenir: 'À retenir',
-  choice: 'Choix unique', checkboxes: 'Cases à cocher', dropdown: 'Liste déroulante', scale: 'Échelle linéaire', rating: 'Avis',
-  search: 'Recherche',
-}
-const kindLabel = computed(() => BLOCK_LABELS[props.block.type] ?? props.block.type)
+const meta = computed(() => BLOCK_META[props.block.type])
 </script>
 
 <template>
@@ -76,7 +68,12 @@ const kindLabel = computed(() => BLOCK_LABELS[props.block.type] ?? props.block.t
 
     <!-- Kind label + lock badge -->
     <div v-if="showChrome" class="mb-3 flex items-center gap-2">
-      <span class="text-[10.5px] font-extrabold uppercase tracking-[0.09em] text-[var(--studio-faint)]">{{ kindLabel }}</span>
+      <span class="flex h-[18px] w-[18px] items-center justify-center rounded-[6px]" :class="meta.tint">
+        <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" :d="meta.iconPath" />
+        </svg>
+      </span>
+      <span class="text-[10.5px] font-extrabold uppercase tracking-[0.09em] text-[var(--studio-faint)]">{{ meta.label }}</span>
       <span
         v-if="block.locked"
         class="rounded-[5px] bg-amber-100 px-[7px] py-0.5 text-[10px] font-bold text-amber-800"

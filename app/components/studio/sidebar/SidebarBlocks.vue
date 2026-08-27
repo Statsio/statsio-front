@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { BLOCK_CATEGORIES } from '@/types/studio'
+import { BLOCK_CATEGORIES, BLOCK_META } from '@/types/studio'
 import type { BlockType } from '@/types/studio'
 import { useStudioStore } from '@/stores/studio'
 
@@ -29,19 +29,6 @@ const filteredCategories = computed(() => {
     }))
     .filter((cat) => cat.blocks.length > 0)
 })
-
-// Mini barres décoratives par type de bloc (rappel visuel de la maquette).
-const BARS: Partial<Record<BlockType, [number, number, number]>> = {
-  heading: [16, 22, 12], paragraph: [20, 20, 20], quote: [12, 22, 16], callout: [22, 14, 22],
-  bar: [11, 22, 16], line: [22, 13, 18], pie: [18, 18, 18],
-  table: [20, 20, 20], kpi: [10, 24, 14],
-  image: [18, 22, 14], video: [14, 20, 24], button: [12, 12, 12], 'link-card': [16, 16, 22], retenir: [22, 18, 14],
-  choice: [14, 14, 14], checkboxes: [16, 16, 16], dropdown: [12, 20, 12], scale: [10, 16, 22], rating: [22, 14, 22],
-  search: [18, 12, 18],
-}
-function bars(type: BlockType): [number, number, number] {
-  return BARS[type] ?? [16, 20, 12]
-}
 
 function onDragStart(event: DragEvent, type: BlockType) {
   if (!event.dataTransfer) return
@@ -82,17 +69,10 @@ function onDragStart(event: DragEvent, type: BlockType) {
             @dragstart="onDragStart($event, block.type)"
             @click="studio.addBlockSmart(block.type)"
           >
-            <span class="flex h-[22px] items-end justify-center gap-[3px]">
-              <span
-                v-for="(h, i) in bars(block.type)"
-                :key="i"
-                class="w-[5px] rounded-[2px]"
-                :style="{
-                  height: h + 'px',
-                  background: 'var(--color-primary)',
-                  opacity: [1, 0.6, 0.35][i],
-                }"
-              />
+            <span class="flex h-9 w-9 items-center justify-center rounded-[10px]" :class="BLOCK_META[block.type].tint">
+              <svg class="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7">
+                <path stroke-linecap="round" stroke-linejoin="round" :d="BLOCK_META[block.type].iconPath" />
+              </svg>
             </span>
             <span class="text-center text-[12px] font-bold leading-[1.25] text-[var(--studio-ink)]">{{ block.label }}</span>
           </button>
