@@ -207,6 +207,13 @@ export function mapPaginationToApi(pagination: DataSourcePagination): Record<str
     if (base.next_link_source === 'body') {
       base.next_link_path = pagination.nextLinkPath || 'next_page_url'
     }
+    // Certaines API "lien suivant" acceptent aussi un paramètre de taille de page sur la
+    // première requête (ex. tabular-api data.gouv.fr : ?page_size=200) — le lien "next"
+    // renvoyé le conserve ensuite.
+    if (pagination.sizeParam) {
+      base.size_param = pagination.sizeParam
+      base.page_size = pagination.pageSize ?? 100
+    }
   }
   if (pagination.maxPages != null) base.max_pages = pagination.maxPages
 

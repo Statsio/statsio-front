@@ -38,9 +38,14 @@ export function publicContentListPath(type: ContentType, basePath = ''): string 
   return `${basePath}/statsdata`
 }
 
-export function contentPropertiesPath(type: ContentType, slug: string | null | undefined): string | null {
+/**
+ * Dashboard « Propriétés du contenu » — chemin unifié indépendant du type
+ * (`/contenu/{slug}/proprietes`). Le paramètre `type` n'est plus utilisé mais
+ * est conservé pour la compatibilité des appelants.
+ */
+export function contentPropertiesPath(_type: ContentType, slug: string | null | undefined): string | null {
   if (!slug) return null
-  return `${publicContentPath(type, slug)}/proprietes`
+  return `/contenu/${slug}/proprietes`
 }
 
 /** A StatsData document opens on its first page when it has one, else on the document itself. */

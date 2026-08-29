@@ -141,6 +141,17 @@ describe('app/api/data-sources', () => {
       expect(mapPaginationToApi(headerLink)).toEqual({ style: 'next_link', next_link_source: 'header' })
     })
 
+    it('carries size_param/page_size for "next_link" when provided (e.g. data.gouv.fr page_size)', () => {
+      const sized: DataSourcePagination = { style: 'next_link', nextLinkPath: 'links.next', sizeParam: 'page_size', pageSize: 200 }
+      expect(mapPaginationToApi(sized)).toEqual({
+        style: 'next_link',
+        next_link_source: 'body',
+        next_link_path: 'links.next',
+        size_param: 'page_size',
+        page_size: 200,
+      })
+    })
+
     it('includes max_pages when set, regardless of style', () => {
       const withMax: DataSourcePagination = { style: 'offset', maxPages: 3 }
       expect(mapPaginationToApi(withMax)).toMatchObject({ max_pages: 3 })

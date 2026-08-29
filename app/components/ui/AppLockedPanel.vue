@@ -5,7 +5,7 @@ withDefaults(
     ctaTo?: string
     ctaLabel?: string
   }>(),
-  { ctaTo: '/user?tab=parametres#demographics-card', ctaLabel: '🔒 Compléter mon profil' },
+  { ctaTo: '/user/parametres#demographics', ctaLabel: '🔒 Compléter mon profil' },
 )
 </script>
 
