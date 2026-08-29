@@ -67,7 +67,7 @@ function onCanvasClick(event: MouseEvent) {
       </button>
     </div>
 
-    <div class="flex flex-1 flex-col gap-3.5" @click="onCanvasClick">
+    <div class="flex flex-1 flex-col gap-4" @click="onCanvasClick">
       <!-- Drop zone before first section -->
       <div
         v-if="!studio.isPreview"
@@ -92,7 +92,7 @@ function onCanvasClick(event: MouseEvent) {
         :disabled="studio.isPreview"
         item-key="id"
         handle=".section-drag-handle"
-        class="flex flex-col gap-3.5"
+        class="flex flex-col gap-4"
         ghost-class="opacity-30"
         animation="150"
         @update:model-value="studio.reorderCurrentPageSections"

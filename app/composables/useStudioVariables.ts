@@ -25,11 +25,15 @@ export interface VariableGroup {
  * Source unique de vérité pour `VariablePickerModal` (remplace la logique
  * dupliquée dans ColumnPickerModal / l'ancien SidebarVariables).
  */
-export function useStudioVariables(pageIdRef?: MaybeRefOrGetter<string | undefined>) {
+export function useStudioVariables(
+  pageIdRef?: MaybeRefOrGetter<string | undefined>,
+  blockIdRef?: MaybeRefOrGetter<string | undefined>,
+) {
   const studio = useStudioStore()
   const datasets = useStudioDatasetsStore()
 
   const pageId = computed(() => toValue(pageIdRef) ?? studio.currentPageId)
+  const blockId = computed(() => toValue(blockIdRef) ?? studio.selectedBlockId ?? undefined)
   const page = computed<StudioDocumentPage | undefined>(() =>
     studio.pages.find((p: StudioDocumentPage) => p.id === pageId.value),
   )
@@ -57,15 +61,45 @@ export function useStudioVariables(pageIdRef?: MaybeRefOrGetter<string | undefin
   const groups = computed<VariableGroup[]>(() => {
     const out: VariableGroup[] = []
 
-    if (page.value?.isTemplate && page.value.paramName) {
+    // Variables des blocs boucle englobants (du plus proche au plus lointain).
+    // `loopAncestors` remonte aussi les blocs `if` — ils n'exposent pas de variable.
+    if (blockId.value) {
+      for (const loop of studio.loopAncestors(blockId.value).filter((b) => b.type === 'loop')) {
+        const name = loop.fieldMapping.loopVar || 'item'
+        out.push({
+          key: `loop:${loop.id}`,
+          name: 'Boucle',
+          meta: loop.fieldMapping.loopColumn ? `valeur de ${loop.fieldMapping.loopColumn}` : 'valeur courante',
+          iconText: '{ }',
+          iconBg: '#eef2ff',
+          iconFg: '#4f46e5',
+          items: [{ name, hint: 'valeur courante de la boucle' }],
+        })
+      }
+    }
+
+    // Paramètres déclarés sur la page (bloc « Paramètre », barre de recherche) +
+    // l'ancien `paramName` des pages template.
+    const paramItems: VariableItem[] = []
+    const seenParams = new Set<string>()
+    for (const p of page.value?.params ?? []) {
+      if (p.name && !seenParams.has(p.name)) {
+        seenParams.add(p.name)
+        paramItems.push({ name: p.name, hint: p.column ? `valeurs de ${p.column}` : 'paramètre' })
+      }
+    }
+    if (page.value?.isTemplate && page.value.paramName && !seenParams.has(page.value.paramName)) {
+      paramItems.push({ name: page.value.paramName, hint: 'valeur du lien sélectionné' })
+    }
+    if (paramItems.length) {
       out.push({
         key: 'param',
-        name: 'Paramètre de la page',
-        meta: 'valeur du lien sélectionné',
+        name: 'Paramètres de la page',
+        meta: 'pilotent tous les blocs',
         iconText: 'PRM',
         iconBg: '#f2ecfd',
         iconFg: '#7c3aed',
-        items: [{ name: page.value.paramName, hint: 'paramètre' }],
+        items: paramItems,
       })
     }
 

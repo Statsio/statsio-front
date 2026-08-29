@@ -3,9 +3,11 @@ import { ref, onMounted } from 'vue'
 import { fetchSourceProvenances, type SourceProvenance } from '@/api/source-provenances'
 import type { ProvenanceSelection } from '@/composables/useAddSourceWizard'
 
-defineProps<{
+const props = defineProps<{
   modelValue: ProvenanceSelection
   otherLabel: string
+  /** Slug de provenance à présélectionner si aucun choix n'a encore été fait (ex. « gouvernemental » pour data.gouv.fr). */
+  preselectSlug?: string
 }>()
 
 const emit = defineEmits<{
@@ -19,6 +21,10 @@ const loading = ref(true)
 onMounted(async () => {
   try {
     provenances.value = await fetchSourceProvenances()
+    if (props.modelValue === null && props.preselectSlug) {
+      const match = provenances.value.find((p) => p.slug === props.preselectSlug)
+      if (match) emit('update:modelValue', match.id)
+    }
   } finally {
     loading.value = false
   }

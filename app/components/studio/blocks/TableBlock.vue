@@ -1,47 +1,173 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useBlockData } from '@/composables/useBlockData'
+import { useAggregateValues } from '@/composables/useResolvedTokens'
+import { useStudioStore } from '@/stores/studio'
 import { formatDisplayValue } from '@/utils/statsDataFormat'
-import type { StudioBlock } from '@/types/studio'
+import { parseExpression, evaluate, formatNumber, type AggregateRef } from '@/lib/studio-expression'
+import { rowsToCsv, downloadCsv, csvFileName } from '@/lib/csv'
+import type { StudioBlock, TableCellRule, TableColumnFormat } from '@/types/studio'
 
-const props = defineProps<{ block: StudioBlock; readonly?: boolean }>()
+const props = defineProps<{ block: StudioBlock; readonly?: boolean; scope?: Record<string, string> }>()
+const studio = useStudioStore()
 
-const { data, isLoading, error } = useBlockData(() => props.block, props.readonly)
+const showPagination = computed(() => props.block.config.showPagination === true)
+const pageSize = computed(() => Math.max(1, props.block.config.pageSize ?? 10))
 const page = ref(0)
 
-const pageSize = computed(() => props.block.config.pageSize ?? 10)
+// ─── Tri interactif (clic sur un en-tête) + pagination serveur ────────────────
+
+const sort = ref<{ col: string; dir: 'asc' | 'desc' } | null>(null)
+
+const overrides = () => ({
+  sortColumn: sort.value?.col ?? null,
+  sortDirection: sort.value?.dir ?? null,
+  offset: showPagination.value ? page.value * pageSize.value : 0,
+  limit: showPagination.value ? pageSize.value : (props.block.config.rowLimit ?? 500),
+})
+
+const { data, isLoading, error } = useBlockData(() => props.block, props.readonly, () => props.scope, overrides)
+
+function toggleSort(col: string) {
+  if (!props.block.config.sortable) return
+  if (sort.value?.col !== col) sort.value = { col, dir: 'asc' }
+  else if (sort.value.dir === 'asc') sort.value = { col, dir: 'desc' }
+  else sort.value = null
+  page.value = 0
+}
+
+watch([() => props.block.datasetId, () => JSON.stringify(props.block.filters), () => JSON.stringify(studio.pageParams)], () => {
+  page.value = 0
+})
+
+// ─── Colonnes calculées ──────────────────────────────────────────────────────
+
+const computedDefs = computed(() =>
+  (props.block.fieldMapping.computedColumns ?? [])
+    .filter((c) => c.name && c.expression)
+    .map((c) => ({ name: c.name, parsed: parseExpression(c.expression, (n) => studio.pageParams[n]) })),
+)
+
+const aggRefs = computed<AggregateRef[]>(() => {
+  const map = new Map<string, AggregateRef>()
+  for (const d of computedDefs.value) for (const r of d.parsed?.aggregates ?? []) map.set(r.key, r)
+  return [...map.values()]
+})
+
+const { values: aggValues } = useAggregateValues({
+  refs: () => aggRefs.value,
+  datasetId: () => props.block.datasetId,
+  readonly: () => props.readonly ?? false,
+  docSlug: () => studio.content?.slug,
+})
+
+function num(v: unknown): number | null {
+  if (v === null || v === undefined || v === '') return null
+  const n = typeof v === 'number' ? v : Number(String(v).replace(',', '.').replace(/\s/g, ''))
+  return Number.isFinite(n) ? n : null
+}
+
+const rows = computed<Record<string, unknown>[]>(() => {
+  const base = data.value?.rows ?? []
+  if (!computedDefs.value.length) return base
+  return base.map((row) => {
+    const colMap = new Map<string, number | null>()
+    for (const k of Object.keys(row)) colMap.set(k, num(row[k]))
+    const out: Record<string, unknown> = { ...row }
+    for (const d of computedDefs.value) {
+      out[d.name] = d.parsed ? evaluate(d.parsed.node, aggValues.value, colMap) : null
+    }
+    return out
+  })
+})
+
+// ─── Colonnes visibles ───────────────────────────────────────────────────────
 
 const visibleColumns = computed(() => {
-  const cols = props.block.fieldMapping.columns
-  if (cols && cols.length > 0) return cols
-  return data.value?.columns ?? []
+  const explicit = props.block.fieldMapping.columns
+  const base = explicit?.length ? [...explicit] : (data.value?.columns ?? [])
+  for (const d of computedDefs.value) if (!base.includes(d.name)) base.push(d.name)
+  return base
 })
 
 function columnLabel(col: string) {
   return props.block.fieldMapping.columnLabels?.[col] ?? col
 }
+function columnFormat(col: string): TableColumnFormat {
+  return props.block.fieldMapping.columnFormats?.[col] ?? {}
+}
 
-const pagedRows = computed(() => {
-  const rows = data.value?.rows ?? []
-  if (!props.block.config.showPagination) return rows.slice(0, 50)
-  const start = page.value * pageSize.value
-  return rows.slice(start, start + pageSize.value)
+// ─── Rendu de cellule ────────────────────────────────────────────────────────
+
+function formatCell(col: string, value: unknown): string {
+  const fmt = columnFormat(col).format
+  if (value === null || value === undefined || value === '') return '—'
+  const n = num(value)
+  if (fmt === 'percent' && n !== null) return `${formatNumber(n, 1)} %`
+  if (fmt === 'currency' && n !== null) return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(n)
+  if (fmt === 'number' && n !== null) return formatNumber(n)
+  if (fmt === 'mono' || fmt === 'text') return String(value)
+  return formatDisplayValue(value)
+}
+
+/** Bornes des colonnes visibles pour les règles top/bottom (sur la page courante). */
+const colBounds = computed<Record<string, { min: number; max: number }>>(() => {
+  const out: Record<string, { min: number; max: number }> = {}
+  for (const rule of props.block.fieldMapping.cellRules ?? []) {
+    if (rule.when !== 'top' && rule.when !== 'bottom') continue
+    const vals = rows.value.map((r) => num(r[rule.column])).filter((v): v is number => v !== null)
+    if (vals.length) out[rule.column] = { min: Math.min(...vals), max: Math.max(...vals) }
+  }
+  return out
 })
 
-const totalPages = computed(() => {
-  const rows = data.value?.rows ?? []
-  return Math.ceil(rows.length / pageSize.value)
-})
+function matchesRule(rule: TableCellRule, n: number): boolean {
+  switch (rule.when) {
+    case 'positive': return n > 0
+    case 'negative': return n < 0
+    case 'gt': return rule.value !== undefined && n > rule.value
+    case 'lt': return rule.value !== undefined && n < rule.value
+    case 'top': return colBounds.value[rule.column]?.max === n
+    case 'bottom': return colBounds.value[rule.column]?.min === n
+    default: return false
+  }
+}
 
-function sortBy(col: string) {
-  // Client-side sort on visible data only — full sort requires backend query
-  if (!data.value) return
-  const sorted = [...data.value.rows].sort((a, b) => {
-    const av = String(a[col] ?? '')
-    const bv = String(b[col] ?? '')
-    return av.localeCompare(bv, undefined, { numeric: true })
+function cellStyle(col: string, value: unknown): Record<string, string> {
+  const n = num(value)
+  const style: Record<string, string> = { textAlign: columnFormat(col).align ?? (n !== null ? 'right' : 'left') }
+  if (n === null) return style
+  for (const rule of props.block.fieldMapping.cellRules ?? []) {
+    if (rule.column === col && matchesRule(rule, n)) {
+      style.color = rule.color
+      if (rule.bold) style.fontWeight = '700'
+    }
+  }
+  return style
+}
+
+function isMono(col: string) {
+  const f = columnFormat(col).format
+  return f === 'mono' || f === 'currency' || f === 'percent' || f === 'number' || typeof rows.value[0]?.[col] === 'number'
+}
+
+const totalRows = computed(() => data.value?.totalRows ?? rows.value.length)
+const totalPages = computed(() => Math.max(1, Math.ceil(totalRows.value / pageSize.value)))
+const pageInfo = computed(() => `Page ${page.value + 1} / ${totalPages.value} · ${totalRows.value} ligne${totalRows.value > 1 ? 's' : ''}`)
+
+// ─── Export CSV (lignes chargées) ────────────────────────────────────────────
+
+const canExport = computed(() => props.readonly && rows.value.length > 0)
+
+function exportCsv() {
+  const cols = visibleColumns.value
+  const labelled = rows.value.map((row) => {
+    const out: Record<string, unknown> = {}
+    for (const col of cols) out[columnLabel(col)] = row[col]
+    return out
   })
-  data.value.rows = sorted
+  const csv = rowsToCsv(cols.map(columnLabel), labelled)
+  downloadCsv(csvFileName(props.block.config.title || studio.content?.title || 'statsio-tableau'), csv)
 }
 </script>
 
@@ -56,65 +182,82 @@ function sortBy(col: string) {
     </div>
 
     <div v-else-if="!block.datasetId" class="flex flex-col items-center justify-center gap-2 py-10 text-[var(--studio-faint)]">
-      <svg class="w-8 h-8 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-1.5A1.125 1.125 0 0 1 18 18.375M20.625 4.5H3.375m17.25 0c.621 0 1.125.504 1.125 1.125M20.625 4.5h-1.5C18.504 4.5 18 5.004 18 5.625m3.75 0v1.5c0 .621-.504 1.125-1.125 1.125M3.375 4.5c-.621 0-1.125.504-1.125 1.125M3.375 4.5h1.5C5.496 4.5 6 5.004 6 5.625m-3.75 0v1.5c0 .621.504 1.125 1.125 1.125m0 0h1.5m-1.5 0c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125m1.5-3.75C6 8.496 6.504 9 7.125 9h9.75c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H7.125Z" />
+      <svg class="h-8 w-8 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 8.25h18M3 15.75h18M3 12h18M4.5 4.5h15A1.5 1.5 0 0 1 21 6v12a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18V6a1.5 1.5 0 0 1 1.5-1.5Z" />
       </svg>
       <span class="text-xs">Configurer les données →</span>
     </div>
 
     <template v-else>
-      <div class="overflow-x-auto px-5 pb-5">
-        <table class="w-full min-w-[480px] border-collapse">
-          <thead class="sticky top-0 z-10">
-            <tr>
-              <th
-                v-for="col in visibleColumns"
-                :key="col"
-                class="mono px-3 py-2 text-left text-[11px] font-bold text-[var(--studio-muted)] bg-[#f7f6fb] whitespace-nowrap select-none first:rounded-l-md last:rounded-r-md"
-                :class="block.config.sortable ? 'cursor-pointer hover:text-[var(--studio-ink)] transition-colors' : ''"
-                @click="block.config.sortable && sortBy(col)"
+      <div class="overflow-hidden rounded-[13px] border border-[var(--studio-line)]">
+        <div class="overflow-x-auto">
+          <table class="w-full min-w-[480px] border-collapse">
+            <thead>
+              <tr class="border-b border-[var(--studio-line)] bg-[var(--studio-panel)]">
+                <th
+                  v-for="col in visibleColumns"
+                  :key="col"
+                  class="select-none whitespace-nowrap px-3.5 py-3 text-[10.5px] font-extrabold uppercase tracking-[0.05em] text-[var(--studio-muted)]"
+                  :style="{ textAlign: columnFormat(col).align ?? 'left' }"
+                  :class="block.config.sortable ? 'cursor-pointer transition-colors hover:text-[var(--studio-ink)]' : ''"
+                  @click="toggleSort(col)"
+                >
+                  <span class="inline-flex items-center gap-1.5">
+                    {{ columnLabel(col) }}
+                    <span v-if="block.config.sortable" class="text-[9px]" :class="sort?.col === col ? 'text-[var(--color-primary)]' : 'opacity-30'">
+                      {{ sort?.col === col ? (sort.dir === 'asc' ? '▲' : '▼') : '↕' }}
+                    </span>
+                  </span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="(row, i) in rows"
+                :key="i"
+                class="border-b border-[var(--studio-line)] transition-colors last:border-0 hover:bg-[var(--color-primary)]/[0.025]"
               >
-                <span class="flex items-center gap-1">
-                  {{ columnLabel(col) }}
-                  <svg v-if="block.config.sortable" class="w-3 h-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15 12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" />
-                  </svg>
-                </span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="(row, i) in pagedRows"
-              :key="i"
-              class="group border-b border-[var(--studio-line)] last:border-0 transition-colors hover:bg-[var(--color-primary)]/[0.025]"
-            >
-              <td
-                v-for="col in visibleColumns"
-                :key="col"
-                class="mono px-3 py-2.5 text-xs whitespace-nowrap"
-                :class="typeof row[col] === 'number' ? 'font-semibold text-[var(--studio-ink)]' : 'text-[color:color-mix(in_srgb,var(--studio-ink)_70%,transparent)]'"
-              >
-                {{ formatDisplayValue(row[col]) }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                <td
+                  v-for="col in visibleColumns"
+                  :key="col"
+                  class="whitespace-nowrap px-3.5 py-3 text-[12px]"
+                  :class="isMono(col) ? 'mono' : ''"
+                  :style="cellStyle(col, row[col])"
+                >
+                  {{ formatCell(col, row[col]) }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <div v-if="block.config.showPagination && totalPages > 1" class="flex items-center justify-between px-5 py-3 border-t border-[var(--studio-line)]">
-        <span class="mono text-xs text-[var(--studio-ink)]/45">Page <span class="font-semibold text-[color:color-mix(in_srgb,var(--studio-ink)_70%,transparent)]">{{ page + 1 }}</span> / {{ totalPages }}</span>
-        <div class="flex gap-1.5">
+      <div
+        v-if="canExport || (showPagination && totalPages > 1)"
+        class="mt-3 flex items-center justify-between gap-3"
+      >
+        <span class="mono text-[11px] text-[var(--studio-faint)]">{{ showPagination && totalPages > 1 ? pageInfo : '' }}</span>
+        <div class="flex items-center gap-1.5">
           <button
-            class="px-2.5 py-1 text-xs font-medium rounded-lg border border-[var(--studio-line)] bg-white text-[var(--studio-ink)] hover:border-[var(--studio-line-strong)] hover:bg-[var(--studio-note)] disabled:opacity-30 transition-colors"
-            :disabled="page === 0"
-            @click="page--"
-          >←</button>
-          <button
-            class="px-2.5 py-1 text-xs font-medium rounded-lg border border-[var(--studio-line)] bg-white text-[var(--studio-ink)] hover:border-[var(--studio-line-strong)] hover:bg-[var(--studio-note)] disabled:opacity-30 transition-colors"
-            :disabled="page >= totalPages - 1"
-            @click="page++"
-          >→</button>
+            v-if="canExport"
+            type="button"
+            class="mr-1 inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-[var(--studio-line-strong)] px-3.5 py-2 text-[12px] font-bold text-[var(--studio-muted)] transition-colors hover:border-[var(--color-primary)] hover:text-[var(--studio-tag-ink)]"
+            @click="exportCsv"
+          >
+            ↓ Exporter
+          </button>
+          <template v-if="showPagination && totalPages > 1">
+            <button
+              class="rounded-[9px] border-[1.5px] border-[var(--studio-line-strong)] px-3 py-1.5 text-[12px] font-bold text-[var(--studio-muted)] transition-colors hover:border-[var(--color-primary)] hover:text-[var(--studio-tag-ink)] disabled:opacity-30"
+              :disabled="page === 0"
+              @click="page--"
+            >← Précédent</button>
+            <button
+              class="rounded-[9px] border-[1.5px] border-[var(--studio-line-strong)] px-3 py-1.5 text-[12px] font-bold text-[var(--studio-muted)] transition-colors hover:border-[var(--color-primary)] hover:text-[var(--studio-tag-ink)] disabled:opacity-30"
+              :disabled="page >= totalPages - 1"
+              @click="page++"
+            >Suivant →</button>
+          </template>
         </div>
       </div>
     </template>

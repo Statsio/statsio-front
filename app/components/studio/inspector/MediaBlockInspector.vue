@@ -14,9 +14,22 @@ import EditorialContentModal from '@/components/studio/ui/EditorialContentModal.
 const props = defineProps<{ block: StudioBlock }>()
 const studio = useStudioStore()
 
+const TOKEN_HINT = '{{ colonne }}'
+
 function set<K extends keyof BlockConfig>(key: K, value: BlockConfig[K]) {
   studio.updateBlockConfig(props.block.id, { [key]: value })
 }
+
+// ─── Grille de champs (field-grid) ──────────────────────────────────────────
+const gridItems = computed(() => props.block.config.fieldGridItems ?? [])
+function saveGrid(items: { label: string; value: string }[]) {
+  set('fieldGridItems', items.length ? items : undefined)
+}
+function addGridItem() { saveGrid([...gridItems.value, { label: '', value: '' }]) }
+function updateGridItem(i: number, key: 'label' | 'value', v: string) {
+  saveGrid(gridItems.value.map((it, idx) => (idx === i ? { ...it, [key]: v } : it)))
+}
+function removeGridItem(i: number) { saveGrid(gridItems.value.filter((_, idx) => idx !== i)) }
 
 // ─── Image upload ────────────────────────────────────────────────────────────
 
@@ -162,6 +175,36 @@ const ALIGNS = [
       </InspectorSection>
     </template>
 
+    <!-- MAP -->
+    <template v-else-if="block.type === 'map'">
+      <InspectorSection label="Point GPS">
+        <FieldText :model-value="block.config.mapLat ?? ''" label="Latitude" :placeholder="`ex. 45.75781 ou ${TOKEN_HINT}`" @update:model-value="set('mapLat', $event)" />
+        <FieldText :model-value="block.config.mapLng ?? ''" label="Longitude" :placeholder="`ex. 4.83201 ou ${TOKEN_HINT}`" @update:model-value="set('mapLng', $event)" />
+        <FieldText :model-value="block.config.mapLabel ?? ''" label="Libellé" placeholder="Nom du lieu (optionnel)" @update:model-value="set('mapLabel', $event)" />
+        <FieldNote>Les jetons {{ TOKEN_HINT }} sont résolus — utile sur une page générée par valeur.</FieldNote>
+      </InspectorSection>
+    </template>
+
+    <!-- FIELD-GRID -->
+    <template v-else-if="block.type === 'field-grid'">
+      <InspectorSection label="Grille de champs">
+        <FieldSegmented
+          :model-value="String(block.config.fieldGridColumns ?? 3)"
+          label="Colonnes"
+          :options="[{ label: '2', value: '2' }, { label: '3', value: '3' }, { label: '4', value: '4' }]"
+          @update:model-value="set('fieldGridColumns', Number($event) as 2 | 3 | 4)"
+        />
+        <div class="flex flex-col gap-2">
+          <div v-for="(it, i) in gridItems" :key="i" class="flex items-center gap-1.5">
+            <input :value="it.label" type="text" placeholder="Libellé" class="mb-input w-[110px] shrink-0" @change="updateGridItem(i, 'label', ($event.target as HTMLInputElement).value)" />
+            <input :value="it.value" type="text" placeholder="Valeur ({{ '{{jeton}}' }} ok)" class="mb-input min-w-0 flex-1" @change="updateGridItem(i, 'value', ($event.target as HTMLInputElement).value)" />
+            <button type="button" class="shrink-0 text-[12px] text-[var(--studio-faint)] hover:text-red-400" @click="removeGridItem(i)">✕</button>
+          </div>
+          <button type="button" class="text-[11px] font-bold text-[var(--color-primary)]" @click="addGridItem">+ Ajouter une paire</button>
+        </div>
+      </InspectorSection>
+    </template>
+
     <!-- BUTTON / LINK-CARD / RETENIR -->
     <template v-else>
       <FieldPicker
@@ -174,3 +217,17 @@ const ALIGNS = [
     </template>
   </div>
 </template>
+
+<style scoped>
+@reference "tailwindcss";
+.mb-input {
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border-radius: 9px;
+  border: 1.5px solid var(--studio-line-strong);
+  font-size: 12px;
+  color: var(--studio-ink);
+  background: #fff;
+}
+.mb-input:focus { outline: none; border-color: var(--color-primary); }
+</style>

@@ -10,7 +10,7 @@ usePageSeo({ title: 'Studio', robots: 'noindex,nofollow' })
 <template>
   <div
     :data-theme="appTheme"
-    class="h-screen w-screen overflow-hidden bg-slate-50 text-slate-900 font-sans"
+    class="relative h-screen w-screen overflow-hidden bg-slate-50 text-slate-900 font-sans"
   >
     <slot />
     <SourceSyncToast />

@@ -82,6 +82,7 @@ watch(
     <FieldFilters
       :model-value="filters"
       :groups="groups"
+      :block-id="block.id"
       :suggestions="suggestions"
       :add-label="isComparison ? '+ Ajouter une règle de comparaison' : '+ Ajouter un filtre'"
       :empty-label="isComparison

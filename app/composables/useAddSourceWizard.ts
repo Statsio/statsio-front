@@ -3,7 +3,32 @@ import type { ModalStep } from '@/components/ui/AppStepModal.vue'
 import type { DataSourcePagination, DetectStructureResult, Materialization, PaginationStyle, RefreshFrequency } from '@/api/data-sources'
 import { detectApiStructure, mapPaginationToApi } from '@/api/data-sources'
 
-export type SourceType = 'file' | 'api' | 'catalog'
+export type SourceType = 'file' | 'api' | 'catalog' | 'datagouv'
+
+/** Base de l'API tabulaire data.gouv.fr — une ressource s'y consulte à `.../resources/{id}/data/`. */
+export const DATAGOUV_TABULAR_API_BASE = 'https://tabular-api.data.gouv.fr/api/resources'
+
+/**
+ * Accepte soit un identifiant de ressource nu, soit une URL data.gouv.fr / tabular-api collée
+ * (page de jeu de données, lien d'API…), et en extrait l'identifiant de ressource.
+ */
+export function parseDatagouvResourceId(input: string): string {
+  const trimmed = input.trim()
+  if (!trimmed) return ''
+  const fromResourcesPath = trimmed.match(/resources\/([0-9a-f-]{16,})/i)
+  if (fromResourcesPath) return fromResourcesPath[1]!.toLowerCase()
+  const fromQuery = trimmed.match(/[?&]resource(?:_id)?=([0-9a-f-]{16,})/i)
+  if (fromQuery) return fromQuery[1]!.toLowerCase()
+  // Fragment "#/resources/{id}" des pages data.gouv.fr, ou UUID isolé.
+  const uuidLike = trimmed.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i)
+  if (uuidLike) return uuidLike[1]!.toLowerCase()
+  return trimmed
+}
+
+/** URL tabular-api complète pour une ressource data.gouv.fr. */
+export function datagouvTabularUrl(resourceId: string): string {
+  return `${DATAGOUV_TABULAR_API_BASE}/${resourceId}/data/`
+}
 export type AuthType = 'none' | 'api_key' | 'bearer'
 export type HttpMethod = 'GET' | 'POST'
 
@@ -175,6 +200,46 @@ export function useAddSourceWizard() {
     materialization: 'snapshot' as Materialization,
   })
 
+  // ─── data.gouv.fr (raccourci : l'utilisateur ne saisit qu'un identifiant de ressource,
+  //     la configuration API tabular-api est pré-remplie automatiquement) ──────
+  const datagouvInput = ref('')
+  const datagouvName = ref('')
+  const datagouvResourceId = computed(() => parseDatagouvResourceId(datagouvInput.value))
+
+  /**
+   * Pré-remplit `apiForm` à partir de l'identifiant de ressource data.gouv.fr saisi :
+   * l'API tabulaire renvoie `{ data: [...], links: { next } }`, d'où l'enveloppe `data`
+   * et la pagination « lien suivant ». Appelé au moment de quitter l'étape « Type ».
+   */
+  function applyDatagouvPreset() {
+    const resourceId = datagouvResourceId.value
+    apiForm.value = {
+      ...apiForm.value,
+      name: datagouvName.value.trim() || `Ressource data.gouv.fr ${resourceId.slice(0, 8)}`,
+      url: datagouvTabularUrl(resourceId),
+      method: 'GET',
+      authType: 'none',
+      apiKeyHeader: 'X-API-Key',
+      apiKeyValue: '',
+      bearerToken: '',
+      dataPath: 'data',
+      materialization: 'snapshot',
+      refreshFrequency: 'none',
+      pagination: {
+        ...defaultPagination(),
+        style: 'next_link',
+        nextLinkSource: 'body',
+        nextLinkPath: 'links.next',
+        // tabular-api plafonne page_size à 200 ; le lien "next" renvoyé conserve ensuite ce paramètre.
+        sizeParam: 'page_size',
+        pageSize: 200,
+        // Ressource potentiellement volumineuse : on relève le plafond de pages
+        // (borné côté serveur par max_pages_hard_cap / max_rows / time_budget).
+        maxPages: 500,
+      },
+    }
+  }
+
   // ─── Provenance ──────────────────────────────────────────────────────────
   const provenanceId = ref<ProvenanceSelection>(null)
   const provenanceOtherLabel = ref('')
@@ -187,7 +252,9 @@ export function useAddSourceWizard() {
 
   const canGoNext = computed(() => {
     if (currentStepId.value === 'type') {
-      return sourceType.value === 'file' || sourceType.value === 'api'
+      if (sourceType.value === 'file' || sourceType.value === 'api') return true
+      if (sourceType.value === 'datagouv') return datagouvResourceId.value.length >= 16
+      return false
     }
     if (currentStepId.value === 'detect') {
       return !!apiForm.value.url.trim()
@@ -224,6 +291,8 @@ export function useAddSourceWizard() {
       pagination: defaultPagination(),
       materialization: 'snapshot',
     }
+    datagouvInput.value = ''
+    datagouvName.value = ''
     provenanceId.value = null
     provenanceOtherLabel.value = ''
     visibility.value = 'private'
@@ -275,6 +344,10 @@ export function useAddSourceWizard() {
     headerRow,
     excludedRows,
     apiForm,
+    datagouvInput,
+    datagouvName,
+    datagouvResourceId,
+    applyDatagouvPreset,
     provenanceId,
     provenanceOtherLabel,
     visibility,

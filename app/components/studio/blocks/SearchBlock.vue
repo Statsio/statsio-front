@@ -2,6 +2,7 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { fetchSearchRows, fetchPublicSearchRows } from '@/api/studio'
+import { slugify } from '@/lib/slug'
 import { useStudioStore } from '@/stores/studio'
 import type { StudioBlock, StudioDocumentPage, SearchSource, SearchJoin } from '@/types/studio'
 
@@ -186,42 +187,49 @@ function onSelect(result: SearchResult) {
   query.value = result.displayValue
   isOpen.value = false
 
-  // Public view + urlParams configured → URL navigation for deep-linking
-  if (props.readonly && urlParamCols.value.length > 0 && targetPageId.value && docSlug.value && targetPageSlug.value) {
-    // Build allParams from ALL result row columns (used for in-memory variable substitution)
-    const allParams: Record<string, string> = {}
-    for (const [col, val] of Object.entries(result.row)) {
-      if (val !== null && val !== undefined && val !== '') {
-        allParams[col] = String(val)
-      }
-    }
+  // Toutes les colonnes de la ligne choisie (résolvent les jetons `{{col}}`).
+  const rowParams: Record<string, string> = {}
+  for (const [col, val] of Object.entries(result.row)) {
+    if (val !== null && val !== undefined && val !== '') rowParams[col] = String(val)
+  }
 
-    // Apply column aliasing: urlKey may be fed by a different source column
-    // e.g. urlParams = ["CODGEO_2025"], urlParamMapping = { "CODGEO_2025": "com" }
-    // → reads result.row["com"] and writes it as CODGEO_2025 in both URL and allParams
+  const target = targetPageId.value
+  const goesElsewhere = Boolean(target) && target !== studio.currentPageId
+  const destPage = studio.pages.find(
+    (p: StudioDocumentPage) => p.id === (goesElsewhere ? target : studio.currentPageId),
+  )
+  const fanParam = destPage?.params?.find((p) => p.fanOut && p.name)
+
+  // Page fan-out : en public, on pousse l'URL indexable /statsdata/{slug}/{valeur}.
+  if (props.readonly && fanParam && docSlug.value) {
+    const slugKey = fanParam.slugColumn || fanParam.column || fanParam.name
+    const value = rowParams[slugKey] ?? rowParams[fanParam.name]
+    if (value) {
+      studio.setPageParams(goesElsewhere ? rowParams : { ...studio.pageParams, ...rowParams })
+      router.push(`/statsdata/${docSlug.value}/${slugify(value)}`)
+      return
+    }
+  }
+
+  // Navigation vers une AUTRE page sans fan-out : en public, URL profonde `?param=`.
+  if (goesElsewhere && props.readonly && docSlug.value && targetPageSlug.value) {
     const mapping = props.block.fieldMapping.urlParamMapping ?? {}
     const queryParams: Record<string, string> = {}
     for (const urlKey of urlParamCols.value) {
-      const sourceCol = mapping[urlKey] ?? urlKey
-      // Fall back to urlKey itself if mapped column doesn't exist in this result row
-      const val = allParams[sourceCol] ?? allParams[urlKey]
-      if (val) {
-        queryParams[urlKey] = val
-        allParams[urlKey] = val  // ensure canonical key is always in allParams
-      }
+      const val = rowParams[mapping[urlKey] ?? urlKey] ?? rowParams[urlKey]
+      if (val) { queryParams[urlKey] = val; rowParams[urlKey] = val }
     }
-
-    studio.setPageParams(allParams)
+    studio.setPageParams(rowParams)
     router.push({ path: `/statsdata/${docSlug.value}/${targetPageSlug.value}`, query: queryParams })
     return
   }
 
-  // Studio or no urlParams → in-memory navigation (switch FIRST then set params)
-  if (targetPageId.value) studio.switchPage(targetPageId.value)
-  for (const [col, val] of Object.entries(result.row)) {
-    if (val !== null && val !== undefined && val !== '') {
-      studio.setPageParam(col, String(val))
-    }
+  if (goesElsewhere) {
+    studio.switchPage(target!)
+    studio.setPageParams(rowParams)
+  } else {
+    // Filtre la page courante : on fusionne avec les autres paramètres déjà posés.
+    studio.setPageParams({ ...studio.pageParams, ...rowParams })
   }
 }
 
@@ -263,7 +271,7 @@ onBeforeUnmount(() => {
     <!-- Search UI -->
     <div v-else ref="containerRef" class="relative w-full">
       <div
-        class="flex items-center gap-2.5 rounded-xl bg-[#f7f6fb] py-3.5 pl-4 pr-4 cursor-text transition-colors focus-within:ring-2 focus-within:ring-[var(--color-primary)]/20"
+        class="flex cursor-text items-center gap-2.5 rounded-xl border border-[var(--studio-line-strong)] bg-[color-mix(in_srgb,var(--studio-ink)_5%,transparent)] py-3.5 pl-4 pr-4 transition-colors focus-within:ring-2 focus-within:ring-[var(--color-primary)]/25"
         @click="inputRef?.focus()"
       >
         <svg

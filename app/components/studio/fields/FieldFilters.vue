@@ -14,6 +14,8 @@ const props = withDefaults(
     suggestions?: Record<string, readonly string[]>
     addLabel?: string
     emptyLabel?: string
+    /** Bloc édité — remonte les variables de boucle englobantes dans le sélecteur « { } ». */
+    blockId?: string
   }>(),
   {
     label: '',
@@ -100,7 +102,7 @@ function insertVariable(i: number, token: string) {
               placeholder="valeur exacte, ou une variable"
               @input="patch(i, { value: ($event.target as HTMLInputElement).value })"
             />
-            <VariableButton context="valeur de filtre" @pick="insertVariable(i, $event)" />
+            <VariableButton context="valeur de filtre" :block-id="props.blockId" @pick="insertVariable(i, $event)" />
           </div>
           <div v-if="(props.suggestions?.[filter.column] ?? []).length" class="mt-2 flex flex-wrap gap-1.5">
             <button

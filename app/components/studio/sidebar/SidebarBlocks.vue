@@ -11,6 +11,7 @@ const search = ref('')
 const availableCategories = computed(() => {
   const type = studio.content?.type
   return BLOCK_CATEGORIES.filter((cat) => {
+    if (cat.id === 'script') return false // onglet dédié « Script »
     if (cat.id === 'form') return type === 'survey'
     if (cat.id === 'special') return type !== 'survey' && type !== 'article'
     return true

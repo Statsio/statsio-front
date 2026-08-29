@@ -19,6 +19,7 @@ const studio = useStudioStore()
 
 const {
   sourceType, fileObj, fileName, sheetName, headerRow, excludedRows, apiForm,
+  datagouvInput, datagouvName, applyDatagouvPreset,
   provenanceId, provenanceOtherLabel,
   visibility, categories,
   currentStepId, canGoNext,
@@ -32,6 +33,10 @@ const activeSteps = computed(() => {
   if (sourceType.value === 'catalog') return ADD_SOURCE_WIZARD_STEPS.slice(0, 1)
   // L'étape "Détection" ne concerne que les sources API (rien à détecter pour un fichier).
   if (sourceType.value === 'file') return ADD_SOURCE_WIZARD_STEPS.filter((s) => s.id !== 'detect')
+  // data.gouv.fr : l'identifiant de ressource suffit — pas de détection ni de configuration manuelle.
+  if (sourceType.value === 'datagouv') {
+    return ADD_SOURCE_WIZARD_STEPS.filter((s) => s.id !== 'detect' && s.id !== 'configure')
+  }
   return ADD_SOURCE_WIZARD_STEPS
 })
 
@@ -52,6 +57,11 @@ function back() {
 }
 function next() {
   if (!canGoNext.value || submitting.value) return
+  // En quittant l'étape « Type » pour une source data.gouv.fr, on dérive la config API
+  // (URL tabular-api, enveloppe, pagination) depuis l'identifiant de ressource saisi.
+  if (currentStepId.value === 'type' && sourceType.value === 'datagouv') {
+    applyDatagouvPreset()
+  }
   if (isLastStep.value) {
     handleSubmit()
     return
@@ -62,10 +72,11 @@ function next() {
 
 const wizardSummary = computed(() => {
   const parts: string[] = []
-  const kind = { file: 'Fichier', api: 'API REST', catalog: 'Source publique' }[sourceType.value as string]
+  const kind = { file: 'Fichier', api: 'API REST', catalog: 'Source publique', datagouv: 'data.gouv.fr' }[sourceType.value as string]
   if (kind) parts.push(kind)
   if (sourceType.value === 'file' && fileName.value) parts.push(fileName.value)
   if (sourceType.value === 'api' && apiForm.value?.url) parts.push(apiForm.value.url)
+  if (sourceType.value === 'datagouv' && apiForm.value?.url) parts.push(apiForm.value.url)
   return parts.join(' · ') || 'Choisissez une provenance pour commencer.'
 })
 
@@ -87,7 +98,8 @@ async function handleSubmit() {
     let isLive = false
     if (sourceType.value === 'file') {
       await submitFile()
-    } else if (sourceType.value === 'api') {
+    } else if (sourceType.value === 'api' || sourceType.value === 'datagouv') {
+      if (sourceType.value === 'datagouv') applyDatagouvPreset()
       isLive = await submitApi()
     }
     submitStatus.value = 'success'
@@ -193,7 +205,15 @@ async function handleAttached() {
       </div>
     </div>
 
-    <StepSourceType v-if="currentStepId === 'type'" v-model="sourceType" @attached="handleAttached" />
+    <StepSourceType
+      v-if="currentStepId === 'type'"
+      v-model="sourceType"
+      :datagouv-input="datagouvInput"
+      :datagouv-name="datagouvName"
+      @update:datagouv-input="datagouvInput = $event"
+      @update:datagouv-name="datagouvName = $event"
+      @attached="handleAttached"
+    />
     <StepApiDetect
       v-else-if="currentStepId === 'detect'"
       :api-form="apiForm"
@@ -220,6 +240,7 @@ async function handleAttached() {
       v-else-if="currentStepId === 'provenance'"
       v-model="provenanceId"
       :other-label="provenanceOtherLabel"
+      :preselect-slug="sourceType === 'datagouv' ? 'gouvernemental' : undefined"
       @update:other-label="provenanceOtherLabel = $event"
     />
     <StepVisibility

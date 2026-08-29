@@ -2,15 +2,24 @@
 import { ref, computed, watch } from 'vue'
 import { useChart, PALETTE } from '@/composables/useChart'
 import { useBlockData } from '@/composables/useBlockData'
+import { useExpressionNumber } from '@/composables/useResolvedTokens'
 import { useStudioStore } from '@/stores/studio'
 import { formatDisplayValue, parseNumericValue } from '@/utils/statsDataFormat'
 import type { StudioBlock } from '@/types/studio'
 
-const props = defineProps<{ block: StudioBlock; readonly?: boolean }>()
+const props = defineProps<{ block: StudioBlock; readonly?: boolean; scope?: Record<string, string> }>()
 
 const studio = useStudioStore()
 const canvasRef = ref<HTMLCanvasElement | null>(null)
-const { data, isLoading, error } = useBlockData(() => props.block, props.readonly)
+const { data, isLoading, error } = useBlockData(() => props.block, props.readonly, () => props.scope)
+
+const { value: refValue } = useExpressionNumber({
+  expression: () => props.block.config.referenceExpression,
+  tokenMap: () => ({ ...studio.pageParams, ...props.scope }),
+  datasetId: () => props.block.datasetId,
+  readonly: () => props.readonly ?? false,
+  docSlug: () => studio.content?.slug,
+})
 
 /** Resolved list of Y columns — prefers yAxes (multi), falls back to single yAxis */
 const yColumns = computed(() => {
@@ -96,9 +105,9 @@ const chartData = computed(() => {
         label: props.block.config.title ?? yKey,
         data: rows.map((r: Record<string, unknown>) => parseNumericValue(r[yKey])),
         borderColor: color,
-        backgroundColor: color + '22',
+        backgroundColor: color + (props.block.config.lineFill === false ? '00' : '22'),
         tension: props.block.config.smooth ? 0.4 : 0,
-        fill: true,
+        fill: props.block.config.lineFill !== false ? 'origin' : false,
         pointRadius: 3,
       },
     ],
@@ -126,6 +135,10 @@ const { scheduleResize } = useChart(canvasRef, 'line', () => chartData.value, ()
     // Legend is rendered as custom HTML below the canvas instead (matches the editorial mockup style).
     legend: { display: false },
     tooltip: { mode: 'index' as const, intersect: false },
+    referenceLine: {
+      value: props.block.config.referenceExpression ? refValue.value : null,
+      label: props.block.config.referenceLabel,
+    },
   },
 }))
 

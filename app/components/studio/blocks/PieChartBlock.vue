@@ -2,12 +2,13 @@
 import { computed } from 'vue'
 import { PALETTE } from '@/composables/useChart'
 import { useBlockData } from '@/composables/useBlockData'
+import { markColor } from '@/lib/studio-chart'
 import { formatDisplayValue, parseNumericValue } from '@/utils/statsDataFormat'
 import type { StudioBlock } from '@/types/studio'
 
-const props = defineProps<{ block: StudioBlock; readonly?: boolean }>()
+const props = defineProps<{ block: StudioBlock; readonly?: boolean; scope?: Record<string, string> }>()
 
-const { data, isLoading, error } = useBlockData(() => props.block, props.readonly)
+const { data, isLoading, error } = useBlockData(() => props.block, props.readonly, () => props.scope)
 
 interface Segment {
   label: string
@@ -25,13 +26,16 @@ const segments = computed<Segment[]>(() => {
   const sliced = rows.slice(0, limit) as Record<string, unknown>[]
   const values = sliced.map((r) => parseNumericValue(r[valueKey]))
   const total = values.reduce((sum, v) => sum + v, 0)
+  const rules = props.block.config.markRules
+  const bounds = { min: Math.min(...values), max: Math.max(...values), ref: null }
 
   return sliced.map((r, i) => {
     const value = values[i] ?? 0
+    const fallback = colors[i % colors.length] ?? '#94a3b8'
     return {
       label: formatDisplayValue(r[labelKey], ''),
       percent: total > 0 ? Math.round((value / total) * 1000) / 10 : 0,
-      color: colors[i % colors.length] ?? '#94a3b8',
+      color: rules?.length ? markColor(rules, value, bounds, fallback) : fallback,
     }
   })
 })

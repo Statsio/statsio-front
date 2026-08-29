@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { SECTION_LAYOUT_DEFINITIONS, SECTION_PRESETS } from '@/types/studio'
 import { useStudioStore } from '@/stores/studio'
 import type { SectionLayout } from '@/types/studio'
 
 const studio = useStudioStore()
+
+const outline = computed(() => studio.currentPageSections)
 
 function onDragStart(event: DragEvent, type: SectionLayout) {
   if (!event.dataTransfer) return
@@ -14,6 +17,27 @@ function onDragStart(event: DragEvent, type: SectionLayout) {
 
 <template>
   <div class="flex h-full flex-col gap-5 overflow-auto px-[22px] pb-6">
+    <!-- Sommaire de la page -->
+    <div v-if="outline.length > 1">
+      <div class="mb-2.5 text-[10.5px] font-extrabold uppercase tracking-[0.08em] text-[var(--studio-faint)]">
+        Sommaire de la page
+      </div>
+      <div class="flex flex-col gap-0.5">
+        <button
+          v-for="(s, i) in outline"
+          :key="s.id"
+          type="button"
+          class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] transition-colors"
+          :class="studio.selectedSectionId === s.id ? 'bg-[var(--studio-accent-wash)] font-semibold text-[var(--color-primary)]' : 'text-[var(--studio-muted)] hover:bg-[var(--studio-wash)]'"
+          @click="studio.selectSection(s.id)"
+        >
+          <span class="mono shrink-0 text-[9.5px] text-[var(--studio-faint)]">{{ String(i + 1).padStart(2, '0') }}</span>
+          <span class="min-w-0 flex-1 truncate">{{ s.title || SECTION_LAYOUT_DEFINITIONS.find((d) => d.type === s.layout)?.label || 'Section' }}</span>
+          <span v-if="s.anchorId" class="mono shrink-0 text-[9px] text-[var(--color-primary)]" title="Ancre (sommaire public)">#</span>
+        </button>
+      </div>
+    </div>
+
     <p class="text-[12.5px] leading-[1.5] text-[var(--studio-muted)]">
       Glissez une mise en page sur le canevas pour l'insérer à un endroit précis, ou cliquez pour l'ajouter à la fin.
     </p>

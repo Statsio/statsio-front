@@ -3,8 +3,23 @@ import { fetchBlockData, fetchPublicBlockData } from '@/api/studio'
 import type { StudioBlock, BlockFilter, BlockQueryResult, AggregateFunction } from '@/types/studio'
 import { useStudioStore } from '@/stores/studio'
 import { getErrorMessage } from '@/lib/http-errors'
+import { interpolateTokens } from '@/lib/studio-tokens'
 
-export function useBlockData(block: () => StudioBlock | null, readonly = false) {
+export interface BlockDataOverrides {
+  /** Tri interactif (clic sur un en-tête de tableau) — remplace `config.sortColumn`. */
+  sortColumn?: string | null
+  sortDirection?: 'asc' | 'desc' | null
+  /** Pagination serveur. */
+  offset?: number
+  limit?: number
+}
+
+export function useBlockData(
+  block: () => StudioBlock | null,
+  readonly = false,
+  scope?: () => Record<string, string> | undefined,
+  overrides?: () => BlockDataOverrides | undefined,
+) {
   const studio = useStudioStore()
 
   const data = ref<BlockQueryResult | null>(null)
@@ -17,7 +32,8 @@ export function useBlockData(block: () => StudioBlock | null, readonly = false) 
   })
 
   function resolveFilterValue(value: string): string {
-    return value.replace(/\{\{(\w+)\}\}/g, (match, key) => studio.pageParams[key] ?? match)
+    // scope (variable de boucle) prioritaire sur les paramètres de page
+    return interpolateTokens(value, { ...studio.pageParams, ...(scope?.() ?? {}) })
   }
 
   function resolveFilters(filters: BlockFilter[]): BlockFilter[] {
@@ -33,22 +49,24 @@ export function useBlockData(block: () => StudioBlock | null, readonly = false) 
       return
     }
 
+    const ov = overrides?.() ?? {}
     const columns = resolveColumns(b)
     const groupLimit = b.config.rowLimit ?? 500
     // When series grouping is active, each X-group produces N rows (one per series value).
     // Fetch up to 5000 rows so the chart can slice to groupLimit unique X labels.
-    const fetchLimit = b.fieldMapping.series ? Math.min(groupLimit * 100, 5000) : groupLimit
+    const fetchLimit = b.fieldMapping.series ? Math.min(groupLimit * 100, 5000) : (ov.limit ?? groupLimit)
     const aggregationParams = resolveAggregationParams(b)
     const params = {
       columns,
       limit: fetchLimit,
+      offset: ov.offset || undefined,
       // "Distinct" (dédoublonnage par colonne) et l'agrégation ne se combinent jamais — les deux
       // réglages peuvent coexister dans block.config sans rapport l'un avec l'autre (ex. l'un
       // laissé d'un essai précédent), donc on ignore distinctColumn dès qu'une agrégation est active
       // plutôt que d'envoyer une combinaison que le backend rejette de toute façon.
       distinctColumn: aggregationParams.aggregate ? undefined : (b.config.distinctColumn ?? undefined),
-      sortColumn: b.config.sortColumn ?? undefined,
-      sortDirection: b.config.sortDirection ?? undefined,
+      sortColumn: (ov.sortColumn ?? b.config.sortColumn) ?? undefined,
+      sortDirection: (ov.sortColumn !== undefined && ov.sortColumn !== null ? ov.sortDirection : b.config.sortDirection) ?? undefined,
       filters: resolveFilters(b.filters ?? []),
       joins: b.joins?.length ? b.joins : undefined,
       ...aggregationParams,
@@ -74,7 +92,7 @@ export function useBlockData(block: () => StudioBlock | null, readonly = false) 
     (): string | null => {
       const b = block()
       return b
-        ? `${b.datasetId}|${JSON.stringify(b.fieldMapping)}|${JSON.stringify(b.filters ?? [])}|${JSON.stringify(b.joins ?? [])}|${JSON.stringify(studio.pageParams)}|${b.config.rowLimit ?? ''}|${b.config.distinctColumn ?? ''}|${b.config.sortColumn ?? ''}|${b.config.sortDirection ?? ''}`
+        ? `${b.datasetId}|${JSON.stringify(b.fieldMapping)}|${JSON.stringify(b.filters ?? [])}|${JSON.stringify(b.joins ?? [])}|${JSON.stringify(studio.pageParams)}|${JSON.stringify(scope?.() ?? null)}|${b.config.rowLimit ?? ''}|${b.config.distinctColumn ?? ''}|${b.config.sortColumn ?? ''}|${b.config.sortDirection ?? ''}|${JSON.stringify(overrides?.() ?? null)}`
         : null
     },
     (key, prev) => {

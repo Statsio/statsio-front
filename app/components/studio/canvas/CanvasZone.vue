@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import draggable from 'vuedraggable'
 import { useStudioStore } from '@/stores/studio'
 import type { BlockType, StudioBlock } from '@/types/studio'
@@ -8,6 +8,12 @@ import BlockWrapper from './BlockWrapper.vue'
 const props = defineProps<{
   zoneId: string
   colIndex: number
+  /**
+   * Zone imbriquée (contenu d'un bloc boucle). Deux sortables imbriqués partageant
+   * exactement le même groupe se gênent ; on donne à la zone interne un nom de
+   * groupe distinct qui accepte quand même les échanges avec les zones de section.
+   */
+  nested?: boolean
 }>()
 
 const studio = useStudioStore()
@@ -22,17 +28,28 @@ const zoneBlocks = computed<StudioBlock[]>({
 
 const isEmpty = computed(() => zoneBlocks.value.length === 0)
 
-const dragGroup = {
-  name: 'canvas-blocks',
-  put: true,
-  pull: true,
-}
+const dragGroup = computed(() =>
+  props.nested
+    ? { name: 'canvas-blocks-loop', put: ['canvas-blocks', 'canvas-blocks-loop'], pull: true }
+    : { name: 'canvas-blocks', put: true, pull: true },
+)
 
 // ─── Drop position tracking (sidebar → canvas) ────────────────────────────────
 
 const isDragOver  = ref(false)
 const dropIndex   = ref(-1) // -1 = append at end
 const draggableEl = ref<{ $el: HTMLElement } | null>(null)
+const rootEl      = ref<HTMLElement | null>(null)
+
+/**
+ * Vrai quand l'événement vise en réalité une zone imbriquée (contenu d'un bloc
+ * boucle) : la zone parente doit alors s'effacer et ne rien afficher, sinon on
+ * voit deux indicateurs de dépôt superposés.
+ */
+function targetsNestedZone(event: DragEvent): boolean {
+  const nearest = (event.target as Element | null)?.closest?.('[data-canvas-zone]')
+  return !!nearest && nearest !== rootEl.value
+}
 
 function getDropIndex(event: DragEvent): number {
   const el = draggableEl.value?.$el
@@ -51,16 +68,20 @@ function getDropIndex(event: DragEvent): number {
 }
 
 function onDragOver(event: DragEvent) {
-  if (event.dataTransfer?.types.includes('studio-block-type')) {
-    event.preventDefault()
-    event.dataTransfer.dropEffect = 'copy'
-    isDragOver.value = true
-    dropIndex.value  = getDropIndex(event)
+  if (!event.dataTransfer?.types.includes('studio-block-type')) return
+  if (targetsNestedZone(event)) {
+    isDragOver.value = false
+    dropIndex.value  = -1
+    return
   }
+  event.preventDefault()
+  event.dataTransfer.dropEffect = 'copy'
+  isDragOver.value = true
+  dropIndex.value  = getDropIndex(event)
 }
 
 function onDragEnter(event: DragEvent) {
-  if (event.dataTransfer?.types.includes('studio-block-type')) {
+  if (event.dataTransfer?.types.includes('studio-block-type') && !targetsNestedZone(event)) {
     isDragOver.value = true
   }
 }
@@ -73,23 +94,42 @@ function onDragLeave(event: DragEvent) {
 }
 
 function onDrop(event: DragEvent) {
-  event.preventDefault()
-  const idx = dropIndex.value
   isDragOver.value = false
+  const idx = dropIndex.value
   dropIndex.value  = -1
+  if (targetsNestedZone(event)) return
+  event.preventDefault()
   const blockType = event.dataTransfer?.getData('studio-block-type') as BlockType
   if (blockType) {
     studio.addBlock(blockType, props.zoneId, idx >= 0 ? idx : undefined)
   }
 }
+
+// Garde-fou : un drag palette → canevas qui se termine hors zone (drop annulé,
+// touche Échap…) laissait l'indicateur violet affiché. On réinitialise à la fin
+// de tout glisser-déposer, où qu'il finisse.
+function resetDragState() {
+  isDragOver.value = false
+  dropIndex.value = -1
+}
+onMounted(() => {
+  window.addEventListener('dragend', resetDragState)
+  window.addEventListener('drop', resetDragState)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('dragend', resetDragState)
+  window.removeEventListener('drop', resetDragState)
+})
 </script>
 
 <template>
   <div
-    class="relative flex min-h-[120px] min-w-0 flex-col overflow-hidden rounded-2xl transition-all"
+    ref="rootEl"
+    data-canvas-zone
+    class="relative flex min-w-0 flex-col rounded-xl transition-all"
     :class="[
       isEmpty && !studio.isPreview
-        ? 'border-2 border-dashed border-[var(--studio-line-strong)] bg-[var(--studio-wash)]/60'
+        ? 'min-h-[104px] border-2 border-dashed border-[var(--studio-line-strong)] bg-[color-mix(in_srgb,var(--studio-ink)_3%,transparent)]'
         : 'bg-transparent',
       isDragOver
         ? 'border-2 border-dashed border-[var(--color-primary)] bg-[var(--studio-accent-wash)]'
@@ -126,8 +166,9 @@ function onDrop(event: DragEvent) {
       :group="dragGroup"
       :disabled="studio.isPreview"
       item-key="id"
-      class="flex min-h-[100px] min-w-0 flex-1 flex-col gap-3.5 p-1"
-      ghost-class="opacity-30 ring-2 ring-[var(--color-primary)]/30 rounded-xl"
+      class="flex min-w-0 flex-1 flex-col gap-4"
+      :class="isEmpty && !studio.isPreview ? 'min-h-[104px]' : ''"
+      ghost-class="studio-drag-ghost"
       animation="150"
     >
       <template #item="{ element, index }">
@@ -155,3 +196,13 @@ function onDrop(event: DragEvent) {
     </draggable>
   </div>
 </template>
+
+<!-- Non scopé : SortableJS applique cette classe à un clone qu'il insère dans le DOM.
+     Un seul token (sinon `classList.add()` lève « token can not contain whitespace »). -->
+<style>
+.studio-drag-ghost {
+  opacity: 0.3;
+  border-radius: 0.75rem;
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+}
+</style>

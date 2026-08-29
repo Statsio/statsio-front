@@ -69,6 +69,52 @@ describe('useBlockData', () => {
     expect(isLoading.value).toBe(false)
   })
 
+  it('load() substitutes {{token}} filter values from scope, taking precedence over pageParams', async () => {
+    const studio = useStudioStore()
+    studio.pageParams = { item: 'FromParams' }
+    vi.mocked(fetchBlockData).mockResolvedValue(result)
+    const block = makeBlock({
+      filters: [{ column: 'carburant', operator: '=', value: '{{item}}' }],
+    })
+
+    const { reload } = useBlockData(() => block, false, () => ({ item: 'Gazole' }))
+    await reload()
+
+    const params = vi.mocked(fetchBlockData).mock.calls[0]![1] as { filters: { value: string }[] }
+    expect(params.filters[0]!.value).toBe('Gazole')
+  })
+
+  it('load() forwards overrides (interactive sort + server pagination) to the query params', async () => {
+    vi.mocked(fetchBlockData).mockResolvedValue(result)
+    const block = makeBlock({ config: { sortColumn: 'a', sortDirection: 'asc' } })
+
+    const { reload } = useBlockData(
+      () => block, false, undefined,
+      () => ({ sortColumn: 'b', sortDirection: 'desc', offset: 20, limit: 10 }),
+    )
+    await reload()
+
+    const params = vi.mocked(fetchBlockData).mock.calls[0]![1] as {
+      sortColumn?: string; sortDirection?: string; offset?: number; limit?: number
+    }
+    expect(params.sortColumn).toBe('b')
+    expect(params.sortDirection).toBe('desc')
+    expect(params.offset).toBe(20)
+    expect(params.limit).toBe(10)
+  })
+
+  it('load() falls back to config sort when no override sort is given', async () => {
+    vi.mocked(fetchBlockData).mockResolvedValue(result)
+    const block = makeBlock({ config: { sortColumn: 'a', sortDirection: 'desc' } })
+
+    const { reload } = useBlockData(() => block, false, undefined, () => ({ offset: 0 }))
+    await reload()
+
+    const params = vi.mocked(fetchBlockData).mock.calls[0]![1] as { sortColumn?: string; sortDirection?: string }
+    expect(params.sortColumn).toBe('a')
+    expect(params.sortDirection).toBe('desc')
+  })
+
   it('load() resets data to null and does not fetch when datasetId is absent', async () => {
     const block = makeBlock({ datasetId: undefined })
 

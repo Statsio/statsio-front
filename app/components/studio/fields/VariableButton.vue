@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import VariablePickerModal from '@/components/studio/VariablePickerModal.vue'
 
-withDefaults(defineProps<{ context?: string; pageId?: string }>(), { context: '' })
+withDefaults(defineProps<{ context?: string; pageId?: string; blockId?: string }>(), { context: '' })
 
 const emit = defineEmits<{ pick: [token: string] }>()
 
@@ -29,6 +29,7 @@ function onPick(token: string) {
     v-if="open"
     :context="context"
     :page-id="pageId"
+    :block-id="blockId"
     @pick="onPick"
     @close="open = false"
   />

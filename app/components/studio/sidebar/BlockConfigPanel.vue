@@ -6,7 +6,11 @@ import FormBlockInspector from '@/components/studio/inspector/FormBlockInspector
 import MediaBlockInspector from '@/components/studio/inspector/MediaBlockInspector.vue'
 import RichBlockInspector from '@/components/studio/inspector/RichBlockInspector.vue'
 import SearchBlockInspector from '@/components/studio/inspector/SearchBlockInspector.vue'
+import ParamBlockInspector from '@/components/studio/inspector/ParamBlockInspector.vue'
 import DataBlockInspector from '@/components/studio/inspector/DataBlockInspector.vue'
+import RecordBlockInspector from '@/components/studio/inspector/RecordBlockInspector.vue'
+import LoopBlockInspector from '@/components/studio/inspector/LoopBlockInspector.vue'
+import IfBlockInspector from '@/components/studio/inspector/IfBlockInspector.vue'
 import { BLOCK_META, type BlockType } from '@/types/studio'
 
 const studio = useStudioStore()
@@ -16,34 +20,48 @@ const isText   = computed(() => block.value ? isTextBlock(block.value.type) : fa
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
-const EDITORIAL_TYPES = ['image', 'video', 'button', 'link-card', 'retenir'] as const
+const EDITORIAL_TYPES = ['image', 'video', 'button', 'link-card', 'retenir', 'map', 'field-grid'] as const
 const FORM_TYPES = ['choice', 'checkboxes', 'dropdown', 'scale', 'rating'] as const
+const RECORD_TYPES = ['record', 'related'] as const
 
 const DATA_TABS      = [{ id: 'data', label: 'Données' }, { id: 'filters', label: 'Filtres' }, { id: 'style', label: 'Style' }]
 const KPI_TABS       = [{ id: 'data', label: 'Données' }, { id: 'filters', label: 'Filtres' }, { id: 'comparison', label: 'Comparaison' }, { id: 'style', label: 'Style' }]
+const LOOP_TABS      = [{ id: 'data', label: 'Boucle' }, { id: 'filters', label: 'Filtres' }, { id: 'style', label: 'Style' }]
+const IF_TABS        = [{ id: 'condition', label: 'Condition' }]
 const TEXT_TABS      = [{ id: 'style', label: 'Style' }]
 const SEARCH_TABS    = [{ id: 'config', label: 'Configuration' }]
+const PARAM_TABS     = [{ id: 'config', label: 'Configuration' }]
 const EDITORIAL_TABS = [{ id: 'editorial', label: 'Contenu' }]
 const FORM_TABS      = [{ id: 'form', label: 'Question' }]
 
 const isSearch    = computed(() => block.value?.type === 'search')
+const isParam     = computed(() => block.value?.type === 'param')
+const isLoop      = computed(() => block.value?.type === 'loop')
+const isCondition = computed(() => block.value?.type === 'if')
 const isEditorial = computed(() => EDITORIAL_TYPES.includes(block.value?.type as typeof EDITORIAL_TYPES[number]))
 const isForm      = computed(() => FORM_TYPES.includes(block.value?.type as typeof FORM_TYPES[number]))
+const isRecord    = computed(() => RECORD_TYPES.includes(block.value?.type as typeof RECORD_TYPES[number]))
 
 const currentTabs = computed(() => {
   if (isText.value) return TEXT_TABS
   if (isSearch.value) return SEARCH_TABS
+  if (isParam.value) return PARAM_TABS
   if (isEditorial.value) return EDITORIAL_TABS
   if (isForm.value) return FORM_TABS
+  if (isLoop.value) return LOOP_TABS
+  if (isCondition.value) return IF_TABS
+  if (isRecord.value) return DATA_TABS
   if (block.value?.type === 'kpi') return KPI_TABS
   return DATA_TABS
 })
 
 const activeTab = ref('data')
 
-watch([() => block.value?.id, isText, isSearch, isEditorial, isForm], () => {
+watch([() => block.value?.id, isText, isSearch, isParam, isCondition, isEditorial, isForm], () => {
   if (isText.value) activeTab.value = 'style'
   else if (isSearch.value) activeTab.value = 'config'
+  else if (isParam.value) activeTab.value = 'config'
+  else if (isCondition.value) activeTab.value = 'condition'
   else if (isEditorial.value) activeTab.value = 'editorial'
   else if (isForm.value) activeTab.value = 'form'
   else activeTab.value = 'data'
@@ -106,6 +124,12 @@ const compFilters = computed<import('@/types/studio').BlockFilter[]>(() => block
       <!-- ══════════════ SEARCH BLOCK ══════════════ -->
       <SearchBlockInspector v-if="isSearch && block && activeTab === 'config'" :block="block" />
 
+      <!-- ══════════════ PARAM BLOCK ══════════════ -->
+      <ParamBlockInspector v-if="isParam && block && activeTab === 'config'" :block="block" />
+
+      <!-- ══════════════ IF BLOCK ══════════════ -->
+      <IfBlockInspector v-if="isCondition && block && activeTab === 'condition'" :block="block" />
+
       <!-- ══════════════ EDITORIAL BLOCKS (image / video / button / link-card / retenir) ══════════════ -->
       <MediaBlockInspector v-if="isEditorial && block && activeTab === 'editorial'" :block="block" />
 
@@ -113,8 +137,14 @@ const compFilters = computed<import('@/types/studio').BlockFilter[]>(() => block
       <!-- ══════════════ FORM BLOCKS (choice / checkboxes / dropdown / scale / rating) ══════════════ -->
       <FormBlockInspector v-if="isForm && block && activeTab === 'form'" :block="block" />
 
+      <!-- ══════════════ LOOP BLOCK ══════════════ -->
+      <LoopBlockInspector v-if="isLoop && block" :block="block" :active-tab="activeTab" />
+
+      <!-- ══════════════ RECORD / RELATED ══════════════ -->
+      <RecordBlockInspector v-if="isRecord && block" :block="block" :active-tab="activeTab" />
+
       <!-- ══════════════ DATA BLOCKS ══════════════ -->
-      <DataBlockInspector v-if="!isText && !isSearch && !isEditorial && !isForm && block" :block="block" :active-tab="activeTab" />
+      <DataBlockInspector v-if="!isText && !isSearch && !isParam && !isEditorial && !isForm && !isLoop && !isCondition && !isRecord && block" :block="block" :active-tab="activeTab" />
 
       <!-- ══════════════ TEXT BLOCKS ══════════════ -->
       <RichBlockInspector v-if="isText && block && activeTab === 'style'" :block="block" />

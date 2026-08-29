@@ -1,14 +1,27 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useStudioStore } from '@/stores/studio'
+import { useResolvedTokens, useResolvedTokenList } from '@/composables/useResolvedTokens'
 import type { StudioBlock } from '@/types/studio'
 
-const props = defineProps<{ block: StudioBlock; readonly?: boolean }>()
+const props = defineProps<{ block: StudioBlock; readonly?: boolean; scope?: Record<string, string> }>()
+const studio = useStudioStore()
 
-const retenirTitle = computed(() => props.block.config.retenirTitle || 'À retenir')
-const items        = computed(() => props.block.config.retenirItems ?? [])
-const color        = computed(() => props.block.config.retenirColor ?? 'violet')
+const rawItems = computed(() => props.block.config.retenirItems ?? [])
+const color    = computed(() => props.block.config.retenirColor ?? 'violet')
 
-const isEmpty = computed(() => items.value.length === 0)
+const tokenMap = () => ({ ...studio.pageParams, ...props.scope })
+const resolveOpts = {
+  tokenMap,
+  datasetId: () => props.block.datasetId,
+  readonly: () => props.readonly ?? false,
+  docSlug: () => studio.content?.slug,
+}
+
+const { text: retenirTitle } = useResolvedTokens({ raw: () => props.block.config.retenirTitle || 'À retenir', ...resolveOpts })
+const { list: items } = useResolvedTokenList({ items: () => rawItems.value, ...resolveOpts })
+
+const isEmpty = computed(() => rawItems.value.length === 0)
 
 const COLOR_MAP = {
   violet:  { border: 'border-[color:color-mix(in_srgb,var(--color-primary)_25%,transparent)]', bg: 'bg-[var(--color-primary)]/5', text: 'text-[var(--color-primary)]', dot: 'bg-[var(--color-primary)]' },
@@ -33,21 +46,20 @@ const colors = computed(() => COLOR_MAP[color.value] ?? COLOR_MAP.violet)
   </div>
 
   <!-- Content -->
-  <div
-    v-else
-    class="rounded-[14px] border px-[22px] py-5"
-    :class="[colors.border, colors.bg]"
-  >
-    <p class="mb-3 text-[14.5px] font-extrabold" :class="colors.text">
+  <div v-else>
+    <p class="mb-3.5 text-[10px] font-extrabold uppercase tracking-[0.1em]" :class="colors.text">
       {{ retenirTitle }}
     </p>
-    <ul class="flex flex-col gap-[9px]">
+    <ul class="flex flex-col gap-3.5">
       <li
         v-for="(item, i) in items"
         :key="i"
-        class="grid grid-cols-[16px_1fr] items-start gap-2.5 text-[13.5px] leading-[1.55] text-[color:color-mix(in_srgb,var(--studio-ink)_75%,transparent)] [text-wrap:pretty]"
+        class="grid grid-cols-[26px_1fr] items-start gap-[13px] text-[15px] leading-[1.55] text-[color:color-mix(in_srgb,var(--studio-ink)_80%,transparent)] [text-wrap:pretty]"
       >
-        <span class="mt-[7px] h-[7px] w-[7px] shrink-0 rounded-full" :class="colors.dot" />
+        <span
+          class="mono rounded-[7px] py-1 text-center text-[11px] font-semibold"
+          :class="[colors.text, colors.bg]"
+        >{{ String(i + 1).padStart(2, '0') }}</span>
         <span>{{ item }}</span>
       </li>
     </ul>

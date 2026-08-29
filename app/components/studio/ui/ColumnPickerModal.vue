@@ -76,11 +76,13 @@ const activeGroups = computed(() => props.customGroups ?? derivedGroups.value)
 const tokenGroups = computed((): TokenGroup[] => {
   const pageId = props.pageId ?? studio.currentPageId
   const currentPage = studio.pages.find((p: StudioDocumentPage) => p.id === pageId)
-  if (!currentPage?.isTemplate) return []
+  if (!currentPage) return []
 
   const groups: TokenGroup[] = []
-  if (currentPage.paramName) {
-    groups.push({ label: 'Paramètre de la page', tokens: [currentPage.paramName] })
+  const paramTokens = (currentPage.params ?? []).map((p) => p.name).filter(Boolean)
+  if (currentPage.paramName && !paramTokens.includes(currentPage.paramName)) paramTokens.push(currentPage.paramName)
+  if (paramTokens.length) {
+    groups.push({ label: 'Paramètres de la page', tokens: paramTokens })
   }
   const seenDatasets = new Set<string>()
 

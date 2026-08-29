@@ -7,7 +7,7 @@ import { contentPropertiesPath } from '@/lib/content-display'
 import StudioModal from '@/components/studio/ui/StudioModal.vue'
 import VariablePickerModal from '@/components/studio/VariablePickerModal.vue'
 import FieldText from '@/components/studio/fields/FieldText.vue'
-import FieldToggle from '@/components/studio/fields/FieldToggle.vue'
+import { slugify } from '@/lib/slug'
 import type { StudioDocumentPage } from '@/types/studio'
 import studioLogo from '@/assets/brand/statsio-studio.svg'
 
@@ -23,11 +23,11 @@ const settingsPath = computed(() => {
   return contentPropertiesPath(content.type ?? 'statsdata', content.slug)
 })
 
-// ─── Page kind badges ────────────────────────────────────────────────────────
+// ─── Page kind badge ─────────────────────────────────────────────────────────
 
 function pageKind(page?: StudioDocumentPage | null) {
-  return page?.isTemplate
-    ? { tag: 'TMPL', cls: 'bg-[var(--studio-tag)] text-[var(--studio-tag-ink)]' }
+  return (page?.params?.length ?? 0) > 0
+    ? { tag: 'PARM', cls: 'bg-[#f2ecfd] text-[#7c3aed]' }
     : { tag: 'PAGE', cls: 'bg-[#eaf1fe] text-[#2563eb]' }
 }
 
@@ -79,55 +79,26 @@ function removePage(id: string, title: string) {
 const showAddModal = ref(false)
 const newPageTitle = ref('')
 const newPageSlug = ref('')
-const newPageIsTemplate = ref(false)
-const newPageParam = ref('region')
 
 function openAddModal() {
   newPageTitle.value = ''
   newPageSlug.value = ''
-  newPageIsTemplate.value = false
-  newPageParam.value = 'region'
   pagesOpen.value = false
   showAddModal.value = true
 }
 
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-}
-
-const newPageUrlPreview = computed(() => {
-  const base = '/' + (newPageSlug.value || 'nouvelle-page')
-  return newPageIsTemplate.value ? `${base}/{${newPageParam.value.trim() || 'param'}}` : base
-})
+const newPageUrlPreview = computed(() => '/' + (newPageSlug.value || 'nouvelle-page'))
 
 function onNewPageTitleInput() {
   newPageSlug.value = slugify(newPageTitle.value)
 }
 
-const canCreatePage = computed(
-  () => !!newPageTitle.value.trim() && (!newPageIsTemplate.value || !!newPageParam.value.trim()),
-)
+const canCreatePage = computed(() => !!newPageTitle.value.trim())
 
 function confirmAddPage() {
   if (!canCreatePage.value) return
-  const page = studio.addPage(newPageTitle.value.trim(), {
-    isTemplate: newPageIsTemplate.value || undefined,
-    paramName: newPageIsTemplate.value ? newPageParam.value.trim() : undefined,
-  })
+  const page = studio.addPage(newPageTitle.value.trim())
   if (newPageSlug.value) studio.updatePage(page.id, { slug: newPageSlug.value })
-
-  if (newPageIsTemplate.value) {
-    const section = studio.addSection('1-col', 0, true)
-    const zoneId = `${section.id}-0`
-    const block = studio.addBlock('search', zoneId, 0, true)
-    studio.updateBlockFieldMapping(block.id, { targetPageId: page.id })
-  }
-
   showAddModal.value = false
 }
 
@@ -310,18 +281,16 @@ const saveDotClass = computed(() => {
                 <input
                   :id="`hdr-rename-${page.id}`"
                   v-model="editingPageTitle"
-                  class="studio-input !py-1.5 !text-[12.5px]"
-                  :class="page.isTemplate ? '!pr-7' : ''"
+                  class="studio-input !py-1.5 !pr-7 !text-[12.5px]"
                   @click.stop
                   @blur="commitRename(page.id)"
                   @keydown.enter.stop="commitRename(page.id)"
                   @keydown.escape.stop="editingPageId = null"
                 />
                 <button
-                  v-if="page.isTemplate"
                   type="button"
                   class="studio-tag absolute right-1 top-1/2 -translate-y-1/2 !py-0.5 text-[10px]"
-                  title="Insérer une variable dynamique"
+                  title="Insérer une variable de page"
                   @mousedown.prevent="showPageTokenModal = true"
                   @click.stop
                 >{ }</button>
@@ -430,21 +399,15 @@ const saveDotClass = computed(() => {
         placeholder="ex. Prix par département"
         @update:model-value="onNewPageTitleInput"
       />
-      <FieldToggle
-        v-model="newPageIsTemplate"
-        label="Page template"
-        sub="Rendue une fois par valeur d'un paramètre, avec un bloc Recherche verrouillé pour générer les liens."
-      />
-      <div
-        v-if="newPageIsTemplate"
-        class="flex flex-col gap-3 rounded-xl border border-[var(--studio-line)] bg-[var(--studio-panel)] px-4 py-4"
-      >
-        <FieldText v-model="newPageParam" label="Paramètre de la page" placeholder="region" mono />
-        <div class="flex flex-wrap items-center gap-2">
-          <span class="text-[11.5px] text-[var(--studio-muted)]">URL générée</span>
-          <span class="studio-tag text-[11px]">{{ newPageUrlPreview }}</span>
-        </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="text-[11.5px] text-[var(--studio-muted)]">URL</span>
+        <span class="studio-tag text-[11px]">{{ newPageUrlPreview }}</span>
       </div>
+      <p class="text-[11.5px] leading-relaxed text-[var(--studio-faint)]">
+        Pour une page pilotée par une valeur (carburant, commune…), ajoutez ensuite un bloc
+        <b>Paramètre</b> ou <b>Recherche</b> : les blocs qui filtrent sur ce paramètre se
+        rechargent automatiquement.
+      </p>
     </div>
     <template #footer>
       <button type="button" class="text-[13px] font-bold text-[var(--studio-faint)]" @click="showAddModal = false">Annuler</button>

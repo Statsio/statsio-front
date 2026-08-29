@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { useAddSourceWizard } from './useAddSourceWizard'
+import { useAddSourceWizard, parseDatagouvResourceId, datagouvTabularUrl } from './useAddSourceWizard'
+
+const DATAGOUV_ID = '336c34b5-a527-4c35-b84d-18462daa7c51'
 
 describe('useAddSourceWizard', () => {
   describe('canGoNext — type step', () => {
@@ -20,6 +22,72 @@ describe('useAddSourceWizard', () => {
       wizard.currentStepId.value = 'type'
       wizard.sourceType.value = 'catalog'
       expect(wizard.canGoNext.value).toBe(false)
+    })
+
+    it('for "datagouv" requires a parseable resource id', () => {
+      const wizard = useAddSourceWizard()
+      wizard.currentStepId.value = 'type'
+      wizard.sourceType.value = 'datagouv'
+      expect(wizard.canGoNext.value).toBe(false)
+
+      wizard.datagouvInput.value = 'nope'
+      expect(wizard.canGoNext.value).toBe(false)
+
+      wizard.datagouvInput.value = DATAGOUV_ID
+      expect(wizard.canGoNext.value).toBe(true)
+    })
+  })
+
+  describe('parseDatagouvResourceId', () => {
+    it('returns a bare id unchanged (lowercased)', () => {
+      expect(parseDatagouvResourceId(`  ${DATAGOUV_ID.toUpperCase()}  `)).toBe(DATAGOUV_ID)
+    })
+
+    it('extracts the id from a full tabular-api URL', () => {
+      expect(parseDatagouvResourceId(`https://tabular-api.data.gouv.fr/api/resources/${DATAGOUV_ID}/data/?page=2`))
+        .toBe(DATAGOUV_ID)
+    })
+
+    it('extracts the id from a data.gouv.fr dataset page fragment', () => {
+      expect(parseDatagouvResourceId(`https://www.data.gouv.fr/fr/datasets/x/#/resources/${DATAGOUV_ID}`))
+        .toBe(DATAGOUV_ID)
+    })
+  })
+
+  describe('applyDatagouvPreset', () => {
+    it('derives the tabular-api url, data envelope and next-link pagination', () => {
+      const wizard = useAddSourceWizard()
+      wizard.datagouvInput.value = ` ${DATAGOUV_ID} `
+      wizard.applyDatagouvPreset()
+
+      expect(wizard.apiForm.value.url).toBe(datagouvTabularUrl(DATAGOUV_ID))
+      expect(wizard.apiForm.value.method).toBe('GET')
+      expect(wizard.apiForm.value.dataPath).toBe('data')
+      expect(wizard.apiForm.value.pagination.style).toBe('next_link')
+      expect(wizard.apiForm.value.pagination.nextLinkPath).toBe('links.next')
+      expect(wizard.apiForm.value.name).toContain('data.gouv.fr')
+
+      wizard.datagouvName.value = 'Prix des carburants'
+      wizard.applyDatagouvPreset()
+      expect(wizard.apiForm.value.name).toBe('Prix des carburants')
+    })
+
+    it('produces a payload the api-sources endpoint accepts', () => {
+      const wizard = useAddSourceWizard()
+      wizard.datagouvInput.value = DATAGOUV_ID
+      wizard.applyDatagouvPreset()
+
+      const payload = wizard.buildApiPayload()
+      expect(payload.url).toBe(datagouvTabularUrl(DATAGOUV_ID))
+      expect(payload.data_path).toBe('data')
+      expect(payload.pagination).toMatchObject({
+        style: 'next_link',
+        next_link_source: 'body',
+        next_link_path: 'links.next',
+        size_param: 'page_size',
+        page_size: 200,
+        max_pages: 500,
+      })
     })
   })
 
@@ -215,6 +283,8 @@ describe('useAddSourceWizard', () => {
       wizard.fileObj.value = new File(['a'], 'a.csv')
       wizard.apiForm.value.name = 'Changed'
       wizard.apiForm.value.pagination.style = 'offset'
+      wizard.datagouvInput.value = DATAGOUV_ID
+      wizard.datagouvName.value = 'x'
       wizard.provenanceId.value = 'other'
       wizard.provenanceOtherLabel.value = 'x'
       wizard.visibility.value = 'public'
@@ -227,6 +297,8 @@ describe('useAddSourceWizard', () => {
       expect(wizard.fileObj.value).toBeNull()
       expect(wizard.apiForm.value.name).toBe('')
       expect(wizard.apiForm.value.pagination.style).toBe('none')
+      expect(wizard.datagouvInput.value).toBe('')
+      expect(wizard.datagouvName.value).toBe('')
       expect(wizard.provenanceId.value).toBeNull()
       expect(wizard.provenanceOtherLabel.value).toBe('')
       expect(wizard.visibility.value).toBe('private')

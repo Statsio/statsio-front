@@ -2,15 +2,35 @@
 import { ref, computed, watch } from 'vue'
 import { useChart, PALETTE } from '@/composables/useChart'
 import { useBlockData } from '@/composables/useBlockData'
+import { useExpressionNumber } from '@/composables/useResolvedTokens'
+import { markColor } from '@/lib/studio-chart'
 import { useStudioStore } from '@/stores/studio'
 import { formatDisplayValue, parseNumericValue } from '@/utils/statsDataFormat'
 import type { StudioBlock } from '@/types/studio'
 
-const props = defineProps<{ block: StudioBlock; readonly?: boolean }>()
+const props = defineProps<{ block: StudioBlock; readonly?: boolean; scope?: Record<string, string> }>()
 
 const studio = useStudioStore()
 const canvasRef = ref<HTMLCanvasElement | null>(null)
-const { data, isLoading, error } = useBlockData(() => props.block, props.readonly)
+const { data, isLoading, error } = useBlockData(() => props.block, props.readonly, () => props.scope)
+
+// ─── Ligne de référence + couleur de marque conditionnelle (Phase 5) ─────────
+
+const { value: refValue } = useExpressionNumber({
+  expression: () => props.block.config.referenceExpression,
+  tokenMap: () => ({ ...studio.pageParams, ...props.scope }),
+  datasetId: () => props.block.datasetId,
+  readonly: () => props.readonly ?? false,
+  docSlug: () => studio.content?.slug,
+})
+
+function barColors(values: number[], fallback: string): string[] {
+  const rules = props.block.config.markRules
+  if (!rules?.length) return values.map(() => fallback)
+  const finite = values.filter((v) => Number.isFinite(v))
+  const ctx = { min: Math.min(...finite), max: Math.max(...finite), ref: refValue.value }
+  return values.map((v) => markColor(rules, Number.isFinite(v) ? v : null, ctx, fallback))
+}
 
 /** Resolved list of Y columns — prefers yAxes (multi), falls back to single yAxis */
 const yColumns = computed(() => {
@@ -76,13 +96,15 @@ const chartData = computed(() => {
 
   // ── Single Y column ──
   const yKey = yCols[0] ?? ''
+  const values = rows.map((r: Record<string, unknown>) => parseNumericValue(r[yKey]))
+  const fallback = props.block.config.colors?.[0] ?? PALETTE[0]!
   return {
     labels: rows.map((r: Record<string, unknown>) => formatDisplayValue(r[xKey], '')),
     datasets: [
       {
         label: props.block.config.title ?? yKey,
-        data: rows.map((r: Record<string, unknown>) => parseNumericValue(r[yKey])),
-        backgroundColor: props.block.config.colors?.[0] ?? PALETTE[0],
+        data: values,
+        backgroundColor: barColors(values, fallback),
         borderRadius: 6,
       },
     ],
@@ -113,6 +135,7 @@ const progressRows = computed<ProgressRow[]>(() => {
   const sliced = (rows as Record<string, unknown>[]).slice(0, limit)
   const values = sliced.map((r) => parseNumericValue(r[yKey]))
   const max = Math.max(0, ...values)
+  const marked = barColors(values, color)
 
   return sliced.map((r, i) => {
     const value = values[i] ?? 0
@@ -121,7 +144,7 @@ const progressRows = computed<ProgressRow[]>(() => {
       label: formatDisplayValue(r[xKey], ''),
       width,
       display: isPercent ? `${value}%` : new Intl.NumberFormat('fr-FR').format(value),
-      color,
+      color: marked[i] ?? color,
     }
   })
 })
@@ -169,6 +192,10 @@ const { scheduleResize } = useChart(canvasRef, 'bar', () => chartData.value, () 
     valueLabels: {
       enabled: Boolean(props.block.config.showValueLabels),
       format: props.block.config.format,
+    },
+    referenceLine: {
+      value: props.block.config.referenceExpression ? refValue.value : null,
+      label: props.block.config.referenceLabel,
     },
   },
 }))

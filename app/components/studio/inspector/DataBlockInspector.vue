@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import { useActiveEditor } from '@/composables/useActiveEditor'
-import type { BlockFilter, BlockJoin, DatasetColumn, DatasetMeta, StudioBlock } from '@/types/studio'
+import type { BlockFilter, BlockJoin, ChartMarkRule, DatasetColumn, DatasetMeta, StudioBlock } from '@/types/studio'
 import FieldPicker from '@/components/studio/fields/FieldPicker.vue'
 import FieldNote from '@/components/studio/fields/FieldNote.vue'
 import FieldColumns from '@/components/studio/fields/FieldColumns.vue'
@@ -32,6 +32,23 @@ watch(() => props.block.id, () => { openSections.value = new Set<string>() })
 // ─── Config / mapping ────────────────────────────────────────────────────────
 function updateConfig(key: string, value: unknown) { studio.updateBlockConfig(props.block.id, { [key]: value }) }
 function updateMapping(key: string, value: string) { studio.updateBlockFieldMapping(props.block.id, { [key]: value }) }
+function inputVal(e: Event) { return (e.target as HTMLInputElement).value }
+
+// ─── Couleur de marque conditionnelle (bar / progress) — Phase 5 ─────────────
+const markRules = computed<ChartMarkRule[]>(() => props.block.config.markRules ?? [])
+const MARK_WHENS: { v: ChartMarkRule['when']; l: string }[] = [
+  { v: 'above-ref', l: '> réf.' }, { v: 'below-ref', l: '< réf.' },
+  { v: 'top', l: 'max' }, { v: 'bottom', l: 'min' },
+  { v: 'positive', l: 'positif' }, { v: 'negative', l: 'négatif' },
+  { v: 'gt', l: '> seuil' }, { v: 'lt', l: '< seuil' },
+]
+const MARK_COLORS = ['#8b5cf6', '#059669', '#e11d48', '#2563eb', '#b45309', '#c4b5fd']
+function setMarkRules(next: ChartMarkRule[]) { updateConfig('markRules', next.length ? next : undefined) }
+function addMarkRule() { setMarkRules([...markRules.value, { when: 'above-ref', color: '#8b5cf6' }]) }
+function updateMarkRule(i: number, patch: Partial<ChartMarkRule>) {
+  setMarkRules(markRules.value.map((r, idx) => (idx === i ? { ...r, ...patch } : r)))
+}
+function removeMarkRule(i: number) { setMarkRules(markRules.value.filter((_, idx) => idx !== i)) }
 
 const schema = computed(() => props.block.datasetId ? (datasets.getSchema(props.block.datasetId) ?? null) : null)
 const columnNames = computed(() => schema.value?.columns.map((c: DatasetColumn) => c.name) ?? [])
@@ -432,6 +449,42 @@ const compFiltersSummary = computed(() =>
                   </button>
                 </div>
               </div>
+
+              <!-- Ligne de référence -->
+              <div class="flex flex-col gap-1.5">
+                <label class="text-xs font-semibold text-[var(--studio-muted)]">Ligne de référence (expression)</label>
+                <input
+                  :value="block.config.referenceExpression ?? ''"
+                  type="text" placeholder="ex. AVG(prix@7)"
+                  class="cfg-input font-mono !text-[11.5px]"
+                  @input="updateConfig('referenceExpression', inputVal($event) || undefined)"
+                />
+                <input
+                  v-if="block.config.referenceExpression"
+                  :value="block.config.referenceLabel ?? ''"
+                  type="text" placeholder="Libellé (ex. moyenne nationale)"
+                  class="cfg-input !text-[12px]"
+                  @input="updateConfig('referenceLabel', inputVal($event) || undefined)"
+                />
+              </div>
+
+              <!-- Couleur conditionnelle des barres -->
+              <div class="flex flex-col gap-2" v-if="!block.fieldMapping.series">
+                <div class="flex items-center justify-between">
+                  <label class="text-xs font-semibold text-[var(--studio-muted)]">Couleur conditionnelle</label>
+                  <button type="button" class="text-[11px] font-bold text-[var(--color-primary)]" @click="addMarkRule">+ Règle</button>
+                </div>
+                <div v-for="(r, i) in markRules" :key="i" class="flex flex-wrap items-center gap-1.5">
+                  <select class="cfg-input-sm !w-[92px]" :value="r.when" @change="updateMarkRule(i, { when: ($event.target as HTMLSelectElement).value as ChartMarkRule['when'] })">
+                    <option v-for="w in MARK_WHENS" :key="w.v" :value="w.v">{{ w.l }}</option>
+                  </select>
+                  <input v-if="r.when === 'gt' || r.when === 'lt'" type="number" class="cfg-input-sm !w-[58px]" :value="r.value ?? ''" @change="updateMarkRule(i, { value: Number(inputVal($event)) })" />
+                  <span class="flex gap-1">
+                    <button v-for="hex in MARK_COLORS" :key="hex" type="button" class="h-5 w-5 rounded-full border-2" :class="r.color === hex ? 'border-[var(--studio-ink)]' : 'border-white'" :style="{ background: hex }" @click="updateMarkRule(i, { color: hex })" />
+                  </span>
+                  <button type="button" class="text-[12px] text-[var(--studio-faint)] hover:text-red-400" @click="removeMarkRule(i)">✕</button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -450,23 +503,58 @@ const compFiltersSummary = computed(() =>
                   <div class="toggle-knob" :class="block.config.smooth ? 'translate-x-3.5' : 'translate-x-0.5'" />
                 </div>
               </div>
-              <div>
-                <label class="text-xs font-semibold text-[var(--studio-muted)] mb-1.5 block">Pastille de tendance (optionnel)</label>
+              <div class="toggle-row" @click="updateConfig('lineFill', block.config.lineFill === false ? undefined : false)">
+                <span class="text-sm text-[var(--studio-ink)]">Remplissage sous la courbe</span>
+                <div class="toggle" :class="block.config.lineFill !== false ? 'toggle-on' : 'toggle-off'">
+                  <div class="toggle-knob" :class="block.config.lineFill !== false ? 'translate-x-3.5' : 'translate-x-0.5'" />
+                </div>
+              </div>
+
+              <!-- Ligne de référence -->
+              <div class="flex flex-col gap-1.5">
+                <label class="text-xs font-semibold text-[var(--studio-muted)]">Ligne de référence (expression)</label>
                 <input
-                  :value="block.config.trendLabel ?? ''"
-                  type="text"
-                  placeholder="Ex: +2.1 pts vs 2022 à 12h"
-                  class="cfg-input"
-                  @input="updateConfig('trendLabel', ($event.target as HTMLInputElement).value)"
+                  :value="block.config.referenceExpression ?? ''"
+                  type="text" placeholder="ex. AVG(prix@7)"
+                  class="cfg-input font-mono !text-[11.5px]"
+                  @input="updateConfig('referenceExpression', inputVal($event) || undefined)"
+                />
+                <input
+                  v-if="block.config.referenceExpression"
+                  :value="block.config.referenceLabel ?? ''"
+                  type="text" placeholder="Libellé"
+                  class="cfg-input !text-[12px]"
+                  @input="updateConfig('referenceLabel', inputVal($event) || undefined)"
                 />
               </div>
-              <div v-if="block.config.trendLabel" class="grid grid-cols-2 gap-2">
+
+              <!-- Pastille de tendance -->
+              <div>
+                <label class="text-xs font-semibold text-[var(--studio-muted)] mb-1.5 block">Pastille de tendance</label>
+                <input
+                  :value="block.config.trendExpression ?? ''"
+                  type="text"
+                  placeholder="Valeur calculée — ex. AVG(prix@7) - MIN(prix@7)"
+                  class="cfg-input font-mono !text-[11.5px]"
+                  @input="updateConfig('trendExpression', inputVal($event) || undefined)"
+                />
+                <input
+                  v-if="!block.config.trendExpression"
+                  :value="block.config.trendLabel ?? ''"
+                  type="text"
+                  placeholder="… ou texte libre : +2,1 pts vs 2022"
+                  class="cfg-input mt-1.5 !text-[12px]"
+                  @input="updateConfig('trendLabel', inputVal($event) || undefined)"
+                />
+              </div>
+              <div v-if="block.config.trendLabel || block.config.trendExpression" class="grid grid-cols-3 gap-2">
                 <button v-for="o in [
+                  { v: undefined, l: 'Auto' },
                   { v: 'up',   l: '▲ Hausse' },
                   { v: 'down', l: '▼ Baisse' },
-                ]" :key="o.v"
+                ]" :key="o.l"
                   class="py-2.5 rounded-xl border text-[11px] font-semibold transition-colors"
-                  :class="(block.config.trendDirection ?? 'up') === o.v ? 'cfg-active' : 'cfg-inactive'"
+                  :class="block.config.trendDirection === o.v ? 'cfg-active' : 'cfg-inactive'"
                   @click="updateConfig('trendDirection', o.v)">
                   {{ o.l }}
                 </button>
@@ -494,6 +582,15 @@ const compFiltersSummary = computed(() =>
                 <div class="toggle" :class="block.config.showPagination ? 'toggle-on' : 'toggle-off'">
                   <div class="toggle-knob" :class="block.config.showPagination ? 'translate-x-3.5' : 'translate-x-0.5'" />
                 </div>
+              </div>
+              <div v-if="block.config.showPagination" class="flex items-center justify-between gap-2 px-1">
+                <label class="text-xs font-semibold text-[var(--studio-muted)]">Lignes par page</label>
+                <input
+                  type="number" min="1" max="200"
+                  class="cfg-input-sm w-[80px] [appearance:textfield]"
+                  :value="block.config.pageSize ?? 10"
+                  @input="updateConfig('pageSize', Number(($event.target as HTMLInputElement).value) || 10)"
+                />
               </div>
             </div>
           </div>

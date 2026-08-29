@@ -216,6 +216,45 @@ describe('useStudioStore', () => {
     })
   })
 
+  describe('section chrome (selection + updateSection)', () => {
+    it('selectSection and selectBlock are mutually exclusive and drive the right sidebar', () => {
+      const store = useStudioStore()
+      const section = store.sections[0]!
+      const block = store.addBlock('kpi', `${section.id}-0`)
+
+      store.selectSection(section.id)
+      expect(store.selectedSectionId).toBe(section.id)
+      expect(store.selectedBlockId).toBeNull()
+      expect(store.isSidebarRightOpen).toBe(true)
+
+      store.selectBlock(block.id)
+      expect(store.selectedSectionId).toBeNull()
+      expect(store.selectedBlock?.id).toBe(block.id)
+
+      store.selectSection(null)
+      expect(store.isSidebarRightOpen).toBe(false)
+    })
+
+    it('updateSection patches kicker/title/theme/anchor and records history', () => {
+      const store = useStudioStore()
+      const id = store.sections[0]!.id
+      store.updateSection(id, { kicker: 'KPI', title: 'Chiffres clés', theme: 'dark', anchorId: 'chiffres' })
+
+      expect(store.selectedSection).toBeNull() // pas sélectionnée
+      const s = store.sections.find((x) => x.id === id)!
+      expect(s).toMatchObject({ kicker: 'KPI', title: 'Chiffres clés', theme: 'dark', anchorId: 'chiffres' })
+      expect(store.canUndo).toBe(true)
+    })
+
+    it('removeSection clears its selection', () => {
+      const store = useStudioStore()
+      const extra = store.addSection('1-col')
+      store.selectSection(extra.id)
+      store.removeSection(extra.id)
+      expect(store.selectedSectionId).toBeNull()
+    })
+  })
+
   describe('setZoneBlocks', () => {
     it('reassigns zoneId for a cross-zone move and reorders per blockIds, leaving other blocks untouched', () => {
       const store = useStudioStore()
@@ -321,6 +360,220 @@ describe('useStudioStore', () => {
       const byZone = store.blocksByZone
       expect(byZone[`${section.id}-0`]).toEqual([block])
       expect(byZone[`${section.id}-1`]).toEqual([])
+    })
+
+    it('exposes a zone for each loop block', () => {
+      const store = useStudioStore()
+      const section = store.sections[0]!
+      const loop = store.addBlock('loop', `${section.id}-0`)
+      expect(store.blocksByZone[`loop:${loop.id}:0`]).toEqual([])
+    })
+  })
+
+  describe('loop blocks', () => {
+    const seedLoopWithChild = () => {
+      const store = useStudioStore()
+      const section = store.sections[0]!
+      const loop = store.addBlock('loop', `${section.id}-0`)
+      const child = store.addBlock('kpi', `loop:${loop.id}:0`)
+      return { store, section, loop, child }
+    }
+
+    it('canPlaceInZone allows nested script blocks but rejects search / param / form blocks in a loop zone', () => {
+      const { store, loop } = seedLoopWithChild()
+      const zone = `loop:${loop.id}:0`
+      expect(store.canPlaceInZone('kpi', zone)).toBe(true)
+      expect(store.canPlaceInZone('bar', zone)).toBe(true)
+      expect(store.canPlaceInZone('loop', zone)).toBe(true)
+      expect(store.canPlaceInZone('if', zone)).toBe(true)
+      expect(store.canPlaceInZone('search', zone)).toBe(false)
+      expect(store.canPlaceInZone('param', zone)).toBe(false)
+      expect(store.canPlaceInZone('rating', zone)).toBe(false)
+    })
+
+    it('an "if" block gets its own child zone and cascades on delete like a loop', () => {
+      const store = useStudioStore()
+      const section = store.sections[0]!
+      const cond = store.addBlock('if', `${section.id}-0`)
+      const child = store.addBlock('kpi', `loop:${cond.id}:0`)
+      expect(store.blocksByZone[`loop:${cond.id}:0`]?.map((b) => b.id)).toEqual([child.id])
+      expect(store.loopChildIds(cond.id)).toEqual([child.id])
+
+      store.removeBlock(cond.id)
+      expect(store.blocks.find((b) => b.id === child.id)).toBeUndefined()
+    })
+
+    it('duplicateBlock clones an "if" block and re-parents its children', () => {
+      const store = useStudioStore()
+      const section = store.sections[0]!
+      const cond = store.addBlock('if', `${section.id}-0`)
+      store.addBlock('paragraph', `loop:${cond.id}:0`)
+      const clone = store.duplicateBlock(cond.id)!
+      expect(store.blocks.filter((b) => b.zoneId === `loop:${clone.id}:0`)).toHaveLength(1)
+    })
+
+    it('addBlock keeps a nested loop inside the loop zone', () => {
+      const { store, loop } = seedLoopWithChild()
+      const nested = store.addBlock('loop', `loop:${loop.id}:0`)
+      expect(nested.zoneId).toBe(`loop:${loop.id}:0`)
+    })
+
+    it('removeBlock cascades through nested loops', () => {
+      const { store, loop } = seedLoopWithChild()
+      const nested = store.addBlock('loop', `loop:${loop.id}:0`)
+      const grandChild = store.addBlock('kpi', `loop:${nested.id}:0`)
+      store.removeBlock(loop.id)
+      expect(store.blocks.find((b) => b.id === nested.id)).toBeUndefined()
+      expect(store.blocks.find((b) => b.id === grandChild.id)).toBeUndefined()
+    })
+
+    it('loopChildIds returns the loop descendants', () => {
+      const { store, loop, child } = seedLoopWithChild()
+      expect(store.loopChildIds(loop.id)).toEqual([child.id])
+    })
+
+    it('removeBlock on a loop cascades to its children', () => {
+      const { store, loop, child } = seedLoopWithChild()
+      store.removeBlock(loop.id)
+      expect(store.blocks.find((b) => b.id === loop.id)).toBeUndefined()
+      expect(store.blocks.find((b) => b.id === child.id)).toBeUndefined()
+    })
+
+    it('duplicateBlock clones the loop and re-parents its children', () => {
+      const { store, loop, child } = seedLoopWithChild()
+      const clone = store.duplicateBlock(loop.id)!
+      const clonedChildren = store.blocks.filter((b) => b.zoneId === `loop:${clone.id}:0`)
+      expect(clone.id).not.toBe(loop.id)
+      expect(clonedChildren).toHaveLength(1)
+      expect(clonedChildren[0]!.id).not.toBe(child.id)
+    })
+
+    it('removeSection cascades to loop children', () => {
+      const { store, section, child } = seedLoopWithChild()
+      store.removeSection(section.id)
+      expect(store.blocks.find((b) => b.id === child.id)).toBeUndefined()
+    })
+
+    it('loopAncestors walks from a child up to its loop', () => {
+      const { store, loop, child } = seedLoopWithChild()
+      expect(store.loopAncestors(child.id).map((b) => b.id)).toEqual([loop.id])
+    })
+
+    it('setZoneBlocks moves an allowed block into the loop but drops a disallowed one', () => {
+      const { store, section, loop } = seedLoopWithChild()
+      const chart = store.addBlock('bar', `${section.id}-0`)
+      const form = store.addBlock('rating', `${section.id}-0`)
+      const zone = `loop:${loop.id}:0`
+
+      store.setZoneBlocks(zone, [chart.id, form.id])
+
+      expect(store.blocks.find((b) => b.id === chart.id)!.zoneId).toBe(zone)
+      expect(store.blocks.find((b) => b.id === form.id)!.zoneId).toBe(`${section.id}-0`)
+    })
+  })
+
+  describe('page parameters', () => {
+    it('addPageParam declares a param and seeds its default into pageParams for the current page', () => {
+      const store = useStudioStore()
+      store.addPageParam('default', { name: 'carburant', column: 'carburant', defaultValue: 'gazole' })
+
+      expect(store.currentPageParamDefs).toEqual([
+        { name: 'carburant', column: 'carburant', defaultValue: 'gazole' },
+      ])
+      expect(store.pageParams.carburant).toBe('gazole')
+      expect(store.canUndo).toBe(true)
+    })
+
+    it('ignores a duplicate param name', () => {
+      const store = useStudioStore()
+      store.addPageParam('default', { name: 'x', defaultValue: 'a' })
+      store.addPageParam('default', { name: 'x', defaultValue: 'b' })
+      expect(store.currentPageParamDefs).toHaveLength(1)
+      expect(store.pageParams.x).toBe('a')
+    })
+
+    it('switchPage re-seeds pageParams from the target page defaults', () => {
+      const store = useStudioStore()
+      const other = store.addPage('Vue commune')
+      store.addPageParam(other.id, { name: 'commune', defaultValue: 'Lyon' })
+      store.switchPage('default')
+      expect(store.pageParams.commune).toBeUndefined()
+
+      store.switchPage(other.id)
+      expect(store.pageParams.commune).toBe('Lyon')
+    })
+
+    it('updatePageParam changes the default and removePageParam drops the value', () => {
+      const store = useStudioStore()
+      store.addPageParam('default', { name: 'annee', defaultValue: '2025' })
+      store.updatePageParam('default', 'annee', { defaultValue: '2026' })
+      expect(store.pageParams.annee).toBe('2026')
+
+      store.removePageParam('default', 'annee')
+      expect(store.currentPageParamDefs).toHaveLength(0)
+      expect(store.pageParams.annee).toBeUndefined()
+    })
+
+    it('initPage seeds pageParams from the first page declared params', () => {
+      const store = useStudioStore()
+      store.initPage(
+        { id: 'c1', type: 'statsdata', title: 'Doc' },
+        [{ id: 'p1', layout: '1-col', pageId: 'p1' }],
+        [],
+        [{ id: 'p1', title: 'Principale', params: [{ name: 'carburant', defaultValue: 'sp95' }] }],
+      )
+      expect(store.pageParams.carburant).toBe('sp95')
+    })
+  })
+
+  describe('legacy template page migration', () => {
+    it('converts an isTemplate page into a normal page + declared param, and unlocks its blocks', () => {
+      const store = useStudioStore()
+      store.initPage(
+        { id: 'c1', type: 'statsdata', title: 'Doc' },
+        [
+          { id: 'sMain', layout: '1-col', pageId: 'pMain' },
+          { id: 'sTpl', layout: '1-col', pageId: 'pTpl', locked: true },
+        ],
+        [
+          {
+            id: 'search1', type: 'search', zoneId: 'sTpl-0', datasetId: '7', locked: true,
+            fieldMapping: {
+              targetPageId: 'pTpl',
+              searchSources: [{ datasetId: '7', columns: ['nom_commune', 'code_commune'] }],
+              resultTitleColumn: 'nom_commune',
+              urlParams: ['code_commune'],
+            },
+            config: {},
+          },
+        ],
+        [
+          { id: 'pMain', title: 'National' },
+          { id: 'pTpl', title: 'Commune', isTemplate: true, paramName: 'code_commune' },
+        ],
+      )
+
+      const tpl = store.pages.find((p) => p.id === 'pTpl')!
+      expect(tpl.isTemplate).toBeFalsy()
+      expect(tpl.paramName).toBeFalsy()
+      // slug d'URL basé sur la colonne identifiante (code_commune), pas le nom affiché.
+      expect(tpl.params?.[0]).toMatchObject({
+        name: 'code_commune', column: 'code_commune', slugColumn: 'code_commune', datasetId: '7', fanOut: true,
+      })
+
+      expect(store.sections.find((s) => s.id === 'sTpl')!.locked).toBeFalsy()
+      expect(store.blocks.find((b) => b.id === 'search1')!.locked).toBeFalsy()
+    })
+
+    it('is a no-op for a document with only normal pages', () => {
+      const store = useStudioStore()
+      store.initPage(
+        { id: 'c1', type: 'statsdata', title: 'Doc' },
+        [{ id: 's1', layout: '1-col', pageId: 'p1' }],
+        [],
+        [{ id: 'p1', title: 'Principale' }],
+      )
+      expect(store.pages[0]!.params).toBeUndefined()
     })
   })
 })
