@@ -84,6 +84,10 @@ export default defineNuxtConfig({
       comingSoonBypassCode: process.env.NUXT_PUBLIC_COMING_SOON_BYPASS_CODE ?? '',
       sentryDsn: process.env.NUXT_PUBLIC_SENTRY_DSN ?? '',
       turnstileSiteKey: process.env.NUXT_PUBLIC_TURNSTILE_SITE_KEY ?? '0x4AAAAAADreXCM3U-LKGq0q',
+      // Assistant IA du Studio — masqué tant que non activé (backend + clé requis).
+      // Clé alignée sur le nom de la variable → Nuxt applique aussi l'override runtime
+      // NUXT_PUBLIC_STUDIO_ASSISTANT_ENABLED même si la lecture ci-dessous a lieu trop tôt.
+      studioAssistantEnabled: process.env.NUXT_PUBLIC_STUDIO_ASSISTANT_ENABLED === 'true',
     },
   },
 
@@ -102,6 +106,9 @@ export default defineNuxtConfig({
 
   routeRules: {
     '/profile': { redirect: '/user' },
+    // Espace compte v2 : onglets consolidés en routes imbriquées sous /user.
+    '/contenus': { redirect: '/user/contenus' },
+    '/mes-chaines': { redirect: '/user/chaines' },
   },
 
   components: [
