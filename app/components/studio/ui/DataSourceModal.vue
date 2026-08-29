@@ -214,25 +214,25 @@ function onKeydown(e: KeyboardEvent) {
       @keydown="onKeydown"
     >
       <!-- Backdrop -->
-      <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" @click="emit('close')" />
+      <div class="absolute inset-0 bg-[rgba(18,18,26,0.5)] backdrop-blur-[3px]" @click="emit('close')" />
 
       <!-- Panel -->
       <div
-        class="relative z-10 flex w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+        class="relative z-10 flex w-full max-w-3xl flex-col overflow-hidden rounded-[20px] border border-[var(--studio-line)] bg-white shadow-[var(--studio-shadow-modal)]"
         style="max-height: min(85vh, 700px);"
       >
         <!-- Header -->
-        <div class="flex shrink-0 items-center justify-between gap-4 border-b border-slate-100 px-5 py-3.5">
+        <div class="flex shrink-0 items-center justify-between gap-4 border-b border-[var(--studio-line)] px-5 py-3.5">
           <div class="flex items-center gap-3">
-            <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+            <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-[var(--studio-muted)]">
               <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375" />
               </svg>
             </span>
-            <h3 class="text-[13px] font-semibold text-slate-800">Sources de données</h3>
+            <h3 class="text-[13px] font-semibold text-[var(--studio-ink)]">Sources de données</h3>
           </div>
           <button
-            class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+            class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-lg text-[var(--studio-faint)] transition-colors hover:bg-[var(--studio-wash)] hover:text-[var(--studio-ink)]"
             @click="emit('close')"
           >×</button>
         </div>
@@ -241,17 +241,17 @@ function onKeydown(e: KeyboardEvent) {
         <div class="flex flex-1 min-h-0">
 
           <!-- ─── Left nav ─────────────────────────────────────────────────── -->
-          <nav class="w-52 shrink-0 border-r border-slate-100 overflow-y-auto py-3 flex flex-col gap-0.5">
+          <nav class="w-52 shrink-0 border-r border-[var(--studio-line)] overflow-y-auto py-3 flex flex-col gap-0.5">
 
             <!-- DATA BLOCKS: Source principale + jointures -->
             <template v-if="!isSearch">
-              <p class="px-4 pb-1 pt-1 text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Source</p>
+              <p class="px-4 pb-1 pt-1 text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--studio-faint)]">Source</p>
 
               <button
                 class="flex w-full items-center gap-2 rounded-lg mx-2 px-3 py-2 text-left text-xs transition-all"
                 :class="isActive({ kind: 'primary' })
                   ? 'bg-[var(--color-primary)]/8 text-[var(--color-primary)] font-semibold'
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'"
+                  : 'text-[var(--studio-muted)] hover:bg-[var(--studio-note)] hover:text-[var(--studio-ink)]'"
                 style="width: calc(100% - 1rem);"
                 @click="active = { kind: 'primary' }"
               >
@@ -263,13 +263,13 @@ function onKeydown(e: KeyboardEvent) {
               </button>
 
               <template v-if="joins.length > 0">
-                <p class="px-4 pb-1 pt-3 text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Jointures</p>
+                <p class="px-4 pb-1 pt-3 text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--studio-faint)]">Jointures</p>
                 <button
                   v-for="(join, ji) in joins" :key="ji"
                   class="flex w-full items-center gap-2 rounded-lg mx-2 px-3 py-2 text-left text-xs transition-all"
                   :class="isActive({ kind: 'join', index: ji })
                     ? 'bg-violet-50 text-violet-700 font-semibold'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'"
+                    : 'text-[var(--studio-muted)] hover:bg-[var(--studio-note)] hover:text-[var(--studio-ink)]'"
                   style="width: calc(100% - 1rem);"
                   @click="active = { kind: 'join', index: ji }"
                 >
@@ -285,7 +285,7 @@ function onKeydown(e: KeyboardEvent) {
 
               <div class="px-2 pt-2">
                 <button
-                  class="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-200 py-1.5 text-[11px] font-medium text-slate-400 transition-colors hover:border-violet-300 hover:bg-violet-50/60 hover:text-violet-600"
+                  class="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--studio-line-strong)] py-1.5 text-[11px] font-medium text-[var(--studio-faint)] transition-colors hover:border-violet-300 hover:bg-violet-50/60 hover:text-violet-600"
                   @click="addJoin"
                 >
                   <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
@@ -296,14 +296,14 @@ function onKeydown(e: KeyboardEvent) {
 
             <!-- SEARCH BLOCKS: Sources + search joins -->
             <template v-else>
-              <p class="px-4 pb-1 pt-1 text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Sources de recherche</p>
+              <p class="px-4 pb-1 pt-1 text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--studio-faint)]">Sources de recherche</p>
 
               <button
                 v-for="(src, si) in searchSources" :key="si"
                 class="flex w-full items-center gap-2 rounded-lg mx-2 px-3 py-2 text-left text-xs transition-all"
                 :class="isActive({ kind: 'source', index: si })
                   ? 'bg-cyan-50 text-cyan-700 font-semibold'
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'"
+                  : 'text-[var(--studio-muted)] hover:bg-[var(--studio-note)] hover:text-[var(--studio-ink)]'"
                 style="width: calc(100% - 1rem);"
                 @click="active = { kind: 'source', index: si }"
               >
@@ -318,7 +318,7 @@ function onKeydown(e: KeyboardEvent) {
 
               <div class="px-2 pt-1">
                 <button
-                  class="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-200 py-1.5 text-[11px] font-medium text-slate-400 transition-colors hover:border-cyan-300 hover:bg-cyan-50/60 hover:text-cyan-600"
+                  class="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--studio-line-strong)] py-1.5 text-[11px] font-medium text-[var(--studio-faint)] transition-colors hover:border-cyan-300 hover:bg-cyan-50/60 hover:text-cyan-600"
                   @click="addSource"
                 >
                   <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
@@ -327,13 +327,13 @@ function onKeydown(e: KeyboardEvent) {
               </div>
 
               <template v-if="searchJoins.length > 0 || searchSources.some((s: SearchSource) => s.datasetId)">
-                <p class="px-4 pb-1 pt-3 text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400">Jointures</p>
+                <p class="px-4 pb-1 pt-3 text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--studio-faint)]">Jointures</p>
                 <button
                   v-for="(join, ji) in searchJoins" :key="ji"
                   class="flex w-full items-center gap-2 rounded-lg mx-2 px-3 py-2 text-left text-xs transition-all"
                   :class="isActive({ kind: 'search-join', index: ji })
                     ? 'bg-violet-50 text-violet-700 font-semibold'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-800'"
+                    : 'text-[var(--studio-muted)] hover:bg-[var(--studio-note)] hover:text-[var(--studio-ink)]'"
                   style="width: calc(100% - 1rem);"
                   @click="active = { kind: 'search-join', index: ji }"
                 >
@@ -348,7 +348,7 @@ function onKeydown(e: KeyboardEvent) {
 
                 <div class="px-2 pt-1">
                   <button
-                    class="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-200 py-1.5 text-[11px] font-medium text-slate-400 transition-colors hover:border-violet-300 hover:bg-violet-50/60 hover:text-violet-600"
+                    class="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--studio-line-strong)] py-1.5 text-[11px] font-medium text-[var(--studio-faint)] transition-colors hover:border-violet-300 hover:bg-violet-50/60 hover:text-violet-600"
                     @click="addSearchJoin"
                   >
                     <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
@@ -365,18 +365,18 @@ function onKeydown(e: KeyboardEvent) {
             <!-- ══ SOURCE PRINCIPALE (data blocks) ══ -->
             <template v-if="!isSearch && active.kind === 'primary'">
               <div>
-                <p class="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">Dataset principal</p>
+                <p class="mb-3 text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--studio-faint)]">Dataset principal</p>
 
                 <!-- Search -->
                 <div class="relative mb-3">
-                  <svg class="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <svg class="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--studio-faint)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
                   </svg>
                   <input
                     v-model="dsFilter"
                     type="text"
                     placeholder="Rechercher un dataset…"
-                    class="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-8 pr-3 text-xs text-slate-700 placeholder:text-slate-400 transition-all focus:border-[var(--color-primary)] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20"
+                    class="w-full rounded-xl border border-[var(--studio-line-strong)] bg-[var(--studio-note)] py-2 pl-8 pr-3 text-xs text-[var(--studio-ink)] placeholder:text-[var(--studio-faint)] transition-all focus:border-[var(--color-primary)] focus:bg-white focus:outline-none "
                   />
                 </div>
 
@@ -388,38 +388,38 @@ function onKeydown(e: KeyboardEvent) {
                     class="flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all"
                     :class="block.datasetId === ds.id
                       ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5'
-                      : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'"
+                      : 'border-[var(--studio-line-strong)] bg-white hover:border-slate-300 hover:bg-[var(--studio-note)]'"
                     @click="setDataset(ds.id)"
                   >
-                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-400">
+                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-[var(--studio-faint)]">
                       <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375" />
                       </svg>
                     </span>
                     <div class="flex-1 min-w-0">
-                      <p class="text-sm font-medium text-slate-800 truncate">{{ ds.name }}</p>
-                      <p class="text-[11px] text-slate-400">{{ ds.rowCount.toLocaleString('fr-FR') }} lignes</p>
+                      <p class="text-sm font-medium text-[var(--studio-ink)] truncate">{{ ds.name }}</p>
+                      <p class="text-[11px] text-[var(--studio-faint)]">{{ ds.rowCount.toLocaleString('fr-FR') }} lignes</p>
                     </div>
                     <svg v-if="block.datasetId === ds.id" class="h-4 w-4 shrink-0 text-[var(--color-primary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                     </svg>
                   </button>
                 </div>
-                <p v-else class="py-6 text-center text-xs italic text-slate-400">Aucun dataset disponible</p>
+                <p v-else class="py-6 text-center text-xs italic text-[var(--studio-faint)]">Aucun dataset disponible</p>
               </div>
 
               <!-- Column preview -->
               <div v-if="primarySchema">
-                <p class="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">Colonnes <span class="font-normal normal-case tracking-normal">({{ primarySchema.columns.length }})</span></p>
+                <p class="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--studio-faint)]">Colonnes <span class="font-normal normal-case tracking-normal">({{ primarySchema.columns.length }})</span></p>
                 <div class="flex flex-wrap gap-1.5">
                   <span
                     v-for="col in primarySchema.columns.slice(0, 24)" :key="col.name"
-                    class="flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1"
+                    class="flex items-center gap-1 rounded-lg border border-[var(--studio-line)] bg-white px-2 py-1"
                   >
-                    <span class="min-w-[18px] shrink-0 rounded px-1 text-center text-[9px] font-bold uppercase leading-[16px]" :class="TYPE_BADGE[col.type]?.cls ?? 'bg-slate-100 text-slate-500'">{{ TYPE_BADGE[col.type]?.label ?? '?' }}</span>
-                    <span class="font-mono text-[11px] text-slate-600">{{ col.name }}</span>
+                    <span class="min-w-[18px] shrink-0 rounded px-1 text-center text-[9px] font-bold uppercase leading-[16px]" :class="TYPE_BADGE[col.type]?.cls ?? 'bg-slate-100 text-[var(--studio-muted)]'">{{ TYPE_BADGE[col.type]?.label ?? '?' }}</span>
+                    <span class="font-mono text-[11px] text-[var(--studio-muted)]">{{ col.name }}</span>
                   </span>
-                  <span v-if="primarySchema.columns.length > 24" class="flex items-center rounded-lg border border-dashed border-slate-200 px-2 py-1 text-[11px] text-slate-400">
+                  <span v-if="primarySchema.columns.length > 24" class="flex items-center rounded-lg border border-dashed border-[var(--studio-line-strong)] px-2 py-1 text-[11px] text-[var(--studio-faint)]">
                     +{{ primarySchema.columns.length - 24 }} colonnes
                   </span>
                 </div>
@@ -429,7 +429,7 @@ function onKeydown(e: KeyboardEvent) {
             <!-- ══ JOIN (data blocks) ══ -->
             <template v-else-if="!isSearch && active.kind === 'join'">
               <div class="flex items-center justify-between">
-                <p class="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">Jointure {{ (active as { kind: 'join'; index: number }).index + 1 }}</p>
+                <p class="text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--studio-faint)]">Jointure {{ (active as { kind: 'join'; index: number }).index + 1 }}</p>
                 <button
                   class="flex items-center gap-1 rounded-lg border border-red-100 bg-red-50 px-2.5 py-1 text-[11px] font-medium text-red-500 transition-colors hover:bg-red-100"
                   @click="removeJoin((active as { kind: 'join'; index: number }).index)"
@@ -441,7 +441,7 @@ function onKeydown(e: KeyboardEvent) {
 
               <!-- Type LEFT/INNER -->
               <div>
-                <p class="mb-1.5 text-[11px] font-semibold text-slate-600">Type de jointure</p>
+                <p class="mb-1.5 text-[11px] font-semibold text-[var(--studio-muted)]">Type de jointure</p>
                 <div class="flex gap-2">
                   <button
                     v-for="t in [{ v: 'left', l: 'LEFT', desc: 'Toutes les lignes de la source' }, { v: 'inner', l: 'INNER', desc: 'Seulement les correspondances' }]"
@@ -449,7 +449,7 @@ function onKeydown(e: KeyboardEvent) {
                     class="flex-1 rounded-xl border px-3 py-2 text-left transition-all"
                     :class="joins[(active as { kind: 'join'; index: number }).index]?.type === t.v
                       ? 'border-violet-300 bg-violet-50 text-violet-700'
-                      : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'"
+                      : 'border-[var(--studio-line-strong)] bg-white text-[var(--studio-muted)] hover:border-slate-300'"
                     @click="patchJoin((active as { kind: 'join'; index: number }).index, { type: t.v as 'left' | 'inner' })"
                   >
                     <p class="text-xs font-bold font-mono">{{ t.l }}</p>
@@ -460,12 +460,12 @@ function onKeydown(e: KeyboardEvent) {
 
               <!-- Dataset picker -->
               <div>
-                <p class="mb-1.5 text-[11px] font-semibold text-slate-600">Dataset à joindre</p>
+                <p class="mb-1.5 text-[11px] font-semibold text-[var(--studio-muted)]">Dataset à joindre</p>
                 <div class="relative mb-2">
-                  <svg class="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <svg class="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--studio-faint)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
                   </svg>
-                  <input v-model="dsFilter" type="text" placeholder="Rechercher…" class="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-8 pr-3 text-xs text-slate-700 placeholder:text-slate-400 focus:border-[var(--color-primary)] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 transition-all" />
+                  <input v-model="dsFilter" type="text" placeholder="Rechercher…" class="w-full rounded-xl border border-[var(--studio-line-strong)] bg-[var(--studio-note)] py-2 pl-8 pr-3 text-xs text-[var(--studio-ink)] placeholder:text-[var(--studio-faint)] focus:border-[var(--color-primary)] focus:bg-white focus:outline-none  transition-all" />
                 </div>
                 <div class="flex flex-col gap-1">
                   <button
@@ -474,12 +474,12 @@ function onKeydown(e: KeyboardEvent) {
                     class="flex items-center gap-2.5 rounded-xl border px-3 py-2 text-left transition-all"
                     :class="joins[(active as { kind: 'join'; index: number }).index]?.datasetId === ds.id
                       ? 'border-violet-300 bg-violet-50'
-                      : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'"
+                      : 'border-[var(--studio-line-strong)] bg-white hover:border-slate-300 hover:bg-[var(--studio-note)]'"
                     @click="patchJoin((active as { kind: 'join'; index: number }).index, { datasetId: ds.id, leftColumn: '', rightColumn: '', columns: [] })"
                   >
                     <div class="flex-1 min-w-0">
-                      <p class="text-xs font-medium text-slate-700 truncate">{{ ds.name }}</p>
-                      <p class="text-[10px] text-slate-400">{{ ds.rowCount.toLocaleString('fr-FR') }} lignes</p>
+                      <p class="text-xs font-medium text-[var(--studio-ink)] truncate">{{ ds.name }}</p>
+                      <p class="text-[10px] text-[var(--studio-faint)]">{{ ds.rowCount.toLocaleString('fr-FR') }} lignes</p>
                     </div>
                     <svg v-if="joins[(active as { kind: 'join'; index: number }).index]?.datasetId === ds.id" class="h-4 w-4 shrink-0 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
@@ -491,7 +491,7 @@ function onKeydown(e: KeyboardEvent) {
               <!-- Join keys -->
               <template v-if="joins[(active as { kind: 'join'; index: number }).index]?.datasetId">
                 <div>
-                  <p class="mb-1.5 text-[11px] font-semibold text-slate-600">Clé de jointure</p>
+                  <p class="mb-1.5 text-[11px] font-semibold text-[var(--studio-muted)]">Clé de jointure</p>
                   <div class="flex items-center gap-2">
                     <ColumnButton
                       class="flex-1 min-w-0"
@@ -515,7 +515,7 @@ function onKeydown(e: KeyboardEvent) {
 
                 <!-- Columns to include -->
                 <div>
-                  <p class="mb-1.5 text-[11px] font-semibold text-slate-600">Colonnes à inclure</p>
+                  <p class="mb-1.5 text-[11px] font-semibold text-[var(--studio-muted)]">Colonnes à inclure</p>
                   <div v-if="joinSchema((active as { kind: 'join'; index: number }).index)" class="flex flex-wrap gap-1.5">
                     <button
                       v-for="col in joinSchema((active as { kind: 'join'; index: number }).index)!.columns" :key="col.name"
@@ -523,15 +523,15 @@ function onKeydown(e: KeyboardEvent) {
                       class="flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] transition-all"
                       :class="joins[(active as { kind: 'join'; index: number }).index]?.columns.includes(col.name)
                         ? 'border-violet-300 bg-violet-50 text-violet-700'
-                        : 'border-slate-200 bg-white text-slate-600 hover:border-violet-200 hover:bg-violet-50/50'"
+                        : 'border-[var(--studio-line-strong)] bg-white text-[var(--studio-muted)] hover:border-violet-200 hover:bg-violet-50/50'"
                       @click="toggleJoinCol((active as { kind: 'join'; index: number }).index, col.name)"
                     >
-                      <span class="min-w-[18px] shrink-0 rounded px-1 text-center text-[9px] font-bold uppercase leading-[16px]" :class="TYPE_BADGE[col.type]?.cls ?? 'bg-slate-100 text-slate-500'">{{ TYPE_BADGE[col.type]?.label ?? '?' }}</span>
+                      <span class="min-w-[18px] shrink-0 rounded px-1 text-center text-[9px] font-bold uppercase leading-[16px]" :class="TYPE_BADGE[col.type]?.cls ?? 'bg-slate-100 text-[var(--studio-muted)]'">{{ TYPE_BADGE[col.type]?.label ?? '?' }}</span>
                       <span class="font-mono">{{ col.name }}</span>
                       <svg v-if="joins[(active as { kind: 'join'; index: number }).index]?.columns.includes(col.name)" class="ml-0.5 h-3 w-3 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
                     </button>
                   </div>
-                  <p v-else class="text-[11px] text-slate-400 italic">Chargement du schéma…</p>
+                  <p v-else class="text-[11px] text-[var(--studio-faint)] italic">Chargement du schéma…</p>
                 </div>
               </template>
             </template>
@@ -540,7 +540,7 @@ function onKeydown(e: KeyboardEvent) {
             <template v-else-if="isSearch && active.kind === 'source'">
               <template v-if="(active as { kind: 'source'; index: number }).index >= 0">
                 <div class="flex items-center justify-between">
-                  <p class="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">Source de recherche</p>
+                  <p class="text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--studio-faint)]">Source de recherche</p>
                   <button
                     v-if="searchSources.length > 0"
                     class="flex items-center gap-1 rounded-lg border border-red-100 bg-red-50 px-2.5 py-1 text-[11px] font-medium text-red-500 transition-colors hover:bg-red-100"
@@ -553,12 +553,12 @@ function onKeydown(e: KeyboardEvent) {
 
                 <!-- Dataset picker -->
                 <div>
-                  <p class="mb-1.5 text-[11px] font-semibold text-slate-600">Dataset</p>
+                  <p class="mb-1.5 text-[11px] font-semibold text-[var(--studio-muted)]">Dataset</p>
                   <div class="relative mb-2">
-                    <svg class="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <svg class="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--studio-faint)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
                     </svg>
-                    <input v-model="dsFilter" type="text" placeholder="Rechercher…" class="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-8 pr-3 text-xs text-slate-700 placeholder:text-slate-400 focus:border-[var(--color-primary)] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 transition-all" />
+                    <input v-model="dsFilter" type="text" placeholder="Rechercher…" class="w-full rounded-xl border border-[var(--studio-line-strong)] bg-[var(--studio-note)] py-2 pl-8 pr-3 text-xs text-[var(--studio-ink)] placeholder:text-[var(--studio-faint)] focus:border-[var(--color-primary)] focus:bg-white focus:outline-none  transition-all" />
                   </div>
                   <div class="flex flex-col gap-1">
                     <button
@@ -567,12 +567,12 @@ function onKeydown(e: KeyboardEvent) {
                       class="flex items-center gap-2.5 rounded-xl border px-3 py-2 text-left transition-all"
                       :class="searchSources[(active as { kind: 'source'; index: number }).index]?.datasetId === ds.id
                         ? 'border-cyan-300 bg-cyan-50'
-                        : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'"
+                        : 'border-[var(--studio-line-strong)] bg-white hover:border-slate-300 hover:bg-[var(--studio-note)]'"
                       @click="patchSource((active as { kind: 'source'; index: number }).index, { datasetId: ds.id, columns: [] })"
                     >
                       <div class="flex-1 min-w-0">
-                        <p class="text-xs font-medium text-slate-700 truncate">{{ ds.name }}</p>
-                        <p class="text-[10px] text-slate-400">{{ ds.rowCount.toLocaleString('fr-FR') }} lignes</p>
+                        <p class="text-xs font-medium text-[var(--studio-ink)] truncate">{{ ds.name }}</p>
+                        <p class="text-[10px] text-[var(--studio-faint)]">{{ ds.rowCount.toLocaleString('fr-FR') }} lignes</p>
                       </div>
                       <svg v-if="searchSources[(active as { kind: 'source'; index: number }).index]?.datasetId === ds.id" class="h-4 w-4 shrink-0 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
@@ -583,8 +583,8 @@ function onKeydown(e: KeyboardEvent) {
 
                 <!-- Columns to search on -->
                 <div v-if="sourceSchema((active as { kind: 'source'; index: number }).index)">
-                  <p class="mb-1 text-[11px] font-semibold text-slate-600">Colonnes de recherche</p>
-                  <p class="mb-2 text-[10px] text-slate-400">Colonnes sur lesquelles la recherche textuelle s'effectue</p>
+                  <p class="mb-1 text-[11px] font-semibold text-[var(--studio-muted)]">Colonnes de recherche</p>
+                  <p class="mb-2 text-[10px] text-[var(--studio-faint)]">Colonnes sur lesquelles la recherche textuelle s'effectue</p>
                   <div class="flex flex-wrap gap-1.5">
                     <button
                       v-for="col in sourceSchema((active as { kind: 'source'; index: number }).index)!.columns" :key="col.name"
@@ -592,10 +592,10 @@ function onKeydown(e: KeyboardEvent) {
                       class="flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] transition-all"
                       :class="searchSources[(active as { kind: 'source'; index: number }).index]?.columns.includes(col.name)
                         ? 'border-cyan-300 bg-cyan-50 text-cyan-700'
-                        : 'border-slate-200 bg-white text-slate-600 hover:border-cyan-200 hover:bg-cyan-50/50'"
+                        : 'border-[var(--studio-line-strong)] bg-white text-[var(--studio-muted)] hover:border-cyan-200 hover:bg-cyan-50/50'"
                       @click="toggleSourceCol((active as { kind: 'source'; index: number }).index, col.name)"
                     >
-                      <span class="min-w-[18px] shrink-0 rounded px-1 text-center text-[9px] font-bold uppercase leading-[16px]" :class="TYPE_BADGE[col.type]?.cls ?? 'bg-slate-100 text-slate-500'">{{ TYPE_BADGE[col.type]?.label ?? '?' }}</span>
+                      <span class="min-w-[18px] shrink-0 rounded px-1 text-center text-[9px] font-bold uppercase leading-[16px]" :class="TYPE_BADGE[col.type]?.cls ?? 'bg-slate-100 text-[var(--studio-muted)]'">{{ TYPE_BADGE[col.type]?.label ?? '?' }}</span>
                       <span class="font-mono">{{ col.name }}</span>
                       <svg v-if="searchSources[(active as { kind: 'source'; index: number }).index]?.columns.includes(col.name)" class="ml-0.5 h-3 w-3 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
                     </button>
@@ -610,8 +610,8 @@ function onKeydown(e: KeyboardEvent) {
                     <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
                   </svg>
                   <div>
-                    <p class="text-sm font-medium text-slate-600">Aucune source configurée</p>
-                    <p class="mt-1 text-xs text-slate-400">Ajoutez une source de recherche via le panneau gauche</p>
+                    <p class="text-sm font-medium text-[var(--studio-muted)]">Aucune source configurée</p>
+                    <p class="mt-1 text-xs text-[var(--studio-faint)]">Ajoutez une source de recherche via le panneau gauche</p>
                   </div>
                 </div>
               </template>
@@ -620,7 +620,7 @@ function onKeydown(e: KeyboardEvent) {
             <!-- ══ SEARCH JOIN (search blocks) ══ -->
             <template v-else-if="isSearch && active.kind === 'search-join'">
               <div class="flex items-center justify-between">
-                <p class="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400">Jointure {{ (active as { kind: 'search-join'; index: number }).index + 1 }}</p>
+                <p class="text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--studio-faint)]">Jointure {{ (active as { kind: 'search-join'; index: number }).index + 1 }}</p>
                 <button
                   class="flex items-center gap-1 rounded-lg border border-red-100 bg-red-50 px-2.5 py-1 text-[11px] font-medium text-red-500 transition-colors hover:bg-red-100"
                   @click="removeSearchJoin((active as { kind: 'search-join'; index: number }).index)"
@@ -632,7 +632,7 @@ function onKeydown(e: KeyboardEvent) {
 
               <!-- Source to enrich -->
               <div>
-                <p class="mb-1.5 text-[11px] font-semibold text-slate-600">Enrichit les résultats de</p>
+                <p class="mb-1.5 text-[11px] font-semibold text-[var(--studio-muted)]">Enrichit les résultats de</p>
                 <div class="flex flex-col gap-1">
                   <button
                     v-for="src in searchSources.filter((s: SearchSource) => s.datasetId)" :key="src.datasetId"
@@ -640,13 +640,13 @@ function onKeydown(e: KeyboardEvent) {
                     class="flex items-center gap-2 rounded-xl border px-3 py-2 text-left transition-all"
                     :class="searchJoins[(active as { kind: 'search-join'; index: number }).index]?.sourceDatasetId === src.datasetId
                       ? 'border-violet-300 bg-violet-50'
-                      : 'border-slate-200 bg-white hover:border-slate-300'"
+                      : 'border-[var(--studio-line-strong)] bg-white hover:border-slate-300'"
                     @click="patchSearchJoin((active as { kind: 'search-join'; index: number }).index, { sourceDatasetId: src.datasetId, leftColumn: '' })"
                   >
                     <svg class="h-3.5 w-3.5 text-cyan-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
                     </svg>
-                    <span class="text-xs font-medium text-slate-700">{{ datasets.readyDatasets.find((d: DatasetMeta) => d.id === src.datasetId)?.name ?? src.datasetId }}</span>
+                    <span class="text-xs font-medium text-[var(--studio-ink)]">{{ datasets.readyDatasets.find((d: DatasetMeta) => d.id === src.datasetId)?.name ?? src.datasetId }}</span>
                     <svg v-if="searchJoins[(active as { kind: 'search-join'; index: number }).index]?.sourceDatasetId === src.datasetId" class="ml-auto h-4 w-4 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
                   </button>
                 </div>
@@ -654,7 +654,7 @@ function onKeydown(e: KeyboardEvent) {
 
               <!-- Type LEFT/INNER -->
               <div>
-                <p class="mb-1.5 text-[11px] font-semibold text-slate-600">Type de jointure</p>
+                <p class="mb-1.5 text-[11px] font-semibold text-[var(--studio-muted)]">Type de jointure</p>
                 <div class="flex gap-2">
                   <button
                     v-for="t in [{ v: 'left', l: 'LEFT', desc: 'Toutes les lignes source' }, { v: 'inner', l: 'INNER', desc: 'Seulement les correspondances' }]"
@@ -662,7 +662,7 @@ function onKeydown(e: KeyboardEvent) {
                     class="flex-1 rounded-xl border px-3 py-2 text-left transition-all"
                     :class="searchJoins[(active as { kind: 'search-join'; index: number }).index]?.type === t.v
                       ? 'border-violet-300 bg-violet-50 text-violet-700'
-                      : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'"
+                      : 'border-[var(--studio-line-strong)] bg-white text-[var(--studio-muted)] hover:border-slate-300'"
                     @click="patchSearchJoin((active as { kind: 'search-join'; index: number }).index, { type: t.v as 'left' | 'inner' })"
                   >
                     <p class="text-xs font-bold font-mono">{{ t.l }}</p>
@@ -673,12 +673,12 @@ function onKeydown(e: KeyboardEvent) {
 
               <!-- Join dataset -->
               <div>
-                <p class="mb-1.5 text-[11px] font-semibold text-slate-600">Dataset à joindre</p>
+                <p class="mb-1.5 text-[11px] font-semibold text-[var(--studio-muted)]">Dataset à joindre</p>
                 <div class="relative mb-2">
-                  <svg class="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <svg class="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--studio-faint)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
                   </svg>
-                  <input v-model="dsFilter" type="text" placeholder="Rechercher…" class="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-8 pr-3 text-xs text-slate-700 placeholder:text-slate-400 focus:border-[var(--color-primary)] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 transition-all" />
+                  <input v-model="dsFilter" type="text" placeholder="Rechercher…" class="w-full rounded-xl border border-[var(--studio-line-strong)] bg-[var(--studio-note)] py-2 pl-8 pr-3 text-xs text-[var(--studio-ink)] placeholder:text-[var(--studio-faint)] focus:border-[var(--color-primary)] focus:bg-white focus:outline-none  transition-all" />
                 </div>
                 <div class="flex flex-col gap-1">
                   <button
@@ -687,12 +687,12 @@ function onKeydown(e: KeyboardEvent) {
                     class="flex items-center gap-2.5 rounded-xl border px-3 py-2 text-left transition-all"
                     :class="searchJoins[(active as { kind: 'search-join'; index: number }).index]?.datasetId === ds.id
                       ? 'border-violet-300 bg-violet-50'
-                      : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'"
+                      : 'border-[var(--studio-line-strong)] bg-white hover:border-slate-300 hover:bg-[var(--studio-note)]'"
                     @click="patchSearchJoin((active as { kind: 'search-join'; index: number }).index, { datasetId: ds.id, rightColumn: '', columns: [] })"
                   >
                     <div class="flex-1 min-w-0">
-                      <p class="text-xs font-medium text-slate-700 truncate">{{ ds.name }}</p>
-                      <p class="text-[10px] text-slate-400">{{ ds.rowCount.toLocaleString('fr-FR') }} lignes</p>
+                      <p class="text-xs font-medium text-[var(--studio-ink)] truncate">{{ ds.name }}</p>
+                      <p class="text-[10px] text-[var(--studio-faint)]">{{ ds.rowCount.toLocaleString('fr-FR') }} lignes</p>
                     </div>
                     <svg v-if="searchJoins[(active as { kind: 'search-join'; index: number }).index]?.datasetId === ds.id" class="h-4 w-4 shrink-0 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
@@ -704,7 +704,7 @@ function onKeydown(e: KeyboardEvent) {
               <!-- Join keys -->
               <template v-if="searchJoins[(active as { kind: 'search-join'; index: number }).index]?.sourceDatasetId && searchJoins[(active as { kind: 'search-join'; index: number }).index]?.datasetId">
                 <div>
-                  <p class="mb-1.5 text-[11px] font-semibold text-slate-600">Clé de jointure</p>
+                  <p class="mb-1.5 text-[11px] font-semibold text-[var(--studio-muted)]">Clé de jointure</p>
                   <div class="flex items-center gap-2">
                     <ColumnButton
                       class="flex-1 min-w-0"
@@ -728,8 +728,8 @@ function onKeydown(e: KeyboardEvent) {
 
                 <!-- Columns to retrieve -->
                 <div>
-                  <p class="mb-1 text-[11px] font-semibold text-slate-600">Colonnes à récupérer</p>
-                  <p class="mb-2 text-[10px] text-slate-400">Colonnes disponibles pour l'affichage des résultats et les paramètres URL</p>
+                  <p class="mb-1 text-[11px] font-semibold text-[var(--studio-muted)]">Colonnes à récupérer</p>
+                  <p class="mb-2 text-[10px] text-[var(--studio-faint)]">Colonnes disponibles pour l'affichage des résultats et les paramètres URL</p>
                   <div v-if="searchJoinSecSchema((active as { kind: 'search-join'; index: number }).index)" class="flex flex-wrap gap-1.5">
                     <button
                       v-for="col in searchJoinSecSchema((active as { kind: 'search-join'; index: number }).index)!.columns" :key="col.name"
@@ -737,15 +737,15 @@ function onKeydown(e: KeyboardEvent) {
                       class="flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] transition-all"
                       :class="searchJoins[(active as { kind: 'search-join'; index: number }).index]?.columns.includes(col.name)
                         ? 'border-violet-300 bg-violet-50 text-violet-700'
-                        : 'border-slate-200 bg-white text-slate-600 hover:border-violet-200 hover:bg-violet-50/50'"
+                        : 'border-[var(--studio-line-strong)] bg-white text-[var(--studio-muted)] hover:border-violet-200 hover:bg-violet-50/50'"
                       @click="toggleSearchJoinCol((active as { kind: 'search-join'; index: number }).index, col.name)"
                     >
-                      <span class="min-w-[18px] shrink-0 rounded px-1 text-center text-[9px] font-bold uppercase leading-[16px]" :class="TYPE_BADGE[col.type]?.cls ?? 'bg-slate-100 text-slate-500'">{{ TYPE_BADGE[col.type]?.label ?? '?' }}</span>
+                      <span class="min-w-[18px] shrink-0 rounded px-1 text-center text-[9px] font-bold uppercase leading-[16px]" :class="TYPE_BADGE[col.type]?.cls ?? 'bg-slate-100 text-[var(--studio-muted)]'">{{ TYPE_BADGE[col.type]?.label ?? '?' }}</span>
                       <span class="font-mono">{{ col.name }}</span>
                       <svg v-if="searchJoins[(active as { kind: 'search-join'; index: number }).index]?.columns.includes(col.name)" class="ml-0.5 h-3 w-3 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
                     </button>
                   </div>
-                  <p v-else class="text-[11px] text-slate-400 italic">Chargement…</p>
+                  <p v-else class="text-[11px] text-[var(--studio-faint)] italic">Chargement…</p>
                 </div>
               </template>
             </template>
@@ -754,7 +754,7 @@ function onKeydown(e: KeyboardEvent) {
         </div>
 
         <!-- Footer -->
-        <div class="flex shrink-0 items-center justify-end border-t border-slate-100 px-5 py-3">
+        <div class="flex shrink-0 items-center justify-end border-t border-[var(--studio-line)] px-5 py-3">
           <button
             class="rounded-xl bg-[var(--color-primary)] px-4 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90"
             @click="emit('close')"

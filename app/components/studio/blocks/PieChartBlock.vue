@@ -2,12 +2,13 @@
 import { computed } from 'vue'
 import { PALETTE } from '@/composables/useChart'
 import { useBlockData } from '@/composables/useBlockData'
+import { markColor } from '@/lib/studio-chart'
 import { formatDisplayValue, parseNumericValue } from '@/utils/statsDataFormat'
 import type { StudioBlock } from '@/types/studio'
 
-const props = defineProps<{ block: StudioBlock; readonly?: boolean }>()
+const props = defineProps<{ block: StudioBlock; readonly?: boolean; scope?: Record<string, string> }>()
 
-const { data, isLoading, error } = useBlockData(() => props.block, props.readonly)
+const { data, isLoading, error } = useBlockData(() => props.block, props.readonly, () => props.scope)
 
 interface Segment {
   label: string
@@ -25,13 +26,16 @@ const segments = computed<Segment[]>(() => {
   const sliced = rows.slice(0, limit) as Record<string, unknown>[]
   const values = sliced.map((r) => parseNumericValue(r[valueKey]))
   const total = values.reduce((sum, v) => sum + v, 0)
+  const rules = props.block.config.markRules
+  const bounds = { min: Math.min(...values), max: Math.max(...values), ref: null }
 
   return sliced.map((r, i) => {
     const value = values[i] ?? 0
+    const fallback = colors[i % colors.length] ?? '#94a3b8'
     return {
       label: formatDisplayValue(r[labelKey], ''),
       percent: total > 0 ? Math.round((value / total) * 1000) / 10 : 0,
-      color: colors[i % colors.length] ?? '#94a3b8',
+      color: rules?.length ? markColor(rules, value, bounds, fallback) : fallback,
     }
   })
 })
@@ -50,16 +54,16 @@ const conicGradient = computed(() => {
 </script>
 
 <template>
-  <div class="relative w-full overflow-hidden p-5">
+  <div class="relative w-full overflow-hidden">
     <div v-if="isLoading" class="flex items-center justify-center py-10">
-      <span class="text-sm text-slate-400">Chargement…</span>
+      <span class="text-sm text-[var(--studio-faint)]">Chargement…</span>
     </div>
 
     <div v-else-if="error" class="flex items-center justify-center py-10">
       <span class="text-sm text-red-500">{{ error }}</span>
     </div>
 
-    <div v-else-if="!block.datasetId || !block.fieldMapping.label || !block.fieldMapping.value" class="flex flex-col items-center justify-center gap-2 py-10 text-slate-400">
+    <div v-else-if="!block.datasetId || !block.fieldMapping.label || !block.fieldMapping.value" class="flex flex-col items-center justify-center gap-2 py-10 text-[var(--studio-faint)]">
       <svg class="w-8 h-8 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z M13.5 10.5H21A7.5 7.5 0 0 0 13.5 3v7.5Z" />
       </svg>
@@ -71,8 +75,8 @@ const conicGradient = computed(() => {
       <div class="flex min-w-0 flex-1 flex-col gap-2.5 text-sm">
         <div v-for="s in segments" :key="s.label" class="flex items-center gap-2">
           <span class="h-2.5 w-2.5 shrink-0 rounded-sm" :style="{ backgroundColor: s.color }" />
-          <span class="min-w-0 flex-1 truncate text-[#18181f]/80">{{ s.label }}</span>
-          <span class="mono shrink-0 text-[#18181f]/50">{{ s.percent }}%</span>
+          <span class="min-w-0 flex-1 truncate text-[color:color-mix(in_srgb,var(--studio-ink)_80%,transparent)]">{{ s.label }}</span>
+          <span class="mono shrink-0 text-[var(--studio-faint)]">{{ s.percent }}%</span>
         </div>
       </div>
     </div>

@@ -4,6 +4,7 @@ import type {
   StudioBlock,
   StudioContent,
   StudioDocumentPage,
+  PageParam,
   BlockType,
   FieldMapping,
   BlockConfig,
@@ -12,7 +13,7 @@ import type {
   Section,
   SectionLayout,
 } from '@/types/studio'
-import { SECTION_LAYOUT_DEFINITIONS } from '@/types/studio'
+import { SECTION_LAYOUT_DEFINITIONS, SECTION_PRESETS, scriptZoneId, scriptIdFromZone, isScriptBlock, FORM_BLOCK_TYPES } from '@/types/studio'
 
 function uid(): string {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
@@ -20,6 +21,19 @@ function uid(): string {
 
 function getColCount(layout: SectionLayout): number {
   return SECTION_LAYOUT_DEFINITIONS.find((d) => d.type === layout)?.cols ?? 1
+}
+
+/**
+ * Valeurs initiales de `pageParams` pour une page : la `defaultValue` de chaque
+ * paramètre déclaré qui en porte une. Une page sans paramètre → `{}` (comportement
+ * historique inchangé).
+ */
+function defaultParamsForPage(page: StudioDocumentPage | undefined): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const p of page?.params ?? []) {
+    if (p.name && p.defaultValue != null && p.defaultValue !== '') out[p.name] = p.defaultValue
+  }
+  return out
 }
 
 interface HistoryEntry {
@@ -51,6 +65,8 @@ export const useStudioStore = defineStore('studio', () => {
   const isSidebarRightOpen = ref(false)
   const isDirty = ref(false)
   const dirtyVersion = ref(0)
+  /** Aperçu : canevas en lecture seule, chrome d'édition masqué. */
+  const isPreview = ref(false)
 
   // ─── History (undo/redo) ─────────────────────────────────────────────────────
 
@@ -60,8 +76,26 @@ export const useStudioStore = defineStore('studio', () => {
   const canUndo = computed(() => past.value.length > 0)
   const canRedo = computed(() => future.value.length > 0)
 
+  // Batch : coalesce plusieurs mutations (ex. un run de l'assistant IA) en une
+  // seule entrée d'historique → « Annuler ces changements » = un seul Ctrl+Z.
+  let batchDepth = 0
+  let batchSnapshotTaken = false
+
+  function beginBatch() {
+    batchDepth++
+    batchSnapshotTaken = false
+  }
+
+  function endBatch() {
+    batchDepth = Math.max(0, batchDepth - 1)
+  }
+
   // Call BEFORE applying a mutation to save the current state
   function snapshot() {
+    if (batchDepth > 0) {
+      if (batchSnapshotTaken) return
+      batchSnapshotTaken = true
+    }
     past.value = [
       ...past.value.slice(-(MAX_HISTORY - 1)),
       { pages: deepClone(pages.value), sections: deepClone(sections.value), blocks: deepClone(blocks.value) },
@@ -84,6 +118,7 @@ export const useStudioStore = defineStore('studio', () => {
       currentPageId.value = pages.value[0]?.id ?? 'default'
     }
     selectedBlockId.value = null
+    selectedSectionId.value = null
     isSidebarRightOpen.value = false
     markDirty()
   }
@@ -103,6 +138,7 @@ export const useStudioStore = defineStore('studio', () => {
       currentPageId.value = pages.value[0]?.id ?? 'default'
     }
     selectedBlockId.value = null
+    selectedSectionId.value = null
     isSidebarRightOpen.value = false
     markDirty()
   }
@@ -122,7 +158,27 @@ export const useStudioStore = defineStore('studio', () => {
     return blocks.value.find((b: StudioBlock) => b.id === selectedBlockId.value) ?? null
   })
 
+  const selectedSectionId = ref<string | null>(null)
+  const selectedSection = computed<Section | null>(
+    () => sections.value.find((s: Section) => s.id === selectedSectionId.value) ?? null,
+  )
+
+  function selectSection(sectionId: string | null) {
+    selectedSectionId.value = sectionId
+    if (sectionId) selectedBlockId.value = null
+    isSidebarRightOpen.value = sectionId !== null
+  }
+
+  function updateSection(sectionId: string, patch: Partial<Omit<Section, 'id'>>) {
+    const section = sections.value.find((s: Section) => s.id === sectionId)
+    if (!section) return
+    snapshot()
+    Object.assign(section, patch)
+    markDirty()
+  }
+
   // Zone IDs derived from sections: `${sectionId}-${colIndex}`
+  // Plus one zone per script block (`loop` / `if`): `loop:${blockId}:0` (its children live there).
   const blocksByZone = computed<Record<string, StudioBlock[]>>(() => {
     const map: Record<string, StudioBlock[]> = {}
     for (const section of sections.value) {
@@ -132,11 +188,102 @@ export const useStudioStore = defineStore('studio', () => {
       }
     }
     for (const block of blocks.value) {
+      if (isScriptBlock(block.type)) map[scriptZoneId(block.id)] ??= []
+    }
+    for (const block of blocks.value) {
       if (!map[block.zoneId]) map[block.zoneId] = []
       map[block.zoneId]!.push(block)
     }
     return map
   })
+
+  /** Ids des blocs enfants (directs + descendants) d'un bloc de script. */
+  function loopChildIds(scriptBlockId: string): string[] {
+    const out: string[] = []
+    const stack = [scriptBlockId]
+    while (stack.length) {
+      const parentId = stack.pop()!
+      for (const b of blocks.value) {
+        if (b.zoneId === scriptZoneId(parentId)) {
+          out.push(b.id)
+          if (isScriptBlock(b.type)) stack.push(b.id)
+        }
+      }
+    }
+    return out
+  }
+
+  /** Blocs de script englobant `blockId`, du plus proche au plus lointain. */
+  function loopAncestors(blockId: string): StudioBlock[] {
+    const out: StudioBlock[] = []
+    let current = blocks.value.find((b: StudioBlock) => b.id === blockId)
+    const guard = new Set<string>()
+    while (current) {
+      const parentId = scriptIdFromZone(current.zoneId)
+      if (!parentId || guard.has(parentId)) break
+      guard.add(parentId)
+      const parent = blocks.value.find((b: StudioBlock) => b.id === parentId && isScriptBlock(b.type))
+      if (!parent) break
+      out.push(parent)
+      current = parent
+    }
+    return out
+  }
+
+  /**
+   * Dans une zone de script (`loop:` / `if:`) on autorise tout SAUF `search`,
+   * `param` et les blocs de formulaire. Le script imbriqué (loop/if dans loop/if)
+   * est permis.
+   */
+  function canPlaceInZone(type: BlockType, zoneId: string): boolean {
+    if (!zoneId.startsWith('loop:')) return true
+    return type !== 'search' && type !== 'param' && !FORM_BLOCK_TYPES.includes(type)
+  }
+
+  // ─── Migration : pages « template » → page normale + paramètre ───────────────
+  // Plan Statsdata v2 : plus qu'un seul type de page. Une page `isTemplate` est
+  // convertie en page normale portant un `PageParam` (avec `fanOut` pour la
+  // génération d'URL par valeur — Phase 2). Idempotent, sans effet sur une page
+  // déjà normale.
+
+  function migrateLegacyTemplatePages() {
+    for (const page of pages.value) {
+      if (!page.isTemplate) continue
+
+      const feedingSearch = blocks.value.find(
+        (b: StudioBlock) => b.type === 'search' && b.fieldMapping.targetPageId === page.id,
+      )
+      const src = feedingSearch?.fieldMapping.searchSources?.[0]
+      // Colonne identifiante (unique) : celle qui pilotait les filtres `{{param}}`.
+      // On l'utilise aussi pour l'URL fan-out — un slug de code postal / code commune
+      // est sans ambiguïté (deux « Grigny » n'ont pas le même code).
+      const idColumn =
+        page.paramName ||
+        feedingSearch?.fieldMapping.urlParams?.[0] ||
+        feedingSearch?.fieldMapping.resultTitleColumn ||
+        src?.columns?.[0]
+
+      if (idColumn) {
+        const decl: PageParam = {
+          name: idColumn,
+          column: idColumn,
+          datasetId: src?.datasetId ?? feedingSearch?.datasetId,
+          defaultValue: undefined,
+          fanOut: true,
+          slugColumn: idColumn,
+        }
+        page.params = [decl, ...(page.params ?? []).filter((p) => p.name !== idColumn)]
+      }
+
+      page.isTemplate = undefined
+      page.paramName = undefined
+    }
+
+    // Les sections/blocs verrouillés n'existaient que pour la barre de recherche
+    // auto-provisionnée des pages template — plus de raison de les figer.
+    for (const s of sections.value) if (s.locked) s.locked = undefined
+    for (const b of blocks.value) if (b.locked) b.locked = undefined
+  }
 
   // ─── Page init ───────────────────────────────────────────────────────────────
 
@@ -154,7 +301,6 @@ export const useStudioStore = defineStore('studio', () => {
       pages.value = [{ id: 'default', title: 'Page 1' }]
     }
     currentPageId.value = pages.value[0]?.id ?? 'default'
-    pageParams.value = {}
 
     // Migrate sections without pageId to the first page
     const defaultPageId = pages.value[0]?.id ?? 'default'
@@ -164,7 +310,12 @@ export const useStudioStore = defineStore('studio', () => {
     }))
 
     blocks.value = pageBlocks ?? []
+
+    migrateLegacyTemplatePages()
+    pageParams.value = defaultParamsForPage(pages.value.find((p) => p.id === currentPageId.value))
+
     selectedBlockId.value = null
+    selectedSectionId.value = null
     saveStatus.value = 'idle'
     isDirty.value = false
     dirtyVersion.value = 0
@@ -192,12 +343,38 @@ export const useStudioStore = defineStore('studio', () => {
     return section
   }
 
+  /** Insère une section 1-col préremplie des blocs d'un preset (onglet « Sections »). */
+  function addSectionPreset(presetKey: string) {
+    const preset = SECTION_PRESETS.find((p) => p.key === presetKey)
+    if (!preset) return
+    const section = addSection('1-col')
+    const zoneId = `${section.id}-0`
+    let created: StudioBlock | null = null
+    for (const type of preset.blocks) {
+      created = addBlock(type, zoneId)
+    }
+    if (created) {
+      selectedBlockId.value = created.id
+      isSidebarRightOpen.value = true
+    }
+  }
+
   function removeSection(sectionId: string) {
     const section = sections.value.find((s: Section) => s.id === sectionId)
     if (section?.locked) return
     snapshot()
     sections.value = sections.value.filter((s: Section) => s.id !== sectionId)
-    blocks.value = blocks.value.filter((b: StudioBlock) => !b.zoneId?.startsWith(`${sectionId}-`))
+    if (selectedSectionId.value === sectionId) {
+      selectedSectionId.value = null
+      isSidebarRightOpen.value = false
+    }
+    const removed = new Set<string>()
+    for (const b of blocks.value) {
+      if (!b.zoneId?.startsWith(`${sectionId}-`)) continue
+      removed.add(b.id)
+      if (isScriptBlock(b.type)) loopChildIds(b.id).forEach((id) => removed.add(id))
+    }
+    blocks.value = blocks.value.filter((b: StudioBlock) => !removed.has(b.id))
     if (selectedBlockId.value) {
       const stillExists = blocks.value.find((b: StudioBlock) => b.id === selectedBlockId.value)
       if (!stillExists) {
@@ -293,8 +470,9 @@ export const useStudioStore = defineStore('studio', () => {
     }
     pages.value.push(page)
     currentPageId.value = page.id
-    pageParams.value = {}
+    pageParams.value = defaultParamsForPage(page)
     selectedBlockId.value = null
+    selectedSectionId.value = null
     isSidebarRightOpen.value = false
     markDirty()
     return page
@@ -309,10 +487,12 @@ export const useStudioStore = defineStore('studio', () => {
   }
 
   function switchPage(pageId: string) {
-    if (!pages.value.find((p: StudioDocumentPage) => p.id === pageId)) return
+    const page = pages.value.find((p: StudioDocumentPage) => p.id === pageId)
+    if (!page) return
     currentPageId.value = pageId
-    pageParams.value = {}
+    pageParams.value = defaultParamsForPage(page)
     selectedBlockId.value = null
+    selectedSectionId.value = null
     isSidebarRightOpen.value = false
   }
 
@@ -331,15 +511,19 @@ export const useStudioStore = defineStore('studio', () => {
     const pageSectionIds = sections.value
       .filter((s: Section) => (s.pageId ?? 'default') === pageId)
       .map((s: Section) => s.id)
-    blocks.value = blocks.value.filter((b: StudioBlock) => {
+    const removedFromPage = new Set<string>()
+    for (const b of blocks.value) {
       const sectionId = b.zoneId?.split('-').slice(0, -1).join('-') ?? ''
-      return !pageSectionIds.includes(sectionId)
-    })
+      if (!pageSectionIds.includes(sectionId)) continue
+      removedFromPage.add(b.id)
+      if (isScriptBlock(b.type)) loopChildIds(b.id).forEach((id) => removedFromPage.add(id))
+    }
+    blocks.value = blocks.value.filter((b: StudioBlock) => !removedFromPage.has(b.id))
     sections.value = sections.value.filter((s: Section) => (s.pageId ?? 'default') !== pageId)
     pages.value = pages.value.filter((p: StudioDocumentPage) => p.id !== pageId)
     if (currentPageId.value === pageId) {
       currentPageId.value = pages.value[0]?.id ?? 'default'
-      pageParams.value = {}
+      pageParams.value = defaultParamsForPage(pages.value[0])
       selectedBlockId.value = null
       isSidebarRightOpen.value = false
     }
@@ -356,6 +540,68 @@ export const useStudioStore = defineStore('studio', () => {
 
   function clearPageParams() {
     pageParams.value = {}
+  }
+
+  // ─── Page parameters (déclarations) ──────────────────────────────────────────
+  // Une page porte une liste de `PageParam` (nom + source + valeur par défaut).
+  // Les blocs les référencent via `{{nom}}` ; `pageParams` (les valeurs courantes)
+  // est réamorcé avec les `defaultValue` à chaque `switchPage` / `initPage`.
+
+  const currentPageParamDefs = computed<PageParam[]>(() => currentPage.value?.params ?? [])
+
+  /** Réapplique les valeurs par défaut de la page courante à `pageParams` sans effacer les autres clés. */
+  function seedCurrentPageParamDefaults() {
+    const defaults = defaultParamsForPage(currentPage.value)
+    const next = { ...pageParams.value }
+    for (const [k, v] of Object.entries(defaults)) {
+      if (next[k] == null || next[k] === '') next[k] = v
+    }
+    pageParams.value = next
+  }
+
+  function addPageParam(pageId: string, param: PageParam) {
+    const page = pages.value.find((p: StudioDocumentPage) => p.id === pageId)
+    if (!page || !param.name) return
+    if ((page.params ?? []).some((p) => p.name === param.name)) return
+    snapshot()
+    page.params = [...(page.params ?? []), { ...param }]
+    if (pageId === currentPageId.value) seedCurrentPageParamDefaults()
+    markDirty()
+  }
+
+  function updatePageParam(pageId: string, name: string, patch: Partial<PageParam>) {
+    const page = pages.value.find((p: StudioDocumentPage) => p.id === pageId)
+    const existing = page?.params?.find((p) => p.name === name)
+    if (!page || !existing) return
+    snapshot()
+    const prevDefault = existing.defaultValue
+    page.params = page.params!.map((p) => (p.name === name ? { ...p, ...patch } : p))
+    if (pageId === currentPageId.value) {
+      // Si l'auteur change la valeur par défaut et que le paramètre courant est
+      // encore « au défaut » (jamais changé à la main), on suit la nouvelle valeur.
+      const cur = pageParams.value[name]
+      if ('defaultValue' in patch && (cur == null || cur === '' || cur === prevDefault)) {
+        const next = { ...pageParams.value }
+        if (patch.defaultValue != null && patch.defaultValue !== '') next[name] = patch.defaultValue
+        else delete next[name]
+        pageParams.value = next
+      }
+      seedCurrentPageParamDefaults()
+    }
+    markDirty()
+  }
+
+  function removePageParam(pageId: string, name: string) {
+    const page = pages.value.find((p: StudioDocumentPage) => p.id === pageId)
+    if (!page?.params?.some((p) => p.name === name)) return
+    snapshot()
+    page.params = page.params.filter((p) => p.name !== name)
+    if (pageId === currentPageId.value) {
+      const next = { ...pageParams.value }
+      delete next[name]
+      pageParams.value = next
+    }
+    markDirty()
   }
 
   // ─── Blocks ──────────────────────────────────────────────────────────────────
@@ -375,7 +621,23 @@ export const useStudioStore = defineStore('studio', () => {
     rating:     { ratingMax: 5 },
   }
 
+  /** Zone de la première colonne de la dernière section de la page courante (en crée une au besoin). */
+  function fallbackZoneId(): string {
+    const pageSections = sections.value.filter(
+      (s: Section) => (s.pageId ?? 'default') === currentPageId.value,
+    )
+    const last = pageSections[pageSections.length - 1]
+    if (last) return `${last.id}-0`
+    return `${addSection('1-col').id}-0`
+  }
+
   function addBlock(type: BlockType, zoneId: string, atIndex?: number, locked?: boolean): StudioBlock {
+    // Zone de boucle : un bloc loop / recherche / formulaire n'y est pas autorisé →
+    // on le place dans une section normale plutôt que de créer un bloc invalide.
+    if (!canPlaceInZone(type, zoneId)) {
+      zoneId = fallbackZoneId()
+      atIndex = undefined
+    }
     snapshot()
     const block: StudioBlock = {
       id: uid(),
@@ -408,11 +670,32 @@ export const useStudioStore = defineStore('studio', () => {
     return block
   }
 
+  /**
+   * Ajoute un bloc sans drag & drop (clic sur une carte du panneau « Éléments »).
+   * Cible : la zone du bloc sélectionné, sinon la première zone de la dernière
+   * section de la page courante, sinon une nouvelle section 1-col.
+   */
+  function addBlockSmart(type: BlockType): StudioBlock {
+    const selected = selectedBlock.value
+    if (selected) return addBlock(type, selected.zoneId)
+
+    const pageSections = sections.value.filter(
+      (s: Section) => (s.pageId ?? 'default') === currentPageId.value,
+    )
+    const lastSection = pageSections[pageSections.length - 1]
+    if (lastSection) return addBlock(type, `${lastSection.id}-0`)
+
+    const section = addSection('1-col')
+    return addBlock(type, `${section.id}-0`)
+  }
+
   function removeBlock(blockId: string) {
     const target = blocks.value.find((b: StudioBlock) => b.id === blockId)
     if (target?.locked) return
     snapshot()
-    blocks.value = blocks.value.filter((b: StudioBlock) => b.id !== blockId)
+    const toRemove = new Set<string>([blockId])
+    if (target && isScriptBlock(target.type)) loopChildIds(blockId).forEach((id) => toRemove.add(id))
+    blocks.value = blocks.value.filter((b: StudioBlock) => !toRemove.has(b.id))
     if (selectedBlockId.value === blockId) {
       selectedBlockId.value = null
       isSidebarRightOpen.value = false
@@ -427,7 +710,27 @@ export const useStudioStore = defineStore('studio', () => {
     snapshot()
     const clone: StudioBlock = { ...deepClone(block), id: uid(), locked: undefined }
     const originalIdx = blocks.value.findIndex((b: StudioBlock) => b.id === blockId)
-    blocks.value.splice(originalIdx + 1, 0, clone)
+    const inserts: StudioBlock[] = [clone]
+
+    // Bloc de script (loop / if) : cloner aussi ses enfants et les rattacher à la zone du clone.
+    if (isScriptBlock(block.type)) {
+      const idMap = new Map<string, string>([[blockId, clone.id]])
+      for (const childId of loopChildIds(blockId)) {
+        const child = blocks.value.find((b: StudioBlock) => b.id === childId)
+        if (!child) continue
+        const newId = uid()
+        idMap.set(childId, newId)
+        const parentOldId = scriptIdFromZone(child.zoneId)!
+        inserts.push({
+          ...deepClone(child),
+          id: newId,
+          locked: undefined,
+          zoneId: scriptZoneId(idMap.get(parentOldId) ?? clone.id),
+        })
+      }
+    }
+
+    blocks.value.splice(originalIdx + 1, 0, ...inserts)
 
     selectedBlockId.value = clone.id
     isSidebarRightOpen.value = true
@@ -437,6 +740,7 @@ export const useStudioStore = defineStore('studio', () => {
 
   function selectBlock(blockId: string | null) {
     selectedBlockId.value = blockId
+    if (blockId) selectedSectionId.value = null
     isSidebarRightOpen.value = blockId !== null
   }
 
@@ -448,7 +752,32 @@ export const useStudioStore = defineStore('studio', () => {
     markDirty()
   }
 
+  /** Réordonne un bloc à l'intérieur de sa zone (flèches ↑/↓ de la barre d'outils du bloc). */
+  function moveBlockWithinZone(blockId: string, dir: -1 | 1) {
+    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
+    if (!block) return
+    const zoneBlocks = blocks.value.filter((b: StudioBlock) => b.zoneId === block.zoneId)
+    const posInZone = zoneBlocks.findIndex((b: StudioBlock) => b.id === blockId)
+    const target = zoneBlocks[posInZone + dir]
+    if (!target) return
+    snapshot()
+    const i = blocks.value.findIndex((b: StudioBlock) => b.id === blockId)
+    const j = blocks.value.findIndex((b: StudioBlock) => b.id === target.id)
+    const next = [...blocks.value]
+    ;[next[i], next[j]] = [next[j]!, next[i]!]
+    blocks.value = next
+    markDirty()
+  }
+
   function setZoneBlocks(zoneId: string, blockIds: string[]) {
+    // Zone de boucle : ignore les blocs qu'on ne peut pas y placer (loop imbriquée,
+    // recherche, formulaire) — ils gardent leur zone d'origine, le drop est annulé.
+    if (zoneId.startsWith('loop:')) {
+      blockIds = blockIds.filter((id) => {
+        const b = blocks.value.find((x: StudioBlock) => x.id === id)
+        return !b || b.zoneId === zoneId || canPlaceInZone(b.type, zoneId)
+      })
+    }
     snapshot()
     for (const block of blocks.value) {
       if (blockIds.includes(block.id)) {
@@ -514,6 +843,17 @@ export const useStudioStore = defineStore('studio', () => {
     markDirty()
   }
 
+  // ─── Preview ─────────────────────────────────────────────────────────────────
+
+  function togglePreview(value?: boolean) {
+    isPreview.value = value ?? !isPreview.value
+    if (isPreview.value) {
+      selectedBlockId.value = null
+      isSidebarRightOpen.value = false
+      isPanelOpen.value = false
+    }
+  }
+
   // ─── Save status ─────────────────────────────────────────────────────────────
 
   function setSaveStatus(status: SaveStatus) {
@@ -564,10 +904,18 @@ export const useStudioStore = defineStore('studio', () => {
     blocks,
     selectedBlock,
     selectedBlockId,
+    selectedSection,
+    selectedSectionId,
+    selectSection,
+    updateSection,
     blocksByZone,
+    loopChildIds,
+    loopAncestors,
+    canPlaceInZone,
     saveStatus,
     isDirty,
     dirtyVersion,
+    isPreview,
     activeLeftTab,
     isPanelOpen,
     isSidebarRightOpen,
@@ -575,7 +923,9 @@ export const useStudioStore = defineStore('studio', () => {
     canRedo,
     initPage,
     setTitle,
+    togglePreview,
     addSection,
+    addSectionPreset,
     removeSection,
     changeSectionLayout,
     reorderSections,
@@ -586,13 +936,19 @@ export const useStudioStore = defineStore('studio', () => {
     setPageParam,
     setPageParams,
     clearPageParams,
+    currentPageParamDefs,
+    addPageParam,
+    updatePageParam,
+    removePageParam,
     switchPageKeepParams,
     reorderCurrentPageSections,
     addBlock,
+    addBlockSmart,
     removeBlock,
     duplicateBlock,
     selectBlock,
     moveBlock,
+    moveBlockWithinZone,
     setZoneBlocks,
     updateBlockConfig,
     updateBlockDataset,
@@ -602,6 +958,8 @@ export const useStudioStore = defineStore('studio', () => {
     updateBlockJoins,
     setSaveStatus,
     markDirty,
+    beginBatch,
+    endBatch,
     undo,
     redo,
     setLeftTab,

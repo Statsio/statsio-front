@@ -31,6 +31,87 @@
     'Courier New', monospace;
 }
 
+/* ─── Studio (éditeur v2) ──────────────────────────────────────────────────────
+   Neutres teintés violet propres au Studio, repris de la maquette « Studio
+   Éditeur v2 ». Les accents thémables (primary/accent) restent pilotés par les
+   tokens ci-dessus pour que le thème TVStats/Medistats continue de passer. */
+:root {
+  --studio-wash: #f4f3f8;              /* fond app / canevas */
+  --studio-surface: #ffffff;           /* cartes, panneaux */
+  --studio-panel: #faf9fd;             /* surfaces secondaires : entêtes de modale, barres d'outils */
+  --studio-note: #f7f6fb;              /* encadrés explicatifs, aperçus */
+  --studio-line: rgba(20, 20, 30, 0.08);        /* séparateurs, bordures de carte */
+  --studio-line-strong: rgba(20, 20, 30, 0.14); /* bordures d'input / de contrôle */
+  --studio-ink: #18181f;               /* texte principal */
+  --studio-muted: rgba(24, 24, 31, 0.55);       /* texte secondaire */
+  --studio-faint: rgba(24, 24, 31, 0.4);        /* texte tertiaire, hints */
+  --studio-tag: #f2ecfd;               /* fond des tags / chips mono violet */
+  --studio-tag-ink: #7c3aed;           /* texte des tags / chips mono violet */
+  --studio-accent-wash: #faf8ff;       /* survol des cartes sélectionnables */
+  --studio-shadow-card: 0 1px 3px rgba(20, 20, 30, 0.06);
+  --studio-shadow-pop: 0 10px 26px rgba(20, 20, 30, 0.18);
+  --studio-shadow-modal: 0 30px 70px rgba(18, 18, 26, 0.35);
+  --studio-gradient: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+}
+
+/* Dégradé de marque du Studio (CTA principaux : Publier, Terminé, Détecter…) */
+.studio-gradient {
+  background-image: var(--studio-gradient);
+}
+
+/* Tag / chip monospace violet, très répété dans les panneaux et modales */
+.studio-tag {
+  font-family: var(--font-jetbrains);
+  font-weight: 600;
+  color: var(--studio-tag-ink);
+  background: var(--studio-tag);
+  border-radius: 5px;
+  padding: 3px 7px;
+}
+
+/* Contrôle de saisie du Studio (inputs / textarea / select des panneaux et modales) */
+.studio-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px 13px;
+  border-radius: 10px;
+  border: 1.5px solid var(--studio-line-strong);
+  font-size: 13px;
+  color: var(--studio-ink);
+  background: #fff;
+  font-family: var(--font-sans);
+}
+.studio-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+.studio-input::placeholder {
+  color: var(--studio-faint);
+}
+.studio-input--mono {
+  font-family: var(--font-jetbrains);
+  font-size: 12px;
+}
+
+/* Bouton « + Ajouter » en pointillé, répété dans les listes éditables */
+.studio-add-btn {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+  border: 1.5px dashed color-mix(in srgb, var(--studio-ink) 18%, transparent);
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--color-primary);
+  cursor: pointer;
+  background: transparent;
+}
+.studio-add-btn:hover {
+  background: var(--studio-accent-wash);
+}
+
 /* TVStats theme — overrides primary/secondary/accent with green palette.
    Must target *, ::before, ::after to match Tailwind v4's @theme variable scope. */
 [data-theme='tvstats'],

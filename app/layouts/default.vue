@@ -29,7 +29,7 @@ usePageSeo()
       under the header (HomeHero/MedistatsHero/TvstatsHero via PageHero.vue) cancel this
       with a matching -mt-44 lg:-mt-28 — keep both in sync if the header height changes.
     -->
-    <main id="main-content" tabindex="-1" class="pt-44 lg:pt-28">
+    <main id="main-content" tabindex="-1" class="relative pt-44 lg:pt-28">
       <slot />
     </main>
     <AppFooter />

@@ -6,6 +6,8 @@ import {
   fetchBlockData,
   fetchPublicBlockData,
   fetchDistinctValues,
+  fetchScalarAggregate,
+  fetchPublicScalarAggregate,
   saveStatsDataDocument,
 } from './studio'
 import { STATSIO_API } from './statsio-endpoints'
@@ -126,6 +128,46 @@ describe('app/api/studio', () => {
       const values = await fetchDistinctValues('42', 'city', '')
 
       expect(values).toEqual(['Paris', 'Lyon'])
+    })
+  })
+
+  describe('fetchScalarAggregate / fetchPublicScalarAggregate', () => {
+    it('sends an aggregate query with no group_by and unwraps the single value', async () => {
+      let capturedQuery = ''
+      apiMock.onGet(STATSIO_API.datasets.query('42')).reply((config) => {
+        const serializer = config.paramsSerializer as { serialize: (p: unknown) => string }
+        capturedQuery = serializer.serialize(config.params)
+        return [200, { data: { columns: ['prix'], rows: [{ prix: 1.712 }], total_rows: 1 } }]
+      })
+
+      const value = await fetchScalarAggregate('42', {
+        fn: 'avg',
+        column: 'prix',
+        filters: [{ column: 'carburant', operator: '=', value: 'gazole' }],
+      })
+
+      expect(value).toBe(1.712)
+      expect(capturedQuery).toContain('aggregate=avg')
+      expect(capturedQuery).toContain('aggregate_columns[]=prix')
+      expect(capturedQuery).not.toContain('group_by')
+      expect(capturedQuery).toContain('filters[0][value]=gazole')
+    })
+
+    it('returns null when the result is empty or non-numeric', async () => {
+      apiMock.onGet(STATSIO_API.datasets.query('42')).reply(200, { data: { columns: ['x'], rows: [], total_rows: 0 } })
+      expect(await fetchScalarAggregate('42', { fn: 'sum', column: 'x' })).toBeNull()
+
+      apiMock.onGet(STATSIO_API.datasets.query('43')).reply(200, { data: { rows: [{ x: 'n/a' }] } })
+      expect(await fetchScalarAggregate('43', { fn: 'min', column: 'x' })).toBeNull()
+    })
+
+    it('fetchPublicScalarAggregate uses publicHttp', async () => {
+      publicMock.onGet(STATSIO_API.studioContent.publicDatasetQuery('slug', '42')).reply(200, {
+        data: { columns: ['n'], rows: [{ n: 42 }], total_rows: 1 },
+      })
+
+      expect(await fetchPublicScalarAggregate('slug', '42', { fn: 'count', column: 'n' })).toBe(42)
+      expect(apiMock.history.get).toHaveLength(0)
     })
   })
 

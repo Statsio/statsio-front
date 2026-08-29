@@ -1,7 +1,7 @@
 import { apiHttp } from '@/lib/http'
 import { STATSIO_API } from '@/api/statsio-endpoints'
 import { unwrapStatsioResponseData } from '@/lib/api-envelope'
-import type { ProfileLookupOption } from '@/types/auth'
+import type { NotificationPreferences, ProfileLookupOption } from '@/types/auth'
 
 export interface ProfileReferenceData {
   genders: ProfileLookupOption[]
@@ -26,6 +26,7 @@ export interface UpdateProfilePayload {
   education_level_id?: number | null
   employment_status_id?: number | null
   marital_status_id?: number | null
+  notification_preferences?: Partial<NotificationPreferences>
 }
 
 /** Postman « Auth → Auth Me » : `GET {{base_url}}/api/auth/me`. */

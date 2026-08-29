@@ -32,8 +32,8 @@ const hasVar = (v: string) => v.includes('{{')
       :type="type ?? 'text'"
       :value="modelValue"
       :placeholder="placeholder"
-      class="w-full rounded-xl border bg-white py-2 pl-3 pr-9 text-sm text-slate-800 placeholder:text-slate-300 transition-all focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/25 focus:border-[var(--color-primary)]"
-      :class="hasVar(modelValue) ? 'border-amber-300 bg-amber-50/40' : 'border-slate-200'"
+      class="w-full rounded-xl border bg-white py-2 pl-3 pr-9 text-sm text-[var(--studio-ink)] placeholder:text-[var(--studio-faint)] transition-all focus:outline-none  focus:border-[var(--color-primary)]"
+      :class="hasVar(modelValue) ? 'border-amber-300 bg-amber-50/40' : 'border-[var(--studio-line-strong)]'"
       @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
     />
 
@@ -41,7 +41,7 @@ const hasVar = (v: string) => v.includes('{{')
     <button
       type="button"
       title="Insérer une colonne ou expression"
-      class="absolute right-2 top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-md font-mono text-[11px] font-bold text-slate-400 transition-colors hover:bg-[var(--color-primary)]/10 hover:text-[var(--color-primary)]"
+      class="absolute right-2 top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-md font-mono text-[11px] font-bold text-[var(--studio-faint)] transition-colors hover:bg-[var(--color-primary)]/10 hover:text-[var(--color-primary)]"
       @click="showModal = true"
     >{}</button>
 

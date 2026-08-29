@@ -71,6 +71,49 @@ const valueLabelsPlugin: Plugin<'bar'> = {
   },
 }
 
+/**
+ * Trace une ligne de référence horizontale (ex. moyenne nationale) sur l'axe des
+ * valeurs. Opt-in via `options.plugins.referenceLine = { value, label? }`.
+ */
+const referenceLinePlugin: Plugin<'bar' | 'line'> = {
+  id: 'referenceLine',
+  afterDatasetsDraw(chart, _args, pluginOptions) {
+    const opts = pluginOptions as { value?: number | null; label?: string } | undefined
+    if (opts?.value === null || opts?.value === undefined || Number.isNaN(opts.value)) return
+
+    const horizontal = chart.options.indexAxis === 'y'
+    const valueScale = horizontal ? chart.scales.x : chart.scales.y
+    if (!valueScale) return
+    const px = valueScale.getPixelForValue(opts.value)
+    const area = chart.chartArea
+    const { ctx } = chart
+
+    ctx.save()
+    ctx.beginPath()
+    ctx.setLineDash([5, 4])
+    ctx.lineWidth = 1.5
+    ctx.strokeStyle = 'rgba(24,24,31,0.45)'
+    if (horizontal) {
+      ctx.moveTo(px, area.top)
+      ctx.lineTo(px, area.bottom)
+    } else {
+      ctx.moveTo(area.left, px)
+      ctx.lineTo(area.right, px)
+    }
+    ctx.stroke()
+    if (opts.label) {
+      ctx.setLineDash([])
+      ctx.font = "600 10px 'JetBrains Mono', monospace"
+      ctx.fillStyle = 'rgba(24,24,31,0.55)'
+      ctx.textAlign = horizontal ? 'center' : 'right'
+      ctx.textBaseline = 'bottom'
+      if (horizontal) ctx.fillText(opts.label, px, area.top + 10)
+      else ctx.fillText(opts.label, area.right - 2, px - 3)
+    }
+    ctx.restore()
+  },
+}
+
 Chart.register(
   BarController,
   LineController,
@@ -85,6 +128,7 @@ Chart.register(
   Tooltip,
   Legend,
   valueLabelsPlugin,
+  referenceLinePlugin,
 )
 
 export const PALETTE = [

@@ -30,6 +30,15 @@ export interface AuthProfile {
   education_level?: ProfileLookupOption | null
   employment_status?: ProfileLookupOption | null
   marital_status?: ProfileLookupOption | null
+  /** Préférences de notifications e-mail — toujours renvoyées (défauts fusionnés côté API). */
+  notification_preferences?: NotificationPreferences
+}
+
+export interface NotificationPreferences {
+  articles: boolean
+  weekly: boolean
+  replies: boolean
+  offers: boolean
 }
 
 export interface AuthUser {
@@ -46,6 +55,15 @@ export interface AuthUser {
   profile: AuthProfile | null
   /** true si tous les champs de UserProfile::REQUIRED_FOR_COMPLETION sont renseignés côté back. */
   profile_complete?: boolean
+  /** Compteurs affichés dans la carte profil de l'espace compte (ajoutés par MeAction). */
+  counts?: AuthUserCounts
+}
+
+export interface AuthUserCounts {
+  subscriptions: number
+  favorites: number
+  channels: number
+  contents: number
 }
 
 export type AuthUserPayload = AuthUser
