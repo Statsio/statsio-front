@@ -1,0 +1,71 @@
+/**
+ * Cadres de section StatsData — partagés par le rendu public
+ * (`StatsDataSection.vue`) ET le canevas du Studio (`CanvasSection.vue`) pour un
+ * aperçu WYSIWYG : la section devient une carte, le thème (accent / sombre) est
+ * réellement appliqué.
+ */
+
+.sd-sec {
+  --sd-sec-accent: var(--color-primary, #7c3aed);
+  --sd-sec-muted: rgba(24, 24, 31, 0.6);
+  min-width: 0;
+}
+
+.sd-sec--card,
+.sd-sec--accent {
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: var(--studio-shadow-card, 0 1px 3px rgba(20, 20, 30, 0.06));
+  padding: 24px 26px;
+}
+
+.sd-sec--accent {
+  border-left: 4px solid var(--color-primary, #7c3aed);
+}
+
+.sd-sec--dark {
+  border-radius: 18px;
+  padding: 26px 28px;
+  background: linear-gradient(135deg, #18181f, #2c2440);
+  color: #f4f3f8;
+  --sd-sec-accent: #c4b5fd;
+  --sd-sec-muted: rgba(244, 243, 248, 0.68);
+  /* Les composants enfants lisent ces tokens — on les bascule en clair localement. */
+  --studio-ink: #f4f3f8;
+  --studio-muted: rgba(244, 243, 248, 0.7);
+  --studio-faint: rgba(244, 243, 248, 0.45);
+  --studio-line: rgba(244, 243, 248, 0.14);
+  --studio-line-strong: rgba(244, 243, 248, 0.22);
+  --studio-note: rgba(244, 243, 248, 0.07);
+  --studio-panel: rgba(244, 243, 248, 0.05);
+}
+
+/* En-tête de section (kicker mono violet + titre + description). */
+.sd-sec__kicker {
+  margin-bottom: 6px;
+  font-family: var(--font-jetbrains, 'JetBrains Mono', monospace);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sd-sec-accent);
+}
+.sd-sec__title {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+.sd-sec__desc {
+  margin-top: 8px;
+  max-width: 64ch;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--sd-sec-muted);
+  text-wrap: pretty;
+}
+.sd-sec__head {
+  margin-bottom: 16px;
+  min-width: 0;
+}

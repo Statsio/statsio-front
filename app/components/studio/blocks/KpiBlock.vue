@@ -2,16 +2,30 @@
 import { ref, computed, watch } from 'vue'
 import { useBlockData, resolveAggregationParams } from '@/composables/useBlockData'
 import { fetchBlockData } from '@/api/studio'
+import { interpolateTokens } from '@/lib/studio-tokens'
+import { useResolvedTokens } from '@/composables/useResolvedTokens'
+import { useStudioStore } from '@/stores/studio'
 import { formatDisplayValue, parseNumericValue } from '@/utils/statsDataFormat'
 import type { StudioBlock, BlockQueryResult, BlockFilter } from '@/types/studio'
 
-const props = defineProps<{ block: StudioBlock; readonly?: boolean }>()
+const props = defineProps<{ block: StudioBlock; readonly?: boolean; scope?: Record<string, string> }>()
+const studio = useStudioStore()
 
 // ─── Main value ───────────────────────────────────────────────────────────────
 
-const { data, isLoading, error } = useBlockData(() => props.block, props.readonly)
+const { data, isLoading, error } = useBlockData(() => props.block, props.readonly, () => props.scope)
 
 const valueCol = computed(() => props.block.fieldMapping.valueColumn ?? props.block.fieldMapping.value)
+const expr = computed(() => props.block.config.valueExpression?.trim() || '')
+
+// Valeur par expression calculée (ex. `AVG(prix@7) * 50`) — prioritaire sur la colonne.
+const { text: exprValue, pending: exprPending } = useResolvedTokens({
+  raw: () => (expr.value ? `{{ ${expr.value} }}` : ''),
+  tokenMap: () => ({ ...studio.pageParams, ...props.scope }),
+  datasetId: () => props.block.datasetId,
+  readonly: () => props.readonly ?? false,
+  docSlug: () => studio.content?.slug,
+})
 
 const rawValue = computed(() => {
   const col = valueCol.value
@@ -20,6 +34,7 @@ const rawValue = computed(() => {
 })
 
 const formattedValue = computed(() => {
+  if (expr.value) return exprPending.value ? '…' : (exprValue.value || '—')
   const v = rawValue.value
   if (v === null || v === undefined) return '—'
   const num = Number(v)
@@ -27,7 +42,7 @@ const formattedValue = computed(() => {
   const fmt = props.block.config.format ?? 'number'
   if (fmt === 'percent') return `${num.toFixed(1)} %`
   if (fmt === 'currency') return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(num)
-  return new Intl.NumberFormat('fr-FR').format(num)
+  return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(num)
 })
 
 // ─── Comparison value ─────────────────────────────────────────────────────────
@@ -55,7 +70,15 @@ async function loadComparison() {
   compLoading.value = true
   compError.value   = null
   try {
-    const filters = (props.block.comparisonFilters ?? []).filter((f: BlockFilter) => f.column && f.value)
+    const resolve = (list: BlockFilter[]) => list
+      .filter((f) => f.column && f.value)
+      .map((f) => ({ ...f, value: interpolateTokens(f.value, { ...studio.pageParams, ...props.scope }) }))
+    // `comparisonFilters` → autres lignes, même métrique (ex. l'an dernier).
+    // Sinon `comparisonColumn` → mêmes lignes (donc mêmes filtres que la valeur
+    // principale), colonne différente.
+    const filters = (props.block.comparisonFilters?.length ?? 0) > 0
+      ? resolve(props.block.comparisonFilters ?? [])
+      : resolve(props.block.filters ?? [])
     // Reuse the same aggregation as the main value (resolveAggregationParams), just
     // pointed at the comparison column instead of valueColumn.
     const agg = resolveAggregationParams(props.block)
@@ -70,7 +93,15 @@ async function loadComparison() {
 }
 
 watch(
-  [() => props.block.datasetId, () => props.block.fieldMapping.comparisonColumn, () => props.block.fieldMapping.aggregate, () => props.block.comparisonFilters],
+  [
+    () => props.block.datasetId,
+    () => props.block.fieldMapping.comparisonColumn,
+    () => props.block.fieldMapping.aggregate,
+    () => JSON.stringify(props.block.comparisonFilters ?? []),
+    () => JSON.stringify(props.block.filters ?? []),
+    () => JSON.stringify(studio.pageParams),
+    () => props.scope,
+  ],
   loadComparison,
   { immediate: true, deep: true },
 )
@@ -79,7 +110,10 @@ const previousValue = computed(() => {
   if (!hasComparisonSetup.value) return null
   const col = compCol.value
   if (!col) return null
-  const src = (props.block.comparisonFilters?.length ?? 0) > 0 ? compData.value : data.value
+  // `compData` porte la valeur de comparaison (colonne dédiée OU même métrique filtrée
+  // différemment) — agrégée par `loadComparison`. On retombe sur `data` seulement s'il
+  // n'a pas encore répondu.
+  const src = compData.value ?? data.value
   if (!src?.rows?.length) return null
   return src.rows[0]?.[col] ?? null
 })
@@ -111,64 +145,49 @@ const trendLabel = computed(() => {
 })
 
 const isPositive = computed(() => (delta.value?.diff ?? 0) >= 0)
+
+// {{item}} & co. dans les libellés quand le bloc est dans une boucle
+const tk = (s?: string) => interpolateTokens(s ?? '', props.scope)
+const resolvedTitle = computed(() => tk(props.block.config.title))
+const resolvedDescription = computed(() => tk(props.block.config.description))
 </script>
 
 <template>
-  <div class="relative h-full flex flex-col justify-between overflow-hidden p-4 sm:p-5">
-    <!-- Accent bar top (trend indicator) -->
-    <div
-      v-if="hasComparisonSetup && trendLabel"
-      class="absolute inset-x-0 top-0 h-0.5 rounded-t"
-      :class="isPositive ? 'bg-emerald-400' : 'bg-red-400'"
-    />
-
+  <div class="border-l-2 border-[var(--studio-line)] pl-4">
     <!-- Loading -->
-    <div v-if="isLoading" class="flex items-center justify-center h-full py-6">
-      <span class="text-sm text-slate-400">Chargement…</span>
+    <div v-if="isLoading" class="py-3">
+      <span class="text-sm text-[var(--studio-faint)]">Chargement…</span>
     </div>
 
     <!-- Error -->
-    <div v-else-if="error" class="flex items-center justify-center h-full py-6">
+    <div v-else-if="error" class="py-3">
       <span class="text-sm text-red-500">{{ error }}</span>
     </div>
 
     <!-- Empty state -->
-    <div v-else-if="!block.datasetId || !valueCol" class="flex flex-col items-center justify-center gap-2 h-full py-6 text-slate-400">
-      <svg class="w-8 h-8 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5.25 8.25h15m-16.5 7.5h15m-1.8-13.5-3.9 19.5m-2.1-19.5-3.9 19.5" />
-      </svg>
-      <span class="text-xs">Configurer les données →</span>
+    <div v-else-if="!expr && (!block.datasetId || !valueCol)" class="py-3 text-xs text-[var(--studio-faint)]">
+      Configurer les données →
     </div>
 
     <template v-else>
-      <!-- Label -->
-      <p v-if="block.config.title" class="text-[11px] font-medium uppercase tracking-wider text-[#18181f]/50 mb-2.5">
-        {{ block.config.title }}
+      <p v-if="resolvedTitle" class="min-h-[30px] text-[11px] font-bold leading-[1.35] text-[var(--studio-muted)]">
+        {{ resolvedTitle }}
       </p>
-
-      <!-- Main value -->
-      <div class="flex items-end gap-3 flex-wrap">
-        <span class="mono text-3xl font-bold text-[#18181f] tabular-nums leading-none sm:text-4xl">
-          {{ block.config.prefix }}{{ formattedValue }}{{ block.config.suffix }}
-        </span>
-
-        <template v-if="hasComparisonSetup">
-          <span v-if="compLoading" class="mb-1 text-xs text-slate-400 animate-pulse">…</span>
-          <span v-else-if="compError" class="mb-1 text-xs text-red-400">!</span>
-          <span
-            v-else-if="trendLabel"
-            class="mb-1 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-sm font-semibold"
-            :class="isPositive ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'"
-          >
-            <svg class="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-              <path v-if="isPositive" d="M10.293 3.293a1 1 0 0 1 1.414 0l6 6a1 1 0 0 1-1.414 1.414L11 5.414V17a1 1 0 1 1-2 0V5.414L4.707 10.707a1 1 0 0 1-1.414-1.414l6-6z" />
-              <path v-else d="M9.707 16.707a1 1 0 0 1-1.414 0l-6-6a1 1 0 0 1 1.414-1.414L9 14.586V3a1 1 0 0 1 2 0v11.586l4.293-4.293a1 1 0 0 1 1.414 1.414l-6 6z" />
-            </svg>
-            {{ trendLabel }}
-          </span>
-          <span v-else class="mb-1 text-xs text-slate-400">— %</span>
-        </template>
+      <div class="mono mt-1.5 text-[27px] font-semibold leading-none tracking-[-0.02em] text-[var(--studio-ink)] tabular-nums">
+        {{ block.config.prefix }}{{ formattedValue }}{{ block.config.suffix }}
       </div>
+
+      <div
+        v-if="hasComparisonSetup && trendLabel"
+        class="mt-[7px] flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11.5px] font-bold"
+        :class="isPositive ? 'text-emerald-600' : 'text-red-500'"
+      >
+        <span>{{ isPositive ? '↑' : '↓' }} {{ trendLabel }}</span>
+        <span v-if="resolvedDescription" class="font-medium text-[var(--studio-muted)]">· {{ resolvedDescription }}</span>
+      </div>
+      <div v-else-if="hasComparisonSetup && compLoading" class="mt-[7px] animate-pulse text-[11.5px] text-[var(--studio-faint)]">…</div>
+      <div v-else-if="hasComparisonSetup && compError" class="mt-[7px] text-[11.5px] text-red-400">Comparaison indisponible</div>
+      <div v-else-if="resolvedDescription" class="mt-[7px] text-[11.5px] text-[var(--studio-muted)]">{{ resolvedDescription }}</div>
     </template>
   </div>
 </template>

@@ -76,7 +76,7 @@ onMounted(async () => {
 
 <template>
   <AppModal :open="true" :title="dataset.name" size="xl" @close="emit('close')">
-    <div v-if="loading" class="flex items-center justify-center py-16 gap-2 text-sm text-slate-400">
+    <div v-if="loading" class="flex items-center justify-center py-16 gap-2 text-sm text-[var(--studio-faint)]">
       <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -87,17 +87,19 @@ onMounted(async () => {
     <p v-else-if="error" class="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{{ error }}</p>
 
     <div v-else class="flex flex-col gap-6">
-      <p class="text-xs text-slate-400">
-        {{ formatRows(dataset.rowCount) }} lignes · {{ schema?.columns.length ?? 0 }} colonnes
+      <p class="text-xs text-[var(--studio-faint)]">
+        <template v-if="dataset.materialization === 'live' && dataset.rowCount === 0">Source en direct — nombre de lignes non déterminé</template>
+        <template v-else>{{ formatRows(dataset.rowCount) }} lignes</template>
+        · {{ schema?.columns.length ?? 0 }} colonnes
       </p>
 
       <!-- Refresh (API sources only) -->
-      <div v-if="dataset.sourceKind === 'api'" class="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
+      <div v-if="dataset.sourceKind === 'api'" class="flex items-center gap-3 rounded-xl bg-[var(--studio-note)] p-3">
         <button
           type="button"
           class="shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all"
           :class="refreshing
-            ? 'border-slate-200 text-slate-400 cursor-wait'
+            ? 'border-[var(--studio-line-strong)] text-[var(--studio-faint)] cursor-wait'
             : 'border-blue-200 text-blue-600 hover:bg-blue-50'"
           :disabled="refreshing"
           @click="handleRefreshNow"
@@ -107,41 +109,41 @@ onMounted(async () => {
           </svg>
           Actualiser maintenant
         </button>
-        <div class="text-[11px] text-slate-500 leading-tight">
+        <div class="text-[11px] text-[var(--studio-muted)] leading-tight">
           <p>Dernière actualisation : {{ formatDateTime(lastRefreshedAt) }}</p>
           <p v-if="dataset.refreshFrequency && dataset.refreshFrequency !== 'none'">
             Prochaine actualisation : {{ formatDateTime(nextRefreshAt) }}
           </p>
         </div>
       </div>
-      <p v-if="refreshMessage" class="text-xs text-slate-500 -mt-3">{{ refreshMessage }}</p>
+      <p v-if="refreshMessage" class="text-xs text-[var(--studio-muted)] -mt-3">{{ refreshMessage }}</p>
 
       <!-- Columns -->
       <div>
-        <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Colonnes</p>
-        <div class="rounded-xl border border-slate-200 overflow-hidden">
+        <p class="text-[10px] font-bold uppercase tracking-wider text-[var(--studio-faint)] mb-2">Colonnes</p>
+        <div class="rounded-xl border border-[var(--studio-line-strong)] overflow-hidden">
           <table class="w-full text-xs">
-            <thead class="bg-slate-50">
+            <thead class="bg-[var(--studio-note)]">
               <tr>
-                <th class="px-3 py-2 text-left font-semibold text-slate-500">Nom</th>
-                <th class="px-3 py-2 text-left font-semibold text-slate-500">Type</th>
-                <th class="px-3 py-2 text-left font-semibold text-slate-500">Nullable</th>
+                <th class="px-3 py-2 text-left font-semibold text-[var(--studio-muted)]">Nom</th>
+                <th class="px-3 py-2 text-left font-semibold text-[var(--studio-muted)]">Type</th>
+                <th class="px-3 py-2 text-left font-semibold text-[var(--studio-muted)]">Nullable</th>
               </tr>
             </thead>
             <tbody>
               <tr
                 v-for="col in schema?.columns ?? []"
                 :key="col.name"
-                class="border-t border-slate-100"
+                class="border-t border-[var(--studio-line)]"
               >
-                <td class="px-3 py-1.5 font-mono text-slate-700">{{ col.name }}</td>
+                <td class="px-3 py-1.5 font-mono text-[var(--studio-ink)]">{{ col.name }}</td>
                 <td class="px-3 py-1.5">
                   <span
                     class="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded"
-                    :class="typeColors[col.type] ?? 'bg-slate-100 text-slate-400'"
+                    :class="typeColors[col.type] ?? 'bg-slate-100 text-[var(--studio-faint)]'"
                   >{{ col.type }}</span>
                 </td>
-                <td class="px-3 py-1.5 text-slate-400">{{ col.nullable ? 'Oui' : 'Non' }}</td>
+                <td class="px-3 py-1.5 text-[var(--studio-faint)]">{{ col.nullable ? 'Oui' : 'Non' }}</td>
               </tr>
             </tbody>
           </table>
@@ -150,20 +152,20 @@ onMounted(async () => {
 
       <!-- Data preview -->
       <div>
-        <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+        <p class="text-[10px] font-bold uppercase tracking-wider text-[var(--studio-faint)] mb-2">
           Données
           <span v-if="preview" class="font-normal normal-case">
             ({{ preview.rows.length }} sur {{ formatRows(preview.total) }} lignes)
           </span>
         </p>
-        <div v-if="preview && preview.rows.length" class="overflow-auto max-h-[50vh] rounded-xl border border-slate-200">
+        <div v-if="preview && preview.rows.length" class="overflow-auto max-h-[50vh] rounded-xl border border-[var(--studio-line-strong)]">
           <table class="w-full text-xs border-collapse">
-            <thead class="sticky top-0 bg-slate-50">
+            <thead class="sticky top-0 bg-[var(--studio-note)]">
               <tr>
                 <th
                   v-for="col in preview.columns"
                   :key="col"
-                  class="px-3 py-2 text-left font-semibold text-slate-500 border-b border-slate-200 whitespace-nowrap"
+                  class="px-3 py-2 text-left font-semibold text-[var(--studio-muted)] border-b border-[var(--studio-line-strong)] whitespace-nowrap"
                 >{{ col }}</th>
               </tr>
             </thead>
@@ -171,19 +173,19 @@ onMounted(async () => {
               <tr
                 v-for="(row, ri) in preview.rows"
                 :key="ri"
-                class="border-b border-slate-100 last:border-0 hover:bg-slate-50"
+                class="border-b border-[var(--studio-line)] last:border-0 hover:bg-[var(--studio-note)]"
               >
                 <td
                   v-for="(cell, ci) in row"
                   :key="ci"
-                  class="px-3 py-1.5 text-slate-700 font-mono whitespace-nowrap"
+                  class="px-3 py-1.5 text-[var(--studio-ink)] font-mono whitespace-nowrap"
                   :title="cell != null ? String(cell) : ''"
                 >{{ cell != null ? cell : '—' }}</td>
               </tr>
             </tbody>
           </table>
         </div>
-        <p v-else class="text-xs text-slate-400 italic">Aucune donnée disponible.</p>
+        <p v-else class="text-xs text-[var(--studio-faint)] italic">Aucune donnée disponible.</p>
       </div>
     </div>
   </AppModal>

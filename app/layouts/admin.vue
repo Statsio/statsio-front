@@ -48,7 +48,7 @@ async function logout() {
         </div>
       </header>
 
-      <main id="main-content" tabindex="-1" class="flex-1 overflow-y-auto p-6">
+      <main id="main-content" tabindex="-1" class="relative flex-1 overflow-y-auto p-6">
         <slot />
       </main>
     </div>

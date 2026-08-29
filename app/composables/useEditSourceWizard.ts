@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import type { ModalStep } from '@/components/ui/AppStepModal.vue'
-import type { DataSourceDetail, DataSourcePagination, RefreshFrequency, UpdateDataSourcePayload } from '@/api/data-sources'
-import { mapPaginationToApi } from '@/api/data-sources'
+import type { DataSourceDetail, DataSourcePagination, QueryMapping, RefreshFrequency, UpdateDataSourcePayload } from '@/api/data-sources'
+import { mapPaginationToApi, mapQueryMappingToApi } from '@/api/data-sources'
 import type { ApiFormPagination, AuthType, HttpMethod, ProvenanceSelection, SourceType } from '@/composables/useAddSourceWizard'
 import { defaultPagination } from '@/composables/useAddSourceWizard'
 
@@ -42,6 +42,73 @@ export function useEditSourceWizard(source: DataSourceDetail) {
   const existingFileLabel = source.originalFilename
     ? `${source.originalFilename}${source.fileSizeBytes ? ` · ${formatBytes(source.fileSizeBytes)}` : ''}`
     : undefined
+
+  // ─── Configuration avancée (query_mapping) ──────────────────────────────────
+  // Corrige/complète la détection automatique pour une source "live" — recherche, tri,
+  // filtres que le sondage n'a pas su deviner. Fusionné côté backend par-dessus la
+  // détection lors de la sauvegarde (voir CreateLiveApiDataSourceAction::reconfigure()).
+  // Non touché par défaut : `query_mapping` n'est envoyé que si l'utilisateur édite
+  // effectivement cette section, pour ne pas déclencher un re-sondage à chaque
+  // enregistrement (nom, visibilité...) sans rapport.
+  const queryMappingOverride = ref<QueryMapping>(source.queryMapping ?? {
+    countPath: null,
+    maxPageSize: null,
+    filters: {},
+    sortableColumns: [],
+    supportsDistinct: false,
+    supportsJoins: false,
+    supportsAggregate: false,
+    searchParam: null,
+    sortParam: null,
+    sortDirectionParam: null,
+    probeTruncated: false,
+  })
+  const queryMappingTouched = ref(false)
+
+  function setFilterParam(column: string, param: string) {
+    queryMappingTouched.value = true
+    if (param.trim()) {
+      queryMappingOverride.value.filters[column] = { param: param.trim(), operators: ['eq'] }
+    } else {
+      delete queryMappingOverride.value.filters[column]
+    }
+  }
+
+  /** Filtre de plage (bornes min/max, ex. `prix__greater`/`prix__less`) — remplace tout mapping d'égalité existant sur cette colonne. */
+  function setFilterRange(column: string, gteParam: string, lteParam: string) {
+    queryMappingTouched.value = true
+    if (gteParam.trim() && lteParam.trim()) {
+      queryMappingOverride.value.filters[column] = {
+        range: { gteParam: gteParam.trim(), lteParam: lteParam.trim() },
+        operators: ['gte', 'lte'],
+      }
+    } else {
+      delete queryMappingOverride.value.filters[column]
+    }
+  }
+
+  function toggleSortableColumn(column: string, sortable: boolean) {
+    queryMappingTouched.value = true
+    const cols = new Set(queryMappingOverride.value.sortableColumns)
+    if (sortable) cols.add(column)
+    else cols.delete(column)
+    queryMappingOverride.value.sortableColumns = Array.from(cols)
+  }
+
+  function setSearchParam(value: string) {
+    queryMappingTouched.value = true
+    queryMappingOverride.value.searchParam = value.trim() || null
+  }
+
+  function setSortParam(value: string) {
+    queryMappingTouched.value = true
+    queryMappingOverride.value.sortParam = value.trim() || null
+  }
+
+  function setSortDirectionParam(value: string) {
+    queryMappingTouched.value = true
+    queryMappingOverride.value.sortDirectionParam = value.trim() || null
+  }
 
   // ─── Provenance ──────────────────────────────────────────────────────────
   const provenanceId = ref<ProvenanceSelection>(
@@ -94,6 +161,9 @@ export function useEditSourceWizard(source: DataSourceDetail) {
       if (apiForm.value.materialization !== 'live') {
         payload.refresh_frequency = apiForm.value.refreshFrequency
       }
+      if (queryMappingTouched.value) {
+        payload.query_mapping = mapQueryMappingToApi(queryMappingOverride.value)
+      }
     }
 
     if (sourceType === 'file' && newFileObj.value) {
@@ -114,6 +184,13 @@ export function useEditSourceWizard(source: DataSourceDetail) {
     excludedRows,
     apiForm,
     existingFileLabel,
+    queryMappingOverride,
+    setFilterParam,
+    setFilterRange,
+    toggleSortableColumn,
+    setSearchParam,
+    setSortParam,
+    setSortDirectionParam,
     provenanceId,
     provenanceOtherLabel,
     visibility,

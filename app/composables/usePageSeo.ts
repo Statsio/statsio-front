@@ -18,6 +18,8 @@ export interface PageSeoOptions {
   image?: MaybeRefOrGetter<string | undefined>
   type?: MaybeRefOrGetter<PageSeoOgType | undefined>
   robots?: MaybeRefOrGetter<string | undefined>
+  /** URL canonique explicite (chemin absolu ou URL complète). Défaut : l'URL courante avec sa query. */
+  canonical?: MaybeRefOrGetter<string | undefined>
 }
 
 export function usePageSeo(options: PageSeoOptions = {}) {
@@ -49,7 +51,11 @@ export function usePageSeo(options: PageSeoOptions = {}) {
     toValue(options.robots) ?? (route.meta.robots as string | undefined) ?? 'index,follow',
   )
 
-  const canonicalUrl = computed(() => `${requestUrl.origin}${route.fullPath}`)
+  const canonicalUrl = computed(() => {
+    const override = toValue(options.canonical)
+    if (override) return override.startsWith('http') ? override : `${requestUrl.origin}${override}`
+    return `${requestUrl.origin}${route.fullPath}`
+  })
 
   useSeoMeta({
     title: () => title.value,

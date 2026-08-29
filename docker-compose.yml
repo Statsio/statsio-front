@@ -2,6 +2,9 @@ services:
   nuxt-app:
     build: .
     container_name: statsio-front
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
     ports:
       - "3000:3000"
     env_file:

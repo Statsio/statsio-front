@@ -2,15 +2,24 @@
 import { ref, computed, watch } from 'vue'
 import { useChart, PALETTE } from '@/composables/useChart'
 import { useBlockData } from '@/composables/useBlockData'
+import { useExpressionNumber } from '@/composables/useResolvedTokens'
 import { useStudioStore } from '@/stores/studio'
 import { formatDisplayValue, parseNumericValue } from '@/utils/statsDataFormat'
 import type { StudioBlock } from '@/types/studio'
 
-const props = defineProps<{ block: StudioBlock; readonly?: boolean }>()
+const props = defineProps<{ block: StudioBlock; readonly?: boolean; scope?: Record<string, string> }>()
 
 const studio = useStudioStore()
 const canvasRef = ref<HTMLCanvasElement | null>(null)
-const { data, isLoading, error } = useBlockData(() => props.block, props.readonly)
+const { data, isLoading, error } = useBlockData(() => props.block, props.readonly, () => props.scope)
+
+const { value: refValue } = useExpressionNumber({
+  expression: () => props.block.config.referenceExpression,
+  tokenMap: () => ({ ...studio.pageParams, ...props.scope }),
+  datasetId: () => props.block.datasetId,
+  readonly: () => props.readonly ?? false,
+  docSlug: () => studio.content?.slug,
+})
 
 /** Resolved list of Y columns — prefers yAxes (multi), falls back to single yAxis */
 const yColumns = computed(() => {
@@ -96,9 +105,9 @@ const chartData = computed(() => {
         label: props.block.config.title ?? yKey,
         data: rows.map((r: Record<string, unknown>) => parseNumericValue(r[yKey])),
         borderColor: color,
-        backgroundColor: color + '22',
+        backgroundColor: color + (props.block.config.lineFill === false ? '00' : '22'),
         tension: props.block.config.smooth ? 0.4 : 0,
-        fill: true,
+        fill: props.block.config.lineFill !== false ? 'origin' : false,
         pointRadius: 3,
       },
     ],
@@ -126,6 +135,10 @@ const { scheduleResize } = useChart(canvasRef, 'line', () => chartData.value, ()
     // Legend is rendered as custom HTML below the canvas instead (matches the editorial mockup style).
     legend: { display: false },
     tooltip: { mode: 'index' as const, intersect: false },
+    referenceLine: {
+      value: props.block.config.referenceExpression ? refValue.value : null,
+      label: props.block.config.referenceLabel,
+    },
   },
 }))
 
@@ -136,20 +149,20 @@ watch(() => [studio.isPanelOpen, studio.selectedBlockId !== null], scheduleResiz
 </script>
 
 <template>
-  <div class="relative w-full overflow-hidden px-5 pb-5">
+  <div class="relative w-full overflow-hidden">
     <div
       class="relative"
       :class="hasMultipleSeries ? 'h-64 sm:h-80' : 'h-48 sm:h-64'"
     >
       <div v-if="isLoading" class="absolute inset-0 flex items-center justify-center bg-white/70">
-        <span class="text-sm text-slate-400">Chargement…</span>
+        <span class="text-sm text-[var(--studio-faint)]">Chargement…</span>
       </div>
 
       <div v-else-if="error" class="absolute inset-0 flex items-center justify-center">
         <span class="text-sm text-red-500">{{ error }}</span>
       </div>
 
-      <div v-else-if="!block.datasetId || !block.fieldMapping.xAxis" class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-slate-400">
+      <div v-else-if="!block.datasetId || !block.fieldMapping.xAxis" class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-[var(--studio-faint)]">
         <svg class="w-8 h-8 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
         </svg>
@@ -160,7 +173,7 @@ watch(() => [studio.isPanelOpen, studio.selectedBlockId !== null], scheduleResiz
     </div>
 
     <div v-if="hasMultipleSeries && !isLoading && !error" class="mt-3 flex flex-wrap gap-4">
-      <span v-for="entry in legendEntries" :key="entry.label" class="flex items-center gap-1.5 text-xs text-[#18181f]/55">
+      <span v-for="entry in legendEntries" :key="entry.label" class="flex items-center gap-1.5 text-xs text-[var(--studio-muted)]">
         <span class="inline-block h-[3px] w-2.5 rounded-full" :style="{ backgroundColor: entry.color }" />
         {{ entry.label }}
       </span>

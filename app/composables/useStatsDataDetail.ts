@@ -1,9 +1,11 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { fetchPublicStatsDataDocument, fetchPublicSearchRows } from '@/api/studio'
+import { fetchPublicStatsDataDocument, fetchPublicSearchRows, fetchPublicDistinctValues } from '@/api/studio'
 import type { StatsDataDocument } from '@/api/studio'
 import { useStudioStore } from '@/stores/studio'
-import type { StudioBlock, StudioDocumentPage } from '@/types/studio'
+import type { PageParam, StudioBlock, StudioDocumentPage } from '@/types/studio'
+import { fanOutSlugKey, resolveSegment } from '@/lib/statsdata-fanout'
+import { slugify } from '@/lib/slug'
 
 function queryToParams(q: import('vue-router').LocationQuery): Record<string, string> {
   const result: Record<string, string> = {}
@@ -13,127 +15,115 @@ function queryToParams(q: import('vue-router').LocationQuery): Record<string, st
   return result
 }
 
-// Shared by both /statsdata/[slug] and /statsdata/[slug]/[pageSlug] — same document, different default active page.
+// Partagé par /statsdata/[slug] et /statsdata/[slug]/[segment] — même document.
+// Le segment est soit un slug de page (onglet), soit une valeur de fan-out.
 export function useStatsDataDetail() {
   const route = useRoute()
   const studio = useStudioStore()
 
   const docSlug = computed(() => String(route.params.slug ?? ''))
-  const pageSlug = computed(() => route.params.pageSlug as string | undefined)
+  const segment = computed(() => route.params.pageSlug as string | undefined)
 
   const doc = ref<StatsDataDocument | null>(null)
   const loading = ref(true)
   const error = ref<string | null>(null)
 
-  const activePage = computed(() => {
-    if (!studio.pages.length) return null
-    if (pageSlug.value) {
-      const match = studio.pages.find(
-        (p: StudioDocumentPage) => p.slug === pageSlug.value || p.id === pageSlug.value,
-      )
-      if (match) return match
-    }
-    return studio.pages.find((p: StudioDocumentPage) => !p.isTemplate) ?? studio.pages[0] ?? null
-  })
-
-  const publicPages = computed(() => studio.pages.filter((p: StudioDocumentPage) => !p.isTemplate))
-  // Unfiltered — the tab bar shows every page, including drill-down/template ones
-  // (e.g. "Vue communale"), matching the mockup rather than hiding them.
+  const activePage = computed(() =>
+    studio.pages.length ? resolveSegment(segment.value, studio.pages).page : null,
+  )
+  // La barre d'onglets montre toutes les pages du document.
   const allPages = computed(() => studio.pages)
+  const publicPages = allPages
   const pageSections = computed(() => studio.currentPageSections)
 
-  // Direct URL access only carries the columns configured as "Paramètres URL" (e.g. code_commune).
-  // SearchBlock's onSelect normally stores every row column (e.g. nom_commune) in memory, but that
-  // memory doesn't exist on a fresh load — so we re-fetch the matching row from whichever search
-  // block feeds this page and merge its columns into pageParams to resolve the rest of the tokens.
-  async function hydrateRowParams(targetPageId: string, urlParams: Record<string, string>) {
-    if (!Object.keys(urlParams).length) return
+  /**
+   * Le segment d'URL fan-out ne porte qu'une valeur slugifiée. On retrouve la
+   * ligne correspondante — via la barre de recherche qui alimente la page, sinon
+   * via les valeurs distinctes de la colonne — pour résoudre tous les jetons.
+   */
+  async function hydrateFanOut(page: StudioDocumentPage, param: PageParam, seg: string) {
+    const slugKey = fanOutSlugKey(param)
+    const term = seg.replace(/-+/g, ' ')
 
     const searchBlock = studio.blocks.find(
-      (b: StudioBlock) => b.type === 'search' && b.fieldMapping.targetPageId === targetPageId,
+      (b: StudioBlock) => b.type === 'search'
+        && (!b.fieldMapping.targetPageId || b.fieldMapping.targetPageId === page.id),
     )
-    if (!searchBlock) return
 
-    const urlParamCols = searchBlock.fieldMapping.urlParams ?? []
-    const mapping = searchBlock.fieldMapping.urlParamMapping ?? {}
-    if (!urlParamCols.length || !urlParamCols.every((c) => urlParams[c])) return
-
-    const sources = searchBlock.fieldMapping.searchSources?.length
+    const sources = searchBlock?.fieldMapping.searchSources?.length
       ? searchBlock.fieldMapping.searchSources
-      : (searchBlock.datasetId && searchBlock.fieldMapping.searchColumn
+      : (searchBlock?.datasetId && searchBlock.fieldMapping.searchColumn
           ? [{ datasetId: searchBlock.datasetId, columns: [searchBlock.fieldMapping.searchColumn] }]
           : [])
 
-    const searchValue = urlParams[urlParamCols[0]!]!
-
     for (const source of sources) {
       if (!source.datasetId || !source.columns.length) continue
-      const joins = (searchBlock.fieldMapping.searchJoins ?? [])
-        .filter((j) => j.sourceDatasetId === source.datasetId)
-        .map((j) => ({ datasetId: j.datasetId, leftColumn: j.leftColumn, rightColumn: j.rightColumn, columns: j.columns, type: j.type }))
-
       try {
-        const rows = await fetchPublicSearchRows(docSlug.value, source.datasetId, source.columns, searchValue, 30, joins)
+        const rows = await fetchPublicSearchRows(docSlug.value, source.datasetId, source.columns, term, 30)
         const match = rows.find((row) =>
-          urlParamCols.every((key) => String(row[mapping[key] ?? key] ?? '') === urlParams[key]),
+          slugify(String(row[slugKey] ?? row[param.column ?? ''] ?? '')) === seg,
         )
         if (!match) continue
         const rowParams: Record<string, string> = {}
         for (const [col, val] of Object.entries(match)) {
           if (val !== null && val !== undefined && val !== '') rowParams[col] = String(val)
         }
-        studio.setPageParams({ ...rowParams, ...urlParams })
+        studio.setPageParams(rowParams)
         return
-      } catch {
-        // best effort — direct navigation still works with the raw URL params
-      }
+      } catch { /* best effort */ }
     }
+
+    // Fan-out piloté par un bloc `param` (pas de ligne à hydrater) : on retrouve
+    // la valeur exacte parmi les valeurs distinctes de la colonne.
+    const col = param.column || slugKey
+    if (param.datasetId && col) {
+      try {
+        const values = await fetchPublicDistinctValues(docSlug.value, param.datasetId, col)
+        const exact = values.find((v) => slugify(v) === seg)
+        if (exact) { studio.setPageParam(param.name, exact); return }
+      } catch { /* best effort */ }
+    }
+
+    // Dernier recours : valeur dé-slugifiée.
+    studio.setPageParam(param.name, term)
   }
 
-  // When pageSlug URL param changes, switch the active page
-  watch(pageSlug, (slug: string | undefined) => {
+  /** Applique la résolution du segment courant à l'état du store. */
+  function applySegment() {
     if (!studio.pages.length) return
-    const target = slug
-      ? (studio.pages.find((p: StudioDocumentPage) => p.slug === slug || p.id === slug) ?? studio.pages.find((p: StudioDocumentPage) => !p.isTemplate) ?? studio.pages[0])
-      : (studio.pages.find((p: StudioDocumentPage) => !p.isTemplate) ?? studio.pages[0])
-    if (!target) return
+    const { page, fanOut } = resolveSegment(segment.value, studio.pages)
+    if (!page) return
 
     const urlParams = queryToParams(route.query)
-    const hasMemoryParams = Object.keys(studio.pageParams).length > 0
 
-    // Same-session URL navigation: params were already set by onSelect → preserve them
-    if (target.isTemplate && hasMemoryParams) {
-      studio.switchPageKeepParams(target.id)
+    if (fanOut) {
+      studio.switchPageKeepParams(page.id)
+      studio.setPageParam(fanOutSlugKey(fanOut.param), fanOut.segment.replace(/-+/g, ' '))
       for (const [k, v] of Object.entries(urlParams)) studio.setPageParam(k, v)
+      void hydrateFanOut(page, fanOut.param, fanOut.segment)
       return
     }
 
-    // Template page reached with no params (tab click, direct URL) — stay on it and
-    // show it "empty": the linked search block's own parameter bar lets the visitor pick
-    // a value right there, instead of silently bouncing back to the default page.
+    studio.switchPage(page.id)
+    for (const [k, v] of Object.entries(urlParams)) studio.setPageParam(k, v)
+  }
 
-    // Normal navigation: full reset + restore URL params
-    studio.switchPage(target.id)
-    studio.setPageParams(urlParams)
-    void hydrateRowParams(target.id, urlParams)
-  })
+  watch(segment, () => applySegment())
 
-  // When only query changes (same template page, new result selected via URL)
+  // Un paramètre d'URL (`?commune=…`) change sans changer de page : on propage.
   watch(() => route.query, (q: import('vue-router').LocationQuery) => {
     if (!studio.pages.length) return
-    const currentPage = studio.pages.find((p: StudioDocumentPage) => p.id === studio.currentPageId)
-    if (!currentPage?.isTemplate) return
     for (const [k, v] of Object.entries(q)) {
       if (typeof v === 'string') studio.setPageParam(k, v)
     }
   }, { deep: true })
 
   function resolveToken(str: string): string {
-    return str.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
+    return str.replace(/\{\{\s*([^{}]+?)\s*\}\}/g, (match, key) => {
       const direct = studio.pageParams[key]
       if (direct !== undefined) return direct
-      // Fallback: resolve known pageParams names within the expression text
-      // e.g. {{SUM(annee, code_postal)}} → SUM(2025, 75000)
+      // Repli : résout les noms de paramètres connus à l'intérieur d'une expression
+      // (ex. {{ SUM(annee, code_postal) }} → SUM(2025, 75000)).
       return key.replace(/\w+/g, (name: string) => studio.pageParams[name] ?? name)
     })
   }
@@ -142,28 +132,30 @@ export function useStatsDataDetail() {
     try {
       const data = await fetchPublicStatsDataDocument(docSlug.value)
       doc.value = data
-      // Save params that may have been set by SearchBlock's onSelect before initPage clears them
-      // (e.g. when navigating from index.vue → [pageSlug].vue)
+      // onSelect d'un bloc recherche a pu poser des params avant ce montage
+      // (navigation index.vue → [segment].vue) — on les préserve.
       const savedParams = { ...studio.pageParams }
       studio.initPage(
         { id: data.id, type: 'statsdata', title: data.title, status: data.status as 'draft' | 'published', slug: docSlug.value },
         data.sections, data.blocks, data.pages,
       )
-      const target = pageSlug.value
-        ? (studio.pages.find((p: StudioDocumentPage) => p.slug === pageSlug.value || p.id === pageSlug.value) ?? studio.pages.find((p: StudioDocumentPage) => !p.isTemplate) ?? studio.pages[0])
-        : (studio.pages.find((p: StudioDocumentPage) => !p.isTemplate) ?? studio.pages[0])
-      if (target) {
-        const urlParams = queryToParams(route.query)
-        const hasSavedParams = Object.keys(savedParams).length > 0
-        if (target.isTemplate && hasSavedParams) {
-          studio.switchPageKeepParams(target.id)
-          studio.setPageParams({ ...savedParams, ...urlParams })
-        } else {
-          studio.switchPage(target.id)
-          studio.setPageParams(urlParams)
-          void hydrateRowParams(target.id, urlParams)
-        }
+
+      const { page, fanOut } = resolveSegment(segment.value, studio.pages)
+      if (!page) return
+
+      const urlParams = queryToParams(route.query)
+      const hasSaved = Object.keys(savedParams).length > 0
+
+      if (fanOut) {
+        studio.switchPageKeepParams(page.id)
+        studio.setPageParams({ ...savedParams, ...urlParams })
+        studio.setPageParam(fanOutSlugKey(fanOut.param), fanOut.segment.replace(/-+/g, ' '))
+        if (!hasSaved) void hydrateFanOut(page, fanOut.param, fanOut.segment)
+        return
       }
+
+      studio.switchPage(page.id)
+      studio.setPageParams({ ...(hasSaved ? savedParams : {}), ...urlParams })
     } catch {
       error.value = 'Document introuvable ou non publié.'
     } finally {
@@ -173,7 +165,9 @@ export function useStatsDataDetail() {
 
   return {
     docSlug,
-    pageSlug,
+    /** @deprecated conservé pour compat — renvoie le segment d'URL brut. */
+    pageSlug: segment,
+    segment,
     doc,
     loading,
     error,

@@ -22,7 +22,7 @@ const OPTIONS: { v: AggregateFunction | undefined; l: string; desc: string }[] =
       class="flex flex-col items-center rounded-xl border px-2 py-2 transition-all"
       :class="(modelValue ?? undefined) === opt.v
         ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5 text-[var(--color-primary)]'
-        : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'"
+        : 'border-[var(--studio-line-strong)] bg-white text-[var(--studio-muted)] hover:border-slate-300'"
       @click="emit('update:modelValue', opt.v)"
     >
       <span class="text-base font-bold">{{ opt.l }}</span>

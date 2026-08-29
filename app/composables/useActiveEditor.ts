@@ -47,12 +47,11 @@ export function useActiveEditor() {
     _editor.value = null
   }
 
-  function insertToken(name: string) {
-    const token = '{' + '{' + name + '}' + '}'
-
+  /** Insère du texte brut à la position du curseur de la cible active (éditeur Tiptap ou input/textarea). */
+  function insertRaw(text: string) {
     // Tiptap editor
     if (_editor.value && !_editor.value.isDestroyed) {
-      _editor.value.chain().focus().insertContent(token).run()
+      _editor.value.chain().focus().insertContent(text).run()
       return
     }
 
@@ -61,7 +60,7 @@ export function useActiveEditor() {
     if (!el) return
     const start  = el.selectionStart ?? el.value.length
     const end    = el.selectionEnd   ?? el.value.length
-    const newVal = el.value.slice(0, start) + token + el.value.slice(end)
+    const newVal = el.value.slice(0, start) + text + el.value.slice(end)
 
     // Native setter so Vue's `:value` binding reads the change via the dispatched event
     const nativeSetter = Object.getOwnPropertyDescriptor(
@@ -72,9 +71,13 @@ export function useActiveEditor() {
     el.dispatchEvent(new Event('input',  { bubbles: true }))
     el.dispatchEvent(new Event('change', { bubbles: true }))
 
-    // Restore cursor after the inserted token
-    const cursor = start + token.length
-    requestAnimationFrame(() => { el.setSelectionRange(cursor, cursor) })
+    // Restore cursor after the inserted text
+    const cursor = start + text.length
+    requestAnimationFrame(() => { el.focus(); el.setSelectionRange(cursor, cursor) })
+  }
+
+  function insertToken(name: string) {
+    insertRaw('{' + '{' + name + '}' + '}')
   }
 
   return {
@@ -85,5 +88,6 @@ export function useActiveEditor() {
     clearActive,
     clearActiveEditor,
     insertToken,
+    insertRaw,
   }
 }

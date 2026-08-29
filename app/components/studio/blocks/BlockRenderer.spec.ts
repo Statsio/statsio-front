@@ -6,8 +6,13 @@ import LineChartBlock from './LineChartBlock.vue'
 import PieChartBlock from './PieChartBlock.vue'
 import TableBlock from './TableBlock.vue'
 import KpiBlock from './KpiBlock.vue'
+import RecordBlock from './RecordBlock.vue'
+import RelatedBlock from './RelatedBlock.vue'
+import MapBlock from './MapBlock.vue'
+import FieldGridBlock from './FieldGridBlock.vue'
 import TextBlock from './TextBlock.vue'
 import SearchBlock from './SearchBlock.vue'
+import ParamBlock from './ParamBlock.vue'
 import ImageBlock from './ImageBlock.vue'
 import VideoBlock from './VideoBlock.vue'
 import ButtonBlock from './ButtonBlock.vue'
@@ -21,11 +26,18 @@ import RatingBlock from './RatingBlock.vue'
 import type { BlockType, StudioBlock } from '@/types/studio'
 
 const stubs = {
+  LoopBlock: true,
+  IfBlock: true,
+  ParamBlock: true,
   BarChartBlock: true,
   LineChartBlock: true,
   PieChartBlock: true,
   TableBlock: true,
   KpiBlock: true,
+  RecordBlock: true,
+  RelatedBlock: true,
+  MapBlock: true,
+  FieldGridBlock: true,
   TextBlock: true,
   SearchBlock: true,
   ImageBlock: true,
@@ -64,7 +76,12 @@ describe('BlockRenderer', () => {
     ['pie', PieChartBlock],
     ['table', TableBlock],
     ['kpi', KpiBlock],
+    ['record', RecordBlock],
+    ['related', RelatedBlock],
+    ['map', MapBlock],
+    ['field-grid', FieldGridBlock],
     ['search', SearchBlock],
+    ['param', ParamBlock],
     ['image', ImageBlock],
     ['video', VideoBlock],
     ['button', ButtonBlock],
@@ -87,6 +104,24 @@ describe('BlockRenderer', () => {
       expect(wrapper.findComponent(TextBlock).exists()).toBe(true)
     },
   )
+
+  it('resolves block.type "loop" to the auto-imported LoopBlock component', () => {
+    const wrapper = mountBlock('loop')
+    expect(wrapper.findComponent({ name: 'LoopBlock' }).exists()).toBe(true)
+  })
+
+  it('resolves block.type "if" to the auto-imported IfBlock component', () => {
+    const wrapper = mountBlock('if')
+    expect(wrapper.findComponent({ name: 'IfBlock' }).exists()).toBe(true)
+  })
+
+  it('passes scope through to the resolved child component', () => {
+    const wrapper = mount(BlockRenderer, {
+      props: { block: makeBlock('kpi'), scope: { item: 'Gazole' } },
+      global: { stubs },
+    })
+    expect(wrapper.findComponent(KpiBlock).props('scope')).toEqual({ item: 'Gazole' })
+  })
 
   it('renders the "Bloc inconnu" fallback and no component for an unrecognized block.type', () => {
     const wrapper = mount(BlockRenderer, {

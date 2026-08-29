@@ -251,7 +251,7 @@ onBeforeUnmount(() => {
                 Mon compte
               </AppDropdownMenuItem>
 
-              <AppDropdownMenuItem to="/mes-chaines" @click="closeUserMenu">
+              <AppDropdownMenuItem to="/user/chaines" @click="closeUserMenu">
                 Mes chaînes
               </AppDropdownMenuItem>
 
@@ -259,7 +259,7 @@ onBeforeUnmount(() => {
                 Fil d’actus
               </AppDropdownMenuItem>
 
-              <AppDropdownMenuItem to="/contenus" @click="closeUserMenu">
+              <AppDropdownMenuItem to="/user/contenus" @click="closeUserMenu">
                 Mes contenus
               </AppDropdownMenuItem>
 

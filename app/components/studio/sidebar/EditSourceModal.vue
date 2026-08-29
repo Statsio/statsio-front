@@ -14,6 +14,7 @@ const datasets = useStudioDatasetsStore()
 
 const {
   sourceType, name, newFileObj, sheetName, headerRow, excludedRows, apiForm, existingFileLabel,
+  queryMappingOverride, setFilterParam, setFilterRange, toggleSortableColumn, setSearchParam, setSortParam, setSortDirectionParam,
   provenanceId, provenanceOtherLabel,
   visibility, categories,
   currentStepId, canGoNext,
@@ -90,7 +91,7 @@ async function handleSubmit() {
         Source mise à jour
         <template v-if="newFileObj || sourceType === 'api'"> — traitement en cours</template>
       </div>
-      <p v-if="refreshMessage" class="mb-3 rounded-xl bg-slate-50 px-4 py-2 text-xs text-slate-600">
+      <p v-if="refreshMessage" class="mb-3 rounded-xl bg-[var(--studio-note)] px-4 py-2 text-xs text-[var(--studio-muted)]">
         {{ refreshMessage }}
       </p>
 
@@ -110,6 +111,7 @@ async function handleSubmit() {
         :refreshing="refreshing"
         :is-partial="props.source.isPartial"
         :partial-reason="props.source.partialReason"
+        :query-mapping="queryMappingOverride"
         @refresh-now="handleRefreshNow"
         @update:file-obj="newFileObj = $event"
         @update:file-name="name = $event"
@@ -117,6 +119,12 @@ async function handleSubmit() {
         @update:header-row="headerRow = $event"
         @update:excluded-rows="excludedRows = $event"
         @update:api-form="apiForm = $event"
+        @set-filter-param="setFilterParam"
+        @set-filter-range="setFilterRange"
+        @toggle-sortable-column="toggleSortableColumn"
+        @set-search-param="setSearchParam"
+        @set-sort-param="setSortParam"
+        @set-sort-direction-param="setSortDirectionParam"
       />
       <StepProvenance
         v-else-if="step?.id === 'provenance'"
