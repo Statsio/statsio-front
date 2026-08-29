@@ -14,16 +14,15 @@ function pageLink(docSlug: string, page: { id: string; slug?: string }) {
 </script>
 
 <template>
-  <div class="flex gap-7 overflow-x-auto border-b border-[#18181f]/[0.08]">
+  <div class="flex w-max max-w-full items-center gap-[3px] overflow-x-auto rounded-full bg-[var(--studio-note)] p-[3px]">
     <RouterLink
       v-for="page in pages"
       :key="page.id"
       :to="pageLink(docSlug, page)"
-      class="-mb-px inline-flex shrink-0 items-center gap-1 whitespace-nowrap border-b-2 pb-3.5 text-sm leading-none transition-colors"
+      class="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-[13px] py-1.5 text-[12px] font-bold transition-colors"
       :class="activePageId === page.id
-        ? 'font-bold text-[#18181f]'
-        : 'border-transparent font-semibold text-[#18181f]/50 hover:text-[#18181f]/75'"
-      :style="activePageId === page.id ? { borderColor: accentColor || 'var(--color-primary)' } : undefined"
+        ? 'bg-white text-[var(--studio-ink)] shadow-sm'
+        : 'text-[var(--studio-muted)] hover:text-[var(--studio-ink)]'"
     >
       <span v-if="page.icon" class="leading-none">{{ page.icon }}</span>{{ page.title }}
     </RouterLink>
