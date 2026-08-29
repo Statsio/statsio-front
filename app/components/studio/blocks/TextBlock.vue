@@ -11,6 +11,7 @@ import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import { useStudioStore } from '@/stores/studio'
 import { useActiveEditor } from '@/composables/useActiveEditor'
+import { useResolvedTokens } from '@/composables/useResolvedTokens'
 import { TextTransformExtension, FontFamilyExtension } from '@/lib/tiptap-extensions'
 import type { StudioBlock } from '@/types/studio'
 
@@ -46,19 +47,17 @@ const VariableHighlight = Extension.create({
   },
 })
 
-const props = defineProps<{ block: StudioBlock; readonly?: boolean }>()
+const props = defineProps<{ block: StudioBlock; readonly?: boolean; scope?: Record<string, string> }>()
 const studio = useStudioStore()
 const { setActiveEditor, clearActiveEditor } = useActiveEditor()
 
-// Substituted content: {{variable}} → pageParams value
-const resolvedContent = computed(() => {
-  const raw = props.block.config.content || '<p></p>'
-  return raw.replace(/\{\{(.+?)\}\}/g, (match: string, key: string) => {
-    const direct = studio.pageParams[key]
-    if (direct !== undefined) return direct
-    // Fallback: resolve known pageParams names within the expression text
-    return key.replace(/\w+/g, (name) => studio.pageParams[name] ?? name)
-  })
+// Contenu substitué : {{variable}} (scope de boucle puis pageParams) + expressions calculées.
+const { text: resolvedContent } = useResolvedTokens({
+  raw: () => props.block.config.content || '<p></p>',
+  tokenMap: () => ({ ...studio.pageParams, ...props.scope }),
+  datasetId: () => props.block.datasetId,
+  readonly: () => props.readonly ?? false,
+  docSlug: () => studio.content?.slug,
 })
 
 const hasSubstitution = computed(() => resolvedContent.value !== (props.block.config.content || '<p></p>'))
@@ -175,7 +174,7 @@ const containerStyle = computed(() => ({
 }))
 
 const containerClass = computed(() => {
-  if (props.block.type === 'quote') return 'border-l-4 border-[var(--color-primary)] pl-4 text-slate-600'
+  if (props.block.type === 'quote') return 'border-l-4 border-[var(--color-primary)] pl-4 text-[var(--studio-muted)]'
   if (props.block.type === 'callout') return 'rounded-lg'
   return ''
 })
@@ -203,10 +202,10 @@ const containerClass = computed(() => {
   min-width: 0;
   max-width: 100%;
 }
-:deep(.tiptap h1) { font-size: 2em; font-weight: 700; line-height: 1.2; color: #0f172a; overflow-wrap: anywhere; word-break: break-word; }
-:deep(.tiptap h2) { font-size: 1.5em; font-weight: 700; line-height: 1.3; color: #0f172a; overflow-wrap: anywhere; word-break: break-word; }
-:deep(.tiptap h3) { font-size: 1.25em; font-weight: 600; line-height: 1.4; color: #0f172a; overflow-wrap: anywhere; word-break: break-word; }
-:deep(.tiptap p)  { line-height: var(--block-lh, 1.7); letter-spacing: var(--block-ls, normal); color: #374151; overflow-wrap: anywhere; }
+:deep(.tiptap h1) { font-size: 2em; font-weight: 800; line-height: 1.2; letter-spacing: -0.02em; color: var(--studio-ink, #0f172a); overflow-wrap: anywhere; word-break: break-word; }
+:deep(.tiptap h2) { font-size: 1.5em; font-weight: 800; line-height: 1.3; letter-spacing: -0.015em; color: var(--studio-ink, #0f172a); overflow-wrap: anywhere; word-break: break-word; }
+:deep(.tiptap h3) { font-size: 1.25em; font-weight: 700; line-height: 1.4; color: var(--studio-ink, #0f172a); overflow-wrap: anywhere; word-break: break-word; }
+:deep(.tiptap p)  { line-height: var(--block-lh, 1.7); letter-spacing: var(--block-ls, normal); color: color-mix(in srgb, var(--studio-ink, #374151) 82%, transparent); overflow-wrap: anywhere; }
 :deep(.tiptap ul) { list-style-type: disc; padding-left: 1.5em; }
 :deep(.tiptap ol) { list-style-type: decimal; padding-left: 1.5em; }
 :deep(.tiptap li) { line-height: var(--block-lh, 1.7); letter-spacing: var(--block-ls, normal); overflow-wrap: anywhere; }

@@ -10,6 +10,13 @@ export const STATSIO_API = {
   me: '/me',
   account: {
     anonymize: '/account/anonymize',
+    avatar: '/me/avatar',
+    favorites: '/me/favorites',
+    favorite: (id: string | number) => `/me/favorites/${encodeURIComponent(String(id))}`,
+    history: '/me/history',
+    historyInProgress: '/me/history/in-progress',
+    subscriptions: '/me/subscriptions',
+    search: '/me/search',
   },
   referenceData: {
     profile: '/reference-data/profile',
@@ -31,6 +38,8 @@ export const STATSIO_API = {
   /** OpenAPI : `POST /api/source-api/probe-connection` — test d’URL + clé Bearer (sans lier au document). */
   sourceApi: {
     probeConnection: '/source-api/probe-connection',
+    /** `POST /api/source-api/detect-structure` — détecte méthode, enveloppe, pagination, schéma et filtres exploitables à partir de la seule URL. */
+    detectStructure: '/source-api/detect-structure',
   },
   apiSources: {
     collection: '/api-sources',
@@ -62,12 +71,25 @@ export const STATSIO_API = {
   studioContent: {
     collection: '/studio/content',
     one: (id: string) => `/studio/content/${encodeURIComponent(id)}`,
+    dataSources: (id: string) => `/studio/content/${encodeURIComponent(id)}/data-sources`,
     publicCollection: '/studio/content/public',
     publicBySlug: (slug: string) => `/studio/content/public/${encodeURIComponent(slug)}`,
     publicDatasetQuery: (slug: string, datasetId: string) =>
       `/studio/content/public/${encodeURIComponent(slug)}/datasets/${encodeURIComponent(datasetId)}/query`,
     blockResponse: (slug: string, blockId: string) =>
       `/studio/content/public/${encodeURIComponent(slug)}/blocks/${encodeURIComponent(blockId)}/response`,
+  },
+  /** Assistant IA du Studio — conversation rattachée à un contenu, runs poll-ables. */
+  ai: {
+    conversations: (contentId: string | number) =>
+      `/ai/studio/contents/${encodeURIComponent(String(contentId))}/conversations`,
+    conversation: (contentId: string | number, conversationId: string | number) =>
+      `/ai/studio/contents/${encodeURIComponent(String(contentId))}/conversations/${encodeURIComponent(String(conversationId))}`,
+    deleteConversation: (conversationId: string | number) =>
+      `/ai/studio/conversations/${encodeURIComponent(String(conversationId))}`,
+    messages: (conversationId: string | number) =>
+      `/ai/studio/conversations/${encodeURIComponent(String(conversationId))}/messages`,
+    run: (runId: string | number) => `/ai/studio/runs/${encodeURIComponent(String(runId))}`,
   },
   pages: {
     blocks: (pageId: string) => `/pages/${encodeURIComponent(pageId)}/blocks`,

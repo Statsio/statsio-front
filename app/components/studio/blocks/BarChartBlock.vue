@@ -2,15 +2,35 @@
 import { ref, computed, watch } from 'vue'
 import { useChart, PALETTE } from '@/composables/useChart'
 import { useBlockData } from '@/composables/useBlockData'
+import { useExpressionNumber } from '@/composables/useResolvedTokens'
+import { markColor } from '@/lib/studio-chart'
 import { useStudioStore } from '@/stores/studio'
 import { formatDisplayValue, parseNumericValue } from '@/utils/statsDataFormat'
 import type { StudioBlock } from '@/types/studio'
 
-const props = defineProps<{ block: StudioBlock; readonly?: boolean }>()
+const props = defineProps<{ block: StudioBlock; readonly?: boolean; scope?: Record<string, string> }>()
 
 const studio = useStudioStore()
 const canvasRef = ref<HTMLCanvasElement | null>(null)
-const { data, isLoading, error } = useBlockData(() => props.block, props.readonly)
+const { data, isLoading, error } = useBlockData(() => props.block, props.readonly, () => props.scope)
+
+// ─── Ligne de référence + couleur de marque conditionnelle (Phase 5) ─────────
+
+const { value: refValue } = useExpressionNumber({
+  expression: () => props.block.config.referenceExpression,
+  tokenMap: () => ({ ...studio.pageParams, ...props.scope }),
+  datasetId: () => props.block.datasetId,
+  readonly: () => props.readonly ?? false,
+  docSlug: () => studio.content?.slug,
+})
+
+function barColors(values: number[], fallback: string): string[] {
+  const rules = props.block.config.markRules
+  if (!rules?.length) return values.map(() => fallback)
+  const finite = values.filter((v) => Number.isFinite(v))
+  const ctx = { min: Math.min(...finite), max: Math.max(...finite), ref: refValue.value }
+  return values.map((v) => markColor(rules, Number.isFinite(v) ? v : null, ctx, fallback))
+}
 
 /** Resolved list of Y columns — prefers yAxes (multi), falls back to single yAxis */
 const yColumns = computed(() => {
@@ -76,13 +96,15 @@ const chartData = computed(() => {
 
   // ── Single Y column ──
   const yKey = yCols[0] ?? ''
+  const values = rows.map((r: Record<string, unknown>) => parseNumericValue(r[yKey]))
+  const fallback = props.block.config.colors?.[0] ?? PALETTE[0]!
   return {
     labels: rows.map((r: Record<string, unknown>) => formatDisplayValue(r[xKey], '')),
     datasets: [
       {
         label: props.block.config.title ?? yKey,
-        data: rows.map((r: Record<string, unknown>) => parseNumericValue(r[yKey])),
-        backgroundColor: props.block.config.colors?.[0] ?? PALETTE[0],
+        data: values,
+        backgroundColor: barColors(values, fallback),
         borderRadius: 6,
       },
     ],
@@ -113,6 +135,7 @@ const progressRows = computed<ProgressRow[]>(() => {
   const sliced = (rows as Record<string, unknown>[]).slice(0, limit)
   const values = sliced.map((r) => parseNumericValue(r[yKey]))
   const max = Math.max(0, ...values)
+  const marked = barColors(values, color)
 
   return sliced.map((r, i) => {
     const value = values[i] ?? 0
@@ -121,7 +144,7 @@ const progressRows = computed<ProgressRow[]>(() => {
       label: formatDisplayValue(r[xKey], ''),
       width,
       display: isPercent ? `${value}%` : new Intl.NumberFormat('fr-FR').format(value),
-      color,
+      color: marked[i] ?? color,
     }
   })
 })
@@ -170,6 +193,10 @@ const { scheduleResize } = useChart(canvasRef, 'bar', () => chartData.value, () 
       enabled: Boolean(props.block.config.showValueLabels),
       format: props.block.config.format,
     },
+    referenceLine: {
+      value: props.block.config.referenceExpression ? refValue.value : null,
+      label: props.block.config.referenceLabel,
+    },
   },
 }))
 
@@ -177,21 +204,21 @@ watch(() => [studio.isPanelOpen, studio.selectedBlockId !== null], scheduleResiz
 </script>
 
 <template>
-  <div class="relative w-full overflow-hidden px-5 pb-5">
+  <div class="relative w-full overflow-hidden">
     <div
       v-if="!showProgress"
       class="relative"
       :class="hasMultipleSeries ? 'h-64 sm:h-80' : 'h-48 sm:h-64'"
     >
       <div v-if="isLoading" class="absolute inset-0 flex items-center justify-center bg-white/70 z-10">
-        <span class="text-sm text-slate-400">Chargement…</span>
+        <span class="text-sm text-[var(--studio-faint)]">Chargement…</span>
       </div>
 
       <div v-else-if="error" class="absolute inset-0 flex items-center justify-center">
         <span class="text-sm text-red-500">{{ error }}</span>
       </div>
 
-      <div v-else-if="!block.datasetId || !block.fieldMapping.xAxis" class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-slate-400">
+      <div v-else-if="!block.datasetId || !block.fieldMapping.xAxis" class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-[var(--studio-faint)]">
         <svg class="w-8 h-8 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 13.5V21h4.5v-7.5H3zm6.75-9V21H14.25V4.5H9.75zm6.75 4.5V21H21v-12h-4.5z" />
         </svg>
@@ -203,11 +230,11 @@ watch(() => [studio.isPanelOpen, studio.selectedBlockId !== null], scheduleResiz
 
     <div v-else class="flex flex-col gap-2.5 py-1">
       <div v-for="row in progressRows" :key="row.label" class="flex items-center gap-2.5">
-        <span class="w-[90px] shrink-0 truncate text-[12.5px] text-[#18181f]/80">{{ row.label }}</span>
-        <div class="h-2.5 flex-1 rounded-full bg-[#f0eefa]">
+        <span class="w-[90px] shrink-0 truncate text-[12.5px] text-[color:color-mix(in_srgb,var(--studio-ink)_80%,transparent)]">{{ row.label }}</span>
+        <div class="h-2.5 flex-1 rounded-full bg-[color:color-mix(in_srgb,var(--color-primary)_12%,white)]">
           <div class="h-full rounded-full" :style="{ width: `${row.width}%`, backgroundColor: row.color }" />
         </div>
-        <span class="mono w-12 shrink-0 text-right text-[11.5px] text-[#18181f]/80">{{ row.display }}</span>
+        <span class="mono w-12 shrink-0 text-right text-[11.5px] text-[color:color-mix(in_srgb,var(--studio-ink)_80%,transparent)]">{{ row.display }}</span>
       </div>
     </div>
   </div>

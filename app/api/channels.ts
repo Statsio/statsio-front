@@ -255,6 +255,63 @@ export async function getChannelStats(id: number): Promise<ChannelStats> {
   }
 }
 
+export type ChannelDataSourceUsage = {
+  id: string
+  title: string
+  type: string
+  slug: string | null
+}
+
+export type ChannelDataSource = {
+  id: string
+  name: string
+  type: string | null
+  sourceKind: string | null
+  origin: string | null
+  rowCount: number
+  status: 'ready' | 'failed' | 'pending'
+  lastRefreshedAt: string | null
+  nextRefreshAt: string | null
+  refreshFrequency: string | null
+  usedByCount: number
+  usedBy: ChannelDataSourceUsage[]
+}
+
+type RawChannelDataSource = {
+  id: string
+  name: string
+  type: string | null
+  source_kind: string | null
+  origin: string | null
+  row_count: number
+  status: ChannelDataSource['status']
+  last_refreshed_at: string | null
+  next_refresh_at: string | null
+  refresh_frequency: string | null
+  used_by_count: number
+  used_by: ChannelDataSourceUsage[]
+}
+
+export async function getChannelDataSources(id: number): Promise<ChannelDataSource[]> {
+  const response = await apiHttp.get<{ success: boolean; data: RawChannelDataSource[] }>(
+    `/channels/${id}/data-sources`,
+  )
+  return response.data.data.map((raw) => ({
+    id: raw.id,
+    name: raw.name,
+    type: raw.type,
+    sourceKind: raw.source_kind,
+    origin: raw.origin,
+    rowCount: raw.row_count,
+    status: raw.status,
+    lastRefreshedAt: raw.last_refreshed_at,
+    nextRefreshAt: raw.next_refresh_at,
+    refreshFrequency: raw.refresh_frequency,
+    usedByCount: raw.used_by_count,
+    usedBy: raw.used_by,
+  }))
+}
+
 export type ToggleSubscriptionResponse = {
   isFollowing: boolean
   followersCount: number

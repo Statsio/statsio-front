@@ -34,22 +34,22 @@ const formatRows = (n: number) => n.toLocaleString('fr-FR')
 </script>
 
 <template>
-  <div class="rounded-xl border border-slate-200 p-3">
+  <div class="rounded-xl border border-[var(--studio-line-strong)] p-3">
     <div class="flex items-center justify-between mb-3">
-      <p class="text-xs font-semibold text-slate-600">Compatibilité Statsio</p>
+      <p class="text-xs font-semibold text-[var(--studio-muted)]">Compatibilité Statsio</p>
       <p class="text-sm font-bold" :class="scoreColor">{{ capabilities.compatibilityScore }}%</p>
     </div>
 
     <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 mb-3">
       <div v-for="item in orderedChartTypes" :key="item.type" class="flex items-center gap-1.5 text-xs">
-        <span :class="item.compatible ? 'text-emerald-500' : 'text-slate-300'">
+        <span :class="item.compatible ? 'text-emerald-500' : 'text-[var(--studio-faint)]'">
           {{ item.compatible ? '✓' : '✗' }}
         </span>
-        <span :class="item.compatible ? 'text-slate-700' : 'text-slate-400'">{{ item.label }}</span>
+        <span :class="item.compatible ? 'text-[var(--studio-ink)]' : 'text-[var(--studio-faint)]'">{{ item.label }}</span>
       </div>
     </div>
 
-    <p class="text-[11px] text-slate-400 border-t border-slate-100 pt-2">
+    <p class="text-[11px] text-[var(--studio-faint)] border-t border-[var(--studio-line)] pt-2">
       <template v-if="capabilities.estimatedMaxRows != null">~{{ formatRows(capabilities.estimatedMaxRows) }} lignes estimées</template>
       <template v-else>Volume de données inconnu</template>
       <template v-if="capabilities.responseTimeMs != null"> · {{ capabilities.responseTimeMs }} ms</template>

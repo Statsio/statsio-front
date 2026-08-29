@@ -34,7 +34,7 @@ const embed = computed<{ url: string; provider: string; color: string } | null>(
   <!-- Empty state -->
   <div
     v-if="!rawUrl"
-    class="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 py-14 text-slate-400"
+    class="flex flex-col items-center justify-center gap-2 rounded-[14px] border-2 border-dashed border-[var(--studio-line)] bg-[var(--studio-note)] py-14 text-[var(--studio-faint)]"
   >
     <svg class="w-8 h-8 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0zM15.91 11.672a.375.375 0 0 1 0 .656l-5.603 3.113a.375.375 0 0 1-.557-.328V8.887c0-.286.307-.466.557-.328l5.603 3.113z" />
@@ -45,7 +45,7 @@ const embed = computed<{ url: string; provider: string; color: string } | null>(
   <!-- Unrecognized URL -->
   <div
     v-else-if="!embed"
-    class="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-red-100 bg-red-50 py-10 text-red-400"
+    class="flex flex-col items-center justify-center gap-2 rounded-[14px] border-2 border-dashed border-red-100 bg-red-50 py-10 text-red-400"
   >
     <svg class="w-6 h-6 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0zm-9 3.75h.008v.008H12v-.008z" />
@@ -55,7 +55,7 @@ const embed = computed<{ url: string; provider: string; color: string } | null>(
 
   <!-- Embed -->
   <figure v-else class="w-full">
-    <div class="relative w-full overflow-hidden rounded-xl bg-slate-900" style="aspect-ratio: 16/9;">
+    <div class="relative w-full overflow-hidden rounded-xl bg-[var(--studio-ink)]" style="aspect-ratio: 16/9;">
       <iframe
         :src="embed.url"
         class="absolute inset-0 h-full w-full border-0"
@@ -66,7 +66,7 @@ const embed = computed<{ url: string; provider: string; color: string } | null>(
     </div>
     <div class="mt-2 flex items-center gap-2">
       <span class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider" :class="embed.color">{{ embed.provider }}</span>
-      <figcaption v-if="caption" class="text-sm italic text-slate-500">{{ caption }}</figcaption>
+      <figcaption v-if="caption" class="text-sm italic text-[var(--studio-muted)]">{{ caption }}</figcaption>
     </div>
   </figure>
 </template>

@@ -20,8 +20,8 @@ const accountNav = computed(() => {
   if (auth.isAuthenticated) {
     return [
       { label: 'Mon profil', href: '/user' },
-      { label: 'Mes contenus', href: '/contenus' },
-      { label: 'Mes chaînes', href: '/mes-chaines' },
+      { label: 'Mes contenus', href: '/user/contenus' },
+      { label: 'Mes chaînes', href: '/user/chaines' },
     ]
   }
   return [

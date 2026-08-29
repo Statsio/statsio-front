@@ -1,17 +1,21 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import BlockConfigPanel from './sidebar/BlockConfigPanel.vue'
+import SectionInspector from './inspector/SectionInspector.vue'
 
 const studio = useStudioStore()
+const showSection = computed(() => !!studio.selectedSection && !studio.selectedBlock)
 </script>
 
 <template>
   <aside
-    class="flex shrink-0 border-l border-slate-200 bg-white transition-all duration-200 overflow-hidden"
-    :class="studio.isSidebarRightOpen ? 'w-72' : 'w-0'"
+    class="flex shrink-0 overflow-hidden border-l border-[var(--studio-line)] bg-white transition-all duration-200"
+    :class="studio.isSidebarRightOpen ? 'w-[372px]' : 'w-0'"
   >
-    <div class="w-72 h-full overflow-hidden">
-      <BlockConfigPanel />
+    <div class="h-full w-[372px] overflow-hidden">
+      <SectionInspector v-if="showSection" />
+      <BlockConfigPanel v-else />
     </div>
   </aside>
 </template>

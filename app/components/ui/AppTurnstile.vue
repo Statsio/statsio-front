@@ -25,6 +25,7 @@ declare global {
 
 const SCRIPT_BASE_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js'
 const SCRIPT_SRC = `${SCRIPT_BASE_SRC}?onload=onTurnstileLoad&render=explicit`
+const LOAD_TIMEOUT_MS = 10_000
 
 const config = useRuntimeConfig()
 const resolvedSiteKey = props.siteKey ?? config.public.turnstileSiteKey
@@ -35,15 +36,38 @@ let widgetId: string | undefined
 function loadScript(): Promise<void> {
   if (window.turnstile) return Promise.resolve()
 
-  return new Promise((resolve) => {
-    window.onTurnstileLoad = resolve
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error("Le chargement de la vérification de sécurité a expiré.")),
+      LOAD_TIMEOUT_MS,
+    )
 
-    if (document.querySelector(`script[src^="${SCRIPT_BASE_SRC}"]`)) return
+    window.onTurnstileLoad = () => {
+      clearTimeout(timer)
+      resolve()
+    }
+
+    const existingScript = document.querySelector<HTMLScriptElement>(`script[src^="${SCRIPT_BASE_SRC}"]`)
+    if (existingScript) {
+      existingScript.addEventListener(
+        'error',
+        () => {
+          clearTimeout(timer)
+          reject(new Error("Impossible de charger la vérification de sécurité."))
+        },
+        { once: true },
+      )
+      return
+    }
 
     const script = document.createElement('script')
     script.src = SCRIPT_SRC
     script.async = true
     script.defer = true
+    script.onerror = () => {
+      clearTimeout(timer)
+      reject(new Error("Impossible de charger la vérification de sécurité."))
+    }
     document.head.appendChild(script)
   })
 }
@@ -67,8 +91,12 @@ function reset() {
 defineExpose({ reset })
 
 onMounted(async () => {
-  await loadScript()
-  renderWidget()
+  try {
+    await loadScript()
+    renderWidget()
+  } catch {
+    emit('error')
+  }
 })
 
 onBeforeUnmount(() => {

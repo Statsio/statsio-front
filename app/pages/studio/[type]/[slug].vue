@@ -46,14 +46,13 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="h-screen w-screen flex flex-col overflow-hidden bg-[#f0f1f5]">
+  <div class="flex h-screen w-screen flex-col overflow-hidden bg-[var(--studio-wash)] font-sans">
     <!-- Header -->
     <StudioHeader @save="saveNow" />
 
     <!-- Floating overlays: no layout space, both absolute over the canvas -->
-    <div class="relative h-0 z-30">
-      <!-- Text format toolbar (centered pill, shown when a text block is active) -->
-      <div class="absolute top-3 w-full flex justify-center pointer-events-none">
+    <div v-if="!studio.isPreview" class="relative z-30 h-0">
+      <div class="pointer-events-none absolute top-3 flex w-full justify-center">
         <div class="pointer-events-auto">
           <TextFormatToolbar />
         </div>
@@ -61,20 +60,20 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- Body -->
-    <div class="flex flex-1 min-h-0 overflow-hidden">
-      <!-- Icon strip + floating panel -->
-      <StudioSidebarLeft />
+    <div class="flex min-h-0 flex-1 overflow-hidden">
+      <!-- Icon rail + panel -->
+      <StudioSidebarLeft v-if="!studio.isPreview" />
 
       <!-- Canvas (scrollable) -->
       <main
-        class="flex-1 min-w-0 overflow-auto p-8"
+        class="min-w-0 flex-1 overflow-auto"
         @click.self="studio.selectBlock(null)"
       >
         <CanvasGrid />
       </main>
 
       <!-- Right config panel (block selected) -->
-      <StudioSidebarRight />
+      <StudioSidebarRight v-if="!studio.isPreview" />
     </div>
   </div>
 </template>

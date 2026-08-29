@@ -40,15 +40,15 @@ function clear(e: MouseEvent) {
   <div class="flex items-center gap-1">
     <button
       type="button"
-      class="flex flex-1 items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-sm transition-all hover:border-slate-300 focus:border-[var(--color-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/25"
-      :class="modelValue ? 'text-slate-800' : 'text-slate-400'"
+      class="flex flex-1 items-center justify-between gap-2 rounded-xl border border-[var(--studio-line)] bg-white px-3 py-2 text-left text-sm transition-all hover:border-slate-300 focus:border-[var(--color-primary)] focus:outline-none "
+      :class="modelValue ? 'text-[var(--studio-ink)]' : 'text-[var(--studio-faint)]'"
       @click="showModal = true"
     >
       <span class="truncate font-mono text-xs">
         {{ modelValue ?? (placeholder ?? '— Choisir une colonne —') }}
       </span>
       <!-- Column icon -->
-      <svg class="h-3.5 w-3.5 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+      <svg class="h-3.5 w-3.5 shrink-0 text-[var(--studio-faint)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
         <path stroke-linecap="round" stroke-linejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0 1 12 18.375" />
       </svg>
     </button>
@@ -57,7 +57,7 @@ function clear(e: MouseEvent) {
     <button
       v-if="clearable && modelValue"
       type="button"
-      class="flex h-[38px] w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-sm text-slate-400 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-500"
+      class="flex h-[38px] w-8 shrink-0 items-center justify-center rounded-lg border border-[var(--studio-line-strong)] text-sm text-[var(--studio-faint)] transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-500"
       @click="clear"
     >×</button>
 

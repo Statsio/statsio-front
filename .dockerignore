@@ -1,0 +1,14 @@
+node_modules
+.nuxt
+.nuxt-*
+.output
+.wrangler
+dist
+dist-ssr
+coverage
+*.log
+logs
+.git
+.DS_Store
+.vscode
+.idea

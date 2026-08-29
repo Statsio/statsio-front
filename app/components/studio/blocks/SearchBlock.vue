@@ -2,6 +2,7 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { fetchSearchRows, fetchPublicSearchRows } from '@/api/studio'
+import { slugify } from '@/lib/slug'
 import { useStudioStore } from '@/stores/studio'
 import type { StudioBlock, StudioDocumentPage, SearchSource, SearchJoin } from '@/types/studio'
 
@@ -186,42 +187,49 @@ function onSelect(result: SearchResult) {
   query.value = result.displayValue
   isOpen.value = false
 
-  // Public view + urlParams configured → URL navigation for deep-linking
-  if (props.readonly && urlParamCols.value.length > 0 && targetPageId.value && docSlug.value && targetPageSlug.value) {
-    // Build allParams from ALL result row columns (used for in-memory variable substitution)
-    const allParams: Record<string, string> = {}
-    for (const [col, val] of Object.entries(result.row)) {
-      if (val !== null && val !== undefined && val !== '') {
-        allParams[col] = String(val)
-      }
-    }
+  // Toutes les colonnes de la ligne choisie (résolvent les jetons `{{col}}`).
+  const rowParams: Record<string, string> = {}
+  for (const [col, val] of Object.entries(result.row)) {
+    if (val !== null && val !== undefined && val !== '') rowParams[col] = String(val)
+  }
 
-    // Apply column aliasing: urlKey may be fed by a different source column
-    // e.g. urlParams = ["CODGEO_2025"], urlParamMapping = { "CODGEO_2025": "com" }
-    // → reads result.row["com"] and writes it as CODGEO_2025 in both URL and allParams
+  const target = targetPageId.value
+  const goesElsewhere = Boolean(target) && target !== studio.currentPageId
+  const destPage = studio.pages.find(
+    (p: StudioDocumentPage) => p.id === (goesElsewhere ? target : studio.currentPageId),
+  )
+  const fanParam = destPage?.params?.find((p) => p.fanOut && p.name)
+
+  // Page fan-out : en public, on pousse l'URL indexable /statsdata/{slug}/{valeur}.
+  if (props.readonly && fanParam && docSlug.value) {
+    const slugKey = fanParam.slugColumn || fanParam.column || fanParam.name
+    const value = rowParams[slugKey] ?? rowParams[fanParam.name]
+    if (value) {
+      studio.setPageParams(goesElsewhere ? rowParams : { ...studio.pageParams, ...rowParams })
+      router.push(`/statsdata/${docSlug.value}/${slugify(value)}`)
+      return
+    }
+  }
+
+  // Navigation vers une AUTRE page sans fan-out : en public, URL profonde `?param=`.
+  if (goesElsewhere && props.readonly && docSlug.value && targetPageSlug.value) {
     const mapping = props.block.fieldMapping.urlParamMapping ?? {}
     const queryParams: Record<string, string> = {}
     for (const urlKey of urlParamCols.value) {
-      const sourceCol = mapping[urlKey] ?? urlKey
-      // Fall back to urlKey itself if mapped column doesn't exist in this result row
-      const val = allParams[sourceCol] ?? allParams[urlKey]
-      if (val) {
-        queryParams[urlKey] = val
-        allParams[urlKey] = val  // ensure canonical key is always in allParams
-      }
+      const val = rowParams[mapping[urlKey] ?? urlKey] ?? rowParams[urlKey]
+      if (val) { queryParams[urlKey] = val; rowParams[urlKey] = val }
     }
-
-    studio.setPageParams(allParams)
+    studio.setPageParams(rowParams)
     router.push({ path: `/statsdata/${docSlug.value}/${targetPageSlug.value}`, query: queryParams })
     return
   }
 
-  // Studio or no urlParams → in-memory navigation (switch FIRST then set params)
-  if (targetPageId.value) studio.switchPage(targetPageId.value)
-  for (const [col, val] of Object.entries(result.row)) {
-    if (val !== null && val !== undefined && val !== '') {
-      studio.setPageParam(col, String(val))
-    }
+  if (goesElsewhere) {
+    studio.switchPage(target!)
+    studio.setPageParams(rowParams)
+  } else {
+    // Filtre la page courante : on fusionne avec les autres paramètres déjà posés.
+    studio.setPageParams({ ...studio.pageParams, ...rowParams })
   }
 }
 
@@ -251,9 +259,9 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="p-5">
+  <div>
     <!-- Not configured -->
-    <div v-if="!isConfigured" class="flex flex-col items-center justify-center gap-2 py-6 text-slate-400">
+    <div v-if="!isConfigured" class="flex flex-col items-center justify-center gap-2 py-6 text-[var(--studio-faint)]">
       <svg class="w-8 h-8 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
       </svg>
@@ -263,11 +271,11 @@ onBeforeUnmount(() => {
     <!-- Search UI -->
     <div v-else ref="containerRef" class="relative w-full">
       <div
-        class="flex items-center gap-2.5 rounded-xl bg-[#f7f6fb] py-3.5 pl-4 pr-4 cursor-text transition-colors focus-within:ring-2 focus-within:ring-[var(--color-primary)]/20"
+        class="flex cursor-text items-center gap-2.5 rounded-xl border border-[var(--studio-line-strong)] bg-[color-mix(in_srgb,var(--studio-ink)_5%,transparent)] py-3.5 pl-4 pr-4 transition-colors focus-within:ring-2 focus-within:ring-[var(--color-primary)]/25"
         @click="inputRef?.focus()"
       >
         <svg
-          class="w-4 h-4 shrink-0 text-[#18181f]/40 pointer-events-none"
+          class="w-4 h-4 shrink-0 text-[var(--studio-faint)] pointer-events-none"
           fill="none" viewBox="0 0 24 24" stroke="currentColor"
         >
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
@@ -277,12 +285,12 @@ onBeforeUnmount(() => {
           v-model="query"
           type="text"
           :placeholder="placeholder"
-          class="min-w-0 flex-1 bg-transparent text-sm text-[#18181f] placeholder-[#18181f]/40 outline-none"
+          class="min-w-0 flex-1 bg-transparent text-sm text-[var(--studio-ink)] placeholder-[var(--studio-faint)] outline-none"
           @focus="onFocus"
         />
         <svg
           v-if="isLoading"
-          class="w-4 h-4 shrink-0 text-[#18181f]/40 animate-spin"
+          class="w-4 h-4 shrink-0 text-[var(--studio-faint)] animate-spin"
           fill="none" viewBox="0 0 24 24"
         >
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
@@ -290,7 +298,7 @@ onBeforeUnmount(() => {
         </svg>
       </div>
 
-      <p v-if="query.length > 0 && query.length < 2" class="mt-1 text-[11px] text-slate-400 pl-1">
+      <p v-if="query.length > 0 && query.length < 2" class="mt-1 text-[11px] text-[var(--studio-faint)] pl-1">
         Tapez au moins 2 caractères…
       </p>
 
@@ -298,24 +306,24 @@ onBeforeUnmount(() => {
       <Teleport to="body">
         <div
           v-if="isOpen && results.length > 0"
-          class="fixed z-[9999] bg-white border border-[#18181f]/[0.08] rounded-xl shadow-xl max-h-64 overflow-y-auto"
+          class="fixed z-[9999] bg-white border border-[var(--studio-line)] rounded-xl shadow-xl max-h-64 overflow-y-auto"
           :style="dropdownStyle"
         >
           <button
             v-for="result in results"
             :key="result.key"
             type="button"
-            class="w-full text-left px-4 py-2.5 hover:bg-slate-50 transition-colors first:rounded-t-lg last:rounded-b-lg border-b border-slate-50 last:border-0"
+            class="w-full text-left px-4 py-2.5 hover:bg-[var(--studio-note)] transition-colors first:rounded-t-lg last:rounded-b-lg border-b border-[var(--studio-line)] last:border-0"
             @mousedown.prevent="onSelect(result)"
           >
-            <p class="text-sm font-medium text-slate-800">{{ result.displayValue }}</p>
+            <p class="text-sm font-medium text-[var(--studio-ink)]">{{ result.displayValue }}</p>
             <div v-if="result.subValues.length > 0" class="flex flex-wrap gap-2 mt-0.5">
               <span
                 v-for="sub in result.subValues"
                 :key="sub.label"
-                class="text-[11px] text-slate-400"
+                class="text-[11px] text-[var(--studio-faint)]"
               >
-                <span class="font-medium text-slate-500">{{ sub.label }}</span> {{ sub.value }}
+                <span class="font-medium text-[var(--studio-muted)]">{{ sub.label }}</span> {{ sub.value }}
               </span>
             </div>
           </button>
@@ -323,7 +331,7 @@ onBeforeUnmount(() => {
 
         <div
           v-else-if="isOpen && !isLoading && searchError && query.length >= 2"
-          class="fixed z-[9999] bg-white border border-[#18181f]/[0.08] rounded-xl shadow-sm px-4 py-3 text-sm text-red-500"
+          class="fixed z-[9999] bg-white border border-[var(--studio-line)] rounded-xl shadow-sm px-4 py-3 text-sm text-red-500"
           :style="dropdownStyle"
         >
           {{ searchError }}
@@ -331,7 +339,7 @@ onBeforeUnmount(() => {
 
         <div
           v-else-if="isOpen && !isLoading && query.length >= 2"
-          class="fixed z-[9999] bg-white border border-[#18181f]/[0.08] rounded-xl shadow-sm px-4 py-3 text-sm text-slate-400"
+          class="fixed z-[9999] bg-white border border-[var(--studio-line)] rounded-xl shadow-sm px-4 py-3 text-sm text-[var(--studio-faint)]"
           :style="dropdownStyle"
         >
           Aucun résultat pour « {{ query }} »

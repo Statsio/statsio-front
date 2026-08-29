@@ -17,7 +17,10 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const isFormValid = computed(
-  () => email.value.trim().length > 0 && password.value.trim().length > 0 && turnstileToken.value.length > 0,
+  () =>
+    email.value.trim().length > 0 &&
+    password.value.trim().length > 0 &&
+    (turnstileToken.value.length > 0 || import.meta.dev),
 )
 
 function normalizeRedirectTarget(raw: unknown): string | null {
@@ -121,9 +124,9 @@ const handleSubmit = async () => {
         <AppTurnstile
           ref="turnstileRef"
           action="login"
-          @verified="(token) => (turnstileToken = token)"
+          @verified="(token) => { turnstileToken = token; submitError = '' }"
           @expired="turnstileToken = ''"
-          @error="turnstileToken = ''"
+          @error="() => { turnstileToken = ''; submitError = 'Impossible de charger la vérification de sécurité. Vérifiez votre connexion réseau.' }"
         />
 
         <AppButton

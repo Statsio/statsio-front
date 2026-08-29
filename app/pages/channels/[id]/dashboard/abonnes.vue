@@ -4,6 +4,8 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import AppButton from '@/components/ui/AppButton.vue'
 import AppAvatar from '@/components/ui/AppAvatar.vue'
+import AppStatCard from '@/components/ui/AppStatCard.vue'
+import ChannelDashboardHeader from '@/components/channels/dashboard/ChannelDashboardHeader.vue'
 import { getChannelSubscribers, type ChannelSubscriber } from '@/api/channels'
 import { useChannelDashboard } from '@/composables/useChannelDashboard'
 import { useChannelStats } from '@/composables/useChannelStats'
@@ -11,101 +13,108 @@ import { getNameInitials, formatCompactNumber } from '@/lib/format'
 
 const route = useRoute()
 const channelId = computed(() => Number(route.params.id))
-const { channel, isLoading, loadError, ensureLoaded } = useChannelDashboard()
+const { channel } = useChannelDashboard()
 const { stats, loading: statsLoading } = useChannelStats(channelId)
 
 const subscribers = ref<ChannelSubscriber[]>([])
-const subscribersTotal = ref(0)
 const subscribersPage = ref(1)
 const subscribersLastPage = ref(1)
 const subscribersLoading = ref(true)
 
-const loadSubscribers = async (page: number) => {
+async function loadSubscribers(page: number) {
   subscribersLoading.value = true
   try {
     const res = await getChannelSubscribers(channelId.value, page)
     subscribers.value = res.data
-    subscribersTotal.value = res.total
     subscribersLastPage.value = res.last_page
     subscribersPage.value = page
-  } catch {}
-  finally { subscribersLoading.value = false }
+  } catch {
+    /* silencieux : la liste reste vide */
+  } finally {
+    subscribersLoading.value = false
+  }
 }
 
-onMounted(async () => {
-  await ensureLoaded(channelId.value)
-  await loadSubscribers(1)
-})
+const subscriberCount = computed(
+  () => channel.value?.profile?.subscriber_count ?? stats.value?.subscribers.total ?? 0,
+)
+
+onMounted(() => loadSubscribers(1))
 </script>
 
 <template>
-  <div class="mx-auto flex max-w-4xl flex-col gap-6">
+  <div>
+    <ChannelDashboardHeader
+      title="Abonnés"
+      :subtitle="`${formatCompactNumber(subscriberCount)} personnes suivent ${channel?.profile?.name ?? 'la chaîne'}.`"
+    />
 
-    <template v-if="isLoading">
-      <div class="h-10 w-64 animate-pulse rounded-2xl bg-slate-200" />
-      <div class="h-72 animate-pulse rounded-[2rem] bg-slate-100" />
-    </template>
+    <div class="grid gap-4 sm:grid-cols-3">
+      <AppStatCard label="Total" :value="formatCompactNumber(subscriberCount)" />
+      <AppStatCard
+        label="Nouveaux (7j)"
+        :value="statsLoading ? '…' : `+${stats?.subscribers.growth.newCount ?? 0}`"
+        :hint="stats ? 'derniers 7 jours' : ''"
+        hint-tone="positive"
+      />
+      <AppStatCard
+        label="Croissance (7j)"
+        :value="statsLoading ? '…' : `${stats?.subscribers.growth.growthPercent ?? 0} %`"
+        :hint-tone="(stats?.subscribers.growth.growthPercent ?? 0) >= 0 ? 'positive' : 'negative'"
+      />
+    </div>
 
-    <p v-else-if="loadError" class="rounded-[1.5rem] border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-700">
-      {{ loadError }}
-    </p>
+    <div class="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_3px_rgba(20,20,30,0.05)]">
+      <p class="mb-4 text-sm font-bold text-slate-950">Derniers abonnés</p>
 
-    <template v-else-if="channel">
-      <div>
-        <h1 class="text-[26px] font-bold text-slate-950">Abonnés</h1>
-        <p class="mt-1.5 text-[14.5px] text-slate-500">
-          {{ formatCompactNumber(channel.profile.subscriber_count ?? 0) }} personnes suivent {{ channel.profile.name }}.
-        </p>
+      <div v-if="subscribersLoading" class="space-y-3">
+        <div v-for="i in 4" :key="i" class="h-14 animate-pulse rounded-xl bg-slate-100" />
       </div>
 
-      <!-- Stats -->
-      <div class="grid gap-4 sm:grid-cols-3">
-        <div class="card-xl p-[18px]">
-          <p class="text-[11.5px] text-slate-500">Total</p>
-          <p class="mono mt-2 text-[22px] font-semibold text-slate-950">{{ formatCompactNumber(channel.profile.subscriber_count ?? 0) }}</p>
-        </div>
-        <div class="card-xl p-[18px]">
-          <p class="text-[11.5px] text-slate-500">Nouveaux (7j)</p>
-          <p class="mono mt-2 text-[22px] font-semibold text-emerald-600">{{ statsLoading ? '…' : `+${stats?.subscribers.growth.newCount ?? 0}` }}</p>
-        </div>
-        <div class="card-xl p-[18px]">
-          <p class="text-[11.5px] text-slate-500">Croissance (7j)</p>
-          <p class="mono mt-2 text-[22px] font-semibold text-slate-950">{{ statsLoading ? '…' : `${stats?.subscribers.growth.growthPercent ?? 0}%` }}</p>
-        </div>
-      </div>
-
-      <!-- Liste -->
-      <div class="card-xl p-6">
-        <p class="mb-4 text-sm font-bold text-slate-950">Tous les abonnés</p>
-        <div v-if="subscribersLoading" class="space-y-3">
-          <div v-for="i in 3" :key="i" class="h-14 animate-pulse rounded-[1.5rem] bg-slate-100" />
-        </div>
-        <div v-else class="flex flex-col gap-3">
-          <div
-            v-for="sub in subscribers"
-            :key="sub.id"
-            class="flex items-center justify-between rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4"
-          >
-            <div class="flex items-center gap-3">
-              <AppAvatar size="sm" :src="sub.avatar ?? undefined" :initials="getNameInitials(sub.name)" background="var(--color-primary)" />
-              <div>
-                <p class="text-sm font-semibold text-slate-950">{{ sub.name }}</p>
-                <p class="text-xs text-slate-500">{{ sub.email }}</p>
-              </div>
+      <div v-else class="flex flex-col gap-3">
+        <div
+          v-for="sub in subscribers"
+          :key="sub.id"
+          class="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5"
+        >
+          <div class="flex min-w-0 items-center gap-3">
+            <AppAvatar
+              size="sm"
+              :src="sub.avatar ?? undefined"
+              :initials="getNameInitials(sub.name)"
+              background="var(--color-primary)"
+            />
+            <div class="min-w-0">
+              <p class="truncate text-sm font-semibold text-slate-950">{{ sub.name }}</p>
+              <p class="truncate text-xs text-slate-500">{{ sub.email }}</p>
             </div>
-            <span class="text-xs text-slate-400">{{ new Date(sub.subscribed_at).toLocaleDateString('fr-FR') }}</span>
           </div>
-          <p v-if="!subscribers.length" class="text-sm text-slate-400">Aucun abonné pour l'instant.</p>
+          <span class="shrink-0 font-mono text-[11px] text-slate-400">
+            {{ new Date(sub.subscribed_at).toLocaleDateString('fr-FR') }}
+          </span>
         </div>
-
-        <!-- Pagination -->
-        <div v-if="subscribersLastPage > 1" class="mt-4 flex items-center justify-between">
-          <AppButton variant="secondary" size="sm" :disabled="subscribersPage <= 1" @click="loadSubscribers(subscribersPage - 1)">Précédent</AppButton>
-          <span class="text-sm text-slate-500">Page {{ subscribersPage }} / {{ subscribersLastPage }}</span>
-          <AppButton variant="secondary" size="sm" :disabled="subscribersPage >= subscribersLastPage" @click="loadSubscribers(subscribersPage + 1)">Suivant</AppButton>
-        </div>
+        <p v-if="!subscribers.length" class="text-sm text-slate-400">Aucun abonné pour l'instant.</p>
       </div>
-    </template>
 
+      <div v-if="subscribersLastPage > 1" class="mt-4 flex items-center justify-between">
+        <AppButton
+          variant="secondary"
+          size="sm"
+          :disabled="subscribersPage <= 1"
+          @click="loadSubscribers(subscribersPage - 1)"
+        >
+          Précédent
+        </AppButton>
+        <span class="text-sm text-slate-500">Page {{ subscribersPage }} / {{ subscribersLastPage }}</span>
+        <AppButton
+          variant="secondary"
+          size="sm"
+          :disabled="subscribersPage >= subscribersLastPage"
+          @click="loadSubscribers(subscribersPage + 1)"
+        >
+          Suivant
+        </AppButton>
+      </div>
+    </div>
   </div>
 </template>

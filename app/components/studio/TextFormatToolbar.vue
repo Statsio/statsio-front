@@ -3,7 +3,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useActiveEditor } from '@/composables/useActiveEditor'
 import { useStudioStore } from '@/stores/studio'
 import { TEXT_BLOCK_TYPES } from '@/types/studio'
-import ColumnPickerModal from './ui/ColumnPickerModal.vue'
+import VariablePickerModal from './VariablePickerModal.vue'
 
 const { activeEditor, editorVersion } = useActiveEditor()
 const studio = useStudioStore()
@@ -187,10 +187,8 @@ function onLineHeightInput(e: Event) {
 
 const showCodeModal = ref(false)
 
-function onPickValue(value: string) {
-  const cleaned = value.replace(/\{\{/g, '').replace(/\}\}/g, '')
-  activeEditor.value?.chain().focus().insertContent(`{{${cleaned}}}`).run()
-  showCodeModal.value = false
+function onPickVariable(token: string) {
+  activeEditor.value?.chain().focus().insertContent(token).run()
 }
 
 // ── Copy format ───────────────────────────────────────────────────────────────
@@ -252,7 +250,7 @@ function handleCopyFormat() {
   <div
     v-if="show"
     ref="toolbarRef"
-    class="inline-flex items-center h-10 px-3 bg-white/95 backdrop-blur-sm border border-[var(--color-secondary)] shadow-lg shadow-[var(--color-primary)]/10 rounded-2xl gap-0.5 flex-shrink-0 select-none"
+    class="inline-flex items-center h-10 px-3 bg-white/95 backdrop-blur-sm border border-[var(--studio-line)] shadow-[var(--studio-shadow-pop)] rounded-[11px] gap-0.5 flex-shrink-0 select-none"
   >
     <!-- Font family -->
     <AppSelect
@@ -260,15 +258,15 @@ function handleCopyFormat() {
       :options="FONT_OPTIONS"
       size="sm"
       teleport
-      button-class="!h-7 !rounded-lg !border-[var(--color-secondary)] !w-32 !min-h-0 !text-xs !text-slate-700"
+      button-class="!h-7 !rounded-lg !border-[var(--studio-line-strong)] !w-32 !min-h-0 !text-xs !text-[var(--studio-ink)]"
       @update:model-value="setFontFamily($event as string)"
     />
 
-    <div class="w-px h-5 bg-[var(--color-secondary)] mx-1.5 flex-shrink-0" />
+    <div class="w-px h-[18px] bg-[var(--studio-line)] mx-1 flex-shrink-0" />
 
     <!-- Font size -->
     <button
-      class="w-6 h-7 flex items-center justify-center text-slate-400 hover:text-[var(--color-primary)] hover:bg-[var(--color-primary)]/8 rounded-lg text-sm font-medium flex-shrink-0 transition-colors"
+      class="w-6 h-7 flex items-center justify-center text-[var(--studio-faint)] hover:text-[var(--color-primary)] hover:bg-[var(--studio-wash)] rounded-lg text-sm font-medium flex-shrink-0 transition-colors"
       @mousedown.prevent="adjustFontSize(-1)"
     >−</button>
     <input
@@ -276,30 +274,30 @@ function handleCopyFormat() {
       :value="currentFontSize"
       min="8"
       max="200"
-      class="w-10 h-7 text-center text-xs border border-[var(--color-secondary)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 [appearance:textfield] flex-shrink-0 text-slate-700"
+      class="w-10 h-7 text-center text-xs border border-[var(--studio-line-strong)] rounded-lg focus:outline-none focus:border-[var(--color-primary)] [appearance:textfield] flex-shrink-0 text-[var(--studio-ink)]"
       @change="onFontSizeInput"
     />
     <button
-      class="w-6 h-7 flex items-center justify-center text-slate-400 hover:text-[var(--color-primary)] hover:bg-[var(--color-primary)]/8 rounded-lg text-sm font-medium flex-shrink-0 transition-colors"
+      class="w-6 h-7 flex items-center justify-center text-[var(--studio-faint)] hover:text-[var(--color-primary)] hover:bg-[var(--studio-wash)] rounded-lg text-sm font-medium flex-shrink-0 transition-colors"
       @mousedown.prevent="adjustFontSize(1)"
     >+</button>
 
-    <div class="w-px h-5 bg-[var(--color-secondary)] mx-1.5 flex-shrink-0" />
+    <div class="w-px h-[18px] bg-[var(--studio-line)] mx-1 flex-shrink-0" />
 
     <!-- Text color -->
     <div class="relative flex-shrink-0">
       <button
         class="w-7 h-7 flex flex-col items-center justify-center rounded-lg transition-colors"
-        :class="openPopover === 'color' ? 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]' : 'hover:bg-[var(--color-primary)]/8'"
+        :class="openPopover === 'color' ? 'bg-[var(--studio-tag)] text-[var(--studio-tag-ink)]' : 'hover:bg-[var(--studio-wash)]'"
         title="Couleur du texte"
         @mousedown.prevent="togglePopover('color')"
       >
-        <span class="text-xs font-bold text-slate-700 leading-none">A</span>
+        <span class="text-xs font-bold text-[var(--studio-ink)] leading-none">A</span>
         <span class="w-4 h-1 rounded-full mt-0.5" :style="{ backgroundColor: currentColor || '#374151' }" />
       </button>
       <div
         v-if="openPopover === 'color'"
-        class="absolute top-full left-0 mt-1.5 z-50 bg-white border border-[var(--color-secondary)] rounded-xl shadow-2xl shadow-[var(--color-primary)]/10 p-2.5"
+        class="absolute top-full left-0 mt-1.5 z-50 bg-white border border-[var(--studio-line-strong)] rounded-xl shadow-[var(--studio-shadow-pop)] p-2.5"
         style="min-width: 128px"
       >
         <div class="grid grid-cols-4 gap-1.5 mb-2">
@@ -308,12 +306,12 @@ function handleCopyFormat() {
             :key="c"
             class="w-6 h-6 rounded-lg border-2 hover:scale-110 transition-transform"
             :style="{ backgroundColor: c }"
-            :class="currentColor === c ? 'border-[var(--color-primary)] scale-110' : 'border-transparent'"
+            :class="currentColor === c ? 'border-[var(--studio-ink)] scale-110' : 'border-transparent'"
             @mousedown.prevent="setColor(c)"
           />
         </div>
         <button
-          class="w-full text-[11px] text-slate-400 hover:text-[var(--color-primary)] transition-colors mt-0.5"
+          class="w-full text-[11px] text-[var(--studio-faint)] hover:text-[var(--studio-tag-ink)] transition-colors mt-0.5"
           @mousedown.prevent="setColor('')"
         >↺ Réinitialiser</button>
       </div>
@@ -323,7 +321,7 @@ function handleCopyFormat() {
     <div class="relative flex-shrink-0">
       <button
         class="w-7 h-7 flex flex-col items-center justify-center rounded-lg transition-colors"
-        :class="openPopover === 'highlight' ? 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]' : 'hover:bg-[var(--color-primary)]/8'"
+        :class="openPopover === 'highlight' ? 'bg-[var(--studio-tag)] text-[var(--studio-tag-ink)]' : 'hover:bg-[var(--studio-wash)]'"
         title="Surlignage"
         @mousedown.prevent="togglePopover('highlight')"
       >
@@ -332,7 +330,7 @@ function handleCopyFormat() {
       </button>
       <div
         v-if="openPopover === 'highlight'"
-        class="absolute top-full left-0 mt-1.5 z-50 bg-white border border-[var(--color-secondary)] rounded-xl shadow-2xl shadow-[var(--color-primary)]/10 p-2.5"
+        class="absolute top-full left-0 mt-1.5 z-50 bg-white border border-[var(--studio-line-strong)] rounded-xl shadow-[var(--studio-shadow-pop)] p-2.5"
         style="min-width: 112px"
       >
         <div class="grid grid-cols-4 gap-1.5 mb-2">
@@ -341,23 +339,23 @@ function handleCopyFormat() {
             :key="c"
             class="w-6 h-6 rounded-lg border-2 hover:scale-110 transition-transform"
             :style="{ backgroundColor: c }"
-            :class="currentHighlight === c ? 'border-[var(--color-primary)] scale-110' : 'border-transparent'"
+            :class="currentHighlight === c ? 'border-[var(--studio-ink)] scale-110' : 'border-transparent'"
             @mousedown.prevent="setHighlight(c)"
           />
         </div>
         <button
-          class="w-full text-[11px] text-slate-400 hover:text-[var(--color-primary)] transition-colors mt-0.5"
+          class="w-full text-[11px] text-[var(--studio-faint)] hover:text-[var(--studio-tag-ink)] transition-colors mt-0.5"
           @mousedown.prevent="setHighlight('')"
         >↺ Supprimer</button>
       </div>
     </div>
 
-    <div class="w-px h-5 bg-[var(--color-secondary)] mx-1.5 flex-shrink-0" />
+    <div class="w-px h-[18px] bg-[var(--studio-line)] mx-1 flex-shrink-0" />
 
     <!-- Bold -->
     <button
       class="w-7 h-7 flex items-center justify-center rounded-lg font-bold text-sm transition-colors flex-shrink-0"
-      :class="isBold ? 'bg-[var(--color-primary)]/15 text-[var(--color-primary)]' : 'text-slate-500 hover:bg-[var(--color-primary)]/8 hover:text-[var(--color-primary)]'"
+      :class="isBold ? 'bg-[var(--studio-tag)] text-[var(--studio-tag-ink)]' : 'text-[var(--studio-muted)] hover:bg-[var(--studio-wash)] hover:text-[var(--studio-tag-ink)]'"
       title="Gras (Ctrl+B)"
       @mousedown.prevent="toggleBold"
     >B</button>
@@ -365,7 +363,7 @@ function handleCopyFormat() {
     <!-- Italic -->
     <button
       class="w-7 h-7 flex items-center justify-center rounded-lg italic font-serif text-sm transition-colors flex-shrink-0"
-      :class="isItalic ? 'bg-[var(--color-primary)]/15 text-[var(--color-primary)]' : 'text-slate-500 hover:bg-[var(--color-primary)]/8 hover:text-[var(--color-primary)]'"
+      :class="isItalic ? 'bg-[var(--studio-tag)] text-[var(--studio-tag-ink)]' : 'text-[var(--studio-muted)] hover:bg-[var(--studio-wash)] hover:text-[var(--studio-tag-ink)]'"
       title="Italique (Ctrl+I)"
       @mousedown.prevent="toggleItalic"
     >I</button>
@@ -373,7 +371,7 @@ function handleCopyFormat() {
     <!-- Underline -->
     <button
       class="w-7 h-7 flex items-center justify-center rounded-lg underline text-sm transition-colors flex-shrink-0"
-      :class="isUnderline ? 'bg-[var(--color-primary)]/15 text-[var(--color-primary)]' : 'text-slate-500 hover:bg-[var(--color-primary)]/8 hover:text-[var(--color-primary)]'"
+      :class="isUnderline ? 'bg-[var(--studio-tag)] text-[var(--studio-tag-ink)]' : 'text-[var(--studio-muted)] hover:bg-[var(--studio-wash)] hover:text-[var(--studio-tag-ink)]'"
       title="Souligné (Ctrl+U)"
       @mousedown.prevent="toggleUnderline"
     >U</button>
@@ -381,28 +379,28 @@ function handleCopyFormat() {
     <!-- Strikethrough -->
     <button
       class="w-7 h-7 flex items-center justify-center rounded-lg line-through text-sm transition-colors flex-shrink-0"
-      :class="isStrike ? 'bg-[var(--color-primary)]/15 text-[var(--color-primary)]' : 'text-slate-500 hover:bg-[var(--color-primary)]/8 hover:text-[var(--color-primary)]'"
+      :class="isStrike ? 'bg-[var(--studio-tag)] text-[var(--studio-tag-ink)]' : 'text-[var(--studio-muted)] hover:bg-[var(--studio-wash)] hover:text-[var(--studio-tag-ink)]'"
       title="Barré"
       @mousedown.prevent="toggleStrike"
     >S</button>
 
-    <div class="w-px h-5 bg-[var(--color-secondary)] mx-1.5 flex-shrink-0" />
+    <div class="w-px h-[18px] bg-[var(--studio-line)] mx-1 flex-shrink-0" />
 
     <!-- Text transform (uppercase) -->
     <button
       class="h-7 px-2 flex items-center justify-center rounded-lg text-xs font-medium transition-colors flex-shrink-0"
-      :class="isUppercase ? 'bg-[var(--color-primary)]/15 text-[var(--color-primary)]' : 'text-slate-500 hover:bg-[var(--color-primary)]/8 hover:text-[var(--color-primary)]'"
+      :class="isUppercase ? 'bg-[var(--studio-tag)] text-[var(--studio-tag-ink)]' : 'text-[var(--studio-muted)] hover:bg-[var(--studio-wash)] hover:text-[var(--studio-tag-ink)]'"
       title="Majuscules"
       @mousedown.prevent="toggleUppercase"
     >aA</button>
 
-    <div class="w-px h-5 bg-[var(--color-secondary)] mx-1.5 flex-shrink-0" />
+    <div class="w-px h-[18px] bg-[var(--studio-line)] mx-1 flex-shrink-0" />
 
     <!-- Alignment dropdown -->
     <div class="relative flex-shrink-0">
       <button
         class="w-7 h-7 flex items-center justify-center rounded-lg transition-colors"
-        :class="openPopover === 'align' ? 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]' : 'text-slate-500 hover:bg-[var(--color-primary)]/8 hover:text-[var(--color-primary)]'"
+        :class="openPopover === 'align' ? 'bg-[var(--studio-tag)] text-[var(--studio-tag-ink)]' : 'text-[var(--studio-muted)] hover:bg-[var(--studio-wash)] hover:text-[var(--studio-tag-ink)]'"
         title="Alignement"
         @mousedown.prevent="togglePopover('align')"
       >
@@ -428,7 +426,7 @@ function handleCopyFormat() {
       </button>
       <div
         v-if="openPopover === 'align'"
-        class="absolute top-full left-0 mt-1.5 z-50 bg-white border border-[var(--color-secondary)] rounded-xl shadow-2xl shadow-[var(--color-primary)]/10 p-1 flex flex-col gap-0.5"
+        class="absolute top-full left-0 mt-1.5 z-50 bg-white border border-[var(--studio-line-strong)] rounded-xl shadow-[var(--studio-shadow-pop)] p-1 flex flex-col gap-0.5"
       >
         <button
           v-for="a in [
@@ -439,7 +437,7 @@ function handleCopyFormat() {
           ]"
           :key="a.v"
           class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors w-full text-left"
-          :class="currentAlign === a.v ? 'bg-[var(--color-primary)]/10 text-[var(--color-primary)] font-semibold' : 'text-slate-600 hover:bg-slate-50'"
+          :class="currentAlign === a.v ? 'bg-[var(--studio-tag)] text-[var(--studio-tag-ink)] font-semibold' : 'text-[var(--studio-ink)] hover:bg-[var(--studio-wash)]'"
           @mousedown.prevent="setAlign(a.v as 'left'|'center'|'right'|'justify'); openPopover = null"
         >
           <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -453,13 +451,13 @@ function handleCopyFormat() {
       </div>
     </div>
 
-    <div class="w-px h-5 bg-[var(--color-secondary)] mx-1.5 flex-shrink-0" />
+    <div class="w-px h-[18px] bg-[var(--studio-line)] mx-1 flex-shrink-0" />
 
     <!-- List dropdown -->
     <div class="relative flex-shrink-0">
       <button
         class="w-7 h-7 flex items-center justify-center rounded-lg transition-colors"
-        :class="(isBulletList || isOrderedList || openPopover === 'list') ? 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]' : 'text-slate-500 hover:bg-[var(--color-primary)]/8 hover:text-[var(--color-primary)]'"
+        :class="(isBulletList || isOrderedList || openPopover === 'list') ? 'bg-[var(--studio-tag)] text-[var(--studio-tag-ink)]' : 'text-[var(--studio-muted)] hover:bg-[var(--studio-wash)] hover:text-[var(--studio-tag-ink)]'"
         title="Listes"
         @mousedown.prevent="togglePopover('list')"
       >
@@ -474,11 +472,11 @@ function handleCopyFormat() {
       </button>
       <div
         v-if="openPopover === 'list'"
-        class="absolute top-full left-0 mt-1.5 z-50 bg-white border border-[var(--color-secondary)] rounded-xl shadow-2xl shadow-[var(--color-primary)]/10 p-1 flex flex-col gap-0.5"
+        class="absolute top-full left-0 mt-1.5 z-50 bg-white border border-[var(--studio-line-strong)] rounded-xl shadow-[var(--studio-shadow-pop)] p-1 flex flex-col gap-0.5"
       >
         <button
           class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors w-full text-left"
-          :class="isBulletList ? 'bg-[var(--color-primary)]/10 text-[var(--color-primary)] font-semibold' : 'text-slate-600 hover:bg-slate-50'"
+          :class="isBulletList ? 'bg-[var(--studio-tag)] text-[var(--studio-tag-ink)] font-semibold' : 'text-[var(--studio-ink)] hover:bg-[var(--studio-wash)]'"
           @mousedown.prevent="toggleBulletList(); openPopover = null"
         >
           <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -493,7 +491,7 @@ function handleCopyFormat() {
         </button>
         <button
           class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors w-full text-left"
-          :class="isOrderedList ? 'bg-[var(--color-primary)]/10 text-[var(--color-primary)] font-semibold' : 'text-slate-600 hover:bg-slate-50'"
+          :class="isOrderedList ? 'bg-[var(--studio-tag)] text-[var(--studio-tag-ink)] font-semibold' : 'text-[var(--studio-ink)] hover:bg-[var(--studio-wash)]'"
           @mousedown.prevent="toggleOrderedList(); openPopover = null"
         >
           <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -509,13 +507,13 @@ function handleCopyFormat() {
       </div>
     </div>
 
-    <div class="w-px h-5 bg-[var(--color-secondary)] mx-1.5 flex-shrink-0" />
+    <div class="w-px h-[18px] bg-[var(--studio-line)] mx-1 flex-shrink-0" />
 
     <!-- Spacing popup -->
     <div class="relative flex-shrink-0">
       <button
         class="w-7 h-7 flex items-center justify-center rounded-lg transition-colors"
-        :class="openPopover === 'spacing' ? 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]' : 'text-slate-500 hover:bg-[var(--color-primary)]/8 hover:text-[var(--color-primary)]'"
+        :class="openPopover === 'spacing' ? 'bg-[var(--studio-tag)] text-[var(--studio-tag-ink)]' : 'text-[var(--studio-muted)] hover:bg-[var(--studio-wash)] hover:text-[var(--studio-tag-ink)]'"
         title="Espacement"
         @mousedown.prevent="togglePopover('spacing')"
       >
@@ -529,15 +527,15 @@ function handleCopyFormat() {
       </button>
       <div
         v-if="openPopover === 'spacing'"
-        class="absolute top-full right-0 mt-1.5 z-50 bg-white border border-[var(--color-secondary)] rounded-xl shadow-2xl shadow-[var(--color-primary)]/10 p-3"
+        class="absolute top-full right-0 mt-1.5 z-50 bg-white border border-[var(--studio-line-strong)] rounded-xl shadow-[var(--studio-shadow-pop)] p-3"
         style="min-width: 200px"
       >
         <!-- Letter spacing -->
         <div class="mb-3">
-          <label class="block text-xs font-medium text-slate-600 mb-1.5">Espacement des lettres (em)</label>
+          <label class="block text-xs font-medium text-[var(--studio-ink)] mb-1.5">Espacement des lettres (em)</label>
           <div class="flex items-center gap-1.5">
             <button
-              class="w-6 h-6 flex items-center justify-center rounded-lg border border-[var(--color-secondary)] text-slate-500 hover:bg-[var(--color-primary)]/8 hover:text-[var(--color-primary)] text-sm flex-shrink-0 transition-colors"
+              class="w-6 h-6 flex items-center justify-center rounded-lg border border-[var(--studio-line-strong)] text-[var(--studio-muted)] hover:bg-[var(--studio-wash)] hover:text-[var(--studio-tag-ink)] text-sm flex-shrink-0 transition-colors"
               @mousedown.prevent="adjustLetterSpacing(-0.01)"
             >−</button>
             <input
@@ -546,11 +544,11 @@ function handleCopyFormat() {
               step="0.01"
               min="-0.1"
               max="1"
-              class="flex-1 h-6 text-center text-xs border border-[var(--color-secondary)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 [appearance:textfield]"
+              class="flex-1 h-6 text-center text-xs border border-[var(--studio-line-strong)] rounded-lg focus:outline-none focus:border-[var(--color-primary)] [appearance:textfield]"
               @change="onLetterSpacingInput"
             />
             <button
-              class="w-6 h-6 flex items-center justify-center rounded-lg border border-[var(--color-secondary)] text-slate-500 hover:bg-[var(--color-primary)]/8 hover:text-[var(--color-primary)] text-sm flex-shrink-0 transition-colors"
+              class="w-6 h-6 flex items-center justify-center rounded-lg border border-[var(--studio-line-strong)] text-[var(--studio-muted)] hover:bg-[var(--studio-wash)] hover:text-[var(--studio-tag-ink)] text-sm flex-shrink-0 transition-colors"
               @mousedown.prevent="adjustLetterSpacing(0.01)"
             >+</button>
           </div>
@@ -558,10 +556,10 @@ function handleCopyFormat() {
 
         <!-- Line height -->
         <div>
-          <label class="block text-xs font-medium text-slate-600 mb-1.5">Interligne</label>
+          <label class="block text-xs font-medium text-[var(--studio-ink)] mb-1.5">Interligne</label>
           <div class="flex items-center gap-1.5">
             <button
-              class="w-6 h-6 flex items-center justify-center rounded-lg border border-[var(--color-secondary)] text-slate-500 hover:bg-[var(--color-primary)]/8 hover:text-[var(--color-primary)] text-sm flex-shrink-0 transition-colors"
+              class="w-6 h-6 flex items-center justify-center rounded-lg border border-[var(--studio-line-strong)] text-[var(--studio-muted)] hover:bg-[var(--studio-wash)] hover:text-[var(--studio-tag-ink)] text-sm flex-shrink-0 transition-colors"
               @mousedown.prevent="adjustLineHeight(-0.1)"
             >−</button>
             <input
@@ -570,11 +568,11 @@ function handleCopyFormat() {
               step="0.1"
               min="0.5"
               max="5"
-              class="flex-1 h-6 text-center text-xs border border-[var(--color-secondary)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 [appearance:textfield]"
+              class="flex-1 h-6 text-center text-xs border border-[var(--studio-line-strong)] rounded-lg focus:outline-none focus:border-[var(--color-primary)] [appearance:textfield]"
               @change="onLineHeightInput"
             />
             <button
-              class="w-6 h-6 flex items-center justify-center rounded-lg border border-[var(--color-secondary)] text-slate-500 hover:bg-[var(--color-primary)]/8 hover:text-[var(--color-primary)] text-sm flex-shrink-0 transition-colors"
+              class="w-6 h-6 flex items-center justify-center rounded-lg border border-[var(--studio-line-strong)] text-[var(--studio-muted)] hover:bg-[var(--studio-wash)] hover:text-[var(--studio-tag-ink)] text-sm flex-shrink-0 transition-colors"
               @mousedown.prevent="adjustLineHeight(0.1)"
             >+</button>
           </div>
@@ -582,22 +580,22 @@ function handleCopyFormat() {
       </div>
     </div>
 
-    <div class="w-px h-5 bg-[var(--color-secondary)] mx-1.5 flex-shrink-0" />
+    <div class="w-px h-[18px] bg-[var(--studio-line)] mx-1 flex-shrink-0" />
 
     <!-- Insert dynamic value -->
     <button
       class="h-7 px-2 flex items-center gap-1 rounded-lg text-xs font-mono font-semibold transition-colors flex-shrink-0"
-      :class="showCodeModal ? 'bg-[var(--color-primary)]/15 text-[var(--color-primary)]' : 'text-slate-500 hover:bg-[var(--color-primary)]/8 hover:text-[var(--color-primary)]'"
+      :class="showCodeModal ? 'bg-[var(--studio-tag)] text-[var(--studio-tag-ink)]' : 'text-[var(--studio-muted)] hover:bg-[var(--studio-wash)] hover:text-[var(--studio-tag-ink)]'"
       title="Insérer une valeur dynamique"
       @mousedown.prevent="showCodeModal = true"
     >{ }</button>
 
-    <div class="w-px h-5 bg-[var(--color-secondary)] mx-1.5 flex-shrink-0" />
+    <div class="w-px h-[18px] bg-[var(--studio-line)] mx-1 flex-shrink-0" />
 
     <!-- Copy format -->
     <button
       class="h-7 px-2 flex items-center gap-1 rounded-lg text-xs transition-colors flex-shrink-0"
-      :class="isCopyMode ? 'bg-[var(--color-primary)]/15 text-[var(--color-primary)] ring-1 ring-[var(--color-primary)]/30' : 'text-slate-500 hover:bg-[var(--color-primary)]/8 hover:text-[var(--color-primary)]'"
+      :class="isCopyMode ? 'bg-[var(--studio-tag)] text-[var(--studio-tag-ink)] ring-1 ring-[var(--color-primary)]/30' : 'text-[var(--studio-muted)] hover:bg-[var(--studio-wash)] hover:text-[var(--studio-tag-ink)]'"
       :title="isCopyMode ? 'Coller la mise en forme (cliquez à nouveau)' : 'Copier la mise en forme'"
       @mousedown.prevent="handleCopyFormat"
     >
@@ -611,12 +609,11 @@ function handleCopyFormat() {
     </button>
   </div>
 
-  <!-- Code / dynamic value modal -->
-  <ColumnPickerModal
-    :show="showCodeModal"
-    :block="selectedBlock!"
-    mode="expression"
-    @update:model-value="onPickValue"
+  <!-- Insertion de variable dynamique -->
+  <VariablePickerModal
+    v-if="showCodeModal"
+    :context="`${selectedBlock?.type ?? 'texte'} · contenu`"
+    @pick="onPickVariable"
     @close="showCodeModal = false"
   />
 </template>

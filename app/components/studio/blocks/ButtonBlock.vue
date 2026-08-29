@@ -35,7 +35,7 @@ const sizeClass = computed(() => ({
   <!-- Empty state -->
   <div
     v-if="isEmpty"
-    class="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 py-10 text-slate-400"
+    class="flex flex-col items-center justify-center gap-2 rounded-[14px] border-2 border-dashed border-[var(--studio-line)] bg-[var(--studio-note)] py-10 text-[var(--studio-faint)]"
   >
     <svg class="w-7 h-7 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.042 21.672 13.684 16.6m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672zm-7.518-.267A8.25 8.25 0 1 1 20.25 10.5M8.288 14.212A5.25 5.25 0 1 1 17.25 10.5" />
@@ -55,6 +55,6 @@ const sizeClass = computed(() => ({
     >
       {{ label }}
     </component>
-    <p v-if="!readonly" class="mt-1 text-[10px] text-slate-400">Non interactif en mode édition</p>
+    <p v-if="!readonly" class="mt-1 text-[10px] text-[var(--studio-faint)]">Non interactif en mode édition</p>
   </div>
 </template>

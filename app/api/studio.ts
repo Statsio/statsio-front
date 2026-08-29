@@ -47,6 +47,7 @@ export async function deleteDataset(datasetId: string): Promise<void> {
 type BlockQueryParams = {
   columns?: string[]
   limit?: number
+  offset?: number
   distinctColumn?: string | null
   sortColumn?: string | null
   sortDirection?: 'asc' | 'desc' | null
@@ -63,6 +64,7 @@ function buildParamsSerializer(p: BlockQueryParams): string {
     p.columns.forEach((c: string) => parts.push(`columns[]=${encodeURIComponent(c)}`))
   }
   if (p.limit !== undefined) parts.push(`limit=${p.limit}`)
+  if (p.offset) parts.push(`offset=${p.offset}`)
   if (p.distinctColumn) parts.push(`distinct_column=${encodeURIComponent(p.distinctColumn)}`)
   if (p.sortColumn) parts.push(`sort_column=${encodeURIComponent(p.sortColumn)}`)
   if (p.sortDirection) parts.push(`sort_direction=${p.sortDirection}`)
@@ -168,22 +170,102 @@ export async function fetchPublicSearchRows(
   return data.data?.rows ?? []
 }
 
-export async function fetchDistinctValues(datasetId: string, column: string, search: string): Promise<string[]> {
-  const { data } = await apiHttp.get(STATSIO_API.datasets.query(datasetId), {
-    params: {},
-    paramsSerializer: () => {
-      let qs = `columns[]=${encodeURIComponent(column)}&distinct=true&limit=100`
-      if (search) qs += `&search=${encodeURIComponent(search)}`
-      return qs
-    },
-  })
-  const rows: Record<string, unknown>[] = data.data?.rows ?? []
+function distinctParamsSerializer(
+  column: string,
+  search: string,
+  filters: import('@/types/studio').BlockFilter[],
+): () => string {
+  return () => {
+    let qs = `columns[]=${encodeURIComponent(column)}&distinct=true&limit=100`
+    if (search) qs += `&search=${encodeURIComponent(search)}`
+    filters.forEach((f, i) => {
+      if (!f.column || f.value === '') return
+      qs += `&filters[${i}][column]=${encodeURIComponent(f.column)}`
+      qs += `&filters[${i}][operator]=${encodeURIComponent(f.operator)}`
+      qs += `&filters[${i}][value]=${encodeURIComponent(f.value)}`
+    })
+    return qs
+  }
+}
+
+function pluckDistinct(rows: Record<string, unknown>[], column: string): string[] {
   const seen = new Set<string>()
   for (const row of rows) {
     const val = row[column]
     if (val !== null && val !== undefined && val !== '') seen.add(String(val))
   }
   return Array.from(seen)
+}
+
+export async function fetchDistinctValues(
+  datasetId: string,
+  column: string,
+  search: string,
+  filters: import('@/types/studio').BlockFilter[] = [],
+): Promise<string[]> {
+  const { data } = await apiHttp.get(STATSIO_API.datasets.query(datasetId), {
+    params: {},
+    paramsSerializer: distinctParamsSerializer(column, search, filters),
+  })
+  return pluckDistinct(data.data?.rows ?? [], column)
+}
+
+export async function fetchPublicDistinctValues(
+  docSlug: string,
+  datasetId: string,
+  column: string,
+  search = '',
+  filters: import('@/types/studio').BlockFilter[] = [],
+): Promise<string[]> {
+  const { data } = await publicHttp.get(
+    STATSIO_API.studioContent.publicDatasetQuery(docSlug, datasetId),
+    { params: {}, paramsSerializer: distinctParamsSerializer(column, search, filters) },
+  )
+  return pluckDistinct(data.data?.rows ?? [], column)
+}
+
+// ─── Scalar aggregate ────────────────────────────────────────────────────────
+// Une seule valeur agrégée (MIN/MAX/AVG/COUNT/SUM) sur un dataset filtré —
+// socle du moteur d'expressions `{{ AVG(prix | carburant=gazole) }}` (Brique 3
+// du plan Statsdata v2). S'appuie sur l'endpoint `query` existant : une
+// agrégation sans `group_by` renvoie déjà une ligne unique.
+
+export interface ScalarAggregateParams {
+  fn: import('@/types/studio').AggregateFunction
+  column: string
+  filters?: import('@/types/studio').BlockFilter[]
+  joins?: import('@/types/studio').BlockJoin[]
+}
+
+function scalarAggregateQuery(p: ScalarAggregateParams): BlockQueryParams {
+  return {
+    columns: [p.column],
+    limit: 1,
+    filters: p.filters,
+    joins: p.joins,
+    aggregate: p.fn,
+    aggregateColumns: [p.column],
+    groupBy: [],
+  }
+}
+
+function readScalar(result: BlockQueryResult, column: string): number | null {
+  const raw = result.rows[0]?.[column]
+  if (raw === null || raw === undefined || raw === '') return null
+  const n = typeof raw === 'number' ? raw : Number(raw)
+  return Number.isFinite(n) ? n : null
+}
+
+export async function fetchScalarAggregate(datasetId: string, params: ScalarAggregateParams): Promise<number | null> {
+  return readScalar(await fetchBlockData(datasetId, scalarAggregateQuery(params)), params.column)
+}
+
+export async function fetchPublicScalarAggregate(
+  docSlug: string,
+  datasetId: string,
+  params: ScalarAggregateParams,
+): Promise<number | null> {
+  return readScalar(await fetchPublicBlockData(docSlug, datasetId, scalarAggregateQuery(params)), params.column)
 }
 
 // ─── StatsData document (page) ───────────────────────────────────────────────
@@ -195,6 +277,19 @@ export interface ContentChannel {
   logo_url?: string | null
   custom_color_primary?: string | null
   custom_color_secondary?: string | null
+  /** Only present on `fetchPublicStatsDataDocument` — true if the current viewer follows this channel. */
+  is_following?: boolean
+}
+
+/** Un jeu de données rattaché à un contenu, avec sa fraîcheur (page publique). */
+export interface ContentDataset {
+  id: string
+  name: string
+  row_count?: number
+  is_live?: boolean
+  last_refreshed_at?: string | null
+  next_refresh_at?: string | null
+  refresh_frequency?: string | null
 }
 
 export interface StatsDataDocument {
@@ -212,18 +307,21 @@ export interface StatsDataDocument {
   /** Only present when published_as === 'channel' — the channel's name + custom brand colors. */
   channel?: ContentChannel | null
   author?: { name: string }
-  datasets?: { id: string; name: string; row_count?: number }[]
+  datasets?: ContentDataset[]
   created_at?: string
   updated_at?: string
   pages?: import('@/types/studio').StudioDocumentPage[]
   sections?: import('@/types/studio').Section[]
   blocks?: StudioBlock[]
   categories?: string[]
+  coverage_type?: 'monde' | 'pays' | 'ville' | null
   emoji?: string | null
   /** Only meaningful for `type === 'survey'`. Null/undefined = ouvert indéfiniment. */
   response_deadline?: string | null
   /** Only present on `fetchPublicStatsDataDocument` — true if the current viewer may edit this content. */
   can_edit?: boolean
+  /** Only present on `fetchPublicStatsDataDocument` — true if the current viewer favorited this content. */
+  is_favorited?: boolean
 }
 
 export async function fetchUserStudioContents(type?: ContentType, channelId?: number): Promise<StatsDataDocument[]> {
@@ -282,12 +380,15 @@ export async function fetchPublicStatsDataDocument(slug: string): Promise<StatsD
 
 export interface SaveStatsDataDocumentPayload {
   title?: string
+  slug?: string
   description?: string | null
   status?: string
   visibility?: ContentVisibility
   categories?: string[]
   emoji?: string | null
   response_deadline?: string | null
+  published_as?: 'user' | 'channel' | null
+  channel_id?: number | null
   pages?: import('@/types/studio').StudioDocumentPage[]
   sections?: import('@/types/studio').Section[]
   blocks?: StudioBlock[]
@@ -319,12 +420,15 @@ export async function saveStatsDataDocument(
 
 function appendSavePayload(form: FormData, payload: SaveStatsDataDocumentPayload): void {
   if (payload.title !== undefined) form.append('title', payload.title)
+  if (payload.slug !== undefined) form.append('slug', payload.slug)
   if (payload.description !== undefined) form.append('description', payload.description ?? '')
   if (payload.status !== undefined) form.append('status', payload.status)
   if (payload.visibility !== undefined) form.append('visibility', payload.visibility)
   if (payload.categories !== undefined) payload.categories.forEach((c) => form.append('categories[]', c))
   if (payload.emoji !== undefined) form.append('emoji', payload.emoji ?? '')
   if (payload.response_deadline !== undefined) form.append('response_deadline', payload.response_deadline ?? '')
+  if (payload.published_as !== undefined) form.append('published_as', payload.published_as ?? '')
+  if (payload.channel_id !== undefined && payload.channel_id != null) form.append('channel_id', String(payload.channel_id))
 }
 
 export async function deleteStatsDataDocument(documentId: string): Promise<void> {
@@ -333,6 +437,46 @@ export async function deleteStatsDataDocument(documentId: string): Promise<void>
 
 export async function publishStatsDataDocument(documentId: string): Promise<void> {
   await apiHttp.patch(STATSIO_API.studioContent.one(documentId), { status: 'published' })
+}
+
+export async function setStatsDataDocumentStatus(documentId: string, status: 'draft' | 'published'): Promise<StatsDataDocument> {
+  const { data } = await apiHttp.patch(STATSIO_API.studioContent.one(documentId), { status })
+  return data.data
+}
+
+export async function fetchContentDataSources(documentId: string): Promise<import('@/api/channels').ChannelDataSource[]> {
+  const { data } = await apiHttp.get<{ success: boolean; data: RawContentDataSource[] }>(
+    STATSIO_API.studioContent.dataSources(documentId),
+  )
+  return (data.data ?? []).map((raw) => ({
+    id: raw.id,
+    name: raw.name,
+    type: raw.type,
+    sourceKind: raw.source_kind,
+    origin: raw.origin,
+    rowCount: raw.row_count,
+    status: raw.status,
+    lastRefreshedAt: raw.last_refreshed_at,
+    nextRefreshAt: raw.next_refresh_at,
+    refreshFrequency: raw.refresh_frequency,
+    usedByCount: raw.used_by_count,
+    usedBy: raw.used_by,
+  }))
+}
+
+type RawContentDataSource = {
+  id: string
+  name: string
+  type: string | null
+  source_kind: string | null
+  origin: string | null
+  row_count: number
+  status: import('@/api/channels').ChannelDataSource['status']
+  last_refreshed_at: string | null
+  next_refresh_at: string | null
+  refresh_frequency: string | null
+  used_by_count: number
+  used_by: import('@/api/channels').ChannelDataSourceUsage[]
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -349,6 +493,7 @@ function mapDatasetMeta(raw: Record<string, unknown>): DatasetMeta {
     isOwner: raw.is_owner !== false,
     dataSourceId: raw.data_source_id != null ? String(raw.data_source_id) : undefined,
     sourceKind: raw.source_kind === 'api' ? 'api' : undefined,
+    materialization: raw.materialization as DatasetMeta['materialization'],
     refreshFrequency: raw.refresh_frequency as DatasetMeta['refreshFrequency'],
     lastRefreshedAt: raw.last_refreshed_at ? String(raw.last_refreshed_at) : null,
     nextRefreshAt: raw.next_refresh_at ? String(raw.next_refresh_at) : null,

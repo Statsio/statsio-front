@@ -25,6 +25,10 @@ export interface QueryMapping {
   supportsAggregate: boolean
   /** Paramètre de recherche plein texte détecté, si l'API upstream en expose un. */
   searchParam?: string | null
+  /** Paramètre upstream recevant le nom de colonne à trier — sans lui, sortableColumns reste déclaratif mais inopérant. */
+  sortParam?: string | null
+  /** Paramètre upstream recevant la direction ('asc'/'desc'), optionnel. */
+  sortDirectionParam?: string | null
   /** true si le budget de temps a été atteint avant d'avoir sondé toutes les colonnes. */
   probeTruncated: boolean
 }
@@ -127,7 +131,35 @@ function mapQueryMappingFromApi(raw: Record<string, unknown> | null | undefined)
     supportsJoins: raw.supports_joins === true,
     supportsAggregate: raw.supports_aggregate === true,
     searchParam: raw.search_param != null ? String(raw.search_param) : null,
+    sortParam: raw.sort_param != null ? String(raw.sort_param) : null,
+    sortDirectionParam: raw.sort_direction_param != null ? String(raw.sort_direction_param) : null,
     probeTruncated: raw.probe_truncated === true,
+  }
+}
+
+/**
+ * camelCase → snake_case, symétrique de mapQueryMappingFromApi() — construit l'override
+ * envoyé à PATCH /api/data-sources/{id}, fusionné côté backend par-dessus la détection
+ * automatique (voir CreateLiveApiDataSourceAction::reconfigure()).
+ */
+export function mapQueryMappingToApi(mapping: QueryMapping): Record<string, unknown> {
+  const filters: Record<string, unknown> = {}
+  for (const [column, f] of Object.entries(mapping.filters)) {
+    filters[column] = {
+      ...(f.param ? { param: f.param } : {}),
+      ...(f.range ? { range: { gte_param: f.range.gteParam, lte_param: f.range.lteParam } } : {}),
+      operators: f.operators,
+    }
+  }
+
+  return {
+    ...(mapping.countPath ? { count_path: mapping.countPath } : {}),
+    ...(mapping.maxPageSize != null ? { max_page_size: mapping.maxPageSize } : {}),
+    filters,
+    sortable_columns: mapping.sortableColumns,
+    ...(mapping.searchParam ? { search_param: mapping.searchParam } : {}),
+    ...(mapping.sortParam ? { sort_param: mapping.sortParam } : {}),
+    ...(mapping.sortDirectionParam ? { sort_direction_param: mapping.sortDirectionParam } : {}),
   }
 }
 
@@ -175,10 +207,75 @@ export function mapPaginationToApi(pagination: DataSourcePagination): Record<str
     if (base.next_link_source === 'body') {
       base.next_link_path = pagination.nextLinkPath || 'next_page_url'
     }
+    // Certaines API "lien suivant" acceptent aussi un paramètre de taille de page sur la
+    // première requête (ex. tabular-api data.gouv.fr : ?page_size=200) — le lien "next"
+    // renvoyé le conserve ensuite.
+    if (pagination.sizeParam) {
+      base.size_param = pagination.sizeParam
+      base.page_size = pagination.pageSize ?? 100
+    }
   }
   if (pagination.maxPages != null) base.max_pages = pagination.maxPages
 
   return base
+}
+
+function mapCapabilitiesFromApi(raw: Record<string, unknown> | undefined): SourceCapabilities | null {
+  if (!raw) return null
+
+  return {
+    compatibilityScore: Number(raw.compatibility_score ?? 0),
+    compatibleChartTypes: (raw.compatible_chart_types as ChartType[]) ?? [],
+    incompatibleChartTypes: (raw.incompatible_chart_types as ChartType[]) ?? [],
+    estimatedMaxRows: raw.estimated_max_rows != null ? Number(raw.estimated_max_rows) : null,
+    responseTimeMs: raw.response_time_ms != null ? Number(raw.response_time_ms) : null,
+  }
+}
+
+/** Réponse de `POST /source-api/detect-structure` — voir `ApiStructureDetector`/`LiveApiSourceProber` côté backend. */
+export interface DetectStructureResult {
+  /** true si la détection n'a pas pu aboutir complètement (enveloppe non trouvée, sondage échoué...). */
+  partial: boolean
+  reason?: string
+  message?: string
+  method: HttpMethod
+  dataPath: string | null
+  pagination: DataSourcePagination
+  queryMapping: QueryMapping | null
+  schema: DetectedSchemaColumn[]
+  sampleRows: Record<string, unknown>[]
+  rowCountHint: number | null
+  capabilities: SourceCapabilities | null
+}
+
+/**
+ * Analyse une API REST à partir de sa seule URL (+ headers d'auth optionnels) : détecte la méthode,
+ * l'enveloppe de la réponse, le style de pagination, le schéma des colonnes (avec rôle sémantique) et
+ * les filtres exploitables — pour pré-remplir la configuration au lieu de la saisir à la main.
+ */
+export async function detectApiStructure(url: string, headers: Record<string, string>): Promise<DetectStructureResult> {
+  const { data } = await apiHttp.post(STATSIO_API.sourceApi.detectStructure, { url, headers })
+
+  return {
+    partial: data.partial === true,
+    reason: data.reason ? String(data.reason) : undefined,
+    message: data.message ? String(data.message) : undefined,
+    method: (data.method as HttpMethod) ?? 'GET',
+    dataPath: data.data_path ? String(data.data_path) : null,
+    pagination: mapPaginationFromApi(data.pagination),
+    queryMapping: mapQueryMappingFromApi(data.query_mapping),
+    schema: Array.isArray(data.schema)
+      ? data.schema.map((c: Record<string, unknown>) => ({
+        name: String(c.name),
+        type: String(c.type),
+        nullable: c.nullable === true,
+        semanticRole: (c.semantic_role as SemanticRole) ?? 'unknown',
+      }))
+      : [],
+    sampleRows: Array.isArray(data.sample_rows) ? data.sample_rows : [],
+    rowCountHint: data.row_count_hint != null ? Number(data.row_count_hint) : null,
+    capabilities: mapCapabilitiesFromApi(data.capabilities),
+  }
 }
 
 function mapDataSource(raw: Record<string, unknown>): DataSourceDetail {

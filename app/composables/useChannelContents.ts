@@ -22,22 +22,30 @@ export const CONTENT_TYPE_FILTER_OPTIONS: { value: ContentTypeFilter; label: str
  * "Contenus récents" de la vue d'ensemble.
  */
 export function useChannelContents(channelId: Ref<number>, channel: Ref<Channel | null>) {
-  const docs = ref<StatsDataDocument[]>([])
-  const loading = ref(true)
+  // Liste partagée (shell + pages) mise en cache par chaîne ; `filter` reste local
+  // à chaque écran.
+  const docs = useState<StatsDataDocument[]>('channel-dashboard:contents', () => [])
+  const loading = useState('channel-dashboard:contents:loading', () => true)
+  const loadedId = useState<number | null>('channel-dashboard:contents:id', () => null)
+  const fetchingId = useState<number | null>('channel-dashboard:contents:fetching', () => null)
   const filter = ref<ContentTypeFilter>('all')
 
-  async function load() {
+  async function load(force = false) {
     if (!channelId.value) return
+    if (!force && (loadedId.value === channelId.value || fetchingId.value === channelId.value)) return
+    fetchingId.value = channelId.value
     loading.value = true
     try {
       docs.value = await fetchUserStudioContents(undefined, channelId.value)
+      loadedId.value = channelId.value
     } finally {
       loading.value = false
+      if (fetchingId.value === channelId.value) fetchingId.value = null
     }
   }
 
-  onMounted(load)
-  watch(channelId, load)
+  onMounted(() => load())
+  watch(channelId, () => load())
 
   function toDisplay(doc: StatsDataDocument): DisplayContent {
     const type = doc.type ?? 'statsdata'
@@ -94,6 +102,6 @@ export function useChannelContents(channelId: Ref<number>, channel: Ref<Channel 
     filteredContents,
     isEmpty,
     isFilteredEmpty,
-    reload: load,
+    reload: () => load(true),
   }
 }
