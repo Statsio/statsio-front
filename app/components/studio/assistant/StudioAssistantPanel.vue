@@ -2,6 +2,8 @@
 import { ref, computed, nextTick, watch, onMounted } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { useStudioAgentStore } from '@/stores/studio-agent'
+import MentionPicker from '@/components/studio/assistant/MentionPicker.vue'
+import { fetchStatsDataEmbeddableBlocks, type ContentMention } from '@/api/studio'
 
 const studio = useStudioStore()
 const agent = useStudioAgentStore()
@@ -9,6 +11,62 @@ const agent = useStudioAgentStore()
 const draft = ref('')
 const scrollEl = ref<HTMLElement | null>(null)
 const menuOpen = ref(false)
+
+// ─── Mentions `@` ────────────────────────────────────────────────────────────
+const textareaRef = ref<HTMLTextAreaElement | null>(null)
+const pickerRef = ref<InstanceType<typeof MentionPicker> | null>(null)
+/** Jeton `@…` en cours de saisie (null = pas de sélecteur ouvert). */
+const mention = ref<{ start: number; query: string } | null>(null)
+/** Contenus retenus, à joindre en contexte à l'assistant. */
+const mentions = ref<ContentMention[]>([])
+
+function syncMention() {
+  const el = textareaRef.value
+  if (!el) {
+    mention.value = null
+    return
+  }
+  const caret = el.selectionStart ?? draft.value.length
+  const m = /(?:^|\s)@([^\s@]*)$/.exec(draft.value.slice(0, caret))
+  const q = m?.[1]
+  mention.value = q === undefined ? null : { start: caret - q.length - 1, query: q }
+}
+
+function applyMention(item: ContentMention) {
+  const el = textareaRef.value
+  const caret = el?.selectionStart ?? draft.value.length
+  const start = mention.value?.start ?? caret
+  const label = `@${item.title} `
+  const before = draft.value.slice(0, start)
+  draft.value = before + label + draft.value.slice(caret)
+  mention.value = null
+  if (!mentions.value.some((x) => x.type === item.type && x.slug === item.slug)) mentions.value.push(item)
+  nextTick(() => {
+    const pos = (before + label).length
+    el?.setSelectionRange(pos, pos)
+    el?.focus()
+  })
+}
+
+function removeMention(item: ContentMention) {
+  mentions.value = mentions.value.filter((x) => !(x.type === item.type && x.slug === item.slug))
+}
+
+async function buildMentionContext(list: ContentMention[]): Promise<string> {
+  const lines = ['---', 'Contenus référencés par l’utilisateur (@) :']
+  for (const m of list) {
+    lines.push(`- [${m.type}] « ${m.title} » — slug: ${m.slug}`)
+    if (m.type === 'statsdata') {
+      try {
+        const { blocks } = await fetchStatsDataEmbeddableBlocks(m.slug)
+        for (const b of blocks) lines.push(`    • ${b.type} "${b.title}" → sourceBlockId: ${b.id}`)
+      } catch {
+        /* best effort */
+      }
+    }
+  }
+  return lines.join('\n')
+}
 
 const contentId = computed(() => studio.content?.id ?? null)
 const contentType = computed(() => studio.content?.type ?? 'statsdata')
@@ -26,9 +84,10 @@ const SUGGESTIONS: Record<string, string[]> = {
     'Trouve une source publique sur le chômage et fais-en un graphique',
   ],
   article: [
-    'Ajoute un titre et un paragraphe d’introduction',
-    'Insère un graphique d’évolution à partir de mes sources',
-    'Ajoute un encadré « à retenir » avec 3 points clés',
+    'Rédige l’article complet : chapô, 3-4 parties analysées, encadré « à retenir » et conclusion',
+    'Ajoute une partie « Ce que disent les régions » avec un titre, deux paragraphes et un graphique',
+    'Insère un encadré « à retenir » avec 3 points clés',
+    'Ajoute une citation d’expert et sa source',
   ],
   survey: [
     'Ajoute une question à choix unique sur la satisfaction',
@@ -72,12 +131,42 @@ watch(
 )
 
 async function send(text: string) {
-  if (!text.trim() || !canSend.value) return
+  const trimmed = text.trim()
+  if (!trimmed || !canSend.value) return
+
+  // Mentions encore présentes dans le brouillon envoyé.
+  const active = mentions.value.filter((m) => text.includes(`@${m.title}`))
   draft.value = ''
-  await agent.send(text)
+  mention.value = null
+  mentions.value = []
+
+  const apiText = active.length ? `${trimmed}\n\n${await buildMentionContext(active)}` : undefined
+  await agent.send(trimmed, apiText)
 }
 
 function onKeydown(e: KeyboardEvent) {
+  if (mention.value) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      pickerRef.value?.moveDown()
+      return
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      pickerRef.value?.moveUp()
+      return
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      mention.value = null
+      return
+    }
+    if ((e.key === 'Enter' || e.key === 'Tab') && pickerRef.value?.hasResults()) {
+      e.preventDefault()
+      pickerRef.value.selectActive()
+      return
+    }
+  }
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault()
     send(draft.value)
@@ -252,16 +341,40 @@ async function removeConversation(id: number) {
     </p>
 
     <footer class="border-t border-[var(--studio-line)] p-3">
-      <textarea
-        v-model="draft"
-        rows="2"
-        :disabled="!canSend"
-        placeholder="Écris à l’assistant…"
-        class="studio-input block w-full resize-none text-sm disabled:opacity-50"
-        @keydown="onKeydown"
-      />
+      <div v-if="mentions.length" class="mb-2 flex flex-wrap gap-1.5">
+        <span
+          v-for="m in mentions"
+          :key="`${m.type}:${m.slug}`"
+          class="inline-flex items-center gap-1 rounded-full bg-[var(--studio-tag)] px-2 py-1 text-[11px] font-semibold text-[var(--studio-tag-ink)]"
+        >
+          <span class="max-w-[160px] truncate">@{{ m.title }}</span>
+          <button type="button" class="leading-none opacity-60 hover:opacity-100" aria-label="Retirer" @click="removeMention(m)">✕</button>
+        </span>
+      </div>
+
+      <div class="relative">
+        <MentionPicker
+          v-if="mention"
+          ref="pickerRef"
+          :query="mention.query"
+          @select="applyMention"
+          @close="mention = null"
+        />
+        <textarea
+          ref="textareaRef"
+          v-model="draft"
+          rows="2"
+          :disabled="!canSend"
+          placeholder="Écris à l’assistant… (@ pour référencer un contenu)"
+          class="studio-input block w-full resize-none text-sm disabled:opacity-50"
+          @keydown="onKeydown"
+          @input="syncMention"
+          @click="syncMention"
+          @keyup="syncMention"
+        />
+      </div>
       <div class="mt-2 flex items-center justify-between">
-        <span class="text-[11px] text-slate-300">Entrée pour envoyer · Maj+Entrée retour à la ligne</span>
+        <span class="text-[11px] text-slate-300">Entrée pour envoyer · @ pour référencer</span>
         <button
           type="button"
           class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"

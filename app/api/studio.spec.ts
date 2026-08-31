@@ -9,6 +9,9 @@ import {
   fetchScalarAggregate,
   fetchPublicScalarAggregate,
   fetchPublicCatalog,
+  fetchPublicStatsDataBlock,
+  fetchStatsDataEmbeddableBlocks,
+  fetchContentMentions,
   saveStatsDataDocument,
 } from './studio'
 import { STATSIO_API } from './statsio-endpoints'
@@ -188,6 +191,55 @@ describe('app/api/studio', () => {
       expect(result.meta.total).toBe(1)
       expect(result.data[0]?.title).toBe('Hello')
       expect(apiMock.history.get).toHaveLength(0)
+    })
+  })
+
+  describe('bloc Statsdata réutilisé (sd-embed)', () => {
+    it('fetchPublicStatsDataBlock hits the public endpoint and unwraps block/doc/pages/datasets', async () => {
+      publicMock.onGet(STATSIO_API.studioContent.publicBlock('carburants', 'blk1')).reply(200, {
+        data: {
+          block: { id: 'blk1', type: 'kpi', fieldMapping: {}, config: {} },
+          doc: { id: '5', slug: 'carburants', title: 'Carburants' },
+          pages: [{ id: 'p1', title: 'Page 1' }],
+          datasets: [{ id: '9', name: 'Prix' }],
+        },
+      })
+
+      const res = await fetchPublicStatsDataBlock('carburants', 'blk1')
+
+      expect(res.block.id).toBe('blk1')
+      expect(res.doc.slug).toBe('carburants')
+      expect(res.pages).toHaveLength(1)
+      expect(res.datasets[0]!.name).toBe('Prix')
+      expect(apiMock.history.get).toHaveLength(0)
+    })
+
+    it('fetchContentMentions searches published content via the public endpoint', async () => {
+      publicMock.onGet(STATSIO_API.studioContent.publicMentions).reply((config) => {
+        expect(config.params).toMatchObject({ q: 'carbu' })
+        return [200, { data: [{ id: '1', type: 'statsdata', slug: 'carburants', title: 'Carburants', publisher: { name: 'X', is_channel: false } }] }]
+      })
+
+      const rows = await fetchContentMentions('carbu')
+
+      expect(rows).toHaveLength(1)
+      expect(rows[0]!.slug).toBe('carburants')
+      expect(apiMock.history.get).toHaveLength(0)
+    })
+
+    it('fetchStatsDataEmbeddableBlocks returns the doc + blocks list', async () => {
+      publicMock.onGet(STATSIO_API.studioContent.publicBlocks('carburants')).reply(200, {
+        data: {
+          doc: { id: '5', slug: 'carburants', title: 'Carburants' },
+          blocks: [{ id: 'blk1', type: 'bar', title: 'Prix par région', datasetName: 'Prix' }],
+        },
+      })
+
+      const { doc, blocks } = await fetchStatsDataEmbeddableBlocks('carburants')
+
+      expect(doc.title).toBe('Carburants')
+      expect(blocks).toHaveLength(1)
+      expect(blocks[0]!.type).toBe('bar')
     })
   })
 

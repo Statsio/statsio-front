@@ -9,6 +9,7 @@ import SearchBlockInspector from '@/components/studio/inspector/SearchBlockInspe
 import ParamBlockInspector from '@/components/studio/inspector/ParamBlockInspector.vue'
 import DataBlockInspector from '@/components/studio/inspector/DataBlockInspector.vue'
 import RecordBlockInspector from '@/components/studio/inspector/RecordBlockInspector.vue'
+import SdEmbedBlockInspector from '@/components/studio/inspector/SdEmbedBlockInspector.vue'
 import LoopBlockInspector from '@/components/studio/inspector/LoopBlockInspector.vue'
 import IfBlockInspector from '@/components/studio/inspector/IfBlockInspector.vue'
 import { BLOCK_META, type BlockType } from '@/types/studio'
@@ -31,11 +32,13 @@ const IF_TABS        = [{ id: 'condition', label: 'Condition' }]
 const TEXT_TABS      = [{ id: 'style', label: 'Style' }]
 const SEARCH_TABS    = [{ id: 'config', label: 'Configuration' }]
 const PARAM_TABS     = [{ id: 'config', label: 'Configuration' }]
+const SDEMBED_TABS   = [{ id: 'config', label: 'Configuration' }]
 const EDITORIAL_TABS = [{ id: 'editorial', label: 'Contenu' }]
 const FORM_TABS      = [{ id: 'form', label: 'Question' }]
 
 const isSearch    = computed(() => block.value?.type === 'search')
 const isParam     = computed(() => block.value?.type === 'param')
+const isSdEmbed   = computed(() => block.value?.type === 'sd-embed')
 const isLoop      = computed(() => block.value?.type === 'loop')
 const isCondition = computed(() => block.value?.type === 'if')
 const isEditorial = computed(() => EDITORIAL_TYPES.includes(block.value?.type as typeof EDITORIAL_TYPES[number]))
@@ -46,6 +49,7 @@ const currentTabs = computed(() => {
   if (isText.value) return TEXT_TABS
   if (isSearch.value) return SEARCH_TABS
   if (isParam.value) return PARAM_TABS
+  if (isSdEmbed.value) return SDEMBED_TABS
   if (isEditorial.value) return EDITORIAL_TABS
   if (isForm.value) return FORM_TABS
   if (isLoop.value) return LOOP_TABS
@@ -57,10 +61,11 @@ const currentTabs = computed(() => {
 
 const activeTab = ref('data')
 
-watch([() => block.value?.id, isText, isSearch, isParam, isCondition, isEditorial, isForm], () => {
+watch([() => block.value?.id, isText, isSearch, isParam, isSdEmbed, isCondition, isEditorial, isForm], () => {
   if (isText.value) activeTab.value = 'style'
   else if (isSearch.value) activeTab.value = 'config'
   else if (isParam.value) activeTab.value = 'config'
+  else if (isSdEmbed.value) activeTab.value = 'config'
   else if (isCondition.value) activeTab.value = 'condition'
   else if (isEditorial.value) activeTab.value = 'editorial'
   else if (isForm.value) activeTab.value = 'form'
@@ -127,6 +132,9 @@ const compFilters = computed<import('@/types/studio').BlockFilter[]>(() => block
       <!-- ══════════════ PARAM BLOCK ══════════════ -->
       <ParamBlockInspector v-if="isParam && block && activeTab === 'config'" :block="block" />
 
+      <!-- ══════════════ BLOC STATSDATA (sd-embed) ══════════════ -->
+      <SdEmbedBlockInspector v-if="isSdEmbed && block && activeTab === 'config'" :block="block" />
+
       <!-- ══════════════ IF BLOCK ══════════════ -->
       <IfBlockInspector v-if="isCondition && block && activeTab === 'condition'" :block="block" />
 
@@ -144,7 +152,7 @@ const compFilters = computed<import('@/types/studio').BlockFilter[]>(() => block
       <RecordBlockInspector v-if="isRecord && block" :block="block" :active-tab="activeTab" />
 
       <!-- ══════════════ DATA BLOCKS ══════════════ -->
-      <DataBlockInspector v-if="!isText && !isSearch && !isParam && !isEditorial && !isForm && !isLoop && !isCondition && !isRecord && block" :block="block" :active-tab="activeTab" />
+      <DataBlockInspector v-if="!isText && !isSearch && !isParam && !isSdEmbed && !isEditorial && !isForm && !isLoop && !isCondition && !isRecord && block" :block="block" :active-tab="activeTab" />
 
       <!-- ══════════════ TEXT BLOCKS ══════════════ -->
       <RichBlockInspector v-if="isText && block && activeTab === 'style'" :block="block" />

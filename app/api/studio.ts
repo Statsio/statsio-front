@@ -401,6 +401,80 @@ export async function fetchPublicStatsDataDocument(slug: string): Promise<StatsD
   return data.data
 }
 
+// ─── Mention `@` de l'assistant du Studio ────────────────────────────────────
+
+export interface ContentMention {
+  id: string
+  type: ContentType
+  slug: string
+  title: string
+  publisher: { name: string; is_channel: boolean }
+}
+
+/** Recherche de contenus publiés (article / statsdata / sondage) pour la mention `@`. */
+export async function fetchContentMentions(
+  q: string,
+  type?: ContentType,
+): Promise<ContentMention[]> {
+  const { data } = await publicHttp.get(STATSIO_API.studioContent.publicMentions, {
+    params: { q, ...(type ? { type } : {}) },
+  })
+  return data.data ?? []
+}
+
+// ─── Bloc Statsdata réutilisé dans un article (bloc `sd-embed`) ───────────────
+
+/** Métadonnées légères du Statsdata source d'un bloc embarqué. */
+export interface EmbeddedBlockDoc {
+  id: string
+  slug: string
+  title: string
+  type?: ContentType
+  status?: string
+  published_as?: 'user' | 'channel' | null
+  channel?: ContentChannel | null
+  author?: { name: string }
+}
+
+export interface EmbeddableBlockSummary {
+  id: string
+  type: import('@/types/studio').BlockType
+  title: string
+  datasetName?: string | null
+}
+
+export interface ResolvedEmbeddedBlock {
+  block: StudioBlock
+  doc: EmbeddedBlockDoc
+  pages: import('@/types/studio').StudioDocumentPage[]
+  datasets: ContentDataset[]
+  /** Paramètres déclarés sur la page source du bloc (pour résoudre ses jetons `{{param}}`). */
+  params: import('@/types/studio').PageParam[]
+}
+
+/** Liste les blocs embarquables d'un Statsdata publié (étape 2 du sélecteur). */
+export async function fetchStatsDataEmbeddableBlocks(
+  slug: string,
+): Promise<{ doc: EmbeddedBlockDoc; blocks: EmbeddableBlockSummary[] }> {
+  const { data } = await publicHttp.get(STATSIO_API.studioContent.publicBlocks(slug))
+  return { doc: data.data?.doc, blocks: data.data?.blocks ?? [] }
+}
+
+/** Résout un bloc unique d'un Statsdata publié pour l'afficher dans un article. */
+export async function fetchPublicStatsDataBlock(
+  slug: string,
+  blockId: string,
+): Promise<ResolvedEmbeddedBlock> {
+  const { data } = await publicHttp.get(STATSIO_API.studioContent.publicBlock(slug, blockId))
+  return {
+    block: data.data.block,
+    doc: data.data.doc,
+    pages: data.data.pages ?? [],
+    datasets: data.data.datasets ?? [],
+    params: data.data.params ?? [],
+  }
+}
+
 export interface SaveStatsDataDocumentPayload {
   title?: string
   slug?: string
