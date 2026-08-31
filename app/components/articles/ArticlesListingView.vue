@@ -1,14 +1,22 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
-import { fetchPublicArticles, type StatsDataDocument } from '@/api/studio'
-import { getCategoryColorClass } from '@/lib/articleCategoryColor'
-import { publicContentPath } from '@/lib/content-display'
-import { relativeUpdate } from '@/utils/statsDataFormat'
+import { computed } from 'vue'
+import { usePublicCatalog } from '@/composables/usePublicCatalog'
 import { useContentBasePath } from '@/composables/useContentBasePath'
-import AppButton from '@/components/ui/AppButton.vue'
-import AppDropdownMenu from '@/components/layout/AppDropdownMenu.vue'
-import AppDropdownMenuItem from '@/components/layout/AppDropdownMenuItem.vue'
+import { formatCatalogCount, formatRelativePublished } from '@/lib/catalog-format'
+import CatalogHero from '@/components/listing/CatalogHero.vue'
+import CatalogToolbar from '@/components/listing/CatalogToolbar.vue'
+import CatalogSearchField from '@/components/listing/CatalogSearchField.vue'
+import CatalogSortPills from '@/components/listing/CatalogSortPills.vue'
+import CatalogViewToggle from '@/components/listing/CatalogViewToggle.vue'
+import CatalogChipRow from '@/components/listing/CatalogChipRow.vue'
+import CatalogToggleChip from '@/components/listing/CatalogToggleChip.vue'
+import CatalogResultBar from '@/components/listing/CatalogResultBar.vue'
+import CatalogEmpty from '@/components/listing/CatalogEmpty.vue'
+import CatalogLoadMore from '@/components/listing/CatalogLoadMore.vue'
+import CatalogCta from '@/components/listing/CatalogCta.vue'
+import ArticleFeaturedCard from '@/components/articles/ArticleFeaturedCard.vue'
+import ArticleCatalogCard from '@/components/articles/ArticleCatalogCard.vue'
+import ArticleCatalogRow from '@/components/articles/ArticleCatalogRow.vue'
 
 const props = defineProps<{
   categories?: string[]
@@ -16,297 +24,209 @@ const props = defineProps<{
 }>()
 
 const basePath = useContentBasePath()
-
-const loading = ref(true)
-const docs = ref<StatsDataDocument[]>([])
-const search = ref('')
-const activeCategory = ref('')
-const sortMode = ref<'recent' | 'popular'>('recent')
-const isSortMenuOpen = ref(false)
-const sortMenuRef = ref<HTMLElement | null>(null)
-
-onMounted(async () => {
-  try {
-    docs.value = await fetchPublicArticles(props.categories)
-  } finally {
-    loading.value = false
-  }
+const {
+  qInput,
+  category,
+  format,
+  sort,
+  view,
+  hasData,
+  pending,
+  catalog,
+  anyFilter,
+  resetFilters,
+  loadMore,
+  selectCategory,
+  selectFormat,
+  toggleItemFavorite,
+  isFavorited,
+} = usePublicCatalog({
+  type: 'article',
+  brandCategories: props.categories,
+  key: `articles-catalog-${(props.categories ?? []).join(',')}`,
 })
 
-function toggleSortMenu() {
-  isSortMenuOpen.value = !isSortMenuOpen.value
-}
+const sortOptions: { value: 'trend' | 'recent' | 'views'; label: string }[] = [
+  { value: 'trend', label: 'Tendance' },
+  { value: 'recent', label: 'Récents' },
+  { value: 'views', label: 'Les plus lus' },
+]
 
-function closeSortMenu() {
-  isSortMenuOpen.value = false
-}
+const crumbs = computed(() => [
+  { label: 'Accueil', to: basePath.value || '/' },
+  { label: 'Articles' },
+])
 
-function selectSort(mode: 'recent' | 'popular') {
-  sortMode.value = mode
-  closeSortMenu()
-}
+const heroStats = computed(() => [
+  { label: 'Articles publiés', value: formatCatalogCount(catalog.value.stats.published) },
+  { label: 'Chaînes éditrices', value: formatCatalogCount(catalog.value.stats.channels) },
+  { label: 'Graphiques intégrés', value: formatCatalogCount(catalog.value.stats.charts) },
+  { label: 'Dernière parution', value: formatRelativePublished(catalog.value.stats.last_published_at) },
+])
 
-useClickOutside(sortMenuRef, closeSortMenu)
-
-const sortLabel = computed(() => (sortMode.value === 'popular' ? 'Les plus lus' : 'Plus récents'))
-
-const categoryOptions = computed(() => {
-  const set = new Set<string>()
-  for (const doc of docs.value) {
-    for (const cat of doc.categories ?? []) set.add(cat)
-  }
-  return Array.from(set)
+const categoryFacets = computed(() => catalog.value.facets.categories)
+const formatFacets = computed(() => {
+  const facets = catalog.value.facets.formats
+  const hasAny = facets.some((f) => f.value && f.count > 0)
+  return hasAny ? facets.filter((f) => !f.value || f.count > 0) : []
 })
 
-const filtered = computed(() => {
-  let result = docs.value
-
-  const query = search.value.trim().toLowerCase()
-  if (query) {
-    result = result.filter(
-      (article) =>
-        article.title.toLowerCase().includes(query) ||
-        (article.categories ?? []).some((c) => c.toLowerCase().includes(query)),
-    )
-  }
-  if (activeCategory.value) {
-    result = result.filter((article) => article.categories?.includes(activeCategory.value))
-  }
-
-  if (sortMode.value === 'popular') {
-    return [...result].sort((a, b) => (b.views_count ?? 0) - (a.views_count ?? 0))
-  }
-  return [...result].sort((a, b) => new Date(b.updated_at ?? 0).getTime() - new Date(a.updated_at ?? 0).getTime())
-})
-
-const featured = computed(() => filtered.value[0])
-const secondary = computed(() => filtered.value.slice(1, 4))
-const remaining = computed(() => filtered.value.slice(4))
-
-const statHighlight = computed(() => ({
-  value: filtered.value.length,
-  label: filtered.value.length > 1 ? 'articles disponibles' : 'article disponible',
-}))
-
-const pageTitle = computed(() => props.title || 'Articles')
-const pageSubtitle = computed(
-  () => `${filtered.value.length} article${filtered.value.length > 1 ? 's' : ''} · ${categoryOptions.value.length} thématiques`,
+const countLine = computed(
+  () => `${catalog.value.meta.total} articles · ${catalog.value.meta.shown} affichés`,
 )
+const contextLine = computed(() =>
+  anyFilter.value ? 'Filtres actifs' : 'Classés par tendance',
+)
+const moreCount = computed(() =>
+  Math.min(6, Math.max(0, catalog.value.meta.total - catalog.value.meta.shown)),
+)
+const showFeatured = computed(() => view.value === 'grid' && !anyFilter.value && Boolean(catalog.value.featured))
+const gridItems = computed(() => {
+  const items = catalog.value.data
+  if (!showFeatured.value || !catalog.value.featured) return items
+  return items.filter((item) => item.id !== catalog.value.featured?.id)
+})
 
-function selectCategory(category: string) {
-  activeCategory.value = category
-}
-
-function articlePath(slug?: string) {
-  return publicContentPath('article', slug ?? '', basePath.value)
+function onSelectTag(tag: string) {
+  qInput.value = tag
 }
 </script>
 
 <template>
-  <main class="pb-24 pt-4">
-    <section class="section pb-6">
-      <div class="container">
-        <div class="flex flex-wrap items-end justify-between gap-6">
-          <div>
-            <h1 class="text-3xl font-bold text-slate-950 sm:text-4xl">{{ pageTitle }}</h1>
-            <p class="mt-1.5 text-sm text-slate-500">{{ pageSubtitle }}</p>
-          </div>
+  <div class="bg-[#f4f3f8] pb-24">
+    <CatalogHero
+      :crumbs="crumbs"
+      badge="ARTICLES"
+      kicker="ENQUÊTES, DÉCRYPTAGES ET DOSSIERS DATA"
+      :title="title"
+      subtitle="Chaque article croise texte long, graphiques interactifs et jeux de données ouverts — signés par une chaîne ou un analyste indépendant."
+      hero-src="/brand/listings/articles-hero-light.png"
+      :stats="heroStats"
+    >
+      <template #title>
+        <template v-if="title">{{ title }}</template>
+        <template v-else>
+          Des <span class="text-primary">récits écrits</span> à partir des <span class="text-accent">chiffres</span>.
+        </template>
+      </template>
+    </CatalogHero>
 
-          <div class="flex flex-wrap items-center gap-4">
-            <label class="flex items-center gap-2 border-b border-slate-200 pb-0.5 text-sm text-slate-400 focus-within:border-slate-400">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                <circle cx="11" cy="11" r="7" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-              <input
-                v-model="search"
-                type="text"
-                placeholder="Rechercher un article…"
-                class="bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none"
-              />
-            </label>
+    <CatalogToolbar>
+      <template #search>
+        <CatalogSearchField v-model="qInput" placeholder="Rechercher un article, un auteur, un sujet…" />
+      </template>
+      <template #sort>
+        <CatalogSortPills v-model="sort" :options="sortOptions" />
+      </template>
+      <template #view>
+        <CatalogViewToggle v-model="view" />
+      </template>
 
-            <div class="h-4 w-px bg-slate-200" aria-hidden="true" />
+      <CatalogChipRow
+        v-if="categoryFacets.length > 1"
+        label="Rubrique"
+        :model-value="category"
+        :options="categoryFacets"
+        @update:model-value="selectCategory"
+      />
 
-            <div ref="sortMenuRef" class="relative">
-              <button
-                type="button"
-                class="flex items-center gap-1.5 text-sm font-semibold text-slate-900"
-                :aria-expanded="isSortMenuOpen"
-                aria-haspopup="menu"
-                @click="toggleSortMenu"
-              >
-                {{ sortLabel }}
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-                  <path d="M6 9l6 6 6-6" />
-                </svg>
-              </button>
-
-              <AppDropdownMenu v-if="isSortMenuOpen" label="Trier les articles" align="right" width-class="min-w-[180px]">
-                <AppDropdownMenuItem as="button" @click="selectSort('recent')">Plus récents</AppDropdownMenuItem>
-                <AppDropdownMenuItem as="button" @click="selectSort('popular')">Les plus lus</AppDropdownMenuItem>
-              </AppDropdownMenu>
-            </div>
-          </div>
-        </div>
-
-        <div v-if="categoryOptions.length > 0" class="mt-6 flex gap-7 overflow-x-auto border-b border-slate-200 pb-px">
-          <button
-            type="button"
-            class="shrink-0 whitespace-nowrap pb-3 text-[13.5px] font-bold transition-colors"
-            :class="
-              !activeCategory
-                ? 'border-b-2 border-[var(--color-primary)] text-slate-950'
-                : 'border-b-2 border-transparent text-slate-500 hover:text-slate-900'
-            "
-            @click="selectCategory('')"
-          >
-            Toutes
-          </button>
-          <button
-            v-for="cat in categoryOptions"
-            :key="cat"
-            type="button"
-            class="shrink-0 whitespace-nowrap pb-3 text-[13.5px] font-bold transition-colors"
-            :class="
-              activeCategory === cat
-                ? 'border-b-2 border-[var(--color-primary)] text-slate-950'
-                : 'border-b-2 border-transparent text-slate-500 hover:text-slate-900'
-            "
-            @click="selectCategory(cat)"
-          >
-            {{ cat }}
-          </button>
-        </div>
+      <div v-if="formatFacets.length > 1" class="flex flex-wrap items-center gap-2.5">
+        <CatalogChipRow
+          class="min-w-0 flex-1"
+          label="Format"
+          variant="mono"
+          :model-value="format"
+          :options="formatFacets"
+          @update:model-value="selectFormat"
+        />
+        <span class="flex-1" />
+        <CatalogToggleChip v-model="hasData" label="Avec Statsdata lié" />
+        <button
+          v-if="anyFilter"
+          type="button"
+          class="shrink-0 rounded-full border-[1.5px] border-slate-200 px-3.5 py-[7px] text-xs font-bold text-slate-500 transition hover:border-[#c4b5fd] hover:text-primary"
+          @click="resetFilters"
+        >
+          Réinitialiser
+        </button>
       </div>
-    </section>
-
-    <!-- Loading -->
-    <section v-if="loading" class="section pb-4">
-      <div class="container grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:grid-rows-2 lg:auto-rows-[200px]">
-        <div v-for="i in 6" :key="i" class="card h-full animate-pulse bg-slate-50" />
+      <div v-else class="flex flex-wrap items-center justify-end gap-2.5">
+        <CatalogToggleChip v-model="hasData" label="Avec Statsdata lié" />
+        <button
+          v-if="anyFilter"
+          type="button"
+          class="rounded-full border-[1.5px] border-slate-200 px-3.5 py-[7px] text-xs font-bold text-slate-500 transition hover:border-[#c4b5fd] hover:text-primary"
+          @click="resetFilters"
+        >
+          Réinitialiser
+        </button>
       </div>
-    </section>
+    </CatalogToolbar>
 
-    <template v-else>
-      <section v-if="featured" class="section pb-4">
-        <div class="container">
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:grid-rows-2 lg:auto-rows-[200px]">
-            <RouterLink
-              :to="articlePath(featured.slug)"
-              class="group relative overflow-hidden rounded-2xl bg-slate-100 sm:col-span-2 lg:col-span-2 lg:row-span-2"
-            >
-              <img
-                v-if="featured.thumbnail_url"
-                :src="featured.thumbnail_url"
-                :alt="featured.title"
-                class="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
-              />
-              <div v-else class="absolute inset-0 bg-[var(--color-primary)]/10" aria-hidden="true" />
-              <div class="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/10 to-transparent" />
-              <div class="absolute inset-0 flex flex-col justify-end p-6">
-                <span class="text-[11px] font-bold uppercase tracking-[0.04em] text-white/85">
-                  {{ featured.categories?.[0] ?? 'Article' }} · À la une
-                </span>
-                <p class="mt-2 text-xl font-bold leading-tight text-white sm:text-2xl">{{ featured.title }}</p>
-                <p class="mt-2.5 text-xs text-white/70">{{ featured.author?.name ?? 'Anonyme' }}</p>
-              </div>
-            </RouterLink>
+    <div class="mx-auto max-w-[1240px] px-4 py-6 sm:px-6 lg:px-8 lg:pb-[90px] lg:pt-[26px]">
+      <CatalogResultBar :count-line="countLine" :context-line="contextLine" />
 
-            <RouterLink
-              v-for="item in secondary"
-              :key="item.slug"
-              :to="articlePath(item.slug)"
-              class="group relative min-h-[200px] overflow-hidden rounded-2xl bg-slate-100 lg:min-h-0"
-            >
-              <img
-                v-if="item.thumbnail_url"
-                :src="item.thumbnail_url"
-                :alt="item.title"
-                class="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
-              />
-              <div v-else class="absolute inset-0 bg-[var(--color-primary)]/10" aria-hidden="true" />
-              <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/5 to-transparent" />
-              <div class="absolute inset-0 flex flex-col justify-end p-4">
-                <p class="text-[14.5px] font-bold leading-snug text-white">{{ item.title }}</p>
-              </div>
-            </RouterLink>
-
-            <div class="flex min-h-[200px] flex-col justify-between rounded-2xl border border-slate-200 p-5 lg:min-h-0">
-              <div>
-                <span class="text-[11px] font-bold uppercase text-[var(--color-primary)]">En chiffres</span>
-                <p class="mono mt-2 text-[28px] font-bold text-slate-950">{{ statHighlight.value }}</p>
-                <p class="mt-1 text-xs leading-snug text-slate-500">{{ statHighlight.label }}</p>
-              </div>
-              <svg width="100%" height="34" viewBox="0 0 160 34" preserveAspectRatio="none" aria-hidden="true">
-                <polyline
-                  points="0,28 30,22 60,24 90,14 120,16 160,4"
-                  fill="none"
-                  stroke="var(--color-primary)"
-                  stroke-width="2.5"
-                />
-              </svg>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section v-if="remaining.length > 0" class="section pt-6">
-        <div class="container">
-          <div class="flex items-baseline justify-between">
-            <p class="text-[15px] font-bold text-slate-950">Dernières analyses</p>
-          </div>
-          <div class="mt-2 flex flex-col">
-            <RouterLink
-              v-for="item in remaining"
-              :key="item.slug"
-              :to="articlePath(item.slug)"
-              class="flex items-center gap-4 border-b border-slate-100 py-4 last:border-b-0"
-            >
-              <div class="h-16 w-24 shrink-0 overflow-hidden rounded-lg bg-slate-100">
-                <img v-if="item.thumbnail_url" :src="item.thumbnail_url" :alt="item.title" class="h-full w-full object-cover" />
-              </div>
-              <div class="min-w-0 flex-1">
-                <span class="text-[10.5px] font-bold uppercase" :class="getCategoryColorClass(item.categories?.[0] ?? '')">
-                  {{ item.categories?.[0] ?? 'Article' }}
-                </span>
-                <p class="mt-1 text-[14.5px] font-bold text-slate-950">{{ item.title }}</p>
-              </div>
-              <span class="shrink-0 text-xs text-slate-400">{{ relativeUpdate(item.updated_at) }}</span>
-            </RouterLink>
-          </div>
-        </div>
-      </section>
-
-      <section v-if="filtered.length === 0" class="section pt-10">
-        <div class="container py-16 text-center text-slate-400">
-          <p class="text-sm">Aucun article ne correspond à votre recherche.</p>
-        </div>
-      </section>
-    </template>
-
-    <section class="section pt-14">
-      <div class="container">
-        <div class="rounded-[2.5rem] border border-slate-200 bg-white px-6 py-8 shadow-[0_40px_120px_-66px_rgba(15,23,42,0.4)] sm:px-8 lg:px-10">
-          <div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-            <div class="flex flex-col gap-4">
-              <p class="eyebrow text-primary">Publier sur Statsio</p>
-              <h2 class="text-3xl font-semibold text-slate-950">Votre rédaction peut passer du signal à l’article sans changer d’outil.</h2>
-              <p class="max-w-2xl text-base leading-7 text-slate-600">
-                Brief éditorial, données, notes de contexte, visualisations et diffusion: la page articles s’inscrit dans un flux de production plus large.
-              </p>
-            </div>
-            <div class="flex flex-wrap gap-3">
-              <AppButton as="router-link" to="/register" variant="primary" size="md">
-                Créer un espace
-              </AppButton>
-              <AppButton as="router-link" to="/login" variant="outline" size="md">
-                Voir la démo
-              </AppButton>
-            </div>
-          </div>
-        </div>
+      <div v-if="pending && !catalog.data.length" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div v-for="i in 6" :key="i" class="h-72 animate-pulse rounded-[18px] bg-white" />
       </div>
-    </section>
-  </main>
+
+      <template v-else-if="catalog.meta.total > 0">
+        <ArticleFeaturedCard v-if="showFeatured && catalog.featured" :item="catalog.featured" />
+
+        <div v-if="view === 'grid'" class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <ArticleCatalogCard
+            v-for="item in gridItems"
+            :key="item.id"
+            :item="item"
+            :favorited="isFavorited(item)"
+            @favorite="toggleItemFavorite(item)"
+            @select-tag="onSelectTag"
+          />
+        </div>
+
+        <div v-else class="overflow-x-auto rounded-[18px] bg-white shadow-[0_1px_3px_rgba(20,20,30,0.06)]">
+          <div class="grid min-w-[720px] grid-cols-[minmax(0,2.6fr)_0.9fr_1.1fr_0.7fr_0.6fr_46px] gap-3.5 bg-[#faf9fd] px-5 py-3">
+            <div class="text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-400">Article</div>
+            <div class="text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-400">Rubrique</div>
+            <div class="text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-400">Publié par</div>
+            <div class="text-right text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-400">Lecture</div>
+            <div class="text-right text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-400">Vues</div>
+            <div />
+          </div>
+          <div class="min-w-[720px]">
+            <ArticleCatalogRow
+              v-for="item in catalog.data"
+              :key="item.id"
+              :item="item"
+              :favorited="isFavorited(item)"
+              @favorite="toggleItemFavorite(item)"
+            />
+          </div>
+        </div>
+
+        <CatalogLoadMore
+          v-if="catalog.meta.has_more"
+          :more-count="moreCount"
+          :loading="pending"
+          @load="loadMore"
+        />
+      </template>
+
+      <CatalogEmpty
+        v-else
+        title="Aucun article ne correspond"
+        :subtitle="qInput ? `Aucun résultat pour « ${qInput} » avec ces filtres.` : 'Essayez une autre rubrique ou un autre format.'"
+        @reset="resetFilters"
+      />
+
+      <CatalogCta
+        title="Écrivez votre prochain décryptage"
+        subtitle="Le studio mêle texte long et blocs interactifs : insérez un graphique issu d’un Statsdata en deux clics."
+        primary-to="/studio"
+        primary-label="Rédiger un article"
+        secondary-to="/about"
+        secondary-label="Guide éditorial"
+      />
+    </div>
+  </div>
 </template>
