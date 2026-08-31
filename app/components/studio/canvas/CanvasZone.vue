@@ -1,9 +1,16 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import draggable from 'vuedraggable'
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import type { BlockType, StudioBlock } from '@/types/studio'
 import BlockWrapper from './BlockWrapper.vue'
+
+/**
+ * vuedraggable embarque un bundle sortablejs (wrapper UMD) qui plante à l'évaluation
+ * sur Cloudflare Workers (`Function("return this")` interdit → global object undefined).
+ * On le charge donc en import dynamique, uniquement côté client et pour l'éditeur :
+ * en preview / SSR (pages publiques), la zone rend une simple liste statique.
+ */
+const draggable = defineAsyncComponent(() => import('vuedraggable'))
 
 const props = defineProps<{
   zoneId: string
@@ -17,6 +24,9 @@ const props = defineProps<{
 }>()
 
 const studio = useStudioStore()
+
+/** Zone triable seulement dans l'éditeur, côté client (jamais en SSR ni en preview). */
+const editable = computed(() => import.meta.client && !studio.isPreview)
 
 // vuedraggable v-model: handles reorder within zone AND cross-zone moves
 const zoneBlocks = computed<StudioBlock[]>({
@@ -159,8 +169,10 @@ onBeforeUnmount(() => {
       <span class="text-xs font-semibold text-[var(--color-primary)]">Déposer ici</span>
     </div>
 
-    <!-- vuedraggable: handles reorder + cross-zone moves -->
-    <draggable
+    <!-- Éditeur (client) : vuedraggable — reorder + déplacements inter-zones -->
+    <component
+      :is="draggable"
+      v-if="editable"
       ref="draggableEl"
       v-model="zoneBlocks"
       :group="dragGroup"
@@ -193,7 +205,19 @@ onBeforeUnmount(() => {
           <div class="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-2.5 h-2.5 rounded-full bg-[var(--color-primary)]" />
         </div>
       </template>
-    </draggable>
+    </component>
+
+    <!-- Preview / SSR (pages publiques) : liste statique, sans vuedraggable -->
+    <div v-else class="flex min-w-0 flex-1 flex-col gap-4">
+      <div
+        v-for="(element, index) in zoneBlocks"
+        :key="element.id"
+        :data-block-index="index"
+        class="flex flex-col"
+      >
+        <BlockWrapper :block="element" />
+      </div>
+    </div>
   </div>
 </template>
 
