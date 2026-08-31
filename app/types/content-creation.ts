@@ -16,6 +16,35 @@ export type ContentPublishedAs = 'user' | 'channel'
 
 export type ContentType = 'statsdata' | 'article' | 'survey'
 
+/** Format d'un sondage — repris de la maquette « Sondages Listing v2 ». */
+export type SurveyKind = 'single_question' | 'long' | 'petition'
+
+export const SURVEY_KIND_OPTIONS: {
+  value: SurveyKind
+  label: string
+  description: string
+  icon: string
+}[] = [
+  {
+    value: 'single_question',
+    label: 'Sondage rapide',
+    description: 'Une seule question, un vote en un clic, résultats en direct.',
+    icon: '⚡',
+  },
+  {
+    value: 'long',
+    label: 'Questionnaire',
+    description: 'Plusieurs questions (choix multiple, échelle, réponse libre).',
+    icon: '☰',
+  },
+  {
+    value: 'petition',
+    label: 'Pétition',
+    description: 'Un texte à signer, un objectif de signatures, un destinataire.',
+    icon: '✍',
+  },
+]
+
 export type CreateContentPayload = {
   title: string
   type: ContentType
@@ -25,6 +54,8 @@ export type CreateContentPayload = {
   visibility: ContentVisibility
   published_as?: ContentPublishedAs
   channel_id?: number
+  survey_kind?: SurveyKind
+  requires_identity_verification?: boolean
 }
 
 export const CONTINENTS = [

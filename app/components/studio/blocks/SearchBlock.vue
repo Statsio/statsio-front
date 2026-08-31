@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, inject } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { fetchSearchRows, fetchPublicSearchRows } from '@/api/studio'
 import { slugify } from '@/lib/slug'
 import { useStudioStore } from '@/stores/studio'
+import { STUDIO_EMBED_CONTEXT, type StudioEmbedContext } from '@/composables/studioEmbedContext'
 import type { StudioBlock, StudioDocumentPage, SearchSource, SearchJoin } from '@/types/studio'
 
 const props = defineProps<{ block: StudioBlock; readonly?: boolean }>()
@@ -11,6 +12,11 @@ const props = defineProps<{ block: StudioBlock; readonly?: boolean }>()
 const studio = useStudioStore()
 const route  = useRoute()
 const router = useRouter()
+
+// Bloc de recherche réutilisé dans un article : navigation + requêtes ciblent
+// le Statsdata source, pas l'article courant.
+const embed = inject<StudioEmbedContext | null>(STUDIO_EMBED_CONTEXT, null)
+const availablePages = computed<StudioDocumentPage[]>(() => embed?.pages ?? studio.pages)
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -33,10 +39,10 @@ const resultTitleColumn      = computed(() => props.block.fieldMapping.resultTit
 const resultDescColumns      = computed(() => props.block.fieldMapping.resultDescColumns ?? [])
 const resultDescColumnLabels = computed(() => props.block.fieldMapping.resultDescColumnLabels ?? {})
 
-// For URL navigation: doc slug from route, target page slug from store
-const docSlug = computed(() => String(route.params.slug ?? ''))
+// For URL navigation: doc slug from route (ou du Statsdata source si embarqué)
+const docSlug = computed(() => embed?.docSlug || String(route.params.slug ?? ''))
 const targetPageSlug = computed(() => {
-  const page = studio.pages.find((p: StudioDocumentPage) => p.id === targetPageId.value)
+  const page = availablePages.value.find((p: StudioDocumentPage) => p.id === targetPageId.value)
   return page?.slug ?? page?.id ?? ''
 })
 
@@ -103,9 +109,9 @@ async function doSearch(q: string) {
           const sourceJoins = (props.block.fieldMapping.searchJoins ?? [])
             .filter((j: SearchJoin) => j.sourceDatasetId === source.datasetId)
             .map((j: SearchJoin) => ({ datasetId: j.datasetId, leftColumn: j.leftColumn, rightColumn: j.rightColumn, columns: j.columns, type: j.type }))
-          const docSlug = studio.content?.slug
-          const rows = (props.readonly && docSlug)
-            ? await fetchPublicSearchRows(docSlug, source.datasetId, source.columns, q, 30, sourceJoins)
+          const querySlug = embed?.docSlug ?? studio.content?.slug
+          const rows = (props.readonly && querySlug)
+            ? await fetchPublicSearchRows(querySlug, source.datasetId, source.columns, q, 30, sourceJoins)
             : await fetchSearchRows(source.datasetId, source.columns, q, 30, sourceJoins)
           for (const row of rows) {
             const titleCol = resultTitleColumn.value
@@ -191,6 +197,26 @@ function onSelect(result: SearchResult) {
   const rowParams: Record<string, string> = {}
   for (const [col, val] of Object.entries(result.row)) {
     if (val !== null && val !== undefined && val !== '') rowParams[col] = String(val)
+  }
+
+  // Recherche embarquée dans un article : on quitte l'article pour le Statsdata
+  // source (page fan-out par valeur si disponible, sinon page cible / racine).
+  if (embed && docSlug.value) {
+    const destPage = availablePages.value.find(
+      (p: StudioDocumentPage) => p.id === (targetPageId.value || availablePages.value[0]?.id),
+    )
+    const fanParam = destPage?.params?.find((p) => p.fanOut && p.name)
+    const fanValue = fanParam
+      ? rowParams[fanParam.slugColumn || fanParam.column || fanParam.name] ?? rowParams[fanParam.name]
+      : null
+    if (fanValue) {
+      router.push(`/statsdata/${docSlug.value}/${slugify(fanValue)}`)
+    } else if (targetPageSlug.value) {
+      router.push(`/statsdata/${docSlug.value}/${targetPageSlug.value}`)
+    } else {
+      router.push(`/statsdata/${docSlug.value}`)
+    }
+    return
   }
 
   const target = targetPageId.value

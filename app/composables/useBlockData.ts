@@ -1,9 +1,10 @@
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, inject } from 'vue'
 import { fetchBlockData, fetchPublicBlockData } from '@/api/studio'
 import type { StudioBlock, BlockFilter, BlockQueryResult, AggregateFunction } from '@/types/studio'
 import { useStudioStore } from '@/stores/studio'
 import { getErrorMessage } from '@/lib/http-errors'
 import { interpolateTokens } from '@/lib/studio-tokens'
+import { STUDIO_EMBED_CONTEXT, type StudioEmbedContext } from '@/composables/studioEmbedContext'
 
 export interface BlockDataOverrides {
   /** Tri interactif (clic sur un en-tête de tableau) — remplace `config.sortColumn`. */
@@ -21,6 +22,7 @@ export function useBlockData(
   overrides?: () => BlockDataOverrides | undefined,
 ) {
   const studio = useStudioStore()
+  const embed = inject<StudioEmbedContext | null>(STUDIO_EMBED_CONTEXT, null)
 
   const data = ref<BlockQueryResult | null>(null)
   const isLoading = ref(false)
@@ -40,6 +42,10 @@ export function useBlockData(
     return filters
       .filter((f) => f.column && f.value)
       .map((f) => ({ ...f, value: resolveFilterValue(f.value) }))
+      // Jeton non résolu (`{{param}}` sans valeur — ex. bloc `sd-embed` dont le
+      // paramètre source n'a pas de défaut) : on ignore le filtre plutôt que de
+      // renvoyer 0 ligne.
+      .filter((f) => !/\{\{.+\}\}/.test(f.value))
   }
 
   async function load() {
@@ -75,7 +81,8 @@ export function useBlockData(
     isLoading.value = true
     error.value = null
     try {
-      const docSlug = studio.content?.slug
+      // Bloc réutilisé dans un article : les données viennent du Statsdata source.
+      const docSlug = embed?.docSlug ?? studio.content?.slug
       data.value = readonly && docSlug
         ? await fetchPublicBlockData(docSlug, b.datasetId, params)
         : await fetchBlockData(b.datasetId, params)

@@ -75,11 +75,23 @@ export const STATSIO_API = {
     dataSources: (id: string) => `/studio/content/${encodeURIComponent(id)}/data-sources`,
     publicCollection: '/studio/content/public',
     publicCatalog: '/studio/content/public/catalog',
+    /** Recherche de contenus publiés pour la mention `@` de l'assistant du Studio. */
+    publicMentions: '/studio/content/public/mentions',
     publicBySlug: (slug: string) => `/studio/content/public/${encodeURIComponent(slug)}`,
     publicDatasetQuery: (slug: string, datasetId: string) =>
       `/studio/content/public/${encodeURIComponent(slug)}/datasets/${encodeURIComponent(datasetId)}/query`,
     blockResponse: (slug: string, blockId: string) =>
       `/studio/content/public/${encodeURIComponent(slug)}/blocks/${encodeURIComponent(blockId)}/response`,
+    /** Blocs embarquables (graphique/KPI/tableau/recherche) d'un Statsdata publié — sélecteur du bloc `sd-embed`. */
+    publicBlocks: (slug: string) => `/studio/content/public/${encodeURIComponent(slug)}/blocks`,
+    /** Résout un bloc unique d'un Statsdata publié pour l'afficher dans un article. */
+    publicBlock: (slug: string, blockId: string) =>
+      `/studio/content/public/${encodeURIComponent(slug)}/blocks/${encodeURIComponent(blockId)}`,
+  },
+  /** Vérification d'identité (Didit) — sondages « à identité vérifiée ». */
+  identity: {
+    verificationStart: '/identity/verification/start',
+    verificationStatus: '/identity/verification/status',
   },
   /** Assistant IA du Studio — conversation rattachée à un contenu, runs poll-ables. */
   ai: {

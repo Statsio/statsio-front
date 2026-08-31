@@ -14,6 +14,7 @@ const availableCategories = computed(() => {
     if (cat.id === 'script') return false // onglet dédié « Script »
     if (cat.id === 'form') return type === 'survey'
     if (cat.id === 'special') return type !== 'survey' && type !== 'article'
+    if (cat.id === 'statsio') return type === 'article'
     return true
   })
 })

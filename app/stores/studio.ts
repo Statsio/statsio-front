@@ -619,6 +619,7 @@ export const useStudioStore = defineStore('studio', () => {
     dropdown:   { formOptions: ['Option 1', 'Option 2'] },
     scale:      { scaleMin: 1, scaleMax: 5 },
     rating:     { ratingMax: 5 },
+    'sd-embed': { showSourceLink: true },
   }
 
   /** Zone de la première colonne de la dernière section de la page courante (en crée une au besoin). */

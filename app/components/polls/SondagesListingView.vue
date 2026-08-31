@@ -1,193 +1,246 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import PollFeatureCard from '@/components/polls/PollFeatureCard.vue'
-import PollListRow from '@/components/polls/PollListRow.vue'
-import { fetchPublicSurveys } from '@/api/studio'
-import { useRespondentToken } from '@/composables/useRespondentToken'
+import { computed } from 'vue'
+import { usePublicCatalog } from '@/composables/usePublicCatalog'
 import { useContentBasePath } from '@/composables/useContentBasePath'
-import { enrichPoll, type EnrichedPoll } from '@/lib/poll-enrich'
-import { relativeUpdate } from '@/utils/statsDataFormat'
+import { formatCatalogCount, formatRelativePublished } from '@/lib/catalog-format'
+import { SURVEY_KIND_META } from '@/lib/poll-visuals'
+import type { CatalogFacet, SurveyKind, SurveyStatusFilter } from '@/types/catalog'
+import CatalogHero from '@/components/listing/CatalogHero.vue'
+import CatalogToolbar from '@/components/listing/CatalogToolbar.vue'
+import CatalogSearchField from '@/components/listing/CatalogSearchField.vue'
+import CatalogSortPills from '@/components/listing/CatalogSortPills.vue'
+import CatalogViewToggle from '@/components/listing/CatalogViewToggle.vue'
+import CatalogChipRow from '@/components/listing/CatalogChipRow.vue'
+import CatalogToggleChip from '@/components/listing/CatalogToggleChip.vue'
+import CatalogResultBar from '@/components/listing/CatalogResultBar.vue'
+import CatalogEmpty from '@/components/listing/CatalogEmpty.vue'
+import CatalogLoadMore from '@/components/listing/CatalogLoadMore.vue'
+import CatalogCta from '@/components/listing/CatalogCta.vue'
+import SurveyFeaturedCard from '@/components/polls/SurveyFeaturedCard.vue'
+import SurveyCatalogCard from '@/components/polls/SurveyCatalogCard.vue'
+import SurveyCatalogRow from '@/components/polls/SurveyCatalogRow.vue'
 
 const props = defineProps<{
   categories?: string[]
+  title?: string
 }>()
 
 const basePath = useContentBasePath()
-const token = useRespondentToken()
-
-const loading = ref(true)
-const polls = ref<EnrichedPoll[]>([])
-const search = ref('')
-const sort = ref<'votes' | 'recent'>('votes')
-const activeCategory = ref('Tous')
-
-onMounted(async () => {
-  try {
-    const raw = await fetchPublicSurveys(props.categories)
-    polls.value = await Promise.all(raw.map((poll) => enrichPoll(poll, basePath.value, token.value)))
-  } finally {
-    loading.value = false
-  }
+const {
+  qInput,
+  category,
+  sort,
+  view,
+  surveyKind,
+  surveyStatus,
+  notParticipated,
+  pending,
+  catalog,
+  anyFilter,
+  resetFilters,
+  loadMore,
+  selectCategory,
+  selectSurveyKind,
+  selectSurveyStatus,
+  toggleItemFavorite,
+  isFavorited,
+} = usePublicCatalog({
+  type: 'survey',
+  brandCategories: props.categories,
+  key: `surveys-catalog-${(props.categories ?? []).join(',')}`,
 })
 
-const categoryTabs = computed(() => ['Tous', ...new Set(polls.value.map((p) => p.category))])
+const sortOptions: { value: 'trend' | 'recent' | 'votes'; label: string }[] = [
+  { value: 'trend', label: 'Tendance' },
+  { value: 'recent', label: 'Récents' },
+  { value: 'votes', label: 'Les plus suivis' },
+]
 
-const searchedPolls = computed(() => {
-  const q = search.value.trim().toLowerCase()
-  if (!q) return polls.value
-  return polls.value.filter(
-    (p) => p.poll.title.toLowerCase().includes(q) || (p.poll.description ?? '').toLowerCase().includes(q),
-  )
+const statusOptions: { value: SurveyStatusFilter | ''; label: string }[] = [
+  { value: '', label: 'Tous' },
+  { value: 'ouvert', label: 'Ouverts' },
+  { value: 'clos', label: 'Clos' },
+]
+
+const crumbs = computed(() => [
+  { label: 'Accueil', to: basePath.value || '/' },
+  { label: 'Sondages' },
+])
+
+const heroStats = computed(() => [
+  { label: 'Consultations ouvertes', value: formatCatalogCount(catalog.value.stats.published) },
+  { label: 'Chaînes éditrices', value: formatCatalogCount(catalog.value.stats.channels) },
+  { label: 'Pétitions actives', value: formatCatalogCount(catalog.value.stats.charts) },
+  { label: 'Dernière publication', value: formatRelativePublished(catalog.value.stats.last_published_at) },
+])
+
+const kindFacets = computed<CatalogFacet[]>(() => {
+  const fromApi = catalog.value.facets.survey_kinds
+  if (fromApi?.length) return fromApi
+  return [
+    { value: '', label: 'Tous', count: 0 },
+    ...(Object.keys(SURVEY_KIND_META) as SurveyKind[]).map((k) => ({
+      value: k,
+      label: SURVEY_KIND_META[k].label,
+      count: 0,
+    })),
+  ]
 })
+const categoryFacets = computed(() => catalog.value.facets.categories)
 
-const filteredPolls = computed(() => {
-  const byCategory =
-    activeCategory.value === 'Tous'
-      ? searchedPolls.value
-      : searchedPolls.value.filter((p) => p.category === activeCategory.value)
-
-  return [...byCategory].sort((a, b) =>
-    sort.value === 'votes'
-      ? b.totalVotes - a.totalVotes
-      : new Date(b.poll.created_at ?? 0).getTime() - new Date(a.poll.created_at ?? 0).getTime(),
-  )
-})
-
-const heroPoll = computed(() => filteredPolls.value[0])
-const mediumPolls = computed(() => filteredPolls.value.slice(1, 4))
-const remainingPolls = computed(() =>
-  filteredPolls.value.slice(4).sort((a, b) => {
-    if (a.status.closed !== b.status.closed) return a.status.closed ? 1 : -1
-    const aDeadline = a.poll.response_deadline ? new Date(a.poll.response_deadline).getTime() : Infinity
-    const bDeadline = b.poll.response_deadline ? new Date(b.poll.response_deadline).getTime() : Infinity
-    if (aDeadline !== bDeadline) return aDeadline - bDeadline
-    return new Date(b.poll.created_at ?? 0).getTime() - new Date(a.poll.created_at ?? 0).getTime()
-  }),
+const countLine = computed(
+  () => `${catalog.value.meta.total} consultation${catalog.value.meta.total > 1 ? 's' : ''} · ${catalog.value.meta.shown} affichée${catalog.value.meta.shown > 1 ? 's' : ''}`,
 )
-
-const hasUpcomingDeadline = computed(() => filteredPolls.value.some((p) => p.poll.response_deadline && !p.status.closed))
-const totalVotesCollected = computed(() => polls.value.reduce((sum, p) => sum + p.totalVotes, 0))
-const mostRecentUpdate = computed(() =>
-  polls.value.reduce<string | undefined>((latest, p) => {
-    if (!p.poll.updated_at) return latest
-    if (!latest || new Date(p.poll.updated_at) > new Date(latest)) return p.poll.updated_at
-    return latest
-  }, undefined),
+const contextLine = computed(() => (anyFilter.value ? 'Filtres actifs' : 'Classées par tendance'))
+const moreCount = computed(() =>
+  Math.min(6, Math.max(0, catalog.value.meta.total - catalog.value.meta.shown)),
 )
+const showFeatured = computed(
+  () => view.value === 'grid' && !anyFilter.value && Boolean(catalog.value.featured),
+)
+const gridItems = computed(() => {
+  const items = catalog.value.data
+  if (!showFeatured.value || !catalog.value.featured) return items
+  return items.filter((item) => item.id !== catalog.value.featured?.id)
+})
 </script>
 
 <template>
-  <main class="pb-24 pt-4">
-    <section class="section pb-10">
-      <div class="container flex flex-col gap-6">
-        <div class="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 class="text-3xl font-bold tracking-[-0.03em] text-slate-950">Sondages</h1>
-            <p class="mt-1.5 text-[13px] text-slate-500">
-              {{ filteredPolls.length }} sondage<span v-if="filteredPolls.length > 1">s</span>
-              <template v-if="mostRecentUpdate"> · {{ relativeUpdate(mostRecentUpdate) }}</template>
-            </p>
-          </div>
-
-          <div class="flex flex-wrap items-center gap-4">
-            <input
-              v-model="search"
-              type="search"
-              placeholder="Rechercher un sondage…"
-              class="w-56 border-b border-slate-300 bg-transparent py-1 text-sm text-slate-600 placeholder:text-slate-400 focus:border-primary focus:outline-none"
-            />
-            <div class="h-4 w-px bg-slate-200" />
-            <select v-model="sort" class="bg-transparent text-sm font-semibold text-slate-950 focus:outline-none">
-              <option value="votes">Les plus votés</option>
-              <option value="recent">Plus récents</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="flex flex-wrap gap-6 border-b border-slate-100">
-          <button
-            v-for="cat in categoryTabs"
-            :key="cat"
-            type="button"
-            class="border-b-2 pb-3 text-[13.5px] font-bold transition-colors"
-            :class="activeCategory === cat ? 'border-primary text-slate-950' : 'border-transparent text-slate-500 hover:text-slate-700'"
-            @click="activeCategory = cat"
-          >
-            {{ cat }}
-          </button>
-        </div>
-
-        <div v-if="loading" class="flex items-center justify-center py-24">
-          <svg class="h-8 w-8 animate-spin text-primary" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-        </div>
-
-        <template v-else-if="filteredPolls.length > 0">
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:auto-rows-[220px]">
-            <div v-if="heroPoll" class="sm:col-span-2 sm:row-span-2">
-              <PollFeatureCard
-                size="hero"
-                :to="heroPoll.to"
-                :category="heroPoll.category"
-                :question-type="heroPoll.questionType"
-                :question="heroPoll.poll.title"
-                :status="heroPoll.status"
-                :options="heroPoll.options"
-                :total-votes="heroPoll.totalVotes"
-              />
-            </div>
-
-            <PollFeatureCard
-              v-for="p in mediumPolls"
-              :key="p.poll.id"
-              size="medium"
-              :to="p.to"
-              :category="p.category"
-              :question-type="p.questionType"
-              :question="p.poll.title"
-              :status="p.status"
-              :options="p.options"
-              :total-votes="p.totalVotes"
-            />
-
-            <div class="flex flex-col justify-between rounded-2xl border border-slate-200 p-5">
-              <div>
-                <span class="text-[11px] font-bold uppercase tracking-wide text-primary">En chiffres</span>
-                <p class="mt-2 font-mono text-[28px] font-bold text-slate-950">{{ totalVotesCollected }}</p>
-                <p class="mt-1 text-[12.5px] text-slate-500">réponses collectées au total</p>
-              </div>
-              <p class="text-[12.5px] text-slate-400">
-                {{ polls.length }} sondage<span v-if="polls.length > 1">s</span> publiés
-              </p>
-            </div>
-          </div>
-
-          <div v-if="remainingPolls.length > 0" class="flex flex-col">
-            <div class="mb-4 flex items-baseline justify-between">
-              <span class="text-[15px] font-bold text-slate-950">
-                {{ hasUpcomingDeadline ? 'Se terminent bientôt' : 'Plus de sondages' }}
-              </span>
-            </div>
-            <PollListRow
-              v-for="p in remainingPolls"
-              :key="p.poll.id"
-              :to="p.to"
-              :category="p.category"
-              :question-type="p.questionType"
-              :question="p.poll.title"
-              :status="p.status"
-              :options="p.options"
-              :total-votes="p.totalVotes"
-            />
-          </div>
+  <div class="bg-[#f4f3f8] pb-24">
+    <CatalogHero
+      :crumbs="crumbs"
+      badge="CONSULTATIONS"
+      badge-class="!border-[#f8ccd6] !bg-[#fdeef1] !text-[#be123c]"
+      kicker="SONDAGES RAPIDES · QUESTIONNAIRES · PÉTITIONS"
+      :title="title"
+      subtitle="Un vote en un clic, un questionnaire complet ou une pétition à signer — trois formats de consultation, des résultats publics et exportables."
+      hero-src="/brand/listings/sondages-hero-light.png"
+      :stats="heroStats"
+    >
+      <template #title>
+        <template v-if="title">{{ title }}</template>
+        <template v-else>
+          Ce que <span class="text-primary">pensent les lecteurs</span>, <span class="text-accent">chiffre à l’appui</span>.
         </template>
+      </template>
+    </CatalogHero>
 
-        <div v-else class="py-20 text-center text-slate-400">
-          <p class="text-sm">Aucun sondage dans cette catégorie pour le moment.</p>
-        </div>
+    <CatalogToolbar>
+      <template #search>
+        <CatalogSearchField v-model="qInput" placeholder="Rechercher un sondage, une pétition, une chaîne…" />
+      </template>
+      <template #sort>
+        <CatalogSortPills v-model="sort" :options="sortOptions" />
+      </template>
+      <template #view>
+        <CatalogViewToggle v-model="view" />
+      </template>
+
+      <CatalogChipRow
+        label="Type"
+        :model-value="surveyKind"
+        :options="kindFacets"
+        @update:model-value="(v) => selectSurveyKind(v as SurveyKind | '')"
+      />
+
+      <CatalogChipRow
+        v-if="categoryFacets.length > 1"
+        label="Thème"
+        :model-value="category"
+        :options="categoryFacets"
+        @update:model-value="selectCategory"
+      />
+
+      <div class="flex flex-wrap items-center gap-2.5">
+        <span class="shrink-0 text-[9.5px] font-extrabold uppercase tracking-[0.09em] text-slate-400">Statut</span>
+        <button
+          v-for="opt in statusOptions"
+          :key="opt.value || 'all'"
+          type="button"
+          class="rounded-lg border px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[0.03em] transition"
+          :class="surveyStatus === opt.value
+            ? 'border-[#c4b5fd] bg-[#f2ecfd] text-primary'
+            : 'border-slate-200 bg-white text-slate-500 hover:border-[#c4b5fd] hover:text-primary'"
+          @click="selectSurveyStatus(opt.value)"
+        >
+          {{ opt.label }}
+        </button>
+        <span class="flex-1" />
+        <CatalogToggleChip :model-value="notParticipated" label="Pas encore participé" @update:model-value="notParticipated = $event" />
+        <button
+          v-if="anyFilter"
+          type="button"
+          class="shrink-0 rounded-full border-[1.5px] border-slate-200 px-3.5 py-[7px] text-xs font-bold text-slate-500 transition hover:border-[#c4b5fd] hover:text-primary"
+          @click="resetFilters"
+        >
+          Réinitialiser
+        </button>
       </div>
-    </section>
-  </main>
+    </CatalogToolbar>
+
+    <div class="mx-auto max-w-[1240px] px-4 py-6 sm:px-6 lg:px-8 lg:pb-[90px] lg:pt-[26px]">
+      <CatalogResultBar :count-line="countLine" :context-line="contextLine" />
+
+      <div v-if="pending && !catalog.data.length" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div v-for="i in 6" :key="i" class="h-80 animate-pulse rounded-[18px] bg-white" />
+      </div>
+
+      <template v-else-if="catalog.meta.total > 0">
+        <SurveyFeaturedCard v-if="showFeatured && catalog.featured" :item="catalog.featured" />
+
+        <div v-if="view === 'grid'" class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <SurveyCatalogCard
+            v-for="item in gridItems"
+            :key="item.id"
+            :item="item"
+            :favorited="isFavorited(item)"
+            @favorite="toggleItemFavorite(item)"
+          />
+        </div>
+
+        <div v-else class="overflow-x-auto rounded-[18px] bg-white shadow-[0_1px_3px_rgba(20,20,30,0.06)]">
+          <div class="grid min-w-[720px] grid-cols-[minmax(0,2.5fr)_1.05fr_1fr_0.8fr_0.8fr_46px] gap-3.5 bg-[#faf9fd] px-5 py-3">
+            <div class="text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-400">Consultation</div>
+            <div class="text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-400">Type</div>
+            <div class="text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-400">Publié par</div>
+            <div class="text-right text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-400">Participation</div>
+            <div class="text-right text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-400">Clôture</div>
+            <div />
+          </div>
+          <div class="min-w-[720px]">
+            <SurveyCatalogRow
+              v-for="item in catalog.data"
+              :key="item.id"
+              :item="item"
+              :favorited="isFavorited(item)"
+              @favorite="toggleItemFavorite(item)"
+            />
+          </div>
+        </div>
+
+        <CatalogLoadMore
+          v-if="catalog.meta.has_more"
+          :more-count="moreCount"
+          :loading="pending"
+          @load="loadMore"
+        />
+      </template>
+
+      <CatalogEmpty
+        v-else
+        title="Aucune consultation ne correspond"
+        :subtitle="qInput ? `Aucun résultat pour « ${qInput} » avec ces filtres.` : 'Essayez un autre type, thème ou statut.'"
+        @reset="resetFilters"
+      />
+
+      <CatalogCta
+        title="Consultez votre audience, à votre échelle"
+        subtitle="Un vote express, un questionnaire à plusieurs volets ou une pétition avec objectif de signatures — et l’export des réponses en CSV."
+        primary-to="/studio"
+        primary-label="Créer une consultation"
+        secondary-to="/about"
+        secondary-label="Bonnes pratiques"
+      />
+    </div>
+  </div>
 </template>

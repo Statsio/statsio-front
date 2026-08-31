@@ -1,5 +1,6 @@
-import { computed, ref, watch, type ComputedRef, type Ref } from 'vue'
+import { computed, inject, ref, watch, type ComputedRef, type Ref } from 'vue'
 import { STUDIO_TOKEN_PATTERN } from '@/lib/studio-tokens'
+import { STUDIO_EMBED_CONTEXT, type StudioEmbedContext } from '@/composables/studioEmbedContext'
 import {
   isExpressionToken,
   parseExpression,
@@ -74,9 +75,16 @@ export function useResolvedTokens(opts: Options): { text: Ref<string>; pending: 
   const text = ref('')
   const pending = ref(false)
 
+  // Bloc réutilisé dans un article (`sd-embed`) : agrégats `@N` et jetons `{{param}}`
+  // se résolvent contre le Statsdata source, pas contre l'article courant.
+  const embed = inject<StudioEmbedContext | null>(STUDIO_EMBED_CONTEXT, null)
+  const effectiveOpts: Options = embed
+    ? { ...opts, readonly: () => true, docSlug: () => embed.docSlug }
+    : opts
+
   async function run() {
     const raw = opts.raw() ?? ''
-    const map = opts.tokenMap()
+    const map = embed ? { ...embed.params, ...opts.tokenMap() } : opts.tokenMap()
 
     if (!raw.includes('{{')) { text.value = raw; return }
 
@@ -104,7 +112,7 @@ export function useResolvedTokens(opts: Options): { text: Ref<string>; pending: 
 
       const values = new Map<string, number | null>()
       await Promise.all(
-        [...refs.values()].map(async (r) => { values.set(r.key, await resolveAggregate(r, opts)) }),
+        [...refs.values()].map(async (r) => { values.set(r.key, await resolveAggregate(r, effectiveOpts)) }),
       )
 
       let out = base
@@ -121,7 +129,7 @@ export function useResolvedTokens(opts: Options): { text: Ref<string>; pending: 
   }
 
   watch(
-    () => `${opts.raw() ?? ''}|${JSON.stringify(opts.tokenMap())}|${opts.datasetId?.() ?? ''}`,
+    () => `${opts.raw() ?? ''}|${JSON.stringify(opts.tokenMap())}|${opts.datasetId?.() ?? ''}|${embed ? `${embed.docSlug}:${JSON.stringify(embed.params)}` : ''}`,
     run,
     { immediate: true },
   )

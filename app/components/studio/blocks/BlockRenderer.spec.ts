@@ -28,6 +28,7 @@ import type { BlockType, StudioBlock } from '@/types/studio'
 const stubs = {
   LoopBlock: true,
   IfBlock: true,
+  SdEmbedBlock: true,
   ParamBlock: true,
   BarChartBlock: true,
   LineChartBlock: true,
@@ -113,6 +114,11 @@ describe('BlockRenderer', () => {
   it('resolves block.type "if" to the auto-imported IfBlock component', () => {
     const wrapper = mountBlock('if')
     expect(wrapper.findComponent({ name: 'IfBlock' }).exists()).toBe(true)
+  })
+
+  it('resolves block.type "sd-embed" to the auto-imported SdEmbedBlock component', () => {
+    const wrapper = mountBlock('sd-embed')
+    expect(wrapper.findComponent({ name: 'SdEmbedBlock' }).exists()).toBe(true)
   })
 
   it('passes scope through to the resolved child component', () => {

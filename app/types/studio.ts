@@ -15,7 +15,13 @@ export interface StudioContent {
 
 // ─── Blocks ───────────────────────────────────────────────────────────────────
 
-export type BlockType = 'bar' | 'line' | 'pie' | 'table' | 'kpi' | 'record' | 'related' | 'heading' | 'paragraph' | 'quote' | 'callout' | 'search' | 'param' | 'image' | 'video' | 'button' | 'link-card' | 'retenir' | 'map' | 'field-grid' | 'choice' | 'checkboxes' | 'dropdown' | 'scale' | 'rating' | 'loop' | 'if'
+export type BlockType = 'bar' | 'line' | 'pie' | 'table' | 'kpi' | 'record' | 'related' | 'heading' | 'paragraph' | 'quote' | 'callout' | 'search' | 'param' | 'image' | 'video' | 'button' | 'link-card' | 'retenir' | 'map' | 'field-grid' | 'choice' | 'checkboxes' | 'dropdown' | 'scale' | 'rating' | 'loop' | 'if' | 'sd-embed'
+
+/**
+ * Types de blocs qu'un article peut réutiliser via un bloc `sd-embed`
+ * (« Bloc Statsdata »). Miroir de StudioContentController::EMBEDDABLE_BLOCK_TYPES.
+ */
+export const EMBEDDABLE_BLOCK_TYPES: BlockType[] = ['bar', 'line', 'pie', 'kpi', 'table', 'search']
 
 export const TEXT_BLOCK_TYPES: BlockType[] = ['heading', 'paragraph', 'quote', 'callout']
 export const EDITORIAL_BLOCK_TYPES: BlockType[] = ['image', 'video', 'button', 'link-card', 'retenir', 'map', 'field-grid']
@@ -84,6 +90,7 @@ export const BLOCK_META: Record<BlockType, { label: string; iconPath: string; ti
   rating:     { label: 'Avis',             tint: 'bg-amber-100 text-amber-600',     iconPath: 'M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5z' },
   loop:       { label: 'Boucle',           tint: 'bg-indigo-100 text-indigo-600',   iconPath: 'M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99' },
   if:         { label: 'Condition',        tint: 'bg-indigo-100 text-indigo-600',   iconPath: 'M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0 0 21 18V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v12a2.25 2.25 0 0 0 2.25 2.25Z' },
+  'sd-embed': { label: 'Bloc Statsdata',   tint: 'bg-violet-100 text-violet-600',   iconPath: 'M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244' },
 }
 
 export const BLOCK_DEFINITIONS: BlockDefinition[] = [
@@ -301,6 +308,19 @@ export interface BlockConfig {
   ifOperator?: FilterOperator
   /** Value compared against — supports `{{tokens}}`. */
   ifValue?: string
+  // ── Bloc Statsdata (sd-embed) ──
+  /** Slug du Statsdata publié dont on réutilise un bloc. */
+  sourceSlug?: string
+  /** Id du bloc réutilisé dans ce Statsdata. */
+  sourceBlockId?: string
+  /** Type du bloc réutilisé (pour l'affichage de l'inspecteur / sommaire). */
+  sourceBlockType?: BlockType
+  /** Titre du Statsdata source, mémorisé pour l'affichage hors ligne. */
+  sourceDocTitle?: string
+  /** Valeur des paramètres `{{param}}` de la page source (filtres/expressions du bloc réutilisé). Défaut = `defaultValue` de la page source. */
+  sourceParams?: Record<string, string>
+  /** Affiche le lien « Ouvrir le Statsdata complet » (défaut : true). */
+  showSourceLink?: boolean
 }
 
 export type FilterOperator = '=' | '!=' | '>' | '>=' | '<' | '<=' | 'contains' | 'not_contains'
@@ -643,6 +663,13 @@ export const BLOCK_CATEGORIES: BlockCategoryDef[] = [
     blocks: [
       { type: 'search', label: 'Recherche', description: 'Barre de recherche qui filtre la page ou ouvre une page par valeur', iconPath: 'M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z' },
       { type: 'param',  label: 'Paramètre', description: 'Sélecteur (pastilles ou liste) qui pilote toute la page', iconPath: 'M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75' },
+    ],
+  },
+  {
+    id: 'statsio',
+    label: 'Statsio',
+    blocks: [
+      { type: 'sd-embed', label: 'Bloc Statsdata', description: "Réutilise un graphique, KPI, tableau ou recherche d'un Statsdata publié", iconPath: 'M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244' },
     ],
   },
 ]
