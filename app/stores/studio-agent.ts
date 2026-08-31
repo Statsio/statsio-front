@@ -136,12 +136,19 @@ export const useStudioAgentStore = defineStore('studio-agent', () => {
       }))
   }
 
-  async function send(text: string) {
+  /**
+   * @param text     Texte affiché dans la conversation (bulle utilisateur).
+   * @param apiText  Texte réellement envoyé au backend — sert à joindre un
+   *                 contexte machine (contenus mentionnés via `@`) sans polluer
+   *                 l'affichage. Défaut : `text`.
+   */
+  async function send(text: string, apiText?: string) {
     const trimmed = text.trim()
     if (!trimmed || conversationId.value === null || status.value === 'thinking') return
 
     error.value = null
     const firstMessage = messages.value.length === 0
+    const payloadText = (apiText ?? text).trim()
     messages.value.push({ id: nextLocalId(), role: 'user', text: trimmed })
     const placeholder: AgentChatMessage = {
       id: nextLocalId(),
@@ -158,7 +165,7 @@ export const useStudioAgentStore = defineStore('studio-agent', () => {
     }
 
     try {
-      const { runId } = await sendAgentMessage(conversationId.value, trimmed)
+      const { runId } = await sendAgentMessage(conversationId.value, payloadText)
       const run = await pollRun(runId)
       finishRun(placeholder, run)
     } catch (e) {

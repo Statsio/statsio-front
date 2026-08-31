@@ -120,6 +120,26 @@ describe('useStudioAgentStore', () => {
     expect(store.messages[1]!.reverted).toBe(true)
   })
 
+  it('send() shows `text` in the bubble but posts `apiText` (contexte des mentions @) to the backend', async () => {
+    mockFreshOpen()
+    let postedText: string | undefined
+    apiMock.onPost('/ai/studio/conversations/3/messages').reply((config) => {
+      postedText = JSON.parse(config.data).text
+      return [202, { success: true, data: { run_id: 91, conversation_id: 3 } }]
+    })
+    apiMock.onGet('/ai/studio/runs/91').reply(200, {
+      success: true,
+      data: { id: 91, status: 'done', message: 'ok', patch: [], attached_dataset_ids: [] },
+    })
+
+    const store = useStudioAgentStore()
+    await store.openForContent(12)
+    await store.send('lie le graphique', 'lie le graphique\n\n---\nContenus référencés : carburants')
+
+    expect(postedText).toContain('Contenus référencés')
+    expect(store.messages[0]).toMatchObject({ role: 'user', text: 'lie le graphique' })
+  })
+
   it('surfaces a failed run as an error message', async () => {
     mockFreshOpen()
     apiMock.onPost('/ai/studio/conversations/3/messages').reply(202, {

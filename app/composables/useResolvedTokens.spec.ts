@@ -60,6 +60,36 @@ describe('useResolvedTokens', () => {
     expect(text.value).toBe('10')
   })
 
+  it('resolves against the source Statsdata (slug + params) when STUDIO_EMBED_CONTEXT is provided', async () => {
+    const { defineComponent, h, provide } = await import('vue')
+    const { mount } = await import('@vue/test-utils')
+    const { STUDIO_EMBED_CONTEXT } = await import('./studioEmbedContext')
+    publicScalar.mockResolvedValue(7)
+
+    let out: { text: { value: string } } | undefined
+    const Child = defineComponent({
+      setup() {
+        out = useResolvedTokens({
+          raw: () => 'Repère : {{ AVG(prix@13 | carburant=$carburant) }} pour {{carburant}}',
+          tokenMap: () => ({}),
+        })
+        return () => h('div')
+      },
+    })
+    const Parent = defineComponent({
+      setup() {
+        provide(STUDIO_EMBED_CONTEXT, { docSlug: 'carburants', pages: [], params: { carburant: 'Gazole' } })
+        return () => h(Child)
+      },
+    })
+    mount(Parent)
+    await settle()
+
+    // slug de la source (pas de l'article) + endpoint public forcé
+    expect(publicScalar).toHaveBeenCalledWith('carburants', '13', expect.objectContaining({ fn: 'avg' }))
+    expect(out!.text.value).toContain('pour Gazole')
+  })
+
   it('renders — when the aggregate cannot be resolved', async () => {
     scalar.mockResolvedValue(null)
     const { text } = useResolvedTokens({ raw: () => '{{ AVG(x@1) }}', tokenMap: () => ({}) })
