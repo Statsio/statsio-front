@@ -23,7 +23,8 @@ const block = computed(() => props.block)
 const openSections = ref<Set<string>>(new Set<string>())
 function toggle(id: string) {
   const s = new Set(openSections.value)
-  s.has(id) ? s.delete(id) : s.add(id)
+  if (s.has(id)) s.delete(id)
+  else s.add(id)
   openSections.value = s
 }
 const open = (id: string) => openSections.value.has(id)
