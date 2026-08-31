@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useBlockData, resolveAggregationParams } from '@/composables/useBlockData'
-import { fetchBlockData } from '@/api/studio'
+import { fetchBlockData, fetchPublicBlockData } from '@/api/studio'
 import { interpolateTokens } from '@/lib/studio-tokens'
 import { useResolvedTokens } from '@/composables/useResolvedTokens'
 import { useStudioStore } from '@/stores/studio'
@@ -83,7 +83,10 @@ async function loadComparison() {
     // pointed at the comparison column instead of valueColumn.
     const agg = resolveAggregationParams(props.block)
     const params = agg.aggregate ? { ...agg, aggregateColumns: [col] } : {}
-    compData.value = await fetchBlockData(props.block.datasetId, { columns: [col], limit: 500, filters, ...params })
+    const docSlug = studio.content?.slug
+    compData.value = props.readonly && docSlug
+      ? await fetchPublicBlockData(docSlug, props.block.datasetId, { columns: [col], limit: 500, filters, ...params })
+      : await fetchBlockData(props.block.datasetId, { columns: [col], limit: 500, filters, ...params })
   } catch {
     compError.value = 'Erreur de chargement'
     compData.value  = null

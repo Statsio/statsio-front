@@ -2,8 +2,14 @@
 import { ref, watch } from 'vue'
 import AppButton from '@/components/ui/AppButton.vue'
 import StepChannelCategories from '@/components/channels/steps/StepChannelCategories.vue'
-import { updateChannelProfile, updateChannelMedia, type Channel, type ChannelCategory } from '@/api/channels'
+import { updateChannelProfile, updateChannelMedia, type Channel, type ChannelCategory, type ChannelKind } from '@/api/channels'
 import { getErrorMessage } from '@/lib/http-errors'
+
+const KIND_OPTIONS: { value: ChannelKind; label: string }[] = [
+  { value: 'redaction', label: 'Rédaction' },
+  { value: 'institution', label: 'Institution' },
+  { value: 'independant', label: 'Analyste indépendant' },
+]
 
 const props = defineProps<{ channelId: number; channel: Channel }>()
 const emit = defineEmits<{ reload: [] }>()
@@ -11,7 +17,13 @@ const emit = defineEmits<{ reload: [] }>()
 const inputClass = 'rounded-[1.25rem] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 transition focus:border-primary/30 focus:outline-none focus:ring-2 focus:ring-primary/20'
 
 // --- Identité ---
-const profileForm = ref({ name: '', handle: '', description: '', categories: [] as ChannelCategory[] })
+const profileForm = ref({
+  name: '',
+  handle: '',
+  kind: 'independant' as ChannelKind,
+  description: '',
+  categories: [] as ChannelCategory[],
+})
 const profileSaving = ref(false)
 const profileSuccess = ref(false)
 const profileError = ref('')
@@ -33,6 +45,7 @@ const initForm = () => {
   profileForm.value = {
     name: props.channel.profile.name,
     handle: props.channel.profile.handle,
+    kind: props.channel.profile.kind ?? 'independant',
     description: props.channel.profile.description ?? '',
     categories: [...(props.channel.profile.categories ?? [])],
   }
@@ -51,6 +64,7 @@ const saveProfile = async () => {
     await updateChannelProfile(props.channelId, {
       name: profileForm.value.name,
       handle: profileForm.value.handle,
+      kind: profileForm.value.kind,
       description: profileForm.value.description,
       categories: profileForm.value.categories,
     })
@@ -125,6 +139,12 @@ const saveColors = async () => {
         <label class="flex flex-col gap-2">
           <span class="text-sm font-semibold text-slate-700">Identifiant (@handle)</span>
           <input v-model="profileForm.handle" type="text" :class="inputClass" placeholder="mon_handle" required />
+        </label>
+        <label class="flex flex-col gap-2">
+          <span class="text-sm font-semibold text-slate-700">Type de chaîne</span>
+          <select v-model="profileForm.kind" :class="inputClass">
+            <option v-for="opt in KIND_OPTIONS" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+          </select>
         </label>
         <label class="flex flex-col gap-2">
           <span class="text-sm font-semibold text-slate-700">Description</span>

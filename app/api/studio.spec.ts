@@ -8,6 +8,7 @@ import {
   fetchDistinctValues,
   fetchScalarAggregate,
   fetchPublicScalarAggregate,
+  fetchPublicCatalog,
   saveStatsDataDocument,
 } from './studio'
 import { STATSIO_API } from './statsio-endpoints'
@@ -167,6 +168,25 @@ describe('app/api/studio', () => {
       })
 
       expect(await fetchPublicScalarAggregate('slug', '42', { fn: 'count', column: 'n' })).toBe(42)
+      expect(apiMock.history.get).toHaveLength(0)
+    })
+  })
+
+  describe('fetchPublicCatalog', () => {
+    it('maps the catalog envelope from publicHttp', async () => {
+      publicMock.onGet(STATSIO_API.studioContent.publicCatalog).reply(200, {
+        success: true,
+        data: [{ id: '1', slug: 'a', title: 'Hello', categories: [], tags: [], reading_minutes: 4, linked_datasets_count: 0, charts_count: 0, views_count: 2, publisher: { name: 'X', initials: 'X', is_channel: false, verified: false }, is_favorited: false }],
+        meta: { total: 1, shown: 1, per_page: 9, has_more: false },
+        facets: { categories: [{ value: '', label: 'Toutes', count: 1 }], formats: [] },
+        stats: { published: 1, channels: 0, charts: 0, last_published_at: null },
+        featured: null,
+      })
+
+      const result = await fetchPublicCatalog({ type: 'article', q: 'hello' })
+
+      expect(result.meta.total).toBe(1)
+      expect(result.data[0]?.title).toBe('Hello')
       expect(apiMock.history.get).toHaveLength(0)
     })
   })
