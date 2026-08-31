@@ -34,40 +34,40 @@ function edit() {
 </script>
 
 <template>
-  <div class="flex flex-col gap-3">
-    <p class="text-sm font-semibold text-[var(--studio-ink)]">
+  <div class="flex flex-col gap-3.5">
+    <p v-if="block.config.title || !readonly" class="text-[15px] font-bold text-slate-950">
       {{ block.config.title || 'Question sans titre' }}
       <span v-if="block.config.formRequired" class="text-rose-500">*</span>
     </p>
 
-    <!-- Studio editor preview (static, disabled) -->
-    <div v-if="!readonly" class="flex flex-col gap-1">
-      <div class="flex items-center gap-1">
-        <svg v-for="s in stars" :key="s" class="h-6 w-6 fill-[var(--studio-line-strong)] text-[var(--studio-line-strong)]" viewBox="0 0 24 24">
+    <!-- Studio editor preview — même rendu, statique -->
+    <div v-if="!readonly" class="flex flex-col gap-2">
+      <div class="flex items-center gap-1.5">
+        <svg v-for="s in stars" :key="s" class="h-9 w-9 fill-slate-200 text-slate-200" viewBox="0 0 24 24">
           <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
         </svg>
       </div>
-      <p class="mt-1 text-[10px] text-[var(--studio-faint)]">Non interactif en mode édition</p>
+      <p class="text-[10px] text-[var(--studio-faint)]">Aperçu — interactif sur la page publiée</p>
     </div>
 
     <!-- Public: loading -->
     <div v-else-if="form?.loading.value" class="py-2 text-xs text-[var(--studio-faint)]">Chargement…</div>
 
     <!-- Public: interactive form -->
-    <div v-else-if="showForm()" class="flex flex-col gap-3">
-      <div class="flex items-center gap-1">
+    <div v-else-if="showForm()" class="flex flex-col gap-3.5">
+      <div class="flex items-center gap-1.5">
         <button v-for="s in stars" :key="s" type="button" class="rounded-full p-0.5 transition" @click="selected = s">
-          <svg class="h-7 w-7 transition-colors" :class="(selected ?? 0) >= s ? 'fill-amber-400 text-amber-400' : 'fill-[var(--studio-line-strong)] text-[var(--studio-line-strong)]'" viewBox="0 0 24 24">
+          <svg class="h-9 w-9 transition-colors" :class="(selected ?? 0) >= s ? 'fill-amber-400 text-amber-400' : 'fill-slate-200 text-slate-200'" viewBox="0 0 24 24">
             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
           </svg>
         </button>
       </div>
       <button
-        class="self-start rounded-full bg-[var(--color-primary)] px-4 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+        class="self-start rounded-full bg-[var(--color-primary)] px-6 py-2.5 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
         :disabled="selected === null || form?.submitting.value"
         @click="submit"
       >
-        {{ form?.submitting.value ? 'Envoi…' : 'Envoyer' }}
+        {{ form?.submitting.value ? 'Envoi…' : 'Valider ma réponse' }}
       </button>
     </div>
 
@@ -75,13 +75,13 @@ function edit() {
     <div v-else class="flex flex-col gap-2">
       <div class="flex items-center gap-3">
         <div class="flex items-center gap-0.5">
-          <svg v-for="s in stars" :key="s" class="h-5 w-5" :class="(form?.aggregate.value.average ?? 0) >= s ? 'fill-amber-400 text-amber-400' : 'fill-[var(--studio-line-strong)] text-[var(--studio-line-strong)]'" viewBox="0 0 24 24">
+          <svg v-for="s in stars" :key="s" class="h-6 w-6" :class="(form?.aggregate.value.average ?? 0) >= s ? 'fill-amber-400 text-amber-400' : 'fill-slate-200 text-slate-200'" viewBox="0 0 24 24">
             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
           </svg>
         </div>
-        <span class="text-sm font-semibold text-[var(--studio-ink)]">{{ (form?.aggregate.value.average ?? 0).toFixed(1) }} / {{ ratingMax }}</span>
+        <span class="text-[15px] font-bold text-slate-950">{{ (form?.aggregate.value.average ?? 0).toFixed(1) }} / {{ ratingMax }}</span>
       </div>
-      <p class="text-[11px] text-[var(--studio-faint)]">
+      <p class="text-[11.5px] text-slate-400">
         {{ form?.aggregate.value.totalResponses }} avis
         · <button class="font-semibold text-[var(--color-primary)] hover:underline" @click="edit">Modifier ma réponse</button>
       </p>

@@ -88,6 +88,11 @@ export const STATSIO_API = {
     publicBlock: (slug: string, blockId: string) =>
       `/studio/content/public/${encodeURIComponent(slug)}/blocks/${encodeURIComponent(blockId)}`,
   },
+  /** Vérification d'identité (Didit) — sondages « à identité vérifiée ». */
+  identity: {
+    verificationStart: '/identity/verification/start',
+    verificationStatus: '/identity/verification/status',
+  },
   /** Assistant IA du Studio — conversation rattachée à un contenu, runs poll-ables. */
   ai: {
     conversations: (contentId: string | number) =>

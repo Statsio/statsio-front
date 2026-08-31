@@ -13,6 +13,38 @@ export function getQuestionTypeLabel(type?: BlockType): string {
   return (type && QUESTION_TYPE_LABELS[type]) || 'Sondage'
 }
 
+/** Icônes compactes par type de question, pour les cartes de questionnaire. */
+export const QUESTION_TYPE_ICONS: Partial<Record<BlockType, string>> = {
+  choice: '◉',
+  checkboxes: '☑',
+  dropdown: '▾',
+  scale: '▤',
+  rating: '★',
+}
+
+export type SurveyKind = 'single_question' | 'long' | 'petition'
+
+export interface SurveyKindMeta {
+  label: string
+  icon: string
+  /** Texte sur pastille */
+  fg: string
+  bg: string
+  /** Liseré / accent de carte */
+  accent: string
+}
+
+/** Repris de `KIND_STYLE` de la maquette « Sondages Listing v2 ». */
+export const SURVEY_KIND_META: Record<SurveyKind, SurveyKindMeta> = {
+  single_question: { label: 'Sondage rapide', icon: '⚡', fg: '#2563eb', bg: '#eaf1fe', accent: '#3b82f6' },
+  long: { label: 'Questionnaire', icon: '☰', fg: '#7c3aed', bg: '#f2ecfd', accent: '#8b5cf6' },
+  petition: { label: 'Pétition', icon: '✍', fg: '#be123c', bg: '#fdeef1', accent: '#e11d48' },
+}
+
+export function getSurveyKindMeta(kind?: string | null): SurveyKindMeta {
+  return SURVEY_KIND_META[(kind ?? 'single_question') as SurveyKind] ?? SURVEY_KIND_META.single_question
+}
+
 interface CategoryPalette {
   solid: string
   stripeLight: string

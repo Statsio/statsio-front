@@ -192,6 +192,33 @@ describe('app/api/studio', () => {
       expect(result.data[0]?.title).toBe('Hello')
       expect(apiMock.history.get).toHaveLength(0)
     })
+
+    it('forwards survey filters as query params', async () => {
+      publicMock.onGet(STATSIO_API.studioContent.publicCatalog).reply(200, {
+        success: true,
+        data: [],
+        meta: { total: 0, shown: 0, per_page: 9, has_more: false },
+        facets: { categories: [], formats: [], survey_kinds: [] },
+        stats: { published: 0, channels: 0, charts: 0, last_published_at: null },
+        featured: null,
+      })
+
+      await fetchPublicCatalog({
+        type: 'survey',
+        survey_kind: 'petition',
+        status: 'clos',
+        not_participated: true,
+        respondent_token: 'tok-1',
+      })
+
+      expect(publicMock.history.get[0]?.params).toMatchObject({
+        type: 'survey',
+        survey_kind: 'petition',
+        status: 'clos',
+        not_participated: 1,
+        respondent_token: 'tok-1',
+      })
+    })
   })
 
   describe('bloc Statsdata réutilisé (sd-embed)', () => {
