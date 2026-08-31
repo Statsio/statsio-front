@@ -4,7 +4,7 @@ import MentionPicker from './MentionPicker.vue'
 import { fetchContentMentions } from '@/api/studio'
 
 vi.mock('@/api/studio', () => ({
-  fetchContentMentions: vi.fn(),
+  fetchContentMentions: vi.fn<(...args: unknown[]) => unknown>(),
 }))
 
 const rows = [

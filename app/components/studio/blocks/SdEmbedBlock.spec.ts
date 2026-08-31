@@ -6,7 +6,7 @@ import { fetchPublicStatsDataBlock } from '@/api/studio'
 import type { StudioBlock } from '@/types/studio'
 
 vi.mock('@/api/studio', () => ({
-  fetchPublicStatsDataBlock: vi.fn(),
+  fetchPublicStatsDataBlock: vi.fn<(...args: unknown[]) => unknown>(),
 }))
 
 vi.mock('@/composables/useContentBasePath', () => ({
