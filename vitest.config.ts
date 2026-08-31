@@ -26,6 +26,7 @@ export default defineConfig({
   plugins: [stubNuxtImportMeta(), vue()],
   test: {
     environment: 'jsdom',
+    setupFiles: ['./test/setup.ts'],
     exclude: [...configDefaults.exclude, 'e2e/**'],
     root: fileURLToPath(new URL('./', import.meta.url)),
     coverage: {

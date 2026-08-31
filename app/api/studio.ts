@@ -348,24 +348,47 @@ export async function createStudioContent(payload: CreateStudioContentPayload): 
 }
 
 export async function fetchPublicStatsDataCatalog(categories?: string[], channelId?: number): Promise<StatsDataDocument[]> {
-  const { data } = await apiHttp.get(STATSIO_API.studioContent.publicCollection, {
+  const { data } = await publicHttp.get(STATSIO_API.studioContent.publicCollection, {
     params: { type: 'statsdata', ...(categories?.length ? { categories } : {}), ...(channelId ? { channel_id: channelId } : {}) },
   })
   return data.data ?? []
 }
 
 export async function fetchPublicSurveys(categories?: string[], channelId?: number): Promise<StatsDataDocument[]> {
-  const { data } = await apiHttp.get(STATSIO_API.studioContent.publicCollection, {
+  const { data } = await publicHttp.get(STATSIO_API.studioContent.publicCollection, {
     params: { type: 'survey', ...(categories?.length ? { categories } : {}), ...(channelId ? { channel_id: channelId } : {}) },
   })
   return data.data ?? []
 }
 
 export async function fetchPublicArticles(categories?: string[], channelId?: number): Promise<StatsDataDocument[]> {
-  const { data } = await apiHttp.get(STATSIO_API.studioContent.publicCollection, {
+  const { data } = await publicHttp.get(STATSIO_API.studioContent.publicCollection, {
     params: { type: 'article', ...(categories?.length ? { categories } : {}), ...(channelId ? { channel_id: channelId } : {}) },
   })
   return data.data ?? []
+}
+
+export async function fetchPublicCatalog(query: import('@/types/catalog').CatalogQuery): Promise<import('@/types/catalog').CatalogResponse> {
+  const { data } = await publicHttp.get(STATSIO_API.studioContent.publicCatalog, {
+    params: {
+      type: query.type,
+      ...(query.q ? { q: query.q } : {}),
+      ...(query.category ? { category: query.category } : {}),
+      ...(query.format ? { format: query.format } : {}),
+      ...(query.sort ? { sort: query.sort } : {}),
+      ...(query.has_data ? { has_data: 1 } : {}),
+      ...(query.per_page ? { per_page: query.per_page } : {}),
+      ...(query.categories?.length ? { categories: query.categories } : {}),
+      ...(query.channel_id ? { channel_id: query.channel_id } : {}),
+    },
+  })
+  return {
+    data: data.data ?? [],
+    meta: data.meta ?? { total: 0, shown: 0, per_page: query.per_page ?? 9, has_more: false },
+    facets: data.facets ?? { categories: [], formats: [] },
+    stats: data.stats ?? { published: 0, channels: 0, charts: 0, last_published_at: null },
+    featured: data.featured ?? null,
+  }
 }
 
 export async function fetchStatsDataDocument(documentId: string): Promise<StatsDataDocument> {

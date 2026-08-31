@@ -1,6 +1,9 @@
 import { apiHttp } from '@/lib/http'
 import { STATSIO_API } from './statsio-endpoints'
 import type { StatsDataDocument } from '@/api/studio'
+import type { ChannelCatalogQuery, ChannelCatalogResponse } from '@/types/channel-catalog'
+
+export type ChannelKind = 'redaction' | 'institution' | 'independant'
 
 export type ChannelCategory =
   | 'sport'
@@ -30,6 +33,7 @@ export type ChannelProfile = {
   channel_id: number
   name: string
   handle: string
+  kind: ChannelKind
   description: string | null
   is_private: boolean
   logo: string | null
@@ -209,6 +213,46 @@ export async function getPublicChannels(params: ChannelsListParams = {}): Promis
 export async function getChannel(id: number): Promise<Channel> {
   const response = await apiHttp.get<{ success: boolean; data: Channel }>(`/channels/${id}`)
   return response.data.data
+}
+
+const EMPTY_CATALOG: ChannelCatalogResponse = {
+  data: [],
+  meta: { total: 0, shown: 0, per_page: 9, has_more: false },
+  facets: { kinds: [], themes: [], paces: [] },
+  stats: { active: 0, verified: 0, publications_month: 0, last_channel_at: null },
+  featured: null,
+}
+
+/**
+ * Annuaire « v2 » des chaînes (page /chaines) : recherche, facettes type / thème /
+ * rythme, tri, chaîne du mois et stats. Réponse alignée sur le catalogue
+ * articles/statsdata. `apiHttp` envoie le token si l'utilisateur est connecté
+ * (pour `is_following` et le filtre « mes abonnements »), sinon appel public.
+ */
+export async function fetchChannelCatalog(query: ChannelCatalogQuery = {}): Promise<ChannelCatalogResponse> {
+  const { data } = await apiHttp.get<{ success: boolean; data: Partial<ChannelCatalogResponse> }>(
+    STATSIO_API.channels.catalog,
+    {
+      params: {
+        ...(query.q ? { q: query.q } : {}),
+        ...(query.kind ? { kind: query.kind } : {}),
+        ...(query.category ? { category: query.category } : {}),
+        ...(query.pace ? { pace: query.pace } : {}),
+        ...(query.sort ? { sort: query.sort } : {}),
+        ...(query.verified ? { verified: 1 } : {}),
+        ...(query.followed ? { followed: 1 } : {}),
+        ...(query.per_page ? { per_page: query.per_page } : {}),
+      },
+    },
+  )
+
+  return {
+    data: data.data?.data ?? EMPTY_CATALOG.data,
+    meta: data.data?.meta ?? { ...EMPTY_CATALOG.meta, per_page: query.per_page ?? 9 },
+    facets: data.data?.facets ?? EMPTY_CATALOG.facets,
+    stats: data.data?.stats ?? EMPTY_CATALOG.stats,
+    featured: data.data?.featured ?? null,
+  }
 }
 
 export type ChannelStats = {
@@ -416,6 +460,7 @@ export type ChannelSubscriber = {
 export type UpdateChannelPayload = {
   name?: string
   handle?: string
+  kind?: ChannelKind
   description?: string
   is_private?: boolean
   categories?: ChannelCategory[]
@@ -437,6 +482,7 @@ export async function updateChannelProfile(id: number, payload: UpdateChannelPay
   formData.append('_method', 'PUT')
   if (payload.name !== undefined) formData.append('name', payload.name)
   if (payload.handle !== undefined) formData.append('handle', payload.handle)
+  if (payload.kind !== undefined) formData.append('kind', payload.kind)
   if (payload.description !== undefined) formData.append('description', payload.description)
   if (payload.is_private !== undefined) formData.append('is_private', payload.is_private ? '1' : '0')
   if (payload.categories?.length) {

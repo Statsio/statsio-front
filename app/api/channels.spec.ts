@@ -27,6 +27,7 @@ function makeChannel(overrides: Partial<Channel> = {}): Channel {
       channel_id: 1,
       name: 'My channel',
       handle: 'my-channel',
+      kind: 'independant',
       description: null,
       is_private: false,
       logo: null,
