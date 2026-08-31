@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { defineComponent, h, provide } from 'vue'
+import { mount } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
 import { useBlockData } from './useBlockData'
+import { STUDIO_EMBED_CONTEXT } from './studioEmbedContext'
 import { useStudioStore } from '@/stores/studio'
 import { fetchBlockData, fetchPublicBlockData } from '@/api/studio'
 import type { StudioBlock, BlockQueryResult } from '@/types/studio'
@@ -113,6 +116,31 @@ describe('useBlockData', () => {
     const params = vi.mocked(fetchBlockData).mock.calls[0]![1] as { sortColumn?: string; sortDirection?: string }
     expect(params.sortColumn).toBe('a')
     expect(params.sortDirection).toBe('desc')
+  })
+
+  it('load() queries the source Statsdata slug when STUDIO_EMBED_CONTEXT is provided (bloc sd-embed)', async () => {
+    const studio = useStudioStore()
+    studio.content = { id: 'article-1', type: 'article', title: 't', slug: 'my-article' }
+    vi.mocked(fetchPublicBlockData).mockResolvedValue(result)
+    const block = makeBlock()
+
+    let api: ReturnType<typeof useBlockData> | undefined
+    const Child = defineComponent({
+      setup() {
+        api = useBlockData(() => block, true)
+        return () => h('div')
+      },
+    })
+    const Parent = defineComponent({
+      setup() {
+        provide(STUDIO_EMBED_CONTEXT, { docSlug: 'source-statsdata', pages: [], params: {} })
+        return () => h(Child)
+      },
+    })
+    mount(Parent)
+    await api!.reload()
+
+    expect(fetchPublicBlockData).toHaveBeenCalledWith('source-statsdata', 'dataset-1', expect.any(Object))
   })
 
   it('load() resets data to null and does not fetch when datasetId is absent', async () => {

@@ -173,6 +173,12 @@ describe('useStudioStore', () => {
       const block = store.addBlock('rating', `${store.sections[0]!.id}-0`)
       expect(block.config).toMatchObject({ ratingMax: 5 })
     })
+
+    it('seeds showSourceLink for a sd-embed block', () => {
+      const store = useStudioStore()
+      const block = store.addBlock('sd-embed', `${store.sections[0]!.id}-0`)
+      expect(block.config).toMatchObject({ showSourceLink: true })
+    })
   })
 
   describe('removeBlock / duplicateBlock', () => {

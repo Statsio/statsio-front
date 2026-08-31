@@ -7,7 +7,7 @@ definePageMeta({
   robots: 'noindex,nofollow',
 })
 
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import ContentDashboardHeader from '@/components/contents/dashboard/ContentDashboardHeader.vue'
 import ChannelDataSourceRow from '@/components/channels/dashboard/ChannelDataSourceRow.vue'
@@ -16,8 +16,17 @@ import { useContentDataSources } from '@/composables/useContentDataSources'
 
 const route = useRoute()
 const slug = computed(() => String(route.params.slug ?? ''))
-const { studioPath } = useContentDashboard()
+const { content, contentType, propertiesBase, studioPath } = useContentDashboard()
 const { sources, loading, error } = useContentDataSources(slug)
+
+// L'onglet Sources n'existe que pour les Statsdata — accès direct par URL renvoyé au 1er onglet.
+watch(
+  content,
+  (doc) => {
+    if (doc && contentType.value !== 'statsdata') navigateTo(propertiesBase.value, { replace: true })
+  },
+  { immediate: true },
+)
 </script>
 
 <template>

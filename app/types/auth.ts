@@ -55,6 +55,9 @@ export interface AuthUser {
   profile: AuthProfile | null
   /** true si tous les champs de UserProfile::REQUIRED_FOR_COMPLETION sont renseignés côté back. */
   profile_complete?: boolean
+  /** true dès qu'une session Didit du compte a été approuvée (sondages à identité vérifiée). */
+  identity_verified?: boolean
+  identity_verified_at?: string | null
   /** Compteurs affichés dans la carte profil de l'espace compte (ajoutés par MeAction). */
   counts?: AuthUserCounts
 }

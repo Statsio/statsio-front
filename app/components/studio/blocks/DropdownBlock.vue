@@ -45,15 +45,15 @@ function countFor(value: string): number {
     </div>
 
     <template v-else>
-      <p class="text-sm font-semibold text-[var(--studio-ink)]">
+      <p v-if="block.config.title || !readonly" class="text-[15px] font-bold text-slate-950">
         {{ block.config.title || 'Question sans titre' }}
         <span v-if="block.config.formRequired" class="text-rose-500">*</span>
       </p>
 
-      <!-- Studio editor preview (static, disabled) -->
+      <!-- Studio editor preview — même rendu, statique -->
       <template v-if="!readonly">
         <AppSelect model-value="" :options="selectOptions" disabled placeholder="Sélectionner…" />
-        <p class="mt-1 text-[10px] text-[var(--studio-faint)]">Non interactif en mode édition</p>
+        <p class="mt-1 text-[10px] text-[var(--studio-faint)]">Aperçu — interactif sur la page publiée</p>
       </template>
 
       <!-- Public: loading -->
@@ -63,26 +63,28 @@ function countFor(value: string): number {
       <div v-else-if="showForm()" class="flex flex-col gap-2.5">
         <AppSelect v-model="selected" :options="selectOptions" placeholder="Sélectionner…" teleport />
         <button
-          class="mt-1 self-start rounded-full bg-[var(--color-primary)] px-4 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+          class="mt-1 self-start rounded-full bg-[var(--color-primary)] px-6 py-2.5 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
           :disabled="!selected || form?.submitting.value"
           @click="submit"
         >
-          {{ form?.submitting.value ? 'Envoi…' : 'Envoyer' }}
+          {{ form?.submitting.value ? 'Envoi…' : 'Valider ma réponse' }}
         </button>
       </div>
 
       <!-- Public: results -->
-      <div v-else class="flex flex-col gap-2">
-        <div v-for="opt in options" :key="opt" class="flex flex-col gap-1">
-          <div class="flex items-center justify-between text-xs text-[var(--studio-ink)]">
-            <span>{{ opt }}</span>
-            <span class="font-semibold">{{ percentFor(opt) }}% ({{ countFor(opt) }})</span>
-          </div>
-          <div class="h-1.5 w-full overflow-hidden rounded-full bg-[var(--studio-note)]">
-            <div class="h-full rounded-full bg-[var(--color-primary)]" :style="{ width: `${percentFor(opt)}%` }" />
-          </div>
+      <div v-else class="flex flex-col gap-3">
+        <div
+          v-for="opt in options"
+          :key="opt"
+          class="relative overflow-hidden rounded-xl border border-slate-200/80 px-4 py-3.5"
+        >
+          <span class="absolute inset-y-0 left-0 bg-[rgba(139,92,246,0.08)]" :style="{ width: `${percentFor(opt)}%` }" />
+          <span class="relative flex items-center justify-between gap-3">
+            <span class="text-[14.5px] font-bold text-slate-950">{{ opt }}</span>
+            <span class="shrink-0 font-mono text-[13.5px] font-semibold text-slate-700">{{ percentFor(opt) }}% ({{ countFor(opt) }})</span>
+          </span>
         </div>
-        <p class="mt-1 text-[11px] text-[var(--studio-faint)]">
+        <p class="text-[11.5px] text-slate-400">
           {{ form?.aggregate.value.totalResponses }} réponse{{ (form?.aggregate.value.totalResponses ?? 0) > 1 ? 's' : '' }}
           · <button class="font-semibold text-[var(--color-primary)] hover:underline" @click="edit">Modifier ma réponse</button>
         </p>

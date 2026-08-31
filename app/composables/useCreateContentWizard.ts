@@ -1,22 +1,32 @@
-import { ref, computed } from 'vue'
+import { computed, ref } from 'vue'
 import type {
   CoverageType,
   ContentVisibility,
   ContentPublishedAs,
   CreateContentPayload,
   ContentType,
+  SurveyKind,
 } from '@/types/content-creation'
 import { ALL_CONTINENT_VALUES } from '@/types/content-creation'
 import type { ModalStep } from '@/components/ui/AppStepModal.vue'
 
-export const CONTENT_WIZARD_STEPS: ModalStep[] = [
-  { id: 'title',       title: 'Titre',       description: 'Donnez un nom à votre contenu' },
-  { id: 'categories',  title: 'Catégories',  description: 'Classifiez votre contenu' },
-  { id: 'coverage',    title: 'Couverture',  description: 'Définissez la portée géographique' },
+const TITLE_STEP: ModalStep = { id: 'title', title: 'Titre', description: 'Donnez un nom à votre contenu' }
+const SURVEY_STEP: ModalStep = { id: 'survey', title: 'Type de sondage', description: 'Format et vérification' }
+const BASE_STEPS: ModalStep[] = [
+  { id: 'categories', title: 'Catégories', description: 'Classifiez votre contenu' },
+  { id: 'coverage', title: 'Couverture', description: 'Définissez la portée géographique' },
   { id: 'publication', title: 'Publication', description: 'Choisissez la visibilité' },
 ]
 
-export function useCreateContentWizard() {
+/** Steps for a given content type (survey inserts a dedicated step after the title). */
+export function wizardStepsFor(type: ContentType): ModalStep[] {
+  return type === 'survey' ? [TITLE_STEP, SURVEY_STEP, ...BASE_STEPS] : [TITLE_STEP, ...BASE_STEPS]
+}
+
+/** Kept for backwards-compat with existing imports/tests. */
+export const CONTENT_WIZARD_STEPS: ModalStep[] = wizardStepsFor('statsdata')
+
+export function useCreateContentWizard(type: ContentType = 'statsdata') {
   const title = ref('')
   const categories = ref<string[]>([])
   const coverageType = ref<CoverageType>('monde')
@@ -24,11 +34,15 @@ export function useCreateContentWizard() {
   const visibility = ref<ContentVisibility>('private')
   const publishedAs = ref<ContentPublishedAs | undefined>(undefined)
   const channelId = ref<number | undefined>(undefined)
+  const surveyKind = ref<SurveyKind>('single_question')
+  const requiresIdentityVerification = ref(false)
 
-  const currentStepId = ref<string>(CONTENT_WIZARD_STEPS[0]!.id)
+  const steps = computed(() => wizardStepsFor(type))
+
+  const currentStepId = ref<string>(steps.value[0]!.id)
 
   const currentStepIndex = computed(
-    () => CONTENT_WIZARD_STEPS.findIndex((s) => s.id === currentStepId.value),
+    () => steps.value.findIndex((s) => s.id === currentStepId.value),
   )
 
   const canGoNext = computed(() => {
@@ -51,19 +65,27 @@ export function useCreateContentWizard() {
     visibility.value = 'private'
     publishedAs.value = undefined
     channelId.value = undefined
-    currentStepId.value = CONTENT_WIZARD_STEPS[0]!.id
+    surveyKind.value = 'single_question'
+    requiresIdentityVerification.value = false
+    currentStepId.value = steps.value[0]!.id
   }
 
-  function buildPayload(type: ContentType): CreateContentPayload {
+  function buildPayload(payloadType: ContentType): CreateContentPayload {
     return {
       title: title.value.trim(),
-      type,
+      type: payloadType,
       categories: categories.value,
       coverage_type: coverageType.value,
       coverage_data: coverageValues.value,
       visibility: visibility.value,
       published_as: visibility.value === 'public' ? publishedAs.value : undefined,
       channel_id: publishedAs.value === 'channel' ? channelId.value : undefined,
+      ...(payloadType === 'survey'
+        ? {
+            survey_kind: surveyKind.value,
+            requires_identity_verification: requiresIdentityVerification.value,
+          }
+        : {}),
     }
   }
 
@@ -75,6 +97,9 @@ export function useCreateContentWizard() {
     visibility,
     publishedAs,
     channelId,
+    surveyKind,
+    requiresIdentityVerification,
+    steps,
     currentStepId,
     currentStepIndex,
     canGoNext,

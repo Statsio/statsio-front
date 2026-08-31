@@ -12,8 +12,15 @@ import type { StatsDataDocument } from '@/api/studio'
  * Les mutations sont optimistes ; un visiteur non connecté est renvoyé au login
  * avec retour sur la page courante.
  */
-export function useStatsDataChrome(doc: Ref<StatsDataDocument | null>) {
+export function useStatsDataChrome(
+  doc: Ref<StatsDataDocument | null>,
+  opts: { contentType?: 'statsdata' | 'article' } = {},
+) {
   const auth = useAuthStore()
+  const kind = opts.contentType ?? 'statsdata'
+  const publicPrefix = kind === 'article' ? '/articles' : '/statsdata'
+  const embedPrefix = kind === 'article' ? '/embed/articles' : '/embed/statsdata'
+  const shareLabel = kind === 'article' ? 'Article' : 'StatsData'
 
   const isFavorite = ref(false)
   const isFollowing = ref(false)
@@ -74,13 +81,13 @@ export function useStatsDataChrome(doc: Ref<StatsDataDocument | null>) {
   const shareUrl = computed(() =>
     import.meta.client
       ? window.location.origin + window.location.pathname
-      : `/statsdata/${doc.value?.slug ?? ''}`,
+      : `${publicPrefix}/${doc.value?.slug ?? ''}`,
   )
   const embedUrl = computed(() =>
-    (import.meta.client ? window.location.origin : '') + `/embed/statsdata/${doc.value?.slug ?? ''}`,
+    (import.meta.client ? window.location.origin : '') + `${embedPrefix}/${doc.value?.slug ?? ''}`,
   )
   const embedSnippet = computed(
-    () => `<iframe src="${embedUrl.value}" width="100%" height="640" style="border:1px solid #e5e5e5;border-radius:12px" loading="lazy" title="${(doc.value?.title ?? 'StatsData').replace(/"/g, '&quot;')}"></iframe>`,
+    () => `<iframe src="${embedUrl.value}" width="100%" height="640" style="border:1px solid #e5e5e5;border-radius:12px" loading="lazy" title="${(doc.value?.title ?? shareLabel).replace(/"/g, '&quot;')}"></iframe>`,
   )
 
   const canWebShare = computed(() => import.meta.client && typeof navigator !== 'undefined' && 'share' in navigator)
@@ -88,7 +95,7 @@ export function useStatsDataChrome(doc: Ref<StatsDataDocument | null>) {
   async function nativeShare(): Promise<boolean> {
     if (!canWebShare.value) return false
     try {
-      await navigator.share({ title: doc.value?.title ?? 'StatsData', url: shareUrl.value })
+      await navigator.share({ title: doc.value?.title ?? shareLabel, url: shareUrl.value })
       return true
     } catch {
       return false
@@ -97,7 +104,7 @@ export function useStatsDataChrome(doc: Ref<StatsDataDocument | null>) {
 
   const shareTargets = computed(() => {
     const u = encodeURIComponent(shareUrl.value)
-    const t = encodeURIComponent(doc.value?.title ?? 'StatsData')
+    const t = encodeURIComponent(doc.value?.title ?? shareLabel)
     return [
       { key: 'x', label: 'X / Twitter', href: `https://twitter.com/intent/tweet?url=${u}&text=${t}` },
       { key: 'linkedin', label: 'LinkedIn', href: `https://www.linkedin.com/sharing/share-offsite/?url=${u}` },
