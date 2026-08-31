@@ -6,10 +6,10 @@ import ArticleBody from './ArticleBody.vue'
 import type { Section, StudioBlock } from '@/types/studio'
 
 vi.mock('@/api/studio', () => ({
-  fetchBlockData: vi.fn(),
-  fetchPublicBlockData: vi.fn(),
-  fetchScalarAggregate: vi.fn(),
-  fetchPublicScalarAggregate: vi.fn(),
+  fetchBlockData: vi.fn<(...args: unknown[]) => unknown>(),
+  fetchPublicBlockData: vi.fn<(...args: unknown[]) => unknown>(),
+  fetchScalarAggregate: vi.fn<(...args: unknown[]) => unknown>(),
+  fetchPublicScalarAggregate: vi.fn<(...args: unknown[]) => unknown>(),
 }))
 
 const stubs = {
