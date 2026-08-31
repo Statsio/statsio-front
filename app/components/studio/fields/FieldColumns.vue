@@ -53,7 +53,8 @@ function isOpen(label: string) {
 }
 function toggleGroup(label: string) {
   const s = new Set(openGroups.value)
-  s.has(label) ? s.delete(label) : s.add(label)
+  if (s.has(label)) s.delete(label)
+  else s.add(label)
   openGroups.value = s
 }
 
