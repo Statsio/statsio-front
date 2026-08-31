@@ -9,16 +9,28 @@ definePageMeta({
 
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import ContentDashboardHeader from '@/components/contents/dashboard/ContentDashboardHeader.vue'
-import ContentComingSoonCard from '@/components/contents/dashboard/ContentComingSoonCard.vue'
 import StatsDataSettingsGeneralCard from '@/components/statsdata/settings/StatsDataSettingsGeneralCard.vue'
 import StatsDataSettingsCategoriesCard from '@/components/statsdata/settings/StatsDataSettingsCategoriesCard.vue'
 import StatsDataSettingsEmojiCard from '@/components/statsdata/settings/StatsDataSettingsEmojiCard.vue'
 import StatsDataSettingsThumbnailCard from '@/components/statsdata/settings/StatsDataSettingsThumbnailCard.vue'
 import StatsDataSettingsResponseDeadlineCard from '@/components/statsdata/settings/StatsDataSettingsResponseDeadlineCard.vue'
+import StatsDataSettingsSurveyKindCard from '@/components/statsdata/settings/StatsDataSettingsSurveyKindCard.vue'
+import StatsDataSettingsIdentityCard from '@/components/statsdata/settings/StatsDataSettingsIdentityCard.vue'
 import StatsDataSettingsCard from '@/components/statsdata/settings/StatsDataSettingsCard.vue'
+import type { SurveyKind } from '@/types/content-creation'
+import { publicContentPath } from '@/lib/content-display'
 import { useContentDashboard } from '@/composables/useContentDashboard'
 
 const { content, contentType, patch } = useContentDashboard()
+
+/** Contenus qui affichent une miniature / un emoji sur leur page publique et leurs cartes. */
+const showThumbnail = computed(() => contentType.value !== 'survey')
+const showEmoji = computed(() => contentType.value === 'statsdata')
+
+/** Préfixe d'URL publique réel du type courant (ex. « statsio.fr/sondages/ »). */
+const slugPrefix = computed(
+  () => `statsio.fr${publicContentPath(contentType.value, '').replace(/\/+$/, '')}/`,
+)
 
 const name = ref('')
 const description = ref('')
@@ -26,6 +38,8 @@ const slug = ref('')
 const categories = ref<string[]>([])
 const emoji = ref<string | null>(null)
 const responseDeadline = ref<string | null>(null)
+const surveyKind = ref<SurveyKind>('single_question')
+const requiresIdentity = ref(false)
 
 const persistedThumbnailUrl = ref<string | null>(null)
 const pendingThumbnailFile = ref<File | null>(null)
@@ -44,6 +58,8 @@ watch(
     categories.value = [...(doc.categories ?? [])]
     emoji.value = doc.emoji ?? null
     responseDeadline.value = doc.response_deadline ? doc.response_deadline.slice(0, 10) : null
+    surveyKind.value = doc.survey_kind ?? 'single_question'
+    requiresIdentity.value = doc.requires_identity_verification ?? false
     persistedThumbnailUrl.value = doc.thumbnail_url ?? null
   },
   { immediate: true },
@@ -87,8 +103,14 @@ async function save() {
         description: description.value || null,
         slug: slug.value || undefined,
         categories: categories.value,
-        emoji: emoji.value,
-        ...(contentType.value === 'survey' ? { response_deadline: responseDeadline.value } : {}),
+        ...(showEmoji.value ? { emoji: emoji.value } : {}),
+        ...(contentType.value === 'survey'
+          ? {
+              response_deadline: responseDeadline.value,
+              survey_kind: surveyKind.value,
+              requires_identity_verification: requiresIdentity.value,
+            }
+          : {}),
       },
       pendingThumbnailFile.value,
       removeThumbnail.value,
@@ -129,7 +151,7 @@ async function save() {
           <span
             class="shrink-0 border-r-[1.5px] border-[#18181f]/10 bg-slate-50 px-3 py-3 font-mono text-[12px] text-[#18181f]/45"
           >
-            statsio.fr/data/
+            {{ slugPrefix }}
           </span>
           <input
             v-model="slug"
@@ -145,6 +167,7 @@ async function save() {
       </StatsDataSettingsCard>
 
       <StatsDataSettingsThumbnailCard
+        v-if="showThumbnail"
         :preview-url="thumbnailPreviewUrl"
         @select="onThumbnailSelect"
         @remove="onThumbnailRemove"
@@ -152,28 +175,13 @@ async function save() {
 
       <StatsDataSettingsCategoriesCard v-model="categories" />
 
-      <StatsDataSettingsEmojiCard v-model="emoji" />
+      <StatsDataSettingsEmojiCard v-if="showEmoji" v-model="emoji" />
 
-      <StatsDataSettingsResponseDeadlineCard
-        v-if="contentType === 'survey'"
-        v-model="responseDeadline"
-      />
-
-      <ContentComingSoonCard
-        title="Mots-clés"
-        description="Des étiquettes libres pour affiner la recherche et les contenus liés."
-        note="La gestion des mots-clés arrivera dans une prochaine version."
-      >
-        <div class="flex flex-wrap gap-2">
-          <span
-            v-for="tag in ['sécheresse', 'nappes', 'départements']"
-            :key="tag"
-            class="rounded-full bg-primary/10 px-3 py-1.5 text-[12px] font-bold text-primary"
-          >
-            {{ tag }}
-          </span>
-        </div>
-      </ContentComingSoonCard>
+      <template v-if="contentType === 'survey'">
+        <StatsDataSettingsSurveyKindCard v-model="surveyKind" />
+        <StatsDataSettingsResponseDeadlineCard v-model="responseDeadline" />
+        <StatsDataSettingsIdentityCard v-model="requiresIdentity" />
+      </template>
     </div>
   </div>
 </template>

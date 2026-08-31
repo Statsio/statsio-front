@@ -116,7 +116,7 @@ function paramValue(name: string, fallback?: string): string {
   return props.block.config.sourceParams?.[name] ?? fallback ?? ''
 }
 function setParam(name: string, value: string) {
-  const next = { ...(props.block.config.sourceParams ?? {}) }
+  const next = { ...props.block.config.sourceParams }
   if (value) next[name] = value
   else delete next[name]
   studio.updateBlockConfig(props.block.id, { sourceParams: next })

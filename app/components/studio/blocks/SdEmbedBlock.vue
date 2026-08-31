@@ -53,7 +53,7 @@ const embedParams = computed<Record<string, string>>(() => {
   for (const p of resolved.value?.params ?? []) {
     if (p.name && p.defaultValue != null && p.defaultValue !== '') out[p.name] = p.defaultValue
   }
-  return { ...out, ...(props.block.config.sourceParams ?? {}) }
+  return { ...out, ...props.block.config.sourceParams }
 })
 
 /** Scope transmis au bloc interne = params de la source + scope de boucle éventuel. */

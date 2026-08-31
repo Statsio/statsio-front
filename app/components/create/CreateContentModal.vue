@@ -6,8 +6,9 @@ import StepTitle from '@/components/create/steps/StepTitle.vue'
 import StepCategories from '@/components/create/steps/StepCategories.vue'
 import StepCoverage from '@/components/create/steps/StepCoverage.vue'
 import StepPublication from '@/components/create/steps/StepPublication.vue'
+import StepSurveyType from '@/components/create/steps/StepSurveyType.vue'
 import StepSuccess from '@/components/create/steps/StepSuccess.vue'
-import { useCreateContentWizard, CONTENT_WIZARD_STEPS } from '@/composables/useCreateContentWizard'
+import { useCreateContentWizard } from '@/composables/useCreateContentWizard'
 import { createStudioContent } from '@/api/studio'
 import type { StatsDataDocument } from '@/api/studio'
 import type { ContentType } from '@/types/content-creation'
@@ -32,9 +33,10 @@ const createdDoc = ref<StatsDataDocument | null>(null)
 const {
   title, categories, coverageType, coverageValues,
   visibility, publishedAs, channelId,
-  currentStepId, canGoNext,
+  surveyKind, requiresIdentityVerification,
+  steps, currentStepId, canGoNext,
   reset, buildPayload,
-} = useCreateContentWizard()
+} = useCreateContentWizard(props.type)
 
 watch(() => props.open, (v) => {
   if (!v) {
@@ -75,7 +77,7 @@ const studioPath = () => createdDoc.value ? `/studio/${props.type}/${createdDoc.
     v-else
     :open="open"
     :title="config.modalTitle"
-    :steps="CONTENT_WIZARD_STEPS"
+    :steps="steps"
     v-model:current-step-id="currentStepId"
     :can-go-next="canGoNext"
     :loading="submitting"
@@ -89,6 +91,13 @@ const studioPath = () => createdDoc.value ? `/studio/${props.type}/${createdDoc.
         v-if="step?.id === 'title'"
         v-model="title"
         :content-type-label="config.label"
+      />
+      <StepSurveyType
+        v-else-if="step?.id === 'survey'"
+        :kind="surveyKind"
+        :identity="requiresIdentityVerification"
+        @update:kind="surveyKind = $event"
+        @update:identity="requiresIdentityVerification = $event"
       />
       <StepCategories
         v-else-if="step?.id === 'categories'"

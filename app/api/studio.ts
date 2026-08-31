@@ -318,6 +318,14 @@ export interface StatsDataDocument {
   emoji?: string | null
   /** Only meaningful for `type === 'survey'`. Null/undefined = ouvert indéfiniment. */
   response_deadline?: string | null
+  /** `type === 'survey'` only — format de la consultation. */
+  survey_kind?: import('@/types/content-creation').SurveyKind | null
+  /** `type === 'survey'` only — le sondage exige une vérification d'identité (à venir). */
+  requires_identity_verification?: boolean
+  /** `type === 'survey'` + `survey_kind === 'petition'` — objectif de signatures. */
+  petition_goal?: number | null
+  /** `type === 'survey'` + `survey_kind === 'petition'` — destinataire de la pétition. */
+  petition_target?: string | null
   /** Only present on `fetchPublicStatsDataDocument` — true if the current viewer may edit this content. */
   can_edit?: boolean
   /** Only present on `fetchPublicStatsDataDocument` — true if the current viewer favorited this content. */
@@ -340,6 +348,8 @@ export interface CreateStudioContentPayload {
   visibility?: ContentVisibility
   published_as?: 'user' | 'channel'
   channel_id?: number
+  survey_kind?: import('@/types/content-creation').SurveyKind
+  requires_identity_verification?: boolean
 }
 
 export async function createStudioContent(payload: CreateStudioContentPayload): Promise<StatsDataDocument> {
@@ -380,12 +390,16 @@ export async function fetchPublicCatalog(query: import('@/types/catalog').Catalo
       ...(query.per_page ? { per_page: query.per_page } : {}),
       ...(query.categories?.length ? { categories: query.categories } : {}),
       ...(query.channel_id ? { channel_id: query.channel_id } : {}),
+      ...(query.survey_kind ? { survey_kind: query.survey_kind } : {}),
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.not_participated ? { not_participated: 1 } : {}),
+      ...(query.respondent_token ? { respondent_token: query.respondent_token } : {}),
     },
   })
   return {
     data: data.data ?? [],
     meta: data.meta ?? { total: 0, shown: 0, per_page: query.per_page ?? 9, has_more: false },
-    facets: data.facets ?? { categories: [], formats: [] },
+    facets: data.facets ?? { categories: [], formats: [], survey_kinds: [] },
     stats: data.stats ?? { published: 0, channels: 0, charts: 0, last_published_at: null },
     featured: data.featured ?? null,
   }
@@ -484,6 +498,10 @@ export interface SaveStatsDataDocumentPayload {
   categories?: string[]
   emoji?: string | null
   response_deadline?: string | null
+  /** `type === 'survey'` uniquement — format de la consultation. */
+  survey_kind?: import('@/types/content-creation').SurveyKind
+  /** `type === 'survey'` uniquement — exiger la vérification d'identité des répondants. */
+  requires_identity_verification?: boolean
   published_as?: 'user' | 'channel' | null
   channel_id?: number | null
   pages?: import('@/types/studio').StudioDocumentPage[]
@@ -524,6 +542,9 @@ function appendSavePayload(form: FormData, payload: SaveStatsDataDocumentPayload
   if (payload.categories !== undefined) payload.categories.forEach((c) => form.append('categories[]', c))
   if (payload.emoji !== undefined) form.append('emoji', payload.emoji ?? '')
   if (payload.response_deadline !== undefined) form.append('response_deadline', payload.response_deadline ?? '')
+  if (payload.survey_kind !== undefined) form.append('survey_kind', payload.survey_kind)
+  if (payload.requires_identity_verification !== undefined)
+    form.append('requires_identity_verification', payload.requires_identity_verification ? '1' : '0')
   if (payload.published_as !== undefined) form.append('published_as', payload.published_as ?? '')
   if (payload.channel_id !== undefined && payload.channel_id != null) form.append('channel_id', String(payload.channel_id))
 }

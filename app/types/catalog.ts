@@ -1,7 +1,16 @@
-export type CatalogSort = 'trend' | 'recent' | 'views'
+export type CatalogSort = 'trend' | 'recent' | 'views' | 'votes'
 export type CatalogView = 'grid' | 'list'
 export type CatalogContentType = 'article' | 'statsdata' | 'survey'
 export type CatalogFormat = 'enquete' | 'decryptage' | 'dossier' | 'breve'
+export type SurveyKind = import('@/types/content-creation').SurveyKind
+export type SurveyStatusFilter = 'ouvert' | 'clos'
+
+export type SurveyOptionRow = { label: string; pct: number }
+export type SurveyQuestionPreview = {
+  type: string
+  label: string
+  rows: { label: string; pct: number; count: number }[]
+}
 
 export type CatalogPublisher = {
   name: string
@@ -31,6 +40,20 @@ export type CatalogItem = {
   created_at?: string | null
   publisher: CatalogPublisher
   is_favorited: boolean
+  // ── Sondages (type === 'survey') ──────────────────────────────────────────
+  survey_kind?: SurveyKind
+  requires_identity_verification?: boolean
+  response_deadline?: string | null
+  is_closed?: boolean
+  responses_count?: number
+  questions_count?: number
+  estimated_minutes?: number
+  question_types?: string[]
+  primary_options?: SurveyOptionRow[]
+  question_previews?: SurveyQuestionPreview[]
+  petition_goal?: number | null
+  petition_target?: string | null
+  has_participated?: boolean
 }
 
 export type CatalogFacet = {
@@ -57,6 +80,7 @@ export type CatalogResponse = {
   facets: {
     categories: CatalogFacet[]
     formats: CatalogFacet[]
+    survey_kinds?: CatalogFacet[]
   }
   stats: CatalogStats
   featured: CatalogItem | null
@@ -72,4 +96,8 @@ export type CatalogQuery = {
   per_page?: number
   categories?: string[]
   channel_id?: number
+  survey_kind?: SurveyKind
+  status?: SurveyStatusFilter
+  not_participated?: boolean
+  respondent_token?: string
 }
