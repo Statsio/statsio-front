@@ -13,7 +13,7 @@ const DEFAULTS: NotificationPreferences = { articles: true, weekly: true, replie
 
 const prefs = reactive<NotificationPreferences>({
   ...DEFAULTS,
-  ...(authStore.user?.profile?.notification_preferences ?? {}),
+  ...authStore.user?.profile?.notification_preferences,
 })
 
 watch(

@@ -33,7 +33,7 @@ export function useBlockData(
 
   function resolveFilterValue(value: string): string {
     // scope (variable de boucle) prioritaire sur les paramètres de page
-    return interpolateTokens(value, { ...studio.pageParams, ...(scope?.() ?? {}) })
+    return interpolateTokens(value, { ...studio.pageParams, ...scope?.() })
   }
 
   function resolveFilters(filters: BlockFilter[]): BlockFilter[] {
