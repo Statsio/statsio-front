@@ -28,6 +28,7 @@ export const STATSIO_API = {
   },
   channels: {
     collection: '/channels',
+    catalog: '/channels/catalog',
     one: (id: string) => `/channels/${encodeURIComponent(id)}`,
     suspend: (id: string) => `/channels/${encodeURIComponent(id)}/suspend`,
     ban: (id: string) => `/channels/${encodeURIComponent(id)}/ban`,
