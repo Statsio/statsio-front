@@ -30,7 +30,7 @@
     "@pinia/nuxt": "^1.0.2",
     "@sentry/nuxt": "^10.70.0",
     "@tailwindcss/vite": "^4.3.3",
-    "@tiptap/extension-bubble-menu": "^3.28.0",
+    "@tiptap/extension-bubble-menu": "^3.30.5",
     "@tiptap/extension-color": "^3.28.0",
     "@tiptap/extension-highlight": "^3.28.0",
     "@tiptap/extension-text-align": "^3.28.0",
