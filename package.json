@@ -56,7 +56,7 @@
     "@types/jsdom": "^30.0.0",
     "@types/node": "^26.1.1",
     "@vitejs/plugin-vue": "^6.0.4",
-    "@vitest/coverage-v8": "^4.1.10",
+    "@vitest/coverage-v8": "^4.1.11",
     "@vitest/eslint-plugin": "^1.6.9",
     "@vue/eslint-config-typescript": "^14.9.0",
     "@vue/test-utils": "^2.4.11",
