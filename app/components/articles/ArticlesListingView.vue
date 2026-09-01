@@ -14,9 +14,7 @@ import CatalogResultBar from '@/components/listing/CatalogResultBar.vue'
 import CatalogEmpty from '@/components/listing/CatalogEmpty.vue'
 import CatalogLoadMore from '@/components/listing/CatalogLoadMore.vue'
 import CatalogCta from '@/components/listing/CatalogCta.vue'
-import ArticleFeaturedCard from '@/components/articles/ArticleFeaturedCard.vue'
-import ArticleCatalogCard from '@/components/articles/ArticleCatalogCard.vue'
-import ArticleCatalogRow from '@/components/articles/ArticleCatalogRow.vue'
+import ArticleCard from '@/components/content/ArticleCard.vue'
 
 const props = defineProps<{
   categories?: string[]
@@ -171,13 +169,14 @@ function onSelectTag(tag: string) {
       </div>
 
       <template v-else-if="catalog.meta.total > 0">
-        <ArticleFeaturedCard v-if="showFeatured && catalog.featured" :item="catalog.featured" />
+        <ArticleCard v-if="showFeatured && catalog.featured" :item="catalog.featured" format="row" feature class="mb-[22px]" />
 
         <div v-if="view === 'grid'" class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <ArticleCatalogCard
+          <ArticleCard
             v-for="item in gridItems"
             :key="item.id"
             :item="item"
+            format="card"
             :favorited="isFavorited(item)"
             @favorite="toggleItemFavorite(item)"
             @select-tag="onSelectTag"
@@ -194,10 +193,11 @@ function onSelectTag(tag: string) {
             <div />
           </div>
           <div class="min-w-[720px]">
-            <ArticleCatalogRow
+            <ArticleCard
               v-for="item in catalog.data"
               :key="item.id"
               :item="item"
+              format="row"
               :favorited="isFavorited(item)"
               @favorite="toggleItemFavorite(item)"
             />

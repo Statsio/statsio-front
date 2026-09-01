@@ -1,4 +1,4 @@
-import type { FeaturedContent, ChannelOrganization } from '@/api/channels'
+import type { ChannelOrganization } from '@/api/channels'
 
 export type ChannelTone = 'primary' | 'accent' | 'secondary'
 
@@ -27,5 +27,4 @@ export type ChannelEntry = {
   viewCount?: number
   customColorPrimary?: string | null
   customColorSecondary?: string | null
-  featured?: FeaturedContent | null
 }

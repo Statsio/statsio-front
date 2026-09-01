@@ -34,7 +34,6 @@ export const STATSIO_API = {
     ban: (id: string) => `/channels/${encodeURIComponent(id)}/ban`,
     activate: (id: string) => `/channels/${encodeURIComponent(id)}/activate`,
     anonymize: (id: string) => `/channels/${encodeURIComponent(id)}/anonymize`,
-    featured: (id: string) => `/channels/${encodeURIComponent(id)}/featured`,
   },
   /** OpenAPI : `POST /api/source-api/probe-connection` — test d’URL + clé Bearer (sans lier au document). */
   sourceApi: {
@@ -77,6 +76,8 @@ export const STATSIO_API = {
     publicCatalog: '/studio/content/public/catalog',
     /** Recherche de contenus publiés pour la mention `@` de l'assistant du Studio. */
     publicMentions: '/studio/content/public/mentions',
+    /** Recherche globale (modale du header) : contenus publiés + chaînes, groupés par type. */
+    publicSearch: '/studio/content/public/search',
     publicBySlug: (slug: string) => `/studio/content/public/${encodeURIComponent(slug)}`,
     publicDatasetQuery: (slug: string, datasetId: string) =>
       `/studio/content/public/${encodeURIComponent(slug)}/datasets/${encodeURIComponent(datasetId)}/query`,

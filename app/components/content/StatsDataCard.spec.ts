@@ -1,0 +1,80 @@
+import { describe, it, expect, vi } from 'vitest'
+import { mount, RouterLinkStub } from '@vue/test-utils'
+import StatsDataCard from './StatsDataCard.vue'
+import StatsDataSyntheticViz from './StatsDataSyntheticViz.vue'
+import type { CatalogItem } from '@/types/catalog'
+import type { ContentManageMeta } from '@/types/content-card'
+
+vi.mock('@/composables/useContentBasePath', () => ({
+  useContentBasePath: () => ({ value: '' }),
+}))
+
+function item(overrides: Partial<CatalogItem> = {}): CatalogItem {
+  return {
+    id: 'abc',
+    slug: 'mon-statsdata',
+    title: 'Mon statsdata',
+    description: null,
+    type: 'statsdata',
+    categories: ['economie'],
+    category: 'economie',
+    format: null,
+    tags: [],
+    reading_minutes: 0,
+    linked_datasets_count: 3,
+    charts_count: 4,
+    views_count: 500,
+    updated_at: '2026-08-01T00:00:00Z',
+    publisher: { name: 'DataDesk', initials: 'DD', is_channel: true, verified: true },
+    is_favorited: false,
+    ...overrides,
+  }
+}
+
+const manage: ContentManageMeta = {
+  statusLabel: 'Brouillon',
+  statusBg: '#eee',
+  statusColor: '#555',
+  live: false,
+  ownerKind: 'perso',
+  ownerLabel: 'Moi · Perso',
+  date: '1 août',
+  viewsCount: 0,
+  studioPath: '/studio/statsdata/mon-statsdata',
+  propertiesPath: '/contenu/mon-statsdata/proprietes',
+  publicPath: null,
+}
+
+const global = { stubs: { NuxtLink: RouterLinkStub, CatalogSubBrandTag: true, AppSparkline: true } }
+
+describe('StatsDataCard', () => {
+  it('card + public: mounts the synthetic viz by default', () => {
+    const w = mount(StatsDataCard, { props: { item: item(), mode: 'public' }, global })
+    expect(w.findComponent(StatsDataSyntheticViz).exists()).toBe(true)
+    expect(w.text()).toContain('☆')
+  })
+
+  it('card + manage: no synthetic viz, status badge + Studio link, no fav star', () => {
+    const w = mount(StatsDataCard, { props: { item: item(), mode: 'manage', manage }, global })
+    expect(w.findComponent(StatsDataSyntheticViz).exists()).toBe(false)
+    expect(w.text()).toContain('Brouillon')
+    expect(w.text()).toContain('Studio')
+    expect(w.text()).not.toContain('☆')
+  })
+
+  it('showSyntheticViz=false forces the decorative sparkline even in public', () => {
+    const w = mount(StatsDataCard, { props: { item: item(), mode: 'public', showSyntheticViz: false }, global })
+    expect(w.findComponent(StatsDataSyntheticViz).exists()).toBe(false)
+  })
+
+  it('row: links to the public page', () => {
+    const w = mount(StatsDataCard, { props: { item: item(), format: 'row' }, global })
+    const links = w.findAllComponents(RouterLinkStub).map((l) => l.props('to'))
+    expect(links).toContain('/statsdata/mon-statsdata')
+  })
+
+  it('feature: renders the dark à la une hero', () => {
+    const w = mount(StatsDataCard, { props: { item: item(), format: 'row', feature: true }, global })
+    expect(w.text()).toContain('OUVRIR LE STATSDATA')
+  })
+})

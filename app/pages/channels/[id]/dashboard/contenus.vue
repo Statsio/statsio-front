@@ -2,7 +2,7 @@
 definePageMeta({ layout: 'channel-dashboard', middleware: ['auth'], ssr: false, title: 'Contenus de la chaîne', robots: 'noindex,nofollow' })
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import ContentCard from '@/components/contenus/ContentCard.vue'
+import ContentCard from '@/components/content/ContentCard.vue'
 import ContenusEmptyState from '@/components/contenus/ContenusEmptyState.vue'
 import ChannelContentTypeFilter from '@/components/channels/ChannelContentTypeFilter.vue'
 import ChannelDashboardHeader from '@/components/channels/dashboard/ChannelDashboardHeader.vue'
@@ -35,7 +35,14 @@ const { loading, filter, filterOptions, filteredContents, isEmpty, isFilteredEmp
     </div>
 
     <div v-else class="grid grid-cols-1 gap-[22px] sm:grid-cols-2 lg:grid-cols-3">
-      <ContentCard v-for="content in filteredContents" :key="content.id" :content="content" />
+      <ContentCard
+        v-for="entry in filteredContents"
+        :key="entry.item.id"
+        :item="entry.item"
+        :manage="entry.manage"
+        mode="manage"
+        hide-owner
+      />
     </div>
 
     <ContenusEmptyState v-if="!loading && isFilteredEmpty" :has-any-content="!isEmpty" />

@@ -16,9 +16,7 @@ import CatalogResultBar from '@/components/listing/CatalogResultBar.vue'
 import CatalogEmpty from '@/components/listing/CatalogEmpty.vue'
 import CatalogLoadMore from '@/components/listing/CatalogLoadMore.vue'
 import CatalogCta from '@/components/listing/CatalogCta.vue'
-import SurveyFeaturedCard from '@/components/polls/SurveyFeaturedCard.vue'
-import SurveyCatalogCard from '@/components/polls/SurveyCatalogCard.vue'
-import SurveyCatalogRow from '@/components/polls/SurveyCatalogRow.vue'
+import SurveyCard from '@/components/content/SurveyCard.vue'
 
 const props = defineProps<{
   categories?: string[]
@@ -186,13 +184,14 @@ const gridItems = computed(() => {
       </div>
 
       <template v-else-if="catalog.meta.total > 0">
-        <SurveyFeaturedCard v-if="showFeatured && catalog.featured" :item="catalog.featured" />
+        <SurveyCard v-if="showFeatured && catalog.featured" :item="catalog.featured" format="row" feature tone="dark" class="mb-[22px]" />
 
         <div v-if="view === 'grid'" class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <SurveyCatalogCard
+          <SurveyCard
             v-for="item in gridItems"
             :key="item.id"
             :item="item"
+            format="card"
             :favorited="isFavorited(item)"
             @favorite="toggleItemFavorite(item)"
           />
@@ -208,10 +207,11 @@ const gridItems = computed(() => {
             <div />
           </div>
           <div class="min-w-[720px]">
-            <SurveyCatalogRow
+            <SurveyCard
               v-for="item in catalog.data"
               :key="item.id"
               :item="item"
+              format="row"
               :favorited="isFavorited(item)"
               @favorite="toggleItemFavorite(item)"
             />
