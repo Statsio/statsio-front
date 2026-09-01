@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import AxiosMockAdapter from 'axios-mock-adapter'
 import { apiHttp } from '@/lib/http'
-import { STATSIO_API } from './statsio-endpoints'
 import {
   createChannel,
   getMyChannels,

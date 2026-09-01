@@ -46,3 +46,6 @@ __screenshots__/
 
 # Local manual security-scan output (not CI artifacts)
 semgrep-*.txt
+
+# Sauvegarde locale du dossier .nuxt (perms docker root) — ne pas versionner
+.nuxt_root_bak/
