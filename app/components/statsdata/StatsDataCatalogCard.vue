@@ -8,6 +8,7 @@ import { useContentBasePath } from '@/composables/useContentBasePath'
 import { seededSparklinePoints, getStatsDataPalette } from '@/utils/statsDataVisuals'
 import CatalogFavButton from '@/components/listing/CatalogFavButton.vue'
 import CatalogPublisherRow from '@/components/listing/CatalogPublisherRow.vue'
+import CatalogSubBrandTag from '@/components/listing/CatalogSubBrandTag.vue'
 
 const props = defineProps<{
   item: CatalogItem
@@ -181,6 +182,7 @@ const pubMeta = computed(() => formatCatalogItemMeta(props.item.views_count, pro
       <CatalogFavButton compact :active="favorited" @toggle="emit('favorite')" />
     </div>
 
+    <CatalogSubBrandTag :categories="item.categories" content-type="statsdata" />
     <NuxtLink :to="to" class="block text-[17.5px] font-extrabold leading-[1.28] tracking-[-0.015em] text-slate-950 text-pretty hover:text-primary">
       {{ item.title }}
     </NuxtLink>

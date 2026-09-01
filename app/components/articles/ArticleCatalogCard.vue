@@ -8,6 +8,7 @@ import { useContentBasePath } from '@/composables/useContentBasePath'
 import { channelPatternStyle } from '@/lib/channel-brand'
 import CatalogFavButton from '@/components/listing/CatalogFavButton.vue'
 import CatalogPublisherRow from '@/components/listing/CatalogPublisherRow.vue'
+import CatalogSubBrandTag from '@/components/listing/CatalogSubBrandTag.vue'
 
 const props = defineProps<{
   item: CatalogItem
@@ -58,6 +59,7 @@ const coverStyle = computed(() => channelPatternStyle(theme.value.dot))
         </span>
       </div>
 
+      <CatalogSubBrandTag :categories="item.categories" content-type="article" />
       <NuxtLink :to="to" class="block text-[17.5px] font-extrabold leading-snug tracking-[-0.015em] text-slate-950 text-pretty hover:text-primary">
         {{ item.title }}
       </NuxtLink>

@@ -60,7 +60,7 @@ function isBare(block: StudioBlock) {
       <header
         v-if="row.header"
         :id="row.section.anchorId || undefined"
-        class="scroll-mt-44"
+        class="scroll-mt-40"
       >
         <p
           v-if="row.section.kicker"
@@ -77,7 +77,7 @@ function isBare(block: StudioBlock) {
       </header>
 
       <template v-for="block in row.blocks" :key="block.id">
-        <div :id="`block-${block.id}`" class="scroll-mt-44">
+        <div :id="`block-${block.id}`" class="scroll-mt-40">
           <BlockRenderer v-if="isBare(block)" :block="block" :readonly="true" />
           <div v-else class="rounded-[14px] border border-[var(--studio-line)] p-5">
             <p v-if="showsTitle(block)" class="mb-3.5 text-[13px] font-bold text-[var(--studio-ink)]">{{ block.config.title }}</p>
