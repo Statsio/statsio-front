@@ -32,6 +32,7 @@ const userMenuRef = ref<HTMLElement | null>(null)
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const adminUrl = useRuntimeConfig().public.adminUrl
 
 const currentBrand = computed(() => getBrandFromPath(route.path))
 const brandMenuItems = computed(() => currentBrand.value.switchMenu)
@@ -236,7 +237,14 @@ onBeforeUnmount(() => {
             </button>
 
             <AppDropdownMenu v-if="isUserMenuOpen" label="Menu utilisateur">
-              <AppDropdownMenuItem v-if="authStore.isAdmin" to="/admin" @click="closeUserMenu">
+              <AppDropdownMenuItem
+                v-if="authStore.isAdmin"
+                as="a"
+                :href="adminUrl"
+                target="_blank"
+                rel="noopener"
+                @click="closeUserMenu"
+              >
                 Administration
                 <template #trailing>⚙</template>
               </AppDropdownMenuItem>

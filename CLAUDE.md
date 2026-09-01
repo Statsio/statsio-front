@@ -12,7 +12,8 @@ Statsio est une plateforme de data journalism qui centralise analyses, sources e
 - **Styling**: Tailwind CSS v4 + tokens CSS personnalisés + SCSS
 - **State management**: Pinia (via @pinia/nuxt)
 - **Routing**: Nuxt file-based routing (app/pages/)
-- **Rendu**: SSR hybride — pages publiques en SSR, Studio/admin en client-only (ssr: false)
+- **Rendu**: SSR hybride — pages publiques en SSR, Studio en client-only (ssr: false)
+- **Back-office admin**: hors de ce dépôt — panneau Filament servi par l'API Laravel (`NUXT_PUBLIC_ADMIN_URL`, lien « Administration » du menu utilisateur)
 - **Graphiques**: Chart.js
 - **Tests**: Vitest
 - **Linting**: ESLint + Oxlint
@@ -36,9 +37,9 @@ app/
 │   └── ui/          # Composants UI réutilisables (AppButton, etc.)
 ├── composables/      # Composables Vue (auto-importés)
 ├── data/             # Données statiques et configurations
-├── layouts/          # Layouts Nuxt (default.vue, studio.vue, admin.vue)
+├── layouts/          # Layouts Nuxt (default.vue, studio.vue)
 ├── lib/              # Utilitaires et helpers
-├── middleware/       # Middleware Nuxt (auth.ts, guest.ts, admin.ts)
+├── middleware/       # Middleware Nuxt (auth.ts, guest.ts)
 ├── pages/            # Pages Nuxt (routing fichier-système)
 ├── plugins/          # Plugins Nuxt (01.axios.ts, 02.fontawesome.ts, 03.auth-init.client.ts)
 ├── services/         # Services métier

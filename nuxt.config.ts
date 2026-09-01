@@ -77,6 +77,8 @@ export default defineNuxtConfig({
     apiBaseUrlServer: process.env.NUXT_API_BASE_URL_SERVER ?? process.env.NUXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080/api',
     public: {
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080/api',
+      // Back-office admin : panneau Filament servi par l'API Laravel (routes web /admin).
+      adminUrl: process.env.NUXT_PUBLIC_ADMIN_URL ?? 'http://localhost:8090/admin',
       googleClientId: process.env.NUXT_PUBLIC_GOOGLE_CLIENT_ID ?? '',
       appEnv: process.env.NUXT_PUBLIC_APP_ENV ?? 'development',
       passwordMiddleware: process.env.NUXT_PUBLIC_PASSWORD_MIDDLEWARE ?? '',
