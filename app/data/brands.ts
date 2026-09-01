@@ -38,6 +38,14 @@ export type BrandConfig = {
   contentCategories?: string[]
   /** URL du compte X (Twitter) de la marque. `#` = pas encore de compte dédié. */
   xUrl: string
+  /** Étiquette mono courte du sélecteur « Changer d'univers » (ex. « DONNÉES PUBLIQUES »). */
+  switcherTagline: string
+  /** Phrase de présentation dans le sélecteur « Changer d'univers ». */
+  switcherBlurb: string
+  /** Classe de fond de la pastille logo dans le sélecteur d'univers. */
+  switcherIconClass: string
+  /** Classe de couleur du tagline mono dans le sélecteur d'univers. */
+  switcherTagClass: string
 }
 
 const brandConfigs: Record<BrandId, BrandConfig> = {
@@ -80,6 +88,10 @@ const brandConfigs: Record<BrandId, BrandConfig> = {
     ],
     contentBasePath: '',
     xUrl: 'https://x.com/StatsIO_france',
+    switcherTagline: 'DONNÉES PUBLIQUES',
+    switcherBlurb: 'Statsdata, articles et sondages sur les données ouvertes françaises.',
+    switcherIconClass: 'bg-violet-50',
+    switcherTagClass: 'text-violet-600',
   },
   tvstats: {
     id: 'tvstats',
@@ -123,6 +135,10 @@ const brandConfigs: Record<BrandId, BrandConfig> = {
     contentBasePath: '/tvstats',
     contentCategories: ['tv', 'people'],
     xUrl: 'https://x.com/tvstats_statsio',
+    switcherTagline: 'AUDIENCES TV',
+    switcherBlurb: 'Programmes, grilles et audiences TV en temps réel.',
+    switcherIconClass: 'bg-emerald-50',
+    switcherTagClass: 'text-emerald-700',
   },
   medistats: {
     id: 'medistats',
@@ -167,10 +183,20 @@ const brandConfigs: Record<BrandId, BrandConfig> = {
     contentBasePath: '/medistats',
     contentCategories: ['sante'],
     xUrl: '#',
+    switcherTagline: 'MÉDIAS & PRESSE',
+    switcherBlurb: 'Audiences presse, radio et digital consolidées.',
+    switcherIconClass: 'bg-rose-50',
+    switcherTagClass: 'text-rose-600',
   },
 }
 
 export const getBrandConfig = (brandId: BrandId) => brandConfigs[brandId]
+
+/** Ordre canonique des marques dans le sélecteur « Changer d'univers ». */
+export const BRAND_ORDER: BrandId[] = ['statsio', 'tvstats', 'medistats']
+
+/** Les 3 marques dans l'ordre canonique, pour le sélecteur d'univers du header. */
+export const getBrandSwitcherList = (): BrandConfig[] => BRAND_ORDER.map((id) => brandConfigs[id])
 
 export const getBrandFromPath = (path: string): BrandConfig => {
   if (path.startsWith('/tvstats')) return brandConfigs.tvstats

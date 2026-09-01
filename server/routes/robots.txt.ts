@@ -8,7 +8,6 @@ export default defineEventHandler((event) => {
     '/user',
     '/mes-chaines',
     '/contenus',
-    '/fil-actus',
     '/channels/*/dashboard',
     '/statsdata/*/proprietes',
     '/integrations/statsdata',

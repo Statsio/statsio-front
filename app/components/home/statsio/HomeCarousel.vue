@@ -37,7 +37,7 @@ function scrollByCards(dir: -1 | 1) {
     <div class="relative">
       <div
         ref="track"
-        class="flex items-stretch gap-4 overflow-x-auto pb-1.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        class="flex items-start gap-4 overflow-x-auto pb-1.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         style="scroll-snap-type: x mandatory"
       >
         <slot />

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { RouterLink } from 'vue-router'
-import AppNavIcon from '@/components/layout/AppNavIcon.vue'
+import AppHeaderNavBar from '@/components/layout/brands/AppHeaderNavBar.vue'
 import type { HeaderNavItem } from '@/components/layout/brands/header-nav.types'
 import { loadAudiencesMenu, loadProgrammeTvMenu, loadChannelsMenu } from '@/composables/useHeaderMegaMenuData'
 
@@ -67,18 +66,5 @@ defineExpose({ items })
 </script>
 
 <template>
-  <nav class="hidden items-center gap-3 text-sm font-semibold text-slate-500 lg:flex">
-    <div v-for="item in items" :key="item.label">
-      <component :is="item.href.startsWith('/') ? RouterLink : 'a'"
-        :to="item.href.startsWith('/') ? item.href : undefined"
-        :href="item.href.startsWith('/') ? undefined : item.href"
-        class="inline-flex items-center gap-2 rounded-full border border-transparent px-3 py-2 transition hover:border-slate-200 hover:bg-white hover:text-slate-900 [&.router-link-active]:text-primary [&.router-link-active]:underline [&.router-link-active]:decoration-2 [&.router-link-active]:underline-offset-8"
-        @mouseenter="emit('update:modelValue', item)">
-        <span class="flex items-center justify-center text-slate-700">
-          <AppNavIcon :kind="item.icon" />
-        </span>
-        <span>{{ item.label }}</span>
-      </component>
-    </div>
-  </nav>
+  <AppHeaderNavBar :items="items" @hover="emit('update:modelValue', $event)" />
 </template>

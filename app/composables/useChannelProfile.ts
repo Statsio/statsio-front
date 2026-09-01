@@ -96,25 +96,14 @@ export function useChannelProfile() {
     return new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(iso))
   })
 
-  const featured = computed(() => channel.value?.featured ?? null)
-
   // Les pourcentages/votes d'un sondage ne sont jamais stockés sur le document : chaque
-  // sondage réel (liste + featured) doit être enrichi via un appel réseau dédié.
+  // sondage réel doit être enrichi via un appel réseau dédié.
   const enrichedPolls = ref<EnrichedPoll[]>([])
-  const featuredEnrichedSurvey = ref<EnrichedPoll | null>(null)
 
   watch(
     polls,
     async (list) => {
       enrichedPolls.value = await Promise.all(list.map((p) => enrichPoll(p, basePath.value, respondentToken.value)))
-    },
-    { immediate: true },
-  )
-
-  watch(
-    featured,
-    async (f) => {
-      featuredEnrichedSurvey.value = f?.survey ? await enrichPoll(f.survey, basePath.value, respondentToken.value) : null
     },
     { immediate: true },
   )
@@ -132,8 +121,6 @@ export function useChannelProfile() {
     articles,
     statsData,
     contentLoading,
-    featured,
     enrichedPolls,
-    featuredEnrichedSurvey,
   }
 }

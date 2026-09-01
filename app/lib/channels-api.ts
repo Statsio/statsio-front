@@ -1,6 +1,6 @@
 import { apiHttp } from '@/lib/http'
 import type { ChannelEntry } from '@/data/channels'
-import type { FeaturedContent, ChannelOrganization } from '@/api/channels'
+import type { ChannelOrganization } from '@/api/channels'
 
 interface ApiChannelProfile {
   id: number
@@ -22,7 +22,6 @@ interface ApiChannelProfile {
   banner_url: string | null
   created_at: string
   updated_at: string
-  featured?: FeaturedContent
 }
 
 interface ApiChannel {
@@ -93,7 +92,6 @@ function mapApiChannelToEntry(apiChannel: ApiChannel): ChannelEntry {
     viewCount: profile?.view_count || 0,
     customColorPrimary: profile?.custom_color_primary || null,
     customColorSecondary: profile?.custom_color_secondary || null,
-    featured: profile?.featured ?? null,
   }
 }
 
@@ -109,7 +107,7 @@ export async function fetchChannelByHandle(handle: string): Promise<ChannelEntry
   const normalized = handle.startsWith('@') ? handle : '@' + handle
   const match = channels.find((c) => c.handle === normalized)
   if (!match) return undefined
-  // Re-fetch via GET /channels/{id} (show) : seul cet endpoint charge le contenu mis en avant.
+  // Re-fetch via GET /channels/{id} (show) pour une vue à jour de la chaîne.
   return fetchChannelById(match.slug)
 }
 

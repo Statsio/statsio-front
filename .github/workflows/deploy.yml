@@ -44,6 +44,10 @@ jobs:
           echo "NUXT_PUBLIC_COMING_SOON=${{ vars.NUXT_PUBLIC_COMING_SOON }}" >> .env
           echo "NUXT_PUBLIC_COMING_SOON_BYPASS_CODE=${{ vars.NUXT_PUBLIC_COMING_SOON_BYPASS_CODE }}" >> .env
           echo "NUXT_PUBLIC_SENTRY_DSN=${{ vars.NUXT_PUBLIC_SENTRY_DSN }}" >> .env
+          echo "NUXT_PUBLIC_STUDIO_ASSISTANT_ENABLED=${{ vars.NUXT_PUBLIC_STUDIO_ASSISTANT_ENABLED }}" >> .env
+          # Écrit seulement si défini : sinon le fallback nuxt.config.ts (URL admin locale) s'applique
+          ADMIN_URL="${{ vars.NUXT_PUBLIC_ADMIN_URL }}"
+          [ -n "$ADMIN_URL" ] && echo "NUXT_PUBLIC_ADMIN_URL=$ADMIN_URL" >> .env
           # Écrit seulement si défini : sinon le fallback nuxt.config.ts (site key déjà provisionné) s'applique
           TURNSTILE_SITE_KEY="${{ vars.NUXT_PUBLIC_TURNSTILE_SITE_KEY }}"
           [ -n "$TURNSTILE_SITE_KEY" ] && echo "NUXT_PUBLIC_TURNSTILE_SITE_KEY=$TURNSTILE_SITE_KEY" >> .env
@@ -57,9 +61,12 @@ jobs:
             --var "NUXT_PUBLIC_API_BASE_URL:$NUXT_PUBLIC_API_BASE_URL"
             --var "NUXT_PUBLIC_GOOGLE_CLIENT_ID:$NUXT_PUBLIC_GOOGLE_CLIENT_ID"
             --var "NUXT_PUBLIC_SENTRY_DSN:$NUXT_PUBLIC_SENTRY_DSN"
+            --var "NUXT_PUBLIC_APP_ENV:$NUXT_PUBLIC_APP_ENV"
+            --var "NUXT_PUBLIC_STUDIO_ASSISTANT_ENABLED:$NUXT_PUBLIC_STUDIO_ASSISTANT_ENABLED"
           )
-          # Var optionnelle : n'écrase le fallback compilé dans nuxt.config.ts que si définie
+          # Vars optionnelles : n'écrasent le fallback compilé dans nuxt.config.ts que si définies
           [ -n "$NUXT_PUBLIC_TURNSTILE_SITE_KEY" ] && VARS+=(--var "NUXT_PUBLIC_TURNSTILE_SITE_KEY:$NUXT_PUBLIC_TURNSTILE_SITE_KEY")
+          [ -n "$NUXT_PUBLIC_ADMIN_URL" ] && VARS+=(--var "NUXT_PUBLIC_ADMIN_URL:$NUXT_PUBLIC_ADMIN_URL")
 
           if [ "${{ github.ref_name }}" = "main" ]; then
             npx wrangler deploy "${VARS[@]}"
@@ -73,3 +80,6 @@ jobs:
           NUXT_PUBLIC_GOOGLE_CLIENT_ID: ${{ vars.NUXT_PUBLIC_GOOGLE_CLIENT_ID }}
           NUXT_PUBLIC_SENTRY_DSN: ${{ vars.NUXT_PUBLIC_SENTRY_DSN }}
           NUXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.NUXT_PUBLIC_TURNSTILE_SITE_KEY }}
+          NUXT_PUBLIC_APP_ENV: ${{ vars.NUXT_PUBLIC_APP_ENV }}
+          NUXT_PUBLIC_STUDIO_ASSISTANT_ENABLED: ${{ vars.NUXT_PUBLIC_STUDIO_ASSISTANT_ENABLED }}
+          NUXT_PUBLIC_ADMIN_URL: ${{ vars.NUXT_PUBLIC_ADMIN_URL }}
