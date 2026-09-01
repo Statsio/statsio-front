@@ -16,8 +16,6 @@ import { getErrorMessage } from '@/lib/http-errors'
 import { useAuthStore } from '@/stores/auth'
 import { useClickOutside } from '@/composables/useClickOutside'
 
-const notificationCount = 4
-
 interface BrandNavExpose { items: HeaderNavItem[] }
 
 const activeMenu = ref<HeaderNavItem | null>(null)
@@ -127,9 +125,9 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <header class="fixed inset-x-0 top-14 z-40 border-b border-slate-200 bg-white/80 backdrop-blur"
+  <header class="fixed inset-x-0 top-14 z-40 border-b border-slate-200 bg-white"
     @mouseleave="activeMenu = null">
-    <div class="container flex items-center justify-between py-1">
+    <div class="container flex h-14 items-center justify-between">
       <div ref="brandMenuRef" class="relative flex items-center gap-2">
         <RouterLink :to="currentBrand.to"
           class="flex items-center gap-2 sm:gap-4 rounded-full transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35">
@@ -225,10 +223,6 @@ onBeforeUnmount(() => {
               :aria-expanded="isUserMenuOpen" aria-haspopup="menu" aria-label="Mon compte" @click="toggleUserMenu">
               <span class="relative shrink-0">
                 <AppAvatar :src="authStore.user?.profile?.avatar ?? undefined" :initials="userInitials()" size="sm" />
-                <span v-if="notificationCount > 0"
-                  class="absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-red-500 px-1 text-[10px] font-semibold text-white">
-                  {{ notificationCount }}
-                </span>
               </span>
               <span class="hidden min-w-0 max-w-[90px] md:block lg:max-w-[130px]">
                 <span class="block truncate text-sm font-semibold text-slate-900">{{ authStore.displayName }}</span>
@@ -341,7 +335,7 @@ onBeforeUnmount(() => {
     </div>
 
     <div v-if="activeMenu"
-      class="absolute left-0 top-full z-30 w-full border-y border-slate-200 bg-white/95 shadow-[0_24px_70px_-40px_rgba(15,23,42,0.45)] backdrop-blur"
+      class="absolute left-0 top-full z-30 w-full border-y border-slate-200 bg-white shadow-[0_24px_70px_-40px_rgba(15,23,42,0.45)]"
       @mouseenter="activeMenu = activeMenu">
       <AppHeaderMegaMenu :item="activeMenu" />
     </div>

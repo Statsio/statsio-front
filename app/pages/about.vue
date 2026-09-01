@@ -105,8 +105,8 @@ const moreCards = [
 <template>
   <main class="pb-4">
     <!--
-      -mt-44 lg:-mt-28 cancels the layout's <main class="pt-44 lg:pt-28"> (app/layouts/default.vue)
-      so the wash bleeds all the way under the translucent fixed header, matching the pattern used by
+      -mt-40 lg:-mt-28 cancels the layout's <main class="pt-40 lg:pt-28"> (app/layouts/default.vue)
+      so the wash bleeds all the way under the fixed header, matching the pattern used by
       PageHero.vue. The real content offset comes back via pt-44 lg:pt-40 on the hero container below.
 
       The lavender wash spans the hero AND the quote card (not just the hero) and fades out with an
@@ -116,7 +116,7 @@ const moreCards = [
       keeps the wide blurred orbs from causing horizontal scroll without vertically clipping the wash,
       which is taller than the hero's own flow height on purpose so the fade completes gradually.
     -->
-    <div class="relative -mt-44 overflow-x-hidden lg:-mt-28">
+    <div class="relative -mt-40 overflow-x-hidden lg:-mt-28">
       <div
         class="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[1100px]"
         style="

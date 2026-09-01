@@ -8,6 +8,7 @@ import { formatRelativePublished } from '@/lib/catalog-format'
 import { surveyCardMeta } from '@/lib/survey-card'
 import CatalogFavButton from '@/components/listing/CatalogFavButton.vue'
 import CatalogPublisherRow from '@/components/listing/CatalogPublisherRow.vue'
+import CatalogSubBrandTag from '@/components/listing/CatalogSubBrandTag.vue'
 
 const props = defineProps<{
   item: CatalogItem
@@ -53,6 +54,7 @@ const previewPreview = computed(() => props.item.question_previews?.[0] ?? null)
     <div v-if="item.category" class="mb-2 font-mono text-[9.5px] font-semibold tracking-[0.07em]" :style="{ color: theme.fg }">
       {{ item.category.toUpperCase() }}
     </div>
+    <CatalogSubBrandTag :categories="item.categories" content-type="survey" />
     <NuxtLink :to="to" class="block text-[17px] font-extrabold leading-tight tracking-[-0.015em] text-pretty text-slate-950 hover:text-primary">
       {{ item.title }}
     </NuxtLink>

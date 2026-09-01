@@ -1,137 +1,164 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed } from 'vue'
+import { RouterLink, useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { usePrefsStore } from '@/stores/prefs'
+import { getBrandFromPath } from '@/data/brands'
+import { loadPromoTicker } from '@/composables/useHeaderMegaMenuData'
+import type { PromoTickerItem } from '@/components/layout/brands/header-nav.types'
 
-const props = defineProps<{
-  items: {
-    type: string
-    title: string
-    meta: string
-    cta: string
-    variant?: 'default' | 'special' | 'live'
-  }[]
-}>()
-
-const activeIndex = ref(0)
-let rotationTimer: ReturnType<typeof setInterval> | null = null
-const ROTATION_DELAY = 6800
+const route = useRoute()
 const { reducedMotion } = storeToRefs(usePrefsStore())
 
-const activeItem = computed(() => props.items[activeIndex.value] ?? null)
+const brand = computed(() => getBrandFromPath(route.path))
+// `/fil-actus` n'existe pas en variante par marque — lien unique.
+const ctaHref = '/fil-actus'
 
-const stopRotation = () => {
-  if (!rotationTimer) return
+const { data } = useAsyncData(
+  'promo-ticker',
+  () => loadPromoTicker(brand.value.contentCategories, brand.value.contentBasePath),
+  { watch: [() => brand.value.id], default: (): PromoTickerItem[] => [] },
+)
 
-  clearInterval(rotationTimer)
-  rotationTimer = null
-}
+const items = computed<PromoTickerItem[]>(() => data.value ?? [])
 
-const startRotation = () => {
-  stopRotation()
-
-  if (props.items.length <= 1 || reducedMotion.value) return
-
-  rotationTimer = setInterval(() => {
-    activeIndex.value = (activeIndex.value + 1) % props.items.length
-  }, ROTATION_DELAY)
-}
-
-const restartRotation = () => {
-  startRotation()
-}
-
-const goTo = (index: number) => {
-  activeIndex.value = index
-  restartRotation()
-}
-
-onMounted(() => {
-  startRotation()
-})
-
-watch(reducedMotion, (isReduced: boolean) => {
-  if (isReduced) {
-    stopRotation()
-    return
+/**
+ * Piste du bandeau défilant. Sans animation on ne rend qu'une passe (scroll manuel) ;
+ * avec animation on répète la liste 4× — la keyframe translate de -50 % (soit 2 passes)
+ * et retombe donc exactement sur un contenu identique → boucle sans saut.
+ */
+const MARQUEE_COPIES = 4
+const trackItems = computed(() => {
+  const list = items.value
+  if (!list.length) return []
+  const copies = reducedMotion.value ? 1 : MARQUEE_COPIES
+  const out: { item: PromoTickerItem; key: string; clone: boolean }[] = []
+  for (let copy = 0; copy < copies; copy++) {
+    list.forEach((item, index) => out.push({ item, key: `${copy}-${index}`, clone: copy > 0 }))
   }
-
-  startRotation()
+  return out
 })
 
-onBeforeUnmount(() => {
-  stopRotation()
-})
+const sparkMax = (values: number[]) => Math.max(...values, 1)
 </script>
 
 <template>
   <section
-    class="fixed inset-x-0 top-0 z-50 border-b border-[color:var(--color-primary)]/12 bg-[color:var(--color-secondary)]/92 text-slate-900 backdrop-blur-xl"
-    @mouseenter="stopRotation"
-    @mouseleave="restartRotation"
+    class="fixed inset-x-0 top-0 z-50 flex h-14 items-center overflow-hidden border-b border-slate-200 bg-white text-slate-900"
   >
-    <div class="container flex min-h-14 items-center gap-4 py-1">
+    <div class="container flex items-center gap-4">
+      <span class="flex shrink-0 items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-rose-600">
+        <span
+          class="h-1.5 w-1.5 rounded-full bg-rose-500"
+          :class="reducedMotion ? '' : 'animate-pulse'"
+        ></span>
+        <span class="hidden sm:inline">Tendances</span>
+      </span>
+
+      <span class="hidden h-4 w-px shrink-0 bg-slate-200 sm:block"></span>
+
+      <span v-if="!items.length" class="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-slate-500">
+        Le meilleur de Statsio, mis à jour en continu
+      </span>
+
       <div
-        class="hidden rounded-full border border-[color:var(--color-primary)]/15 bg-white/55 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.32em] text-slate-600 md:block"
+        v-if="items.length"
+        class="promo-marquee relative min-w-0 flex-1"
+        :class="reducedMotion ? 'promo-scroll overflow-x-auto' : 'overflow-hidden'"
       >
-        {{ activeItem?.type ?? 'En avant' }}
-      </div>
-
-      <div class="relative min-w-0 flex-1 overflow-hidden">
-        <Transition name="promo-swap" mode="out-in">
-          <div
-            v-if="activeItem"
-            :key="`${activeIndex}-${activeItem.title}`"
-            class="flex min-w-0 flex-col gap-1 rounded-2xl px-3 py-2 transition-all duration-500 md:flex-row md:items-center md:gap-3"
+        <div class="promo-track flex w-max items-center" :class="{ 'promo-track--run': !reducedMotion }">
+          <component
+            :is="entry.item.href.startsWith('/') ? RouterLink : 'a'"
+            v-for="entry in trackItems"
+            :key="entry.key"
+            :to="entry.item.href.startsWith('/') ? entry.item.href : undefined"
+            :href="entry.item.href.startsWith('/') ? undefined : entry.item.href"
+            :aria-hidden="entry.clone ? 'true' : undefined"
+            :tabindex="entry.clone ? -1 : undefined"
+            class="promo-item flex shrink-0 items-center gap-2.5 text-slate-900 transition hover:text-primary"
           >
-            <p class="truncate text-sm font-semibold text-slate-900 md:text-[15px]">
-              {{ activeItem.title }}
-            </p>
-            <p class="hidden text-xs text-slate-600 md:block">
-              {{ activeItem.meta }}
-            </p>
-            <a
-              href="#"
-              class="hidden text-xs font-semibold uppercase tracking-[0.22em] text-slate-800 transition hover:text-[color:var(--color-primary)] lg:inline-flex"
+            <span
+              class="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[8.5px] font-bold uppercase tracking-[0.05em]"
+              :style="{ color: entry.item.tagColor }"
             >
-              {{ activeItem.cta }}
-            </a>
-          </div>
-        </Transition>
+              {{ entry.item.tag }}
+            </span>
+            <span class="whitespace-nowrap text-[12.5px] font-bold">{{ entry.item.title }}</span>
+
+            <template v-if="entry.item.kind === 'statsdata' && entry.item.kpi">
+              <span class="flex shrink-0 items-baseline gap-1">
+                <span class="font-mono text-[12px] font-bold text-slate-900">{{ entry.item.kpi }}</span>
+                <span class="font-mono text-[9px] font-semibold text-emerald-600">{{ entry.item.kpiLabel }}</span>
+              </span>
+              <span v-if="entry.item.sparkline?.length" class="flex h-3.5 shrink-0 items-end gap-[1.5px]">
+                <span
+                  v-for="(value, index) in entry.item.sparkline"
+                  :key="index"
+                  class="w-[2.5px] rounded-t-sm"
+                  :class="index >= (entry.item.sparkline?.length ?? 0) - 3 ? 'bg-primary' : 'bg-slate-200'"
+                  :style="{ height: Math.max(15, Math.round((value / sparkMax(entry.item.sparkline ?? [])) * 100)) + '%' }"
+                ></span>
+              </span>
+            </template>
+
+            <template v-if="entry.item.kind === 'survey' && entry.item.percent != null">
+              <span class="h-[5px] w-16 shrink-0 overflow-hidden rounded-full bg-slate-200">
+                <span
+                  class="block h-full rounded-full bg-[linear-gradient(90deg,var(--color-primary),var(--color-accent))]"
+                  :style="{ width: Math.min(100, Math.max(0, entry.item.percent)) + '%' }"
+                ></span>
+              </span>
+              <span class="shrink-0 font-mono text-[10.5px] font-bold text-primary">{{ entry.item.percent }}%</span>
+            </template>
+          </component>
+        </div>
       </div>
 
-      <div class="flex items-center gap-2">
-        <button
-          v-for="(item, index) in items"
-          :key="item.title"
-          type="button"
-          :aria-label="`Voir la mise en avant ${(index as number) + 1}`"
-          :class="[
-            'h-2 rounded-full transition-all duration-300',
-            index === activeIndex
-              ? 'w-8 bg-[color:var(--color-primary)]'
-              : 'w-2 bg-slate-400/55 hover:bg-slate-500/70',
-          ]"
-          @click="goTo(index)"
-        />
-      </div>
+      <RouterLink
+        :to="ctaHref"
+        class="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-[linear-gradient(135deg,var(--color-primary),var(--color-accent))] px-3 py-1.5 text-[11.5px] font-extrabold text-white transition hover:opacity-90"
+      >
+        Voir les tendances →
+      </RouterLink>
     </div>
   </section>
 </template>
 
 <style scoped>
-.promo-swap-enter-active,
-.promo-swap-leave-active {
-  transition:
-    opacity 700ms ease,
-    transform 700ms ease,
-    filter 700ms ease;
+.promo-scroll {
+  scrollbar-width: none;
+}
+.promo-scroll::-webkit-scrollbar {
+  display: none;
 }
 
-.promo-swap-enter-from,
-.promo-swap-leave-to {
-  opacity: 0;
-  transform: translateY(12px);
-  filter: blur(12px);
+/* Espacement porté par l'item (et non un `gap` flex) pour que translateX(-50%) tombe
+   pile sur une frontière de copie → boucle sans saccade. */
+.promo-item {
+  margin-inline-end: 2.75rem;
+}
+
+.promo-track--run {
+  animation: promo-marquee 34s linear infinite;
+}
+
+.promo-marquee:hover .promo-track--run,
+.promo-marquee:focus-within .promo-track--run {
+  animation-play-state: paused;
+}
+
+@keyframes promo-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .promo-track--run {
+    animation: none;
+  }
 }
 </style>
