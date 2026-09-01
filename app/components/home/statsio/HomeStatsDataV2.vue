@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import HomeCarousel from '@/components/home/statsio/HomeCarousel.vue'
-import StatsDataCatalogCard from '@/components/statsdata/StatsDataCatalogCard.vue'
+import StatsDataCard from '@/components/content/StatsDataCard.vue'
 import { useHomeCatalogSection } from '@/composables/useHomeCatalogSection'
 
 const { items, isFavorited, toggleItemFavorite, selectTag } = useHomeCatalogSection({
@@ -24,8 +24,9 @@ const { items, isFavorited, toggleItemFavorite, selectTag } = useHomeCatalogSect
       class="flex w-[346px] shrink-0"
       style="scroll-snap-align: start"
     >
-      <StatsDataCatalogCard
+      <StatsDataCard
         class="w-full"
+        format="card"
         :item="item"
         :favorited="isFavorited(item)"
         @favorite="toggleItemFavorite(item)"

@@ -14,9 +14,7 @@ import CatalogResultBar from '@/components/listing/CatalogResultBar.vue'
 import CatalogEmpty from '@/components/listing/CatalogEmpty.vue'
 import CatalogLoadMore from '@/components/listing/CatalogLoadMore.vue'
 import CatalogCta from '@/components/listing/CatalogCta.vue'
-import StatsDataFeaturedCard from '@/components/statsdata/StatsDataFeaturedCard.vue'
-import StatsDataCatalogCard from '@/components/statsdata/StatsDataCatalogCard.vue'
-import StatsDataCatalogRow from '@/components/statsdata/StatsDataCatalogRow.vue'
+import StatsDataCard from '@/components/content/StatsDataCard.vue'
 
 const props = defineProps<{
   categories?: string[]
@@ -194,13 +192,14 @@ function resetAll() {
       </div>
 
       <template v-else-if="sortedTotal > 0">
-        <StatsDataFeaturedCard v-if="showFeatured && catalog.featured" :item="catalog.featured" />
+        <StatsDataCard v-if="showFeatured && catalog.featured" :item="catalog.featured" format="row" feature class="mb-[22px]" />
 
         <div v-if="view === 'grid'" class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <StatsDataCatalogCard
+          <StatsDataCard
             v-for="item in gridItems"
             :key="item.id"
             :item="item"
+            format="card"
             :favorited="isFavorited(item)"
             @favorite="toggleItemFavorite(item)"
             @select-tag="onSelectTag"
@@ -217,10 +216,11 @@ function resetAll() {
             <div />
           </div>
           <div class="min-w-[720px]">
-            <StatsDataCatalogRow
+            <StatsDataCard
               v-for="item in sortedData"
               :key="item.id"
               :item="item"
+              format="row"
               :favorited="isFavorited(item)"
               @favorite="toggleItemFavorite(item)"
             />

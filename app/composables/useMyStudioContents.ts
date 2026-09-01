@@ -2,10 +2,9 @@ import { computed, onMounted, ref } from 'vue'
 import { fetchUserStudioContents, type StatsDataDocument } from '@/api/studio'
 import { useMyChannels } from '@/composables/useMyChannels'
 import { useAuthStore } from '@/stores/auth'
-import { CONTENT_TYPE_META, contentPropertiesPath, getStatusMeta, publicContentPath } from '@/lib/content-display'
-import { formatShortDate, getNameInitials, getUserInitials } from '@/lib/format'
-import { channelBannerStyle, resolveChannelColors } from '@/lib/channel-brand'
-import type { ContentType } from '@/types/content-creation'
+import { catalogItemFromDocument, catalogPublisherFromChannelOrAuthor } from '@/lib/content-card'
+import { contentManageMeta } from '@/lib/content-manage'
+import type { ContentCardEntry } from '@/types/content-card'
 
 export type OwnerFilter = 'all' | 'perso' | 'chaine'
 
@@ -15,34 +14,11 @@ export const OWNER_FILTER_OPTIONS: { value: OwnerFilter; label: string }[] = [
   { value: 'chaine', label: 'De mes chaînes' },
 ]
 
-export interface DisplayContent {
-  id: string
-  title: string
-  type: ContentType
-  typeLabel: string
-  typeColor: string
-  typeBg: string
-  statusLabel: string
-  statusBg: string
-  statusColor: string
-  live: boolean
-  ownerKind: 'perso' | 'chaine'
-  ownerLabel: string
-  avatarInitials: string
-  avatarLogoUrl: string | null
-  avatarBg: string
-  avatarShape: 'circle' | 'square'
-  date: string
-  viewsCount: number
-  studioPath: string
-  propertiesPath: string | null
-  publicPath: string | null
-}
-
 function ownerKindOf(doc: StatsDataDocument): 'perso' | 'chaine' {
   return doc.published_as === 'channel' ? 'chaine' : 'perso'
 }
 
+/** Contenus studio du membre connecté (perso + chaînes) → cartes créateur (`ContentManageCard`). */
 export function useMyStudioContents() {
   const auth = useAuthStore()
   const { channels, fetch: fetchChannels } = useMyChannels()
@@ -61,66 +37,48 @@ export function useMyStudioContents() {
     }
   })
 
-  function toDisplay(doc: StatsDataDocument): DisplayContent {
-    const type = doc.type ?? 'statsdata'
-    const typeMeta = CONTENT_TYPE_META[type]
-    const status = getStatusMeta(doc.status, doc.visibility)
-    const ownerKind = ownerKindOf(doc)
+  function channelOf(doc: StatsDataDocument) {
+    return channels.value.find((c) => c.id === doc.channel_id)
+  }
 
-    let ownerLabel: string
-    let avatarInitials: string
-    let avatarLogoUrl: string | null
-    let avatarBg: string
-    let avatarShape: 'circle' | 'square'
+  function ownerLabel(doc: StatsDataDocument): string {
+    if (ownerKindOf(doc) === 'chaine') {
+      return `${channelOf(doc)?.profile?.name ?? `Chaîne #${doc.channel_id ?? '?'}`} · Chaîne`
+    }
+    return `${auth.displayName} · Perso`
+  }
 
-    if (ownerKind === 'chaine') {
-      const channel = channels.value.find((c) => c.id === doc.channel_id)
-      const name = channel?.profile?.name ?? `Chaîne #${doc.channel_id ?? '?'}`
-      const colors = resolveChannelColors(String(doc.channel_id ?? name), channel?.profile?.custom_color_primary, channel?.profile?.custom_color_secondary)
-      ownerLabel = `${name} · Chaîne`
-      avatarInitials = getNameInitials(name)
-      avatarLogoUrl = channel?.profile?.logo_url ?? null
-      avatarBg = channelBannerStyle(colors.primary, colors.secondary).background
-      avatarShape = 'square'
+  function toEntry(doc: StatsDataDocument): ContentCardEntry {
+    let publisher
+    if (ownerKindOf(doc) === 'chaine') {
+      const channel = channelOf(doc)
+      publisher = catalogPublisherFromChannelOrAuthor(
+        {
+          id: doc.channel_id,
+          name: channel?.profile?.name ?? `Chaîne #${doc.channel_id ?? '?'}`,
+          handle: channel?.profile?.handle,
+          logo_url: channel?.profile?.logo_url,
+        },
+        null,
+      )
     } else {
-      ownerLabel = `${auth.displayName} · Perso`
-      avatarInitials = getUserInitials(auth.user?.profile?.first_name, auth.user?.profile?.last_name, auth.displayName[0] ?? '?')
-      avatarLogoUrl = null
-      avatarBg = 'linear-gradient(135deg,#8b5cf6,#3b82f6)'
-      avatarShape = 'circle'
+      publisher = catalogPublisherFromChannelOrAuthor(null, { name: auth.displayName })
     }
 
     return {
-      id: doc.id,
-      title: doc.title,
-      type,
-      typeLabel: typeMeta.label,
-      typeColor: typeMeta.color,
-      typeBg: typeMeta.bg,
-      statusLabel: status.label,
-      statusBg: status.bg,
-      statusColor: status.color,
-      live: status.live,
-      ownerKind,
-      ownerLabel,
-      avatarInitials,
-      avatarLogoUrl,
-      avatarBg,
-      avatarShape,
-      date: formatShortDate(doc.updated_at ?? doc.created_at),
-      viewsCount: doc.views_count ?? 0,
-      studioPath: `/studio/${type}/${doc.slug ?? doc.id}`,
-      propertiesPath: contentPropertiesPath(type, doc.slug),
-      publicPath: status.live && doc.slug ? publicContentPath(type, doc.slug) : null,
+      item: catalogItemFromDocument(doc, publisher),
+      manage: contentManageMeta(doc, {
+        resolveOwner: (d) => ({ kind: ownerKindOf(d), label: ownerLabel(d) }),
+      }),
     }
   }
 
-  const displayContents = computed(() => docs.value.map(toDisplay))
+  const entries = computed<ContentCardEntry[]>(() => docs.value.map(toEntry))
 
   const filteredContents = computed(() =>
     filter.value === 'all'
-      ? displayContents.value
-      : displayContents.value.filter((c) => c.ownerKind === filter.value),
+      ? entries.value
+      : entries.value.filter((e) => e.manage?.ownerKind === filter.value),
   )
 
   const isEmpty = computed(() => docs.value.length === 0)

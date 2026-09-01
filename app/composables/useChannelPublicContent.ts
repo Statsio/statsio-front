@@ -3,8 +3,7 @@ import { fetchPublicArticles, fetchPublicStatsDataCatalog, fetchPublicSurveys, t
 
 /**
  * Vrais contenus publiés d'une chaîne, pour la page publique Détail Chaîne (onglets
- * Articles/StatsData/Sondages). Le contenu "à la une" n'est pas chargé ici : il est déjà
- * porté par `channel.featured` (voir useChannelProfile), pas besoin d'un second appel réseau.
+ * À la une / Articles / StatsData / Sondages).
  */
 export function useChannelPublicContent(channelId: Ref<number | undefined>) {
   const articles = ref<StatsDataDocument[]>([])

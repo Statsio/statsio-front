@@ -9,16 +9,28 @@ import ChannelViewsBreakdownCard from '@/components/channels/dashboard/ChannelVi
 import { useChannelDashboard } from '@/composables/useChannelDashboard'
 import { useChannelStats } from '@/composables/useChannelStats'
 import { useChannelContents } from '@/composables/useChannelContents'
+import { CONTENT_TYPE_META } from '@/lib/content-display'
 import { formatCompactNumber } from '@/lib/format'
 
 const route = useRoute()
 const channelId = computed(() => Number(route.params.id))
 const { channel } = useChannelDashboard()
 const { stats, loading: statsLoading } = useChannelStats(channelId)
-const { displayContents, loading: contentsLoading } = useChannelContents(channelId, channel)
+const { entries, loading: contentsLoading } = useChannelContents(channelId, channel)
 
 const basePath = computed(() => `/channels/${channelId.value}/dashboard`)
-const recentContents = computed(() => displayContents.value.slice(0, 5))
+const recentContents = computed(() =>
+  entries.value.slice(0, 5).map((e) => ({
+    id: e.item.id,
+    title: e.item.title,
+    studioPath: e.manage!.studioPath,
+    typeMeta: CONTENT_TYPE_META[e.item.type ?? 'statsdata'] ?? CONTENT_TYPE_META.statsdata,
+    viewsCount: e.manage!.viewsCount,
+    live: e.manage!.live,
+    statusColor: e.manage!.statusColor,
+    statusLabel: e.manage!.statusLabel,
+  })),
+)
 
 const subscriberCount = computed(
   () => channel.value?.profile?.subscriber_count ?? stats.value?.subscribers.total ?? 0,
@@ -126,12 +138,12 @@ const chartLabels = computed(
               <td class="px-3 py-3">
                 <span
                   class="rounded-full px-2.5 py-1 text-[11px] font-bold"
-                  :style="{ color: rc.typeColor, background: rc.typeBg }"
+                  :style="{ color: rc.typeMeta.color, background: rc.typeMeta.bg }"
                 >
-                  {{ rc.typeLabel }}
+                  {{ rc.typeMeta.label }}
                 </span>
               </td>
-              <td class="px-3 py-3 font-mono text-slate-500">{{ formatCompactNumber(rc.viewsCount) }}</td>
+              <td class="px-3 py-3 font-mono text-slate-500">{{ rc.live ? formatCompactNumber(rc.viewsCount) : '—' }}</td>
               <td class="px-6 py-3">
                 <span class="font-bold" :style="{ color: rc.statusColor }">{{ rc.statusLabel }}</span>
               </td>

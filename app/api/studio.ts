@@ -415,6 +415,23 @@ export async function fetchPublicStatsDataDocument(slug: string): Promise<StatsD
   return data.data
 }
 
+// ─── Recherche globale (modale du header) ────────────────────────────────────
+
+const EMPTY_SEARCH: import('@/types/search').GlobalSearchResponse = { query: '', total: 0, groups: [] }
+
+/** Recherche globale : contenus publiés (article/statsdata/sondage) + chaînes, groupés par type. */
+export async function fetchGlobalSearch(q: string): Promise<import('@/types/search').GlobalSearchResponse> {
+  const query = q.trim()
+  if (query.length < 2) return { ...EMPTY_SEARCH, query }
+
+  const { data } = await publicHttp.get(STATSIO_API.studioContent.publicSearch, { params: { q: query } })
+  return {
+    query: data.query ?? query,
+    total: data.total ?? 0,
+    groups: data.groups ?? [],
+  }
+}
+
 // ─── Mention `@` de l'assistant du Studio ────────────────────────────────────
 
 export interface ContentMention {
