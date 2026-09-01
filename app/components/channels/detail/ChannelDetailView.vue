@@ -57,11 +57,11 @@ const bannerEditHref = computed(() =>
 
     <template v-else-if="channel">
       <!--
-        -mt-44 lg:-mt-28 cancels the layout's <main class="pt-44 lg:pt-28"> (app/layouts/default.vue)
+        -mt-40 lg:-mt-28 cancels the layout's <main class="pt-40 lg:pt-28"> (app/layouts/default.vue)
         so the lilac wash bleeds under the fixed header, matching the "Détail chaîne" mockup's flat
         #eeecf5 page background — same pattern as app/pages/chaines/index.vue.
       -->
-      <section class="relative -mt-44 min-h-screen bg-[var(--color-auth-wash)] pt-44 lg:-mt-28 lg:pt-28">
+      <section class="relative -mt-40 min-h-screen bg-[var(--color-auth-wash)] pt-40 lg:-mt-28 lg:pt-28">
         <div class="bg-white">
           <div class="container lg:px-16">
             <ChannelBreadcrumb :channel-name="channel.name" />

@@ -1,5 +1,5 @@
-import { fetchPublicArticles, fetchPublicStatsDataCatalog, fetchPublicSurveys, type StatsDataDocument } from '@/api/studio'
-import { getPublicChannels, getChannelCategories, channelCategoryLabels } from '@/api/channels'
+import { fetchPublicCatalog } from '@/api/studio'
+import { fetchChannelCatalog, channelCategoryLabels } from '@/api/channels'
 import { fetchTvAudiences } from '@/api/tv-audiences'
 import { CHANNEL_CHART_COLORS } from '@/composables/useTvAudiences'
 import { TNT_CHANNELS } from '@/data/tnt-channels'
@@ -10,10 +10,12 @@ import type { Medicament } from '@/types/medicaments'
 import { POPULAR_MEDICAMENTS } from '@/composables/useMedicaments'
 import { fetchSoinsList } from '@/api/soins'
 import { getStatsDataVisual } from '@/utils/statsDataVisuals'
-import { formatRowCount, relativeUpdate } from '@/utils/statsDataFormat'
-import { formatCompactNumber, getNameInitials } from '@/lib/format'
-import { isFormBlock } from '@/types/studio'
+import { relativeUpdate } from '@/utils/statsDataFormat'
+import { formatCompactNumber, formatShortDate, getNameInitials } from '@/lib/format'
+import { CATALOG_FORMAT_STYLE, catalogThemeStyle } from '@/lib/catalog-theme'
+import { getSurveyKindMeta } from '@/lib/poll-visuals'
 import { resolveChannelColors } from '@/lib/channel-brand'
+import { publicContentListPath, publicContentPath } from '@/lib/content-display'
 import type {
   MegaMenuCategory,
   MegaMenuContent,
@@ -21,6 +23,7 @@ import type {
   MegaMenuDataCard,
   MegaMenuPollCard,
   MegaMenuChannelCard,
+  PromoTickerItem,
 } from '@/components/layout/brands/header-nav.types'
 
 export type HeaderMenuData = {
@@ -35,7 +38,7 @@ function emptyMenu(variant: MegaMenuContent['variant']): HeaderMenuData {
 }
 
 /** Décoratif uniquement — aucune série temporelle par item n'est exposée par ces endpoints, dérivé de façon stable depuis l'id/le nom pour qu'une carte garde toujours la même forme. */
-function seededSparkline(seed: string, count = 6): number[] {
+function seededSparkline(seed: string, count = 12): number[] {
   let value = 0
   for (const char of seed) value = (value * 31 + char.charCodeAt(0)) % 9973
   const points: number[] = []
@@ -44,19 +47,6 @@ function seededSparkline(seed: string, count = 6): number[] {
     points.push((value % 100) + 1)
   }
   return points
-}
-
-function deriveCategories(docs: { categories?: string[] }[], palette: string[], max = 5): MegaMenuCategory[] {
-  const seen = new Set<string>()
-  for (const doc of docs) {
-    for (const cat of doc.categories ?? []) {
-      if (cat) seen.add(cat)
-    }
-    if (seen.size >= max) break
-  }
-  return Array.from(seen)
-    .slice(0, max)
-    .map((name, index) => ({ name, color: paletteColor(palette, index) }))
 }
 
 /** `palette` est toujours non vide en pratique — un fallback neutre couvre le cas contraire pour TypeScript. */
@@ -68,46 +58,164 @@ function withLinks(categories: MegaMenuCategory[], menu: MegaMenuContent): Heade
   return { categories, links: categories.map((c) => c.name), menu }
 }
 
-export async function loadArticleMenu(categories: string[] | undefined, palette: string[]): Promise<HeaderMenuData> {
+/** Colonne « catégories » à partir des facettes du catalogue public (valeur, libellé, compte). */
+function facetCategories(
+  facets: { value: string; label: string; count: number }[],
+  palette: string[],
+  hrefFor: (value: string) => string,
+  max = 6,
+): MegaMenuCategory[] {
+  return facets.slice(0, max).map((facet, index) => ({
+    name: facet.label,
+    color: paletteColor(palette, index),
+    count: facet.count,
+    href: hrefFor(facet.value),
+  }))
+}
+
+export async function loadArticleMenu(
+  categories: string[] | undefined,
+  palette: string[],
+  basePath = '',
+): Promise<HeaderMenuData> {
   try {
-    const docs = await fetchPublicArticles(categories)
-    const cards: MegaMenuArticleCard[] = docs.slice(0, 3).map((doc) => ({
-      tag: doc.categories?.[0] ?? 'Article',
-      title: doc.title,
-      meta: doc.author?.name ? `Par ${doc.author.name}` : (relativeUpdate(doc.updated_at) ?? ''),
-    }))
-    return withLinks(deriveCategories(docs, palette), { variant: 'doc', cards })
+    const res = await fetchPublicCatalog({
+      type: 'article',
+      sort: 'trend',
+      per_page: 6,
+      ...(categories?.length ? { categories } : {}),
+    })
+    const cards: MegaMenuArticleCard[] = res.data.slice(0, 3).map((doc) => {
+      const formatStyle = doc.format ? CATALOG_FORMAT_STYLE[doc.format] : undefined
+      const tag = formatStyle?.label ?? doc.category ?? 'Article'
+      const views = doc.views_count ? `${formatCompactNumber(doc.views_count)} vues` : null
+      return {
+        tag,
+        tagColor: formatStyle?.fg ?? catalogThemeStyle(doc.category).fg,
+        title: doc.title,
+        readingLabel: doc.reading_minutes ? `${doc.reading_minutes} min` : '',
+        publisher: doc.publisher.name,
+        initials: doc.publisher.initials || getNameInitials(doc.publisher.name),
+        logoUrl: doc.publisher.logo_url ?? null,
+        isChannel: doc.publisher.is_channel,
+        href: publicContentPath('article', doc.slug, basePath),
+        meta: [formatShortDate(doc.updated_at ?? doc.created_at), views].filter(Boolean).join(' · '),
+      }
+    })
+    return withLinks(
+      facetCategories(
+        res.facets.categories,
+        palette,
+        (v) => `${publicContentListPath('article', basePath)}?category=${encodeURIComponent(v)}`,
+      ),
+      { variant: 'doc', cards },
+    )
   } catch {
     return emptyMenu('doc')
   }
 }
 
-export async function loadStatsDataMenu(categories: string[] | undefined, palette: string[]): Promise<HeaderMenuData> {
+export async function loadStatsDataMenu(
+  categories: string[] | undefined,
+  palette: string[],
+  basePath = '',
+): Promise<HeaderMenuData> {
   try {
-    const docs = await fetchPublicStatsDataCatalog(categories)
-    const cards: MegaMenuDataCard[] = docs.slice(0, 3).map((doc) => ({
-      icon: getStatsDataVisual(doc.categories, doc.emoji).emoji,
-      title: doc.title,
-      meta: formatRowCount(doc.datasets?.[0]?.row_count) ?? relativeUpdate(doc.updated_at) ?? '',
-      sparkline: seededSparkline(doc.id),
-    }))
-    return withLinks(deriveCategories(docs, palette), { variant: 'bar', cards })
+    const res = await fetchPublicCatalog({
+      type: 'statsdata',
+      sort: 'trend',
+      per_page: 6,
+      ...(categories?.length ? { categories } : {}),
+    })
+    const cards: MegaMenuDataCard[] = res.data.slice(0, 3).map((doc) => {
+      const theme = catalogThemeStyle(doc.category)
+      const datasetLabel = doc.linked_datasets_count
+        ? `${doc.linked_datasets_count} jeu${doc.linked_datasets_count > 1 ? 'x' : ''} de données`
+        : null
+      const chartsLabel = doc.charts_count ? `${doc.charts_count} graphique${doc.charts_count > 1 ? 's' : ''}` : null
+      return {
+        icon: getStatsDataVisual(doc.categories).emoji,
+        theme: (doc.category ?? 'Data').toUpperCase(),
+        themeColor: theme.fg,
+        freq: (relativeUpdate(doc.updated_at ?? undefined) ?? formatShortDate(doc.updated_at)).toUpperCase(),
+        title: doc.title,
+        kpi: doc.views_count ? formatCompactNumber(doc.views_count) : `${doc.charts_count}`,
+        kpiDelta: doc.views_count ? 'vues' : 'graph.',
+        meta: [datasetLabel, chartsLabel].filter(Boolean).join(' · ') || 'Jeu de données',
+        sparkline: seededSparkline(doc.id),
+        href: publicContentPath('statsdata', doc.slug, basePath),
+      }
+    })
+    return withLinks(
+      facetCategories(
+        res.facets.categories,
+        palette,
+        (v) => `${publicContentListPath('statsdata', basePath)}?category=${encodeURIComponent(v)}`,
+      ),
+      { variant: 'bar', cards },
+    )
   } catch {
     return emptyMenu('bar')
   }
 }
 
-export async function loadSurveyMenu(categories: string[] | undefined, palette: string[]): Promise<HeaderMenuData> {
+export async function loadSurveyMenu(
+  categories: string[] | undefined,
+  palette: string[],
+  basePath = '',
+): Promise<HeaderMenuData> {
   try {
-    const docs = await fetchPublicSurveys(categories)
-    const cards: MegaMenuPollCard[] = docs.slice(0, 2).map((doc: StatsDataDocument) => {
-      const questionCount = (doc.blocks ?? []).filter((block) => isFormBlock(block.type)).length
-      return {
-        question: doc.title,
-        voteCount: questionCount > 0 ? `${questionCount} question${questionCount > 1 ? 's' : ''}` : 'Sondage ouvert',
-      }
+    const res = await fetchPublicCatalog({
+      type: 'survey',
+      sort: 'trend',
+      status: 'ouvert',
+      per_page: 6,
+      ...(categories?.length ? { categories } : {}),
     })
-    return withLinks(deriveCategories(docs, palette), { variant: 'pie', cards })
+    const cards: MegaMenuPollCard[] = res.data.slice(0, 3).map((doc) => {
+      const kindMeta = getSurveyKindMeta(doc.survey_kind)
+      const options = doc.primary_options ?? []
+      const petitionPct =
+        doc.petition_goal && doc.responses_count
+          ? Math.min(100, Math.round((doc.responses_count / doc.petition_goal) * 100))
+          : null
+      const percent = options[0]?.pct ?? petitionPct ?? 0
+      let lead = ''
+      if (doc.survey_kind === 'petition' && doc.petition_goal) {
+        lead = `${formatCompactNumber(doc.responses_count ?? 0)} / ${formatCompactNumber(doc.petition_goal)}`
+      } else if (options[0]) {
+        lead = options[0].label
+      } else if (doc.questions_count) {
+        lead = `${doc.questions_count} question${doc.questions_count > 1 ? 's' : ''}`
+      } else {
+        lead = 'Sondage ouvert'
+      }
+      const card: MegaMenuPollCard = {
+        question: doc.title,
+        voteCount: doc.responses_count
+          ? `${formatCompactNumber(doc.responses_count)} réponses`
+          : lead,
+        kind: kindMeta.label.toUpperCase(),
+        kindColor: kindMeta.fg,
+        statusOpen: !doc.is_closed,
+        lead,
+        percent,
+        href: publicContentPath('survey', doc.slug, basePath),
+      }
+      if (options[0] && options[1]) {
+        card.splitA = { label: options[0].label, percent: Math.round(options[0].pct) }
+        card.splitB = { label: options[1].label, percent: Math.round(options[1].pct) }
+      }
+      return card
+    })
+    return withLinks(
+      facetCategories(
+        res.facets.categories,
+        palette,
+        (v) => `${publicContentListPath('survey', basePath)}?category=${encodeURIComponent(v)}`,
+      ),
+      { variant: 'pie', cards },
+    )
   } catch {
     return emptyMenu('pie')
   }
@@ -115,26 +223,34 @@ export async function loadSurveyMenu(categories: string[] | undefined, palette: 
 
 export async function loadChannelsMenu(palette: string[]): Promise<HeaderMenuData> {
   try {
-    const [{ channels }, categoryList] = await Promise.all([
-      getPublicChannels({ sort: 'popular', perPage: 3 }),
-      getChannelCategories().catch(() => []),
-    ])
-    const categories: MegaMenuCategory[] = categoryList
-      .slice(0, 5)
-      .map((c, index) => ({ name: c.label, color: paletteColor(palette, index) }))
-    const cards: MegaMenuChannelCard[] = channels.map((channel) => {
-      const profile = channel.profile
-      const categoryLabel = profile.categories[0] ? channelCategoryLabels[profile.categories[0]] : ''
-      const colors = resolveChannelColors(String(channel.id), profile.custom_color_primary, profile.custom_color_secondary)
+    const res = await fetchChannelCatalog({ sort: 'trend', per_page: 3 })
+    const categories: MegaMenuCategory[] = res.facets.themes.slice(0, 6).map((facet, index) => ({
+      name: facet.label,
+      color: paletteColor(palette, index),
+      count: facet.count,
+      href: `/chaines?category=${encodeURIComponent(facet.value)}`,
+    }))
+    const cards: MegaMenuChannelCard[] = res.data.map((channel) => {
+      const colors = resolveChannelColors(
+        String(channel.id),
+        channel.custom_color_primary,
+        channel.custom_color_secondary,
+      )
+      const categoryLabel = channel.categories[0]
+        ? channelCategoryLabels[channel.categories[0] as keyof typeof channelCategoryLabels]
+        : ''
       return {
-        name: profile.name,
-        initials: getNameInitials(profile.name),
+        name: channel.name,
+        initials: getNameInitials(channel.name),
+        verified: channel.verified,
+        followers: formatCompactNumber(channel.followers_count),
         meta: categoryLabel
-          ? `${formatCompactNumber(profile.subscriber_count)} abonnés · ${categoryLabel}`
-          : `${formatCompactNumber(profile.subscriber_count)} abonnés`,
-        logoUrl: profile.logo_url ?? null,
+          ? `${formatCompactNumber(channel.followers_count)} abonnés · ${categoryLabel}`
+          : `${formatCompactNumber(channel.followers_count)} abonnés`,
+        logoUrl: channel.logo_url ?? null,
         avatarPrimary: colors.primary,
         avatarSecondary: colors.secondary,
+        href: `/channels/${encodeURIComponent(channel.handle)}`,
       }
     })
     return withLinks(categories, { variant: 'plane', cards })
@@ -208,7 +324,7 @@ export async function loadProgrammeTvMenu(palette: string[]): Promise<HeaderMenu
       }
     }
     const categories: MegaMenuCategory[] = Array.from(genres)
-      .slice(0, 5)
+      .slice(0, 6)
       .map((name, index) => ({ name, color: paletteColor(palette, index) }))
 
     return withLinks(categories, { variant: 'doc', cards })
@@ -226,7 +342,7 @@ export async function loadMaladiesMenu(palette: string[]): Promise<HeaderMenuDat
       meta: [maladie.value != null ? String(maladie.value) : null, maladie.year ? `(${maladie.year})` : null].filter(Boolean).join(' '),
       sparkline: maladie.trend.length ? maladie.trend.map((t) => t.value) : seededSparkline(maladie.id),
     }))
-    const categoryNames = Array.from(new Set(list.map((m) => m.category).filter((c): c is string => !!c))).slice(0, 5)
+    const categoryNames = Array.from(new Set(list.map((m) => m.category).filter((c): c is string => !!c))).slice(0, 6)
     const categories = categoryNames.map((name, index) => ({ name, color: paletteColor(palette, index) }))
     return withLinks(categories, { variant: 'bar', cards })
   } catch {
@@ -247,8 +363,8 @@ export async function loadMedicamentsMenu(palette: string[]): Promise<HeaderMenu
       sparkline: seededSparkline(String(medicament.cis)),
     }))
 
-    const forms = Array.from(new Set(matched.map((m) => m.formePharmaceutique).filter(Boolean))).slice(0, 5)
-    const categoryNames = forms.length ? forms : names.slice(0, 5)
+    const forms = Array.from(new Set(matched.map((m) => m.formePharmaceutique).filter(Boolean))).slice(0, 6)
+    const categoryNames = forms.length ? forms : names.slice(0, 6)
     const categories = categoryNames.map((name, index) => ({ name, color: paletteColor(palette, index) }))
 
     return withLinks(categories, { variant: 'bar', cards })
@@ -271,10 +387,67 @@ export async function loadSoinsMenu(palette: string[]): Promise<HeaderMenuData> 
       sparkline: seededSparkline(country.iso3),
     }))
     const categories = res.options
-      .slice(0, 5)
+      .slice(0, 6)
       .map((option, index) => ({ name: option.label, color: paletteColor(palette, index) }))
     return withLinks(categories, { variant: 'bar', cards })
   } catch {
     return emptyMenu('bar')
   }
+}
+
+/**
+ * Bandeau « Tendances » du header : le contenu le plus en vue de chaque type
+ * (article / statsdata / sondage), reconstruit à chaque chargement depuis le
+ * catalogue public trié par tendance.
+ */
+export async function loadPromoTicker(categories: string[] | undefined, basePath = ''): Promise<PromoTickerItem[]> {
+  const catFilter = categories?.length ? { categories } : {}
+  const [articles, datasets, surveys] = await Promise.all([
+    fetchPublicCatalog({ type: 'article', sort: 'trend', per_page: 1, ...catFilter }).then((r) => r.data).catch(() => []),
+    fetchPublicCatalog({ type: 'statsdata', sort: 'trend', per_page: 1, ...catFilter }).then((r) => r.data).catch(() => []),
+    fetchPublicCatalog({ type: 'survey', sort: 'trend', status: 'ouvert', per_page: 1, ...catFilter })
+      .then((r) => r.data)
+      .catch(() => []),
+  ])
+
+  const items: PromoTickerItem[] = []
+
+  const article = articles[0]
+  if (article) {
+    items.push({
+      kind: 'article',
+      tag: 'ARTICLE',
+      tagColor: '#be123c',
+      title: article.title,
+      href: publicContentPath('article', article.slug, basePath),
+    })
+  }
+
+  const dataset = datasets[0]
+  if (dataset) {
+    items.push({
+      kind: 'statsdata',
+      tag: 'STATSDATA',
+      tagColor: '#2563eb',
+      title: dataset.title,
+      href: publicContentPath('statsdata', dataset.slug, basePath),
+      kpi: dataset.views_count ? formatCompactNumber(dataset.views_count) : `${dataset.charts_count}`,
+      kpiLabel: dataset.views_count ? 'vues' : 'graphiques',
+      sparkline: seededSparkline(dataset.id, 8),
+    })
+  }
+
+  const survey = surveys[0]
+  if (survey) {
+    items.push({
+      kind: 'survey',
+      tag: 'SONDAGE',
+      tagColor: '#7c3aed',
+      title: survey.title,
+      href: publicContentPath('survey', survey.slug, basePath),
+      percent: Math.round(survey.primary_options?.[0]?.pct ?? 0),
+    })
+  }
+
+  return items
 }

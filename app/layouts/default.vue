@@ -3,7 +3,6 @@ import { computed } from 'vue'
 import AppFooter from '@/components/layout/AppFooter.vue'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import AppPromoBanner from '@/components/layout/AppPromoBanner.vue'
-import { sharedPromoItems } from '@/data/promo-items'
 
 const route = useRoute()
 const appTheme = computed(() => {
@@ -21,15 +20,15 @@ usePageSeo()
     class="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#ffffff_16%,#eef4ff_100%)] text-slate-900"
   >
     <a href="#main-content" class="sr-skip-link">Passer au contenu principal</a>
-    <AppPromoBanner :items="sharedPromoItems" />
+    <AppPromoBanner />
     <AppHeader />
     <!--
-      pt-44 lg:pt-28 clears the fixed AppPromoBanner + AppHeader stack, which is taller
-      below lg (extra mobile nav-pills row) than at lg+. Pages that bleed a background
-      under the header (HomeHero/MedistatsHero/TvstatsHero via PageHero.vue) cancel this
-      with a matching -mt-44 lg:-mt-28 — keep both in sync if the header height changes.
+      pt-40 lg:pt-28 clears the fixed AppPromoBanner (h-14) + AppHeader (h-14) stack — 112px
+      at lg+, plus the mobile nav-pills row below lg. Pages that bleed a background under the
+      header (HomeHeroV2 / PageHero.vue) cancel this with a matching -mt-40 lg:-mt-28 — keep
+      both in sync if the promo/header heights change.
     -->
-    <main id="main-content" tabindex="-1" class="relative pt-44 lg:pt-28">
+    <main id="main-content" tabindex="-1" class="relative pt-40 lg:pt-28">
       <slot />
     </main>
     <AppFooter />
