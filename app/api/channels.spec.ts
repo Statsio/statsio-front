@@ -9,7 +9,6 @@ import {
   getChannelStats,
   updateChannelProfile,
   deleteChannel,
-  getChannelFeaturedContent,
   toggleChannelSubscription,
 } from './channels'
 import type { Channel } from './channels'
@@ -196,19 +195,6 @@ describe('app/api/channels', () => {
     it('DELETEs the channel resource', async () => {
       apiMock.onDelete('/channels/1').reply(200)
       await expect(deleteChannel(1)).resolves.toBeUndefined()
-    })
-  })
-
-  describe('getChannelFeaturedContent', () => {
-    it('GETs the featured-content endpoint and returns the response data', async () => {
-      apiMock.onGet(STATSIO_API.channels.featured('1')).reply(200, {
-        success: true,
-        data: { article: null, statsdata: null, survey: null },
-      })
-
-      const result = await getChannelFeaturedContent(1)
-
-      expect(result).toEqual({ article: null, statsdata: null, survey: null })
     })
   })
 })

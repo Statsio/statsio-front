@@ -4,12 +4,13 @@ import { useRoute, useRouter } from 'vue-router'
 import { useChannelDashboard } from '@/composables/useChannelDashboard'
 import { useChannelContents } from '@/composables/useChannelContents'
 import { useClickOutside } from '@/composables/useClickOutside'
+import { CONTENT_TYPE_META } from '@/lib/content-display'
 
 const route = useRoute()
 const router = useRouter()
 const channelId = computed(() => Number(route.params.id))
 const { channel } = useChannelDashboard()
-const { displayContents } = useChannelContents(channelId, channel)
+const { entries } = useChannelContents(channelId, channel)
 
 const query = ref('')
 const open = ref(false)
@@ -20,7 +21,21 @@ useClickOutside(root, () => (open.value = false))
 const results = computed(() => {
   const q = query.value.trim().toLowerCase()
   if (!q) return []
-  return displayContents.value.filter((c) => c.title.toLowerCase().includes(q)).slice(0, 6)
+  return entries.value
+    .filter((e) => e.item.title.toLowerCase().includes(q))
+    .slice(0, 6)
+    .map((e) => {
+      const meta = CONTENT_TYPE_META[e.item.type ?? 'statsdata'] ?? CONTENT_TYPE_META.statsdata
+      return {
+        id: e.item.id,
+        title: e.item.title,
+        studioPath: e.manage!.studioPath,
+        date: e.manage!.date,
+        typeLabel: meta.label,
+        typeBg: meta.bg,
+        typeColor: meta.color,
+      }
+    })
 })
 
 function go(path: string) {

@@ -2,7 +2,7 @@
 import AccountPageHeader from '@/components/user/AccountPageHeader.vue'
 import ContenusLegend from '@/components/contenus/ContenusLegend.vue'
 import ContenusFilters from '@/components/contenus/ContenusFilters.vue'
-import ContentCard from '@/components/contenus/ContentCard.vue'
+import ContentCard from '@/components/content/ContentCard.vue'
 import ContenusEmptyState from '@/components/contenus/ContenusEmptyState.vue'
 import { useMyStudioContents } from '@/composables/useMyStudioContents'
 
@@ -32,7 +32,13 @@ const { loading, filter, filterOptions, filteredContents, isEmpty, isFilteredEmp
       </div>
 
       <div class="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-3">
-        <ContentCard v-for="content in filteredContents" :key="content.id" :content="content" />
+        <ContentCard
+          v-for="entry in filteredContents"
+          :key="entry.item.id"
+          :item="entry.item"
+          :manage="entry.manage"
+          mode="manage"
+        />
       </div>
 
       <ContenusEmptyState v-if="isFilteredEmpty" :has-any-content="!isEmpty" />

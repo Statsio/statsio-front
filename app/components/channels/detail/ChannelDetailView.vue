@@ -26,9 +26,7 @@ const {
   createdAtLabel,
   articles,
   statsData,
-  featured,
   enrichedPolls,
-  featuredEnrichedSurvey,
 } = useChannelProfile()
 
 usePageSeo({
@@ -43,7 +41,7 @@ const brandColors = computed(() =>
 )
 
 const categoryLabel = computed(() => categoryLabels.value.join(' — '))
-const recentArticles = computed(() => articles.value.slice(0, 3))
+const recentArticles = computed(() => articles.value.slice(0, 6))
 const bannerEditHref = computed(() =>
   isOwner.value && channel.value ? `/channels/${channel.value.slug}/dashboard/profil` : null,
 )
@@ -92,8 +90,6 @@ const bannerEditHref = computed(() =>
         <div class="container pb-16 lg:px-16">
           <ChannelFeaturedTab
             v-if="activeTab === 'featured'"
-            :featured="featured"
-            :enriched-survey="featuredEnrichedSurvey"
             :recent-articles="recentArticles"
             @view-all-articles="activeTab = 'articles'"
           />

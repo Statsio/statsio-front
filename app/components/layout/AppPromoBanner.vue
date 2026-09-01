@@ -11,8 +11,8 @@ const route = useRoute()
 const { reducedMotion } = storeToRefs(usePrefsStore())
 
 const brand = computed(() => getBrandFromPath(route.path))
-// `/fil-actus` n'existe pas en variante par marque — lien unique.
-const ctaHref = '/fil-actus'
+// « Voir les tendances » renvoie vers le listing Articles (trié tendance par défaut) de la marque courante.
+const ctaHref = computed(() => `${brand.value.contentBasePath}/articles`)
 
 const { data } = useAsyncData(
   'promo-ticker',

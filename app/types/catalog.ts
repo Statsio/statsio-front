@@ -28,6 +28,8 @@ export type CatalogItem = {
   description?: string | null
   type?: CatalogContentType
   thumbnail_url?: string | null
+  /** Emoji de repli pour la vignette quand il n'y a pas d'image. */
+  emoji?: string | null
   categories: string[]
   category: string | null
   format: CatalogFormat | null
