@@ -112,7 +112,8 @@ async function loadCategories() {
 
 function toggleCategory(slug: string) {
   const next = new Set(categories.value)
-  next.has(slug) ? next.delete(slug) : next.add(slug)
+  if (next.has(slug)) next.delete(slug)
+  else next.add(slug)
   categories.value = [...next]
 }
 
