@@ -46,7 +46,7 @@ const sparkMax = (values: number[]) => Math.max(...values, 1)
   <section
     class="fixed inset-x-0 top-0 z-50 flex h-14 items-center overflow-hidden border-b border-slate-200 bg-white text-slate-900"
   >
-    <div class="container flex items-center gap-4">
+    <div class="mx-auto flex w-full max-w-[1800px] items-center gap-4 px-4 sm:px-6 lg:px-10">
       <span class="flex shrink-0 items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-rose-600">
         <span
           class="h-1.5 w-1.5 rounded-full bg-rose-500"

@@ -136,6 +136,26 @@ describe('useStudioAutosave', () => {
     expect(saveStatsDataDocument).toHaveBeenCalledTimes(2)
   })
 
+  it('persist(): a 404 is terminal — records saveErrorStatus and stops retrying', async () => {
+    const studio = useStudioStore()
+    studio.content = { id: 'diplomes-par-etablissement', type: 'statsdata', title: 't' }
+    vi.mocked(saveStatsDataDocument).mockRejectedValue(
+      Object.assign(new Error('not found'), { isAxiosError: true, response: { status: 404 } }),
+    )
+    useStudioAutosave()
+
+    studio.markDirty()
+    await vi.advanceTimersByTimeAsync(DEBOUNCE_MS)
+
+    expect(studio.saveStatus).toBe('error')
+    expect(studio.saveErrorStatus).toBe(404)
+    expect(saveStatsDataDocument).toHaveBeenCalledTimes(1)
+
+    // Aucun retry programmé.
+    await vi.advanceTimersByTimeAsync(10000)
+    expect(saveStatsDataDocument).toHaveBeenCalledTimes(1)
+  })
+
   it('saveNow(): cancels the pending debounce and persists immediately', async () => {
     const studio = useStudioStore()
     studio.content = { id: 'doc-1', type: 'statsdata', title: 't' }

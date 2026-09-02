@@ -30,11 +30,13 @@ export interface AggregateRef {
   key: string
 }
 
-type Node =
+export type ExpressionNode =
   | { t: 'num'; v: number }
   | { t: 'agg'; ref: AggregateRef }
   | { t: 'col'; name: string }
-  | { t: 'bin'; op: '+' | '-' | '*' | '/'; l: Node; r: Node }
+  | { t: 'bin'; op: '+' | '-' | '*' | '/'; l: ExpressionNode; r: ExpressionNode }
+
+type Node = ExpressionNode
 
 export interface ParsedExpression {
   node: Node

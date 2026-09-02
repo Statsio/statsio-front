@@ -13,7 +13,6 @@ import CatalogResultBar from '@/components/listing/CatalogResultBar.vue'
 import CatalogEmpty from '@/components/listing/CatalogEmpty.vue'
 import CatalogLoadMore from '@/components/listing/CatalogLoadMore.vue'
 import CatalogCta from '@/components/listing/CatalogCta.vue'
-import ChannelFeaturedCard from '@/components/channels/ChannelFeaturedCard.vue'
 import ChannelCatalogCard from '@/components/channels/ChannelCatalogCard.vue'
 import ChannelCatalogRow from '@/components/channels/ChannelCatalogRow.vue'
 import type { ChannelCatalogSort } from '@/types/channel-catalog'
@@ -68,15 +67,6 @@ const contextLine = computed(() =>
 const moreCount = computed(() =>
   Math.min(6, Math.max(0, catalog.value.meta.total - catalog.value.meta.shown)),
 )
-
-const showFeatured = computed(
-  () => view.value === 'grid' && !anyFilter.value && Boolean(catalog.value.featured),
-)
-const gridItems = computed(() => {
-  const items = catalog.value.data
-  if (!showFeatured.value || !catalog.value.featured) return items
-  return items.filter((item) => item.id !== catalog.value.featured?.id)
-})
 
 function onSelectTag(tag: string) {
   qInput.value = tag
@@ -157,16 +147,9 @@ function onSelectTag(tag: string) {
       </div>
 
       <template v-else-if="catalog.meta.total > 0">
-        <ChannelFeaturedCard
-          v-if="showFeatured && catalog.featured"
-          :item="catalog.featured"
-          :following="isFollowing(catalog.featured)"
-          @follow="toggleItemFollow(catalog.featured)"
-        />
-
         <div v-if="view === 'grid'" class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <ChannelCatalogCard
-            v-for="item in gridItems"
+            v-for="item in catalog.data"
             :key="item.id"
             :item="item"
             :following="isFollowing(item)"

@@ -38,6 +38,18 @@ export function rowKey(result: BlockQueryResult | null, ref: string): string {
   return result?.columnMap?.[ref] ?? ref
 }
 
+/**
+ * Résout les filtres d'un bloc pour un appel API : interpole les jetons (`{{param}}`,
+ * variable de boucle) et écarte les filtres dont un jeton reste non résolu (plutôt
+ * que de renvoyer 0 ligne). `tokenMap` = `pageParams` + scope éventuel.
+ */
+export function resolveBlockFilters(filters: BlockFilter[], tokenMap: Record<string, string>): BlockFilter[] {
+  return filters
+    .filter((f) => f.column && f.value)
+    .map((f) => ({ ...f, value: interpolateTokens(f.value, tokenMap) }))
+    .filter((f) => !/\{\{.+\}\}/.test(f.value))
+}
+
 export function useBlockData(
   block: () => StudioBlock | null,
   readonly = false,
@@ -56,25 +68,25 @@ export function useBlockData(
     return b != null && (b.sources?.some((s) => s.datasetId) || b.datasetId != null)
   })
 
-  function resolveFilterValue(value: string): string {
-    // scope (variable de boucle) prioritaire sur les paramètres de page
-    return interpolateTokens(value, { ...studio.pageParams, ...scope?.() })
-  }
-
   function resolveFilters(filters: BlockFilter[]): BlockFilter[] {
-    return filters
-      .filter((f) => f.column && f.value)
-      .map((f) => ({ ...f, value: resolveFilterValue(f.value) }))
-      // Jeton non résolu (`{{param}}` sans valeur — ex. bloc `sd-embed` dont le
-      // paramètre source n'a pas de défaut) : on ignore le filtre plutôt que de
-      // renvoyer 0 ligne.
-      .filter((f) => !/\{\{.+\}\}/.test(f.value))
+    // scope (variable de boucle) prioritaire sur les paramètres de page
+    return resolveBlockFilters(filters, { ...studio.pageParams, ...scope?.() })
   }
 
   async function load() {
     const b = block()
     const sp = b ? blockSourceParams(b) : null
     if (!b || !sp?.urlDatasetId) {
+      data.value = null
+      return
+    }
+
+    // Valeurs résolues par expression d'agrégat (useResolvedTokens), pas par une requête
+    // de lignes : camembert « segments », KPI à valeur combinée, KPI « expression avancée ».
+    if (
+      (b.type === 'pie' && b.config.pieMode === 'segments')
+      || (b.type === 'kpi' && (b.fieldMapping.kpiValue?.length || b.config.valueExpression))
+    ) {
       data.value = null
       return
     }
@@ -101,6 +113,7 @@ export function useBlockData(
       sources: sp.sources,
       primarySourceId: sp.primarySourceId,
       joins: sp.joins,
+      calcColumns: b.fieldMapping.calcColumns?.length ? b.fieldMapping.calcColumns : undefined,
       ...aggregationParams,
     }
 

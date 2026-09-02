@@ -168,8 +168,8 @@ const fPubMeta = computed(
       </span>
       <span class="mt-[22px] flex items-center gap-2.5">
         <span
-          class="flex h-[38px] w-[38px] shrink-0 items-center justify-center overflow-hidden text-xs font-extrabold text-white"
-          :style="{ borderRadius: fPubRadius, background: `linear-gradient(135deg,${theme.dot},#3b82f6)` }"
+          class="flex h-[38px] w-[38px] shrink-0 items-center justify-center overflow-hidden bg-white text-xs font-extrabold text-slate-900"
+          :style="{ borderRadius: fPubRadius }"
         >
           <img v-if="item.publisher.logo_url" :src="item.publisher.logo_url" :alt="item.publisher.name" class="h-full w-full object-cover" />
           <span v-else>{{ item.publisher.initials }}</span>

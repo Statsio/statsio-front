@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { useBlockData, resolveAggregationParams, blockSourceParams, rowKey } from '@/composables/useBlockData'
+import { useBlockData, resolveAggregationParams, resolveBlockFilters, blockSourceParams, rowKey } from '@/composables/useBlockData'
 import { fetchBlockData, fetchPublicBlockData } from '@/api/studio'
 import { interpolateTokens } from '@/lib/studio-tokens'
+import { aggTermsToExpression } from '@/lib/studio-aggregates'
 import { useResolvedTokens } from '@/composables/useResolvedTokens'
 import { useStudioStore } from '@/stores/studio'
-import { formatDisplayValue, parseNumericValue } from '@/utils/statsDataFormat'
+import { formatDisplayValue, parseNumericValue, toNumericOrNull } from '@/utils/statsDataFormat'
 import type { StudioBlock, BlockQueryResult, BlockFilter } from '@/types/studio'
 
 const props = defineProps<{ block: StudioBlock; readonly?: boolean; scope?: Record<string, string> }>()
@@ -16,9 +17,13 @@ const studio = useStudioStore()
 const { data, isLoading, error } = useBlockData(() => props.block, props.readonly, () => props.scope)
 
 const valueCol = computed(() => props.block.fieldMapping.valueColumn ?? props.block.fieldMapping.value)
-const expr = computed(() => props.block.config.valueExpression?.trim() || '')
+// Valeur : combinaison d'agrégats (`kpiValue`) prioritaire, sinon expression legacy.
+const expr = computed(() => {
+  const terms = props.block.fieldMapping.kpiValue
+  return terms?.length ? aggTermsToExpression(terms) : (props.block.config.valueExpression?.trim() || '')
+})
 
-// Valeur par expression calculée (ex. `AVG(prix@7) * 50`) — prioritaire sur la colonne.
+// Résolution via l'API d'agrégats scalaires (les filtres du bloc s'appliquent).
 const { text: exprValue, pending: exprPending } = useResolvedTokens({
   raw: () => (expr.value ? `{{ ${expr.value} }}` : ''),
   tokenMap: () => ({ ...studio.pageParams, ...props.scope }),
@@ -26,6 +31,7 @@ const { text: exprValue, pending: exprPending } = useResolvedTokens({
   datasetId: () => props.block.datasetId,
   readonly: () => props.readonly ?? false,
   docSlug: () => studio.content?.slug,
+  extraFilters: () => resolveBlockFilters(props.block.filters ?? [], { ...studio.pageParams, ...props.scope }),
 })
 
 const rawValue = computed(() => {
@@ -34,16 +40,24 @@ const rawValue = computed(() => {
   return data.value.rows[0]?.[rowKey(data.value, col)] ?? null
 })
 
-const formattedValue = computed(() => {
-  if (expr.value) return exprPending.value ? '…' : (exprValue.value || '—')
-  const v = rawValue.value
-  if (v === null || v === undefined) return '—'
-  const num = Number(v)
-  if (isNaN(num)) return formatDisplayValue(v)
+function applyFormat(num: number): string {
   const fmt = props.block.config.format ?? 'number'
   if (fmt === 'percent') return `${num.toFixed(1)} %`
   if (fmt === 'currency') return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(num)
   return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 }).format(num)
+}
+
+const formattedValue = computed(() => {
+  if (expr.value) {
+    if (exprPending.value) return '…'
+    const num = toNumericOrNull(exprValue.value.replace(/\s/g, '').replace(',', '.'))
+    return num === null ? (exprValue.value || '—') : applyFormat(num)
+  }
+  const v = rawValue.value
+  if (v === null || v === undefined) return '—'
+  // Valeur décorée (« 90 % », « 1 234 ») → on garde le nombre ; texte pur → tel quel.
+  const num = toNumericOrNull(v)
+  return num === null ? formatDisplayValue(v) : applyFormat(num)
 })
 
 // ─── Comparison value ─────────────────────────────────────────────────────────
@@ -164,6 +178,7 @@ const isPositive = computed(() => (delta.value?.diff ?? 0) >= 0)
 const tk = (s?: string) => interpolateTokens(s ?? '', props.scope)
 const resolvedTitle = computed(() => tk(props.block.config.title))
 const resolvedDescription = computed(() => tk(props.block.config.description))
+const resolvedComparisonLabel = computed(() => tk(props.block.config.comparisonLabel))
 </script>
 
 <template>
@@ -197,6 +212,7 @@ const resolvedDescription = computed(() => tk(props.block.config.description))
         :class="isPositive ? 'text-emerald-600' : 'text-red-500'"
       >
         <span>{{ isPositive ? '↑' : '↓' }} {{ trendLabel }}</span>
+        <span v-if="resolvedComparisonLabel" class="font-medium text-[var(--studio-muted)]">{{ resolvedComparisonLabel }}</span>
         <span v-if="resolvedDescription" class="font-medium text-[var(--studio-muted)]">· {{ resolvedDescription }}</span>
       </div>
       <div v-else-if="hasComparisonSetup && compLoading" class="mt-[7px] animate-pulse text-[11.5px] text-[var(--studio-faint)]">…</div>

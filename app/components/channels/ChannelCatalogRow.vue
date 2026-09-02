@@ -2,7 +2,6 @@
 import { computed } from 'vue'
 import type { ChannelCatalogItem } from '@/types/channel-catalog'
 import { formatCompactNumber, getNameInitials } from '@/lib/format'
-import { channelBannerStyle, resolveChannelColors } from '@/lib/channel-brand'
 import { CHANNEL_KIND_STYLE, CHANNEL_PACE_STYLE } from '@/lib/channel-catalog-display'
 
 const props = defineProps<{
@@ -14,10 +13,6 @@ const props = defineProps<{
 const emit = defineEmits<{ follow: [] }>()
 
 const to = computed(() => `/channels/${encodeURIComponent(props.item.handle)}`)
-const colors = computed(() =>
-  resolveChannelColors(String(props.item.id), props.item.custom_color_primary, props.item.custom_color_secondary),
-)
-const bannerStyle = computed(() => channelBannerStyle(colors.value.primary, colors.value.secondary))
 const kindStyle = computed(() => CHANNEL_KIND_STYLE[props.item.kind])
 const paceStyle = computed(() => CHANNEL_PACE_STYLE[props.item.pace])
 const initials = computed(() => getNameInitials(props.item.name))
@@ -29,9 +24,8 @@ const initials = computed(() => getNameInitials(props.item.name))
   >
     <div class="flex min-w-0 items-center gap-3">
       <span
-        class="flex h-[34px] w-[34px] shrink-0 items-center justify-center overflow-hidden text-[11.5px] font-extrabold text-white"
+        class="flex h-[34px] w-[34px] shrink-0 items-center justify-center overflow-hidden border border-slate-200 bg-white text-[11.5px] font-extrabold text-slate-900"
         :class="item.kind === 'independant' ? 'rounded-full' : 'rounded-[10px]'"
-        :style="item.logo_url ? undefined : bannerStyle"
       >
         <img v-if="item.logo_url" :src="item.logo_url" :alt="item.name" class="h-full w-full object-cover" />
         <span v-else>{{ initials }}</span>
