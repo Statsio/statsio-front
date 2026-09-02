@@ -6,46 +6,11 @@ import { Underline } from '@tiptap/extension-underline'
 import { TextStyle, Color } from '@tiptap/extension-text-style'
 import { Highlight } from '@tiptap/extension-highlight'
 import { TextAlign } from '@tiptap/extension-text-align'
-import { Extension } from '@tiptap/core'
-import { Plugin, PluginKey } from '@tiptap/pm/state'
-import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import { useStudioStore } from '@/stores/studio'
 import { useActiveEditor } from '@/composables/useActiveEditor'
 import { useResolvedTokens } from '@/composables/useResolvedTokens'
-import { TextTransformExtension, FontFamilyExtension } from '@/lib/tiptap-extensions'
+import { TextTransformExtension, FontFamilyExtension, VariableHighlight } from '@/lib/tiptap-extensions'
 import type { StudioBlock } from '@/types/studio'
-
-// ProseMirror decoration plugin — highlights {{variable}} tokens visually
-// without modifying the document model
-const VariableHighlight = Extension.create({
-  name: 'variableHighlight',
-  addProseMirrorPlugins() {
-    return [
-      new Plugin({
-        key: new PluginKey('variableHighlight'),
-        props: {
-          decorations(state: unknown) {
-            type PmNode = { isText: boolean; text?: string }
-            type PmDoc  = { descendants: (fn: (node: PmNode, pos: number) => void) => void }
-            type PmState = { doc: PmDoc }
-            const st = state as PmState
-            const decos: Decoration[] = []
-            const re = /\{\{.+?\}\}/g
-            st.doc.descendants((node: PmNode, pos: number) => {
-              if (!node.isText || !node.text) return
-              re.lastIndex = 0
-              let m: RegExpExecArray | null
-              while ((m = re.exec(node.text)) !== null) {
-                decos.push(Decoration.inline(pos + m.index, pos + m.index + m[0].length, { class: 'var-token' }))
-              }
-            })
-            return DecorationSet.create(st.doc as unknown as Parameters<typeof DecorationSet.create>[0], decos)
-          },
-        },
-      }),
-    ]
-  },
-})
 
 const props = defineProps<{ block: StudioBlock; readonly?: boolean; scope?: Record<string, string> }>()
 const studio = useStudioStore()

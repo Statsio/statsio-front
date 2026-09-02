@@ -12,6 +12,7 @@ import RecordBlockInspector from '@/components/studio/inspector/RecordBlockInspe
 import SdEmbedBlockInspector from '@/components/studio/inspector/SdEmbedBlockInspector.vue'
 import LoopBlockInspector from '@/components/studio/inspector/LoopBlockInspector.vue'
 import IfBlockInspector from '@/components/studio/inspector/IfBlockInspector.vue'
+import LayoutBlockInspector from '@/components/studio/inspector/LayoutBlockInspector.vue'
 import { BLOCK_META, type BlockType } from '@/types/studio'
 
 const studio = useStudioStore()
@@ -29,6 +30,7 @@ const DATA_TABS      = [{ id: 'data', label: 'Données' }, { id: 'filters', labe
 const KPI_TABS       = [{ id: 'data', label: 'Données' }, { id: 'filters', label: 'Filtres' }, { id: 'comparison', label: 'Comparaison' }, { id: 'style', label: 'Style' }]
 const LOOP_TABS      = [{ id: 'data', label: 'Boucle' }, { id: 'filters', label: 'Filtres' }, { id: 'style', label: 'Style' }]
 const IF_TABS        = [{ id: 'condition', label: 'Condition' }]
+const LAYOUT_TABS    = [{ id: 'layout', label: 'Disposition' }]
 const TEXT_TABS      = [{ id: 'style', label: 'Style' }]
 const SEARCH_TABS    = [{ id: 'config', label: 'Configuration' }]
 const PARAM_TABS     = [{ id: 'config', label: 'Configuration' }]
@@ -41,6 +43,7 @@ const isParam     = computed(() => block.value?.type === 'param')
 const isSdEmbed   = computed(() => block.value?.type === 'sd-embed')
 const isLoop      = computed(() => block.value?.type === 'loop')
 const isCondition = computed(() => block.value?.type === 'if')
+const isLayout    = computed(() => block.value?.type === 'layout')
 const isEditorial = computed(() => EDITORIAL_TYPES.includes(block.value?.type as typeof EDITORIAL_TYPES[number]))
 const isForm      = computed(() => FORM_TYPES.includes(block.value?.type as typeof FORM_TYPES[number]))
 const isRecord    = computed(() => RECORD_TYPES.includes(block.value?.type as typeof RECORD_TYPES[number]))
@@ -54,6 +57,7 @@ const currentTabs = computed(() => {
   if (isForm.value) return FORM_TABS
   if (isLoop.value) return LOOP_TABS
   if (isCondition.value) return IF_TABS
+  if (isLayout.value) return LAYOUT_TABS
   if (isRecord.value) return DATA_TABS
   if (block.value?.type === 'kpi') return KPI_TABS
   return DATA_TABS
@@ -61,12 +65,13 @@ const currentTabs = computed(() => {
 
 const activeTab = ref('data')
 
-watch([() => block.value?.id, isText, isSearch, isParam, isSdEmbed, isCondition, isEditorial, isForm], () => {
+watch([() => block.value?.id, isText, isSearch, isParam, isSdEmbed, isCondition, isLayout, isEditorial, isForm], () => {
   if (isText.value) activeTab.value = 'style'
   else if (isSearch.value) activeTab.value = 'config'
   else if (isParam.value) activeTab.value = 'config'
   else if (isSdEmbed.value) activeTab.value = 'config'
   else if (isCondition.value) activeTab.value = 'condition'
+  else if (isLayout.value) activeTab.value = 'layout'
   else if (isEditorial.value) activeTab.value = 'editorial'
   else if (isForm.value) activeTab.value = 'form'
   else activeTab.value = 'data'
@@ -148,11 +153,14 @@ const compFilters = computed<import('@/types/studio').BlockFilter[]>(() => block
       <!-- ══════════════ LOOP BLOCK ══════════════ -->
       <LoopBlockInspector v-if="isLoop && block" :block="block" :active-tab="activeTab" />
 
+      <!-- ══════════════ LAYOUT BLOCK (Disposition) ══════════════ -->
+      <LayoutBlockInspector v-if="isLayout && block && activeTab === 'layout'" :block="block" />
+
       <!-- ══════════════ RECORD / RELATED ══════════════ -->
       <RecordBlockInspector v-if="isRecord && block" :block="block" :active-tab="activeTab" />
 
       <!-- ══════════════ DATA BLOCKS ══════════════ -->
-      <DataBlockInspector v-if="!isText && !isSearch && !isParam && !isSdEmbed && !isEditorial && !isForm && !isLoop && !isCondition && !isRecord && block" :block="block" :active-tab="activeTab" />
+      <DataBlockInspector v-if="!isText && !isSearch && !isParam && !isSdEmbed && !isEditorial && !isForm && !isLoop && !isCondition && !isLayout && !isRecord && block" :block="block" :active-tab="activeTab" />
 
       <!-- ══════════════ TEXT BLOCKS ══════════════ -->
       <RichBlockInspector v-if="isText && block && activeTab === 'style'" :block="block" />

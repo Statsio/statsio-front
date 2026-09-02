@@ -2,12 +2,14 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { useResolvedTokenList } from '@/composables/useResolvedTokens'
+import { sectionAnchorId } from '@/lib/slug'
+import { stripInlineHtml, isBlankInlineHtml } from '@/lib/inline-rich-text'
 import type { Section } from '@/types/studio'
 
 const studio = useStudioStore()
 
 const sections = computed<Section[]>(() =>
-  studio.currentPageSections.filter((s) => s.anchorId && s.title),
+  studio.currentPageSections.filter((s) => !isBlankInlineHtml(s.title)),
 )
 
 const { list: titles } = useResolvedTokenList({
@@ -20,8 +22,8 @@ const { list: titles } = useResolvedTokenList({
 
 const entries = computed(() =>
   sections.value.map((s, i) => ({
-    id: s.anchorId!,
-    label: titles.value[i] || s.title || s.anchorId!,
+    id: sectionAnchorId(s)!,
+    label: stripInlineHtml(titles.value[i]) || stripInlineHtml(s.title),
     num: String(i + 1).padStart(2, '0'),
   })),
 )

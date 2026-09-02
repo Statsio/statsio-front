@@ -35,6 +35,8 @@ export function useStatsDataDetail() {
   const allPages = computed(() => studio.pages)
   const publicPages = allPages
   const pageSections = computed(() => studio.currentPageSections)
+  /** Flux de premier niveau de la page (sections racine + blocs `loop`/`if` de page) — point d'entrée du rendu. */
+  const canvasItems = computed(() => studio.currentPageCanvasItems)
 
   /**
    * Le segment d'URL fan-out ne porte qu'une valeur slugifiée. On retrouve la
@@ -175,6 +177,7 @@ export function useStatsDataDetail() {
     publicPages,
     allPages,
     pageSections,
+    canvasItems,
     resolveToken,
   }
 }

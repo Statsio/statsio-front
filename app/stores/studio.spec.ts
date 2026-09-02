@@ -8,26 +8,26 @@ describe('useStudioStore', () => {
   })
 
   describe('addSection', () => {
-    it('pushes to the end when atIndex is omitted', () => {
+    it('pushes to the end when atIndex is omitted, always as 1-col', () => {
       const store = useStudioStore()
       const initialCount = store.sections.length
-      store.addSection('2-cols')
+      store.addSection()
       expect(store.sections).toHaveLength(initialCount + 1)
-      expect(store.sections[store.sections.length - 1]!.layout).toBe('2-cols')
+      expect(store.sections[store.sections.length - 1]!.layout).toBe('1-col')
     })
 
     it('inserts at atIndex when given', () => {
       const store = useStudioStore()
       const first = store.sections[0]!
-      store.addSection('3-cols', 0)
-      expect(store.sections[0]!.layout).toBe('3-cols')
+      store.addSection(0)
+      expect(store.sections[0]!.layout).toBe('1-col')
       expect(store.sections[1]!.id).toBe(first.id)
     })
 
     it('sets canUndo to true afterward', () => {
       const store = useStudioStore()
       expect(store.canUndo).toBe(false)
-      store.addSection('2-cols')
+      store.addSection()
       expect(store.canUndo).toBe(true)
     })
   })
@@ -35,7 +35,7 @@ describe('useStudioStore', () => {
   describe('removeSection', () => {
     it('is a no-op for a locked section', () => {
       const store = useStudioStore()
-      const section = store.addSection('2-cols', undefined, true)
+      const section = store.addSection(undefined, true)
       const before = store.sections.length
       store.removeSection(section.id)
       expect(store.sections).toHaveLength(before)
@@ -43,9 +43,9 @@ describe('useStudioStore', () => {
 
     it('cascades removal of all blocks whose zoneId belongs to the section', () => {
       const store = useStudioStore()
-      const section = store.addSection('2-cols')
+      const section = store.addSection()
       store.addBlock('kpi', `${section.id}-0`)
-      store.addBlock('kpi', `${section.id}-1`)
+      store.addBlock('kpi', `${section.id}-0`)
       store.addBlock('kpi', `${store.sections[0]!.id}-0`)
 
       store.removeSection(section.id)
@@ -57,7 +57,7 @@ describe('useStudioStore', () => {
 
     it('clears selectedBlockId if the removed block was selected', () => {
       const store = useStudioStore()
-      const section = store.addSection('2-cols')
+      const section = store.addSection()
       const block = store.addBlock('kpi', `${section.id}-0`)
       store.selectBlock(block.id)
 
@@ -68,42 +68,13 @@ describe('useStudioStore', () => {
     })
   })
 
-  describe('changeSectionLayout', () => {
-    it('is a no-op for a missing section', () => {
-      const store = useStudioStore()
-      const before = store.sections.length
-      store.changeSectionLayout('does-not-exist', '2-cols')
-      expect(store.sections).toHaveLength(before)
-    })
-
-    it('is a no-op for a locked section', () => {
-      const store = useStudioStore()
-      const section = store.addSection('2-cols', undefined, true)
-      store.changeSectionLayout(section.id, '3-cols')
-      expect(store.sections.find((s) => s.id === section.id)!.layout).toBe('2-cols')
-    })
-
-    it('remaps zoneId of blocks via the min(colIdx, newCols-1) clamp when columns shrink', () => {
-      const store = useStudioStore()
-      const section = store.addSection('3-cols')
-      const block0 = store.addBlock('kpi', `${section.id}-0`)
-      const block2 = store.addBlock('kpi', `${section.id}-2`)
-
-      store.changeSectionLayout(section.id, '2-cols')
-
-      expect(store.blocks.find((b) => b.id === block0.id)!.zoneId).toBe(`${section.id}-0`)
-      expect(store.blocks.find((b) => b.id === block2.id)!.zoneId).toBe(`${section.id}-1`)
-      expect(store.sections.find((s) => s.id === section.id)!.layout).toBe('2-cols')
-    })
-  })
-
   describe('reorderSections / reorderCurrentPageSections', () => {
     it('reorderSections keeps locked sections pinned at their original relative position', () => {
       const store = useStudioStore()
       store.sections.splice(0, store.sections.length)
-      const a = store.addSection('1-col')
-      const locked = store.addSection('2-cols', undefined, true)
-      const b = store.addSection('3-cols')
+      const a = store.addSection()
+      const locked = store.addSection(undefined, true)
+      const b = store.addSection()
 
       store.reorderSections([b, a, locked])
 
@@ -113,10 +84,10 @@ describe('useStudioStore', () => {
     it('reorderCurrentPageSections only reorders sections belonging to currentPageId', () => {
       const store = useStudioStore()
       store.sections.splice(0, store.sections.length)
-      const a = store.addSection('1-col')
-      const b = store.addSection('2-cols')
+      const a = store.addSection()
+      const b = store.addSection()
       store.addPage('Other page')
-      const other = store.addSection('3-cols')
+      const other = store.addSection()
       store.switchPage('default')
 
       store.reorderCurrentPageSections([b, a])
@@ -138,8 +109,8 @@ describe('useStudioStore', () => {
 
     it('inserts at the correct flat-array position for a zone that is not at the start of blocks', () => {
       const store = useStudioStore()
-      const sectionA = store.addSection('1-col')
-      const sectionB = store.addSection('1-col')
+      const sectionA = store.addSection()
+      const sectionB = store.addSection()
 
       // Blocks from a different zone (sectionA) come first in the flat array.
       store.addBlock('kpi', `${sectionA.id}-0`)
@@ -178,6 +149,12 @@ describe('useStudioStore', () => {
       const store = useStudioStore()
       const block = store.addBlock('sd-embed', `${store.sections[0]!.id}-0`)
       expect(block.config).toMatchObject({ showSourceLink: true })
+    })
+
+    it('seeds a 2-cols layoutType for a layout block', () => {
+      const store = useStudioStore()
+      const block = store.addBlock('layout', `${store.sections[0]!.id}-0`)
+      expect(block.config).toMatchObject({ layoutType: '2-cols' })
     })
   })
 
@@ -241,20 +218,20 @@ describe('useStudioStore', () => {
       expect(store.isSidebarRightOpen).toBe(false)
     })
 
-    it('updateSection patches kicker/title/theme/anchor and records history', () => {
+    it('updateSection patches kicker/title/theme and records history', () => {
       const store = useStudioStore()
       const id = store.sections[0]!.id
-      store.updateSection(id, { kicker: 'KPI', title: 'Chiffres clés', theme: 'dark', anchorId: 'chiffres' })
+      store.updateSection(id, { kicker: 'KPI', title: 'Chiffres clés', theme: 'dark' })
 
       expect(store.selectedSection).toBeNull() // pas sélectionnée
       const s = store.sections.find((x) => x.id === id)!
-      expect(s).toMatchObject({ kicker: 'KPI', title: 'Chiffres clés', theme: 'dark', anchorId: 'chiffres' })
+      expect(s).toMatchObject({ kicker: 'KPI', title: 'Chiffres clés', theme: 'dark' })
       expect(store.canUndo).toBe(true)
     })
 
     it('removeSection clears its selection', () => {
       const store = useStudioStore()
-      const extra = store.addSection('1-col')
+      const extra = store.addSection()
       store.selectSection(extra.id)
       store.removeSection(extra.id)
       expect(store.selectedSectionId).toBeNull()
@@ -264,8 +241,8 @@ describe('useStudioStore', () => {
   describe('setZoneBlocks', () => {
     it('reassigns zoneId for a cross-zone move and reorders per blockIds, leaving other blocks untouched', () => {
       const store = useStudioStore()
-      const sectionA = store.addSection('1-col')
-      const sectionB = store.addSection('1-col')
+      const sectionA = store.addSection()
+      const sectionB = store.addSection()
       const zoneA = `${sectionA.id}-0`
       const zoneB = `${sectionB.id}-0`
 
@@ -308,11 +285,211 @@ describe('useStudioStore', () => {
     })
   })
 
+  describe('layout blocks', () => {
+    const seedLayoutWithChildren = () => {
+      const store = useStudioStore()
+      const section = store.sections[0]!
+      const layout = store.addBlock('layout', `${section.id}-0`) // default '2-cols'
+      const child0 = store.addBlock('kpi', `loop:${layout.id}:0`)
+      const child1 = store.addBlock('bar', `loop:${layout.id}:1`)
+      return { store, section, layout, child0, child1 }
+    }
+
+    it('changeBlockLayout remaps blocks in removed columns to the last remaining column', () => {
+      const { store, layout, child0, child1 } = seedLayoutWithChildren()
+      store.changeBlockLayout(layout.id, '1-col')
+
+      expect(store.blocks.find((b) => b.id === child0.id)!.zoneId).toBe(`loop:${layout.id}:0`)
+      expect(store.blocks.find((b) => b.id === child1.id)!.zoneId).toBe(`loop:${layout.id}:0`)
+      expect(store.blocks.find((b) => b.id === layout.id)!.config.layoutType).toBe('1-col')
+    })
+
+    it('changeBlockLayout is a no-op for a non-layout block', () => {
+      const store = useStudioStore()
+      const block = store.addBlock('kpi', `${store.sections[0]!.id}-0`)
+      store.changeBlockLayout(block.id, '3-cols')
+      expect(store.blocks.find((b) => b.id === block.id)!.config.layoutType).toBeUndefined()
+    })
+
+    it('blocksByZone exposes one zone per column', () => {
+      const { store, layout } = seedLayoutWithChildren()
+      expect(Object.keys(store.blocksByZone)).toEqual(
+        expect.arrayContaining([`loop:${layout.id}:0`, `loop:${layout.id}:1`]),
+      )
+      expect(store.blocksByZone[`loop:${layout.id}:2`]).toBeUndefined()
+    })
+
+    it('removeBlock cascades to the layout block\'s column children', () => {
+      const { store, layout, child0, child1 } = seedLayoutWithChildren()
+      store.removeBlock(layout.id)
+      expect(store.blocks.find((b) => b.id === child0.id)).toBeUndefined()
+      expect(store.blocks.find((b) => b.id === child1.id)).toBeUndefined()
+    })
+
+    it('duplicateBlock clones a layout block and re-parents its column children', () => {
+      const { store, layout, child0, child1 } = seedLayoutWithChildren()
+      const clone = store.duplicateBlock(layout.id)!
+
+      expect(store.blocks.filter((b) => b.zoneId === `loop:${clone.id}:0`)).toHaveLength(1)
+      expect(store.blocks.filter((b) => b.zoneId === `loop:${clone.id}:1`)).toHaveLength(1)
+      // Les blocs d'origine restent inchangés.
+      expect(store.blocks.find((b) => b.id === child0.id)!.zoneId).toBe(`loop:${layout.id}:0`)
+      expect(store.blocks.find((b) => b.id === child1.id)!.zoneId).toBe(`loop:${layout.id}:1`)
+    })
+
+    it('removeSection cascades to a layout block\'s column children', () => {
+      const { store, section, child0 } = seedLayoutWithChildren()
+      store.removeSection(section.id)
+      expect(store.blocks.find((b) => b.id === child0.id)).toBeUndefined()
+    })
+  })
+
+  describe('page-level loop / if (sections nested in a script zone)', () => {
+    it('canPlaceInZone only allows loop / if in a page zone', () => {
+      const store = useStudioStore()
+      const zone = `page:${store.currentPageId}`
+      expect(store.canPlaceInZone('loop', zone)).toBe(true)
+      expect(store.canPlaceInZone('if', zone)).toBe(true)
+      expect(store.canPlaceInZone('kpi', zone)).toBe(false)
+      expect(store.canPlaceInZone('paragraph', zone)).toBe(false)
+    })
+
+    it('blocksByZone seeds a page zone for every page', () => {
+      const store = useStudioStore()
+      store.addPage('Second')
+      expect(store.blocksByZone[`page:${store.pages[0]!.id}`]).toEqual([])
+      expect(store.blocksByZone[`page:${store.pages[1]!.id}`]).toEqual([])
+    })
+
+    it('addSection with a zoneId nests the section and inherits pageId', () => {
+      const store = useStudioStore()
+      const loop = store.addPageBlock('loop')
+      const zone = `loop:${loop.id}:0`
+      const s = store.addSection(undefined, undefined, zone)
+      expect(s.zoneId).toBe(zone)
+      expect(s.pageId).toBe(store.currentPageId)
+      expect(store.sectionsInZone(zone).map((x) => x.id)).toEqual([s.id])
+      // Not a root section of the page.
+      expect(store.currentPageTopLevelSections.find((x) => x.id === s.id)).toBeUndefined()
+    })
+
+    it('reorderSectionZone reorders one zone without touching another', () => {
+      const store = useStudioStore()
+      const loopA = store.addPageBlock('loop')
+      const loopB = store.addPageBlock('loop')
+      const za = `loop:${loopA.id}:0`
+      const zb = `loop:${loopB.id}:0`
+      const a1 = store.addSection(undefined, undefined, za)
+      const a2 = store.addSection(undefined, undefined, za)
+      const b1 = store.addSection(undefined, undefined, zb)
+
+      store.reorderSectionZone(za, [store.sectionsInZone(za)[1]!, store.sectionsInZone(za)[0]!])
+
+      expect(store.sectionsInZone(za).map((s) => s.id)).toEqual([a2.id, a1.id])
+      expect(store.sectionsInZone(zb).map((s) => s.id)).toEqual([b1.id])
+    })
+
+    it('addPageBlock + reorderPageCanvas position a page block between sections', () => {
+      const store = useStudioStore()
+      store.sections.splice(0, store.sections.length)
+      const s1 = store.addSectionInFlow()
+      const s2 = store.addSectionInFlow()
+      const block = store.addPageBlock('if', 1) // between s1 and s2
+
+      expect(store.currentPageCanvasItems.map((i) => i.ref)).toEqual([
+        { kind: 'section', id: s1.id },
+        { kind: 'block', id: block.id },
+        { kind: 'section', id: s2.id },
+      ])
+
+      store.reorderPageCanvas([
+        { kind: 'block', id: block.id },
+        { kind: 'section', id: s1.id },
+        { kind: 'section', id: s2.id },
+      ])
+      expect(store.currentPageCanvasItems.map((i) => i.ref.id)).toEqual([block.id, s1.id, s2.id])
+    })
+
+    it('removeBlock on a page loop cascades to nested sections + their blocks', () => {
+      const store = useStudioStore()
+      const loop = store.addPageBlock('loop')
+      const zone = `loop:${loop.id}:0`
+      const nested = store.addSection(undefined, undefined, zone)
+      const innerBlock = store.addBlock('kpi', `${nested.id}-0`)
+      const innerLoop = store.addBlock('loop', `${nested.id}-0`)
+      const deepBlock = store.addBlock('bar', `loop:${innerLoop.id}:0`)
+
+      store.removeBlock(loop.id)
+
+      expect(store.blocks.find((b) => b.id === loop.id)).toBeUndefined()
+      expect(store.sections.find((s) => s.id === nested.id)).toBeUndefined()
+      expect(store.blocks.find((b) => b.id === innerBlock.id)).toBeUndefined()
+      expect(store.blocks.find((b) => b.id === innerLoop.id)).toBeUndefined()
+      expect(store.blocks.find((b) => b.id === deepBlock.id)).toBeUndefined()
+      expect(store.currentPageCanvasItems.some((i) => i.ref.id === loop.id)).toBe(false)
+    })
+
+    it('removeIfBranch drops the sections of the removed branch and renumbers the rest', () => {
+      const store = useStudioStore()
+      const cond = store.addPageBlock('if')
+      store.addIfBranch(cond.id, 'elsif') // branch 1
+      store.addIfBranch(cond.id, 'else')  // branch 2
+      const sifSi = store.addSection(undefined, undefined, `loop:${cond.id}:0`)
+      const sElsif = store.addSection(undefined, undefined, `loop:${cond.id}:1`)
+      const sElse = store.addSection(undefined, undefined, `loop:${cond.id}:2`)
+
+      store.removeIfBranch(cond.id, 1) // remove the "Sinon si" branch
+
+      expect(store.sections.find((s) => s.id === sElsif.id)).toBeUndefined()
+      expect(store.sections.find((s) => s.id === sifSi.id)!.zoneId).toBe(`loop:${cond.id}:0`)
+      expect(store.sections.find((s) => s.id === sElse.id)!.zoneId).toBe(`loop:${cond.id}:1`)
+    })
+
+    it('moveSectionToZone reparents a root section into a script zone and drops its canvas ref', () => {
+      const store = useStudioStore()
+      store.sections.splice(0, store.sections.length)
+      const s1 = store.addSectionInFlow()
+      const loop = store.addPageBlock('loop')
+      const zone = `loop:${loop.id}:0`
+
+      store.moveSectionToZone(s1.id, zone, 0)
+
+      expect(store.sections.find((s) => s.id === s1.id)!.zoneId).toBe(zone)
+      expect(store.sectionsInZone(zone).map((s) => s.id)).toEqual([s1.id])
+      expect(store.currentPage!.canvas!.some((r) => r.kind === 'section' && r.id === s1.id)).toBe(false)
+      expect(store.currentPageTopLevelSections.find((s) => s.id === s1.id)).toBeUndefined()
+    })
+
+    it('moveSectionToFlow pulls a section out of its zone back to the page flow', () => {
+      const store = useStudioStore()
+      store.sections.splice(0, store.sections.length)
+      const s1 = store.addSectionInFlow()
+      const loop = store.addPageBlock('loop')
+      const zone = `loop:${loop.id}:0`
+      const nested = store.addSection(undefined, undefined, zone)
+
+      store.moveSectionToFlow(nested.id, 0)
+
+      expect(store.sections.find((s) => s.id === nested.id)!.zoneId).toBeUndefined()
+      expect(store.sectionsInZone(zone)).toHaveLength(0)
+      expect(store.currentPageCanvasItems.map((i) => i.ref.id)).toEqual([nested.id, s1.id, loop.id])
+    })
+
+    it('currentPageCanvasItems falls back to root section order without page.canvas', () => {
+      const store = useStudioStore()
+      store.sections.splice(0, store.sections.length)
+      const a = store.addSection()
+      const b = store.addSection()
+      expect(store.currentPage!.canvas).toBeUndefined()
+      expect(store.currentPageCanvasItems.map((i) => i.ref.id)).toEqual([a.id, b.id])
+    })
+  })
+
   describe('undo / redo', () => {
     it('undo reverts pages/sections/blocks to the previous snapshot', () => {
       const store = useStudioStore()
       const initialSectionCount = store.sections.length
-      store.addSection('2-cols')
+      store.addSection()
       expect(store.sections).toHaveLength(initialSectionCount + 1)
 
       store.undo()
@@ -322,7 +499,7 @@ describe('useStudioStore', () => {
     it('redo reapplies the undone snapshot', () => {
       const store = useStudioStore()
       const initialSectionCount = store.sections.length
-      store.addSection('2-cols')
+      store.addSection()
       store.undo()
       store.redo()
       expect(store.sections).toHaveLength(initialSectionCount + 1)
@@ -337,7 +514,7 @@ describe('useStudioStore', () => {
 
     it('redo is a no-op when future is empty', () => {
       const store = useStudioStore()
-      store.addSection('2-cols')
+      store.addSection()
       const snapshot = [...store.sections]
       store.redo()
       expect(store.sections).toEqual(snapshot)
@@ -357,15 +534,13 @@ describe('useStudioStore', () => {
   })
 
   describe('blocksByZone getter', () => {
-    it('buckets blocks by zoneId and includes empty zones for defined sections', () => {
+    it('buckets blocks by zoneId for a section (always a single zone)', () => {
       const store = useStudioStore()
       store.sections.splice(0, store.sections.length)
-      const section = store.addSection('2-cols')
+      const section = store.addSection()
       const block = store.addBlock('kpi', `${section.id}-0`)
 
-      const byZone = store.blocksByZone
-      expect(byZone[`${section.id}-0`]).toEqual([block])
-      expect(byZone[`${section.id}-1`]).toEqual([])
+      expect(store.blocksByZone[`${section.id}-0`]).toEqual([block])
     })
 
     it('exposes a zone for each loop block', () => {
@@ -373,6 +548,44 @@ describe('useStudioStore', () => {
       const section = store.sections[0]!
       const loop = store.addBlock('loop', `${section.id}-0`)
       expect(store.blocksByZone[`loop:${loop.id}:0`]).toEqual([])
+    })
+  })
+
+  describe('multi-column section migration', () => {
+    it('converts a legacy multi-column section into a 1-col section + a layout block', () => {
+      const store = useStudioStore()
+      store.initPage(
+        { id: 'c1', type: 'statsdata', title: 'Doc' },
+        [{ id: 's1', layout: '2-cols', pageId: 'p1' }],
+        [
+          { id: 'b0', type: 'kpi', zoneId: 's1-0', fieldMapping: {}, config: {} },
+          { id: 'b1', type: 'bar', zoneId: 's1-1', fieldMapping: {}, config: {} },
+        ],
+        [{ id: 'p1', title: 'Principale' }],
+      )
+
+      const section = store.sections.find((s) => s.id === 's1')!
+      expect(section.layout).toBe('1-col')
+
+      const layoutBlock = store.blocks.find((b) => b.type === 'layout')!
+      expect(layoutBlock).toBeDefined()
+      expect(layoutBlock.config.layoutType).toBe('2-cols')
+      expect(layoutBlock.zoneId).toBe('s1-0')
+
+      expect(store.blocks.find((b) => b.id === 'b0')!.zoneId).toBe(`loop:${layoutBlock.id}:0`)
+      expect(store.blocks.find((b) => b.id === 'b1')!.zoneId).toBe(`loop:${layoutBlock.id}:1`)
+    })
+
+    it('is a no-op for an already 1-col section', () => {
+      const store = useStudioStore()
+      store.initPage(
+        { id: 'c1', type: 'statsdata', title: 'Doc' },
+        [{ id: 's1', layout: '1-col', pageId: 'p1' }],
+        [{ id: 'b0', type: 'kpi', zoneId: 's1-0', fieldMapping: {}, config: {} }],
+        [{ id: 'p1', title: 'Principale' }],
+      )
+      expect(store.blocks).toHaveLength(1)
+      expect(store.blocks.find((b) => b.type === 'layout')).toBeUndefined()
     })
   })
 
@@ -416,6 +629,84 @@ describe('useStudioStore', () => {
       store.addBlock('paragraph', `loop:${cond.id}:0`)
       const clone = store.duplicateBlock(cond.id)!
       expect(store.blocks.filter((b) => b.zoneId === `loop:${clone.id}:0`)).toHaveLength(1)
+    })
+
+    describe('if branches (elsif / else)', () => {
+      function seedIf() {
+        const store = useStudioStore()
+        const section = store.sections[0]!
+        const cond = store.addBlock('if', `${section.id}-0`)
+        return { store, cond }
+      }
+
+      it('addIfBranch creates a new zone for the appended branch', () => {
+        const { store, cond } = seedIf()
+        store.addIfBranch(cond.id, 'elsif')
+        expect(store.blocksByZone[`loop:${cond.id}:1`]).toEqual([])
+        expect(store.blocksByZone[`loop:${cond.id}:0`]).toEqual([])
+      })
+
+      it('addIfBranch "else" appends after existing elsif branches', () => {
+        const { store, cond } = seedIf()
+        store.addIfBranch(cond.id, 'elsif')
+        store.addIfBranch(cond.id, 'else')
+        expect(Object.keys(store.blocksByZone)).toEqual(
+          expect.arrayContaining([`loop:${cond.id}:0`, `loop:${cond.id}:1`, `loop:${cond.id}:2`]),
+        )
+      })
+
+      it('addIfBranch "elsif" inserts before an existing else and shifts its blocks down', () => {
+        const { store, cond } = seedIf()
+        store.addIfBranch(cond.id, 'else')
+        const elseChild = store.addBlock('paragraph', `loop:${cond.id}:1`)
+        store.addIfBranch(cond.id, 'elsif')
+        // le contenu du "sinon" a migré de la branche 1 vers la branche 2
+        expect(store.blocks.find((b) => b.id === elseChild.id)?.zoneId).toBe(`loop:${cond.id}:2`)
+        expect(store.blocksByZone[`loop:${cond.id}:1`]).toEqual([])
+      })
+
+      it('refuses a second "else" branch', () => {
+        const { store, cond } = seedIf()
+        store.addIfBranch(cond.id, 'else')
+        store.addIfBranch(cond.id, 'else')
+        expect(store.blocksByZone[`loop:${cond.id}:2`]).toBeUndefined()
+      })
+
+      it('removeIfBranch deletes the branch\'s blocks and renumbers the following branches', () => {
+        const { store, cond } = seedIf()
+        store.addIfBranch(cond.id, 'elsif')
+        store.addIfBranch(cond.id, 'else')
+        const middleChild = store.addBlock('paragraph', `loop:${cond.id}:1`)
+        const elseChild = store.addBlock('paragraph', `loop:${cond.id}:2`)
+
+        store.removeIfBranch(cond.id, 1)
+
+        expect(store.blocks.find((b) => b.id === middleChild.id)).toBeUndefined()
+        expect(store.blocks.find((b) => b.id === elseChild.id)?.zoneId).toBe(`loop:${cond.id}:1`)
+        expect(store.blocksByZone[`loop:${cond.id}:2`]).toBeUndefined()
+      })
+
+      it('removeIfBranch refuses to remove branch 0', () => {
+        const { store, cond } = seedIf()
+        store.addIfBranch(cond.id, 'elsif')
+        store.removeIfBranch(cond.id, 0)
+        expect(store.blocksByZone[`loop:${cond.id}:1`]).toBeDefined()
+      })
+
+      it('duplicateBlock preserves every branch and its children', () => {
+        const { store, cond } = seedIf()
+        store.addIfBranch(cond.id, 'elsif')
+        store.addIfBranch(cond.id, 'else')
+        store.addBlock('paragraph', `loop:${cond.id}:0`)
+        store.addBlock('paragraph', `loop:${cond.id}:1`)
+        store.addBlock('paragraph', `loop:${cond.id}:2`)
+
+        const clone = store.duplicateBlock(cond.id)!
+
+        expect(store.blocks.filter((b) => b.zoneId === `loop:${clone.id}:0`)).toHaveLength(1)
+        expect(store.blocks.filter((b) => b.zoneId === `loop:${clone.id}:1`)).toHaveLength(1)
+        expect(store.blocks.filter((b) => b.zoneId === `loop:${clone.id}:2`)).toHaveLength(1)
+      })
     })
 
     it('addBlock keeps a nested loop inside the loop zone', () => {

@@ -1,16 +1,60 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useRoute } from 'vue-router'
+import { useStudioStore } from '@/stores/studio'
+import { CONTENT_TYPE_META, publicContentPath } from '@/lib/content-display'
 import type { StudioBlock } from '@/types/studio'
 
 const props = defineProps<{ block: StudioBlock; readonly?: boolean }>()
+const studio = useStudioStore()
+const route = useRoute()
 
-const url         = computed(() => props.block.config.linkUrl ?? '')
+const mode = computed(() => props.block.config.linkMode ?? 'url')
+
 const title       = computed(() => props.block.config.linkTitle ?? '')
 const description = computed(() => props.block.config.linkDescription ?? '')
 const image       = computed(() => props.block.config.linkImage ?? '')
-const domain      = computed(() => props.block.config.linkDomain ?? '')
 
-const isEmpty = computed(() => !url.value && !title.value)
+// Slug du document courant (route publique ou store en édition).
+const docSlug = computed(() => String(route.params.slug ?? studio.content?.slug ?? ''))
+
+const targetPage = computed(() =>
+  mode.value === 'page'
+    ? studio.pages.find((p) => p.id === props.block.config.linkPageId)
+    : undefined,
+)
+
+const href = computed(() => {
+  if (mode.value === 'content') {
+    const t = props.block.config.linkContentType
+    const s = props.block.config.linkContentSlug
+    return t && s ? publicContentPath(t, s) : ''
+  }
+  if (mode.value === 'page') {
+    if (!docSlug.value || !targetPage.value) return ''
+    return `/statsdata/${docSlug.value}/${targetPage.value.slug ?? targetPage.value.id}`
+  }
+  return props.block.config.linkUrl ?? ''
+})
+
+const isExternal = computed(() => mode.value === 'url')
+
+// Bandeau (eyebrow) au-dessus du titre.
+const eyebrow = computed(() => {
+  if (mode.value === 'content') {
+    return CONTENT_TYPE_META[props.block.config.linkContentType ?? 'statsdata']?.label ?? ''
+  }
+  if (mode.value === 'page') return 'Sur cette page'
+  return props.block.config.linkDomain ?? ''
+})
+
+const displayTitle = computed(
+  () => title.value || (mode.value === 'page' ? targetPage.value?.title ?? '' : ''),
+)
+
+const isEmpty = computed(() => !href.value && !displayTitle.value)
+
+const isLink = computed(() => !!href.value && !!props.readonly)
 </script>
 
 <template>
@@ -27,13 +71,13 @@ const isEmpty = computed(() => !url.value && !title.value)
 
   <!-- Link card -->
   <component
-    :is="url && readonly ? 'a' : 'div'"
+    :is="isLink ? 'a' : 'div'"
     v-else
-    :href="url && readonly ? url : undefined"
-    :target="url && readonly ? '_blank' : undefined"
-    :rel="url && readonly ? 'noopener noreferrer' : undefined"
+    :href="isLink ? href : undefined"
+    :target="isLink && isExternal ? '_blank' : undefined"
+    :rel="isLink && isExternal ? 'noopener noreferrer' : undefined"
     class="group flex gap-4 overflow-hidden rounded-[14px] border border-[var(--studio-line)] bg-white p-4 shadow-sm transition-all duration-200 hover:border-[var(--studio-line-strong)] hover:shadow-md"
-    :class="{ 'cursor-pointer': url && readonly }"
+    :class="{ 'cursor-pointer': isLink }"
   >
     <!-- Thumbnail -->
     <img
@@ -46,10 +90,10 @@ const isEmpty = computed(() => !url.value && !title.value)
 
     <!-- Content -->
     <div class="min-w-0 flex flex-col gap-0.5">
-      <span v-if="domain" class="text-[10px] font-semibold uppercase tracking-wider text-[var(--studio-faint)]">{{ domain }}</span>
-      <p v-if="title" class="font-semibold text-[var(--studio-ink)] leading-snug line-clamp-2">{{ title }}</p>
+      <span v-if="eyebrow" class="text-[10px] font-semibold uppercase tracking-wider text-[var(--studio-faint)]">{{ eyebrow }}</span>
+      <p v-if="displayTitle" class="font-semibold text-[var(--studio-ink)] leading-snug line-clamp-2">{{ displayTitle }}</p>
       <p v-if="description" class="text-sm text-[var(--studio-muted)] line-clamp-2">{{ description }}</p>
-      <span v-if="url && !readonly" class="mt-1 text-[11px] text-[var(--color-primary)] truncate">{{ url }}</span>
+      <span v-if="href && !readonly" class="mt-1 text-[11px] text-[var(--color-primary)] truncate">{{ href }}</span>
     </div>
   </component>
 </template>

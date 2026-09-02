@@ -13,7 +13,9 @@ import type {
   Section,
   SectionLayout,
 } from '@/types/studio'
-import { SECTION_LAYOUT_DEFINITIONS, SECTION_PRESETS, scriptZoneId, scriptIdFromZone, isScriptBlock, FORM_BLOCK_TYPES } from '@/types/studio'
+import { SECTION_LAYOUT_DEFINITIONS, scriptZoneId, scriptIdFromZone, scriptZoneBranch, pageZoneId, isPageZone, isScriptBlock, isContainerBlock, FORM_BLOCK_TYPES } from '@/types/studio'
+import type { CanvasItemRef } from '@/types/studio'
+import { readIfBranches, withAddedBranch, withRemovedBranch } from '@/lib/studio-if'
 
 function uid(): string {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
@@ -153,6 +155,49 @@ export const useStudioStore = defineStore('studio', () => {
     () => sections.value.filter((s: Section) => (s.pageId ?? 'default') === currentPageId.value),
   )
 
+  /** Sections racine de la page courante (pas nichées dans la zone d'un bloc de script de page). */
+  const currentPageTopLevelSections = computed<Section[]>(
+    () => currentPageSections.value.filter((s: Section) => !s.zoneId),
+  )
+
+  /** Sections nichées dans une zone de bloc de script (`scriptZoneId(blockId, branch)`), dans l'ordre du tableau. */
+  function sectionsInZone(zoneId: string): Section[] {
+    return sections.value.filter((s: Section) => s.zoneId === zoneId)
+  }
+
+  /**
+   * Éléments de premier niveau du flux de la page courante — sections racine +
+   * blocs `loop`/`if` posés au niveau page — dans l'ordre de `currentPage.canvas`.
+   * Repli sur l'ordre des sections racine quand `canvas` est absent ; complète en
+   * fin toute section / bloc de page manquant (robustesse + docs existants).
+   */
+  const currentPageCanvasItems = computed<Array<{ ref: CanvasItemRef; section?: Section; block?: StudioBlock }>>(() => {
+    const rootSections = currentPageTopLevelSections.value
+    const zone = pageZoneId(currentPageId.value)
+    const pageBlocks = blocks.value.filter((b: StudioBlock) => b.zoneId === zone)
+    const bySection = new Map(rootSections.map((s) => [s.id, s]))
+    const byBlock = new Map(pageBlocks.map((b) => [b.id, b]))
+
+    const out: Array<{ ref: CanvasItemRef; section?: Section; block?: StudioBlock }> = []
+    const seen = new Set<string>()
+    for (const ref of currentPage.value?.canvas ?? []) {
+      const key = `${ref.kind}:${ref.id}`
+      if (seen.has(key)) continue
+      if (ref.kind === 'section' && bySection.has(ref.id)) {
+        out.push({ ref, section: bySection.get(ref.id) }); seen.add(key)
+      } else if (ref.kind === 'block' && byBlock.has(ref.id)) {
+        out.push({ ref, block: byBlock.get(ref.id) }); seen.add(key)
+      }
+    }
+    for (const s of rootSections) {
+      if (!seen.has(`section:${s.id}`)) out.push({ ref: { kind: 'section', id: s.id }, section: s })
+    }
+    for (const b of pageBlocks) {
+      if (!seen.has(`block:${b.id}`)) out.push({ ref: { kind: 'block', id: b.id }, block: b })
+    }
+    return out
+  })
+
   const selectedBlock = computed<StudioBlock | null>(() => {
     if (!selectedBlockId.value) return null
     return blocks.value.find((b: StudioBlock) => b.id === selectedBlockId.value) ?? null
@@ -178,9 +223,14 @@ export const useStudioStore = defineStore('studio', () => {
   }
 
   // Zone IDs derived from sections: `${sectionId}-${colIndex}`
-  // Plus one zone per script block (`loop` / `if`): `loop:${blockId}:0` (its children live there).
+  // Plus one zone per script block: a `loop` has `loop:${blockId}:0`, an `if` has
+  // one zone per branch (`loop:${blockId}:${branchIndex}`).
   const blocksByZone = computed<Record<string, StudioBlock[]>>(() => {
     const map: Record<string, StudioBlock[]> = {}
+    for (const page of pages.value) {
+      // Zone racine de page : accueille les blocs `loop`/`if` posés hors des sections.
+      map[pageZoneId(page.id)] = []
+    }
     for (const section of sections.value) {
       const cols = getColCount(section.layout)
       for (let i = 0; i < cols; i++) {
@@ -188,7 +238,15 @@ export const useStudioStore = defineStore('studio', () => {
       }
     }
     for (const block of blocks.value) {
-      if (isScriptBlock(block.type)) map[scriptZoneId(block.id)] ??= []
+      if (block.type === 'if') {
+        const branchCount = Math.max(1, readIfBranches(block.config).length)
+        for (let i = 0; i < branchCount; i++) map[scriptZoneId(block.id, i)] ??= []
+      } else if (block.type === 'layout') {
+        const cols = getColCount(block.config.layoutType ?? '2-cols')
+        for (let i = 0; i < cols; i++) map[scriptZoneId(block.id, i)] ??= []
+      } else if (isScriptBlock(block.type)) {
+        map[scriptZoneId(block.id)] ??= []
+      }
     }
     for (const block of blocks.value) {
       if (!map[block.zoneId]) map[block.zoneId] = []
@@ -197,16 +255,16 @@ export const useStudioStore = defineStore('studio', () => {
     return map
   })
 
-  /** Ids des blocs enfants (directs + descendants) d'un bloc de script. */
+  /** Ids des blocs enfants (directs + descendants) d'un bloc de script — toutes branches confondues. */
   function loopChildIds(scriptBlockId: string): string[] {
     const out: string[] = []
     const stack = [scriptBlockId]
     while (stack.length) {
       const parentId = stack.pop()!
       for (const b of blocks.value) {
-        if (b.zoneId === scriptZoneId(parentId)) {
+        if (scriptIdFromZone(b.zoneId) === parentId) {
           out.push(b.id)
-          if (isScriptBlock(b.type)) stack.push(b.id)
+          if (isContainerBlock(b.type)) stack.push(b.id)
         }
       }
     }
@@ -222,7 +280,7 @@ export const useStudioStore = defineStore('studio', () => {
       const parentId = scriptIdFromZone(current.zoneId)
       if (!parentId || guard.has(parentId)) break
       guard.add(parentId)
-      const parent = blocks.value.find((b: StudioBlock) => b.id === parentId && isScriptBlock(b.type))
+      const parent = blocks.value.find((b: StudioBlock) => b.id === parentId && isContainerBlock(b.type))
       if (!parent) break
       out.push(parent)
       current = parent
@@ -236,6 +294,8 @@ export const useStudioStore = defineStore('studio', () => {
    * est permis.
    */
   function canPlaceInZone(type: BlockType, zoneId: string): boolean {
+    // Zone racine de page : uniquement des blocs de script (répètent / conditionnent des sections).
+    if (isPageZone(zoneId)) return type === 'loop' || type === 'if'
     if (!zoneId.startsWith('loop:')) return true
     return type !== 'search' && type !== 'param' && !FORM_BLOCK_TYPES.includes(type)
   }
@@ -285,6 +345,37 @@ export const useStudioStore = defineStore('studio', () => {
     for (const b of blocks.value) if (b.locked) b.locked = undefined
   }
 
+  // ─── Migration : sections multi-colonnes → bloc « Disposition » ─────────────
+  // Une section ne porte plus de mise en page en colonnes (toujours `1-col`) : les
+  // anciennes sections `2-cols`/`3-cols`/… sont converties en une section 1-col
+  // contenant un unique bloc `layout` qui reprend l'agencement et les blocs des
+  // anciennes colonnes. Idempotent (ne touche pas les sections déjà `1-col`).
+
+  function migrateMultiColumnSections() {
+    for (const section of sections.value) {
+      if (section.layout === '1-col') continue
+
+      const layoutBlock: StudioBlock = {
+        id: uid(),
+        type: 'layout',
+        zoneId: `${section.id}-0`,
+        fieldMapping: {},
+        config: { title: '', layoutType: section.layout },
+      }
+
+      const prefix = `${section.id}-`
+      for (const b of blocks.value) {
+        if (!b.zoneId.startsWith(prefix)) continue
+        const colIdx = parseInt(b.zoneId.slice(prefix.length), 10)
+        if (Number.isNaN(colIdx)) continue
+        b.zoneId = scriptZoneId(layoutBlock.id, colIdx)
+      }
+
+      blocks.value.push(layoutBlock)
+      section.layout = '1-col'
+    }
+  }
+
   // ─── Page init ───────────────────────────────────────────────────────────────
 
   function initPage(
@@ -312,6 +403,7 @@ export const useStudioStore = defineStore('studio', () => {
     blocks.value = pageBlocks ?? []
 
     migrateLegacyTemplatePages()
+    migrateMultiColumnSections()
     pageParams.value = defaultParamsForPage(pages.value.find((p) => p.id === currentPageId.value))
 
     selectedBlockId.value = null
@@ -331,10 +423,47 @@ export const useStudioStore = defineStore('studio', () => {
 
   // ─── Sections ────────────────────────────────────────────────────────────────
 
-  function addSection(layout: SectionLayout, atIndex?: number, locked?: boolean) {
+  /** Refs actuelles du flux de la page courante — sert à matérialiser `page.canvas`. */
+  function currentCanvasRefs(): CanvasItemRef[] {
+    return currentPageCanvasItems.value.map((i) => i.ref)
+  }
+  function insertCanvasRef(ref: CanvasItemRef, atIndex?: number) {
+    const page = currentPage.value
+    if (!page) return
+    // Matérialise depuis l'ordre courant EN EXCLUANT l'élément qu'on insère
+    // (l'auto-complétion de `currentPageCanvasItems` l'a déjà mis en fin).
+    const base = (page.canvas ?? currentCanvasRefs()).filter((r) => !(r.kind === ref.kind && r.id === ref.id))
+    if (atIndex !== undefined && atIndex >= 0 && atIndex <= base.length) base.splice(atIndex, 0, ref)
+    else base.push(ref)
+    page.canvas = base
+  }
+  function dropCanvasRef(kind: CanvasItemRef['kind'], id: string) {
+    const canvas = currentPage.value?.canvas
+    if (canvas) currentPage.value!.canvas = canvas.filter((r) => !(r.kind === kind && r.id === id))
+  }
+
+  /**
+   * `zoneId` : insère la section dans la zone d'un bloc de script de page
+   * (`scriptZoneId(blockId, branch)`) plutôt qu'à la racine — `atIndex` se lit
+   * alors parmi les sections de cette zone (défaut : à la fin). Sans `zoneId`,
+   * insertion au niveau page ; `atIndex` = position dans le tableau `sections.value`
+   * (bas niveau — l'ordre du flux visible passe par `page.canvas`). Toujours
+   * `layout: '1-col'` (colonnes portées par le bloc « Disposition »).
+   */
+  function addSection(atIndex?: number, locked?: boolean, zoneId?: string): Section {
     snapshot()
-    const section: Section = { id: uid(), layout, pageId: currentPageId.value, locked }
-    if (atIndex !== undefined) {
+    const section: Section = { id: uid(), layout: '1-col', pageId: currentPageId.value, locked, zoneId }
+    if (zoneId) {
+      const siblings = sectionsInZone(zoneId)
+      const useAt = atIndex !== undefined && atIndex < siblings.length
+      const anchor = useAt ? siblings[atIndex] : siblings[siblings.length - 1]
+      if (anchor) {
+        const at = sections.value.findIndex((s: Section) => s.id === anchor.id)
+        sections.value.splice(useAt ? at : at + 1, 0, section)
+      } else {
+        sections.value.push(section)
+      }
+    } else if (atIndex !== undefined) {
       sections.value.splice(atIndex, 0, section)
     } else {
       sections.value.push(section)
@@ -343,20 +472,106 @@ export const useStudioStore = defineStore('studio', () => {
     return section
   }
 
-  /** Insère une section 1-col préremplie des blocs d'un preset (onglet « Sections »). */
-  function addSectionPreset(presetKey: string) {
-    const preset = SECTION_PRESETS.find((p) => p.key === presetKey)
-    if (!preset) return
-    const section = addSection('1-col')
-    const zoneId = `${section.id}-0`
-    let created: StudioBlock | null = null
-    for (const type of preset.blocks) {
-      created = addBlock(type, zoneId)
+  /** Ajoute une section racine à la position `atIndex` du flux de la page (drag depuis le canevas). */
+  function addSectionInFlow(atIndex?: number): Section {
+    const section = addSection()
+    insertCanvasRef({ kind: 'section', id: section.id }, atIndex)
+    markDirty()
+    return section
+  }
+
+  /**
+   * Ajoute un bloc `loop`/`if` au niveau page (hors des sections) : répète ou
+   * conditionne des sections entières. `atIndex` = position dans le flux de la page.
+   */
+  function addPageBlock(type: 'loop' | 'if', atIndex?: number): StudioBlock {
+    const block = addBlock(type, pageZoneId(currentPageId.value))
+    insertCanvasRef({ kind: 'block', id: block.id }, atIndex)
+    markDirty()
+    return block
+  }
+
+  /** Repositionne le groupe de sections d'une zone dans `sections.value`, dans l'ordre voulu (sans snapshot). */
+  function applyZoneOrder(zoneId: string, orderIds: string[]) {
+    const byId = new Map(sections.value.map((s) => [s.id, s]))
+    const ordered = orderIds.map((id) => byId.get(id)).filter((s): s is Section => !!s).map((s) => ({ ...s, zoneId }))
+    const kept = sections.value.filter((s: Section) => s.zoneId !== zoneId)
+    const firstRemovedIdx = sections.value.findIndex((s: Section) => s.zoneId === zoneId)
+    let at = kept.length
+    if (firstRemovedIdx !== -1) {
+      at = sections.value.slice(0, firstRemovedIdx).filter((s: Section) => s.zoneId !== zoneId).length
     }
-    if (created) {
-      selectedBlockId.value = created.id
-      isSidebarRightOpen.value = true
+    kept.splice(at, 0, ...ordered)
+    sections.value = kept
+  }
+
+  /** Réordonne les sections d'une zone de bloc de script (drag & drop interne). */
+  function reorderSectionZone(zoneId: string, newOrder: Section[]) {
+    snapshot()
+    applyZoneOrder(zoneId, newOrder.map((s) => s.id))
+    markDirty()
+  }
+
+  /** Déplace une section (racine ou autre zone) DANS une zone de bloc de script, à l'index voulu. */
+  function moveSectionToZone(sectionId: string, zoneId: string, atIndex: number) {
+    const section = sections.value.find((s: Section) => s.id === sectionId)
+    if (!section || section.zoneId === zoneId) return
+    snapshot()
+    dropCanvasRef('section', sectionId)
+    const others = sectionsInZone(zoneId).filter((s) => s.id !== sectionId).map((s) => s.id)
+    const at = Math.max(0, Math.min(atIndex, others.length))
+    others.splice(at, 0, sectionId)
+    section.zoneId = zoneId
+    applyZoneOrder(zoneId, others)
+    markDirty()
+  }
+
+  /** Sort une section d'une zone de script pour la remettre à la racine de la page, à l'index de flux voulu. */
+  function moveSectionToFlow(sectionId: string, atFlowIndex: number) {
+    const section = sections.value.find((s: Section) => s.id === sectionId)
+    if (!section) return
+    snapshot()
+    section.zoneId = undefined
+    insertCanvasRef({ kind: 'section', id: sectionId }, atFlowIndex)
+    markDirty()
+  }
+
+  /** Réécrit l'ordre du flux de premier niveau de la page courante. */
+  function reorderPageCanvas(newItems: CanvasItemRef[]) {
+    const page = currentPage.value
+    if (!page) return
+    snapshot()
+    page.canvas = [...newItems]
+    markDirty()
+  }
+
+  /** Réordonne les sections racine de la page courante (compat — le canevas passe par `reorderPageCanvas`). */
+  function reorderCurrentPageSections(newTopLevelOrder: Section[]) {
+    snapshot()
+    const otherSections = sections.value.filter((s: Section) => (s.pageId ?? 'default') !== currentPageId.value)
+    const currentPageOriginal = sections.value.filter((s: Section) => (s.pageId ?? 'default') === currentPageId.value)
+    const currentTopOriginal = currentPageOriginal.filter((s: Section) => !s.zoneId)
+    const nested = currentPageOriginal.filter((s: Section) => s.zoneId)
+
+    const currentNonLocked = newTopLevelOrder.filter((s) => !s.locked)
+    const mergedTop: Section[] = []
+    let idx = 0
+    for (const orig of currentTopOriginal) {
+      if (orig.locked) mergedTop.push(orig)
+      else if (idx < currentNonLocked.length) mergedTop.push(currentNonLocked[idx++]!)
     }
+    while (idx < currentNonLocked.length) mergedTop.push(currentNonLocked[idx++]!)
+
+    sections.value = [...otherSections, ...mergedTop, ...nested]
+    if (currentPage.value?.canvas) {
+      const order = new Map(mergedTop.map((s, i) => [s.id, i]))
+      currentPage.value.canvas = [...currentPage.value.canvas].sort((a, b) => {
+        const av = a.kind === 'section' ? order.get(a.id) ?? Infinity : Infinity
+        const bv = b.kind === 'section' ? order.get(b.id) ?? Infinity : Infinity
+        return av - bv
+      })
+    }
+    markDirty()
   }
 
   function removeSection(sectionId: string) {
@@ -364,6 +579,7 @@ export const useStudioStore = defineStore('studio', () => {
     if (section?.locked) return
     snapshot()
     sections.value = sections.value.filter((s: Section) => s.id !== sectionId)
+    dropCanvasRef('section', sectionId)
     if (selectedSectionId.value === sectionId) {
       selectedSectionId.value = null
       isSidebarRightOpen.value = false
@@ -372,7 +588,7 @@ export const useStudioStore = defineStore('studio', () => {
     for (const b of blocks.value) {
       if (!b.zoneId?.startsWith(`${sectionId}-`)) continue
       removed.add(b.id)
-      if (isScriptBlock(b.type)) loopChildIds(b.id).forEach((id) => removed.add(id))
+      if (isContainerBlock(b.type)) loopChildIds(b.id).forEach((id) => removed.add(id))
     }
     blocks.value = blocks.value.filter((b: StudioBlock) => !removed.has(b.id))
     if (selectedBlockId.value) {
@@ -382,21 +598,6 @@ export const useStudioStore = defineStore('studio', () => {
         isSidebarRightOpen.value = false
       }
     }
-    markDirty()
-  }
-
-  function changeSectionLayout(sectionId: string, layout: SectionLayout) {
-    const section = sections.value.find((s: Section) => s.id === sectionId)
-    if (!section || section.locked) return
-    snapshot()
-    const newCols = getColCount(layout)
-    blocks.value = blocks.value.map((b: StudioBlock) => {
-      if (!b.zoneId.startsWith(`${sectionId}-`)) return b
-      const colIdx = parseInt(b.zoneId?.split('-').pop() ?? '0', 10)
-      const safeIdx = Math.min(colIdx, newCols - 1)
-      return { ...b, zoneId: `${sectionId}-${safeIdx}` }
-    })
-    section.layout = layout
     markDirty()
   }
 
@@ -428,30 +629,6 @@ export const useStudioStore = defineStore('studio', () => {
     }
     
     sections.value = result
-    markDirty()
-  }
-
-  function reorderCurrentPageSections(newPageOrder: Section[]) {
-    snapshot()
-    const otherSections = sections.value.filter((s: Section) => (s.pageId ?? 'default') !== currentPageId.value)
-    const currentPageOriginal = sections.value.filter((s: Section) => (s.pageId ?? 'default') === currentPageId.value)
-    
-    // Keep locked sections in their original positions for current page
-    const currentNonLocked = newPageOrder.filter(s => !s.locked)
-    const mergedCurrentPage: Section[] = []
-    let nonLockedIdx = 0
-    for (const originalSection of currentPageOriginal) {
-      if (originalSection.locked) {
-        mergedCurrentPage.push(originalSection)
-      } else if (nonLockedIdx < currentNonLocked.length) {
-        mergedCurrentPage.push(currentNonLocked[nonLockedIdx++]!)
-      }
-    }
-    while (nonLockedIdx < currentNonLocked.length) {
-      mergedCurrentPage.push(currentNonLocked[nonLockedIdx++]!)
-    }
-    
-    sections.value = [...otherSections, ...mergedCurrentPage]
     markDirty()
   }
 
@@ -516,7 +693,7 @@ export const useStudioStore = defineStore('studio', () => {
       const sectionId = b.zoneId?.split('-').slice(0, -1).join('-') ?? ''
       if (!pageSectionIds.includes(sectionId)) continue
       removedFromPage.add(b.id)
-      if (isScriptBlock(b.type)) loopChildIds(b.id).forEach((id) => removedFromPage.add(id))
+      if (isContainerBlock(b.type)) loopChildIds(b.id).forEach((id) => removedFromPage.add(id))
     }
     blocks.value = blocks.value.filter((b: StudioBlock) => !removedFromPage.has(b.id))
     sections.value = sections.value.filter((s: Section) => (s.pageId ?? 'default') !== pageId)
@@ -548,6 +725,15 @@ export const useStudioStore = defineStore('studio', () => {
   // est réamorcé avec les `defaultValue` à chaque `switchPage` / `initPage`.
 
   const currentPageParamDefs = computed<PageParam[]>(() => currentPage.value?.params ?? [])
+
+  /** Vrai si au moins un paramètre de la page courante a une valeur qui diffère de son défaut. */
+  const hasActivePageFilters = computed(() =>
+    Object.entries(pageParams.value).some(([name, value]) => {
+      if (!value) return false
+      const def = currentPage.value?.params?.find((p) => p.name === name)
+      return value !== (def?.defaultValue ?? '')
+    }),
+  )
 
   /** Réapplique les valeurs par défaut de la page courante à `pageParams` sans effacer les autres clés. */
   function seedCurrentPageParamDefaults() {
@@ -620,16 +806,17 @@ export const useStudioStore = defineStore('studio', () => {
     scale:      { scaleMin: 1, scaleMax: 5 },
     rating:     { ratingMax: 5 },
     'sd-embed': { showSourceLink: true },
+    layout:     { layoutType: '2-cols' },
   }
 
   /** Zone de la première colonne de la dernière section de la page courante (en crée une au besoin). */
   function fallbackZoneId(): string {
     const pageSections = sections.value.filter(
-      (s: Section) => (s.pageId ?? 'default') === currentPageId.value,
+      (s: Section) => (s.pageId ?? 'default') === currentPageId.value && !s.zoneId,
     )
     const last = pageSections[pageSections.length - 1]
     if (last) return `${last.id}-0`
-    return `${addSection('1-col').id}-0`
+    return `${addSection().id}-0`
   }
 
   function addBlock(type: BlockType, zoneId: string, atIndex?: number, locked?: boolean): StudioBlock {
@@ -681,13 +868,51 @@ export const useStudioStore = defineStore('studio', () => {
     if (selected) return addBlock(type, selected.zoneId)
 
     const pageSections = sections.value.filter(
-      (s: Section) => (s.pageId ?? 'default') === currentPageId.value,
+      (s: Section) => (s.pageId ?? 'default') === currentPageId.value && !s.zoneId,
     )
     const lastSection = pageSections[pageSections.length - 1]
     if (lastSection) return addBlock(type, `${lastSection.id}-0`)
 
-    const section = addSection('1-col')
+    const section = addSection()
     return addBlock(type, `${section.id}-0`)
+  }
+
+  /**
+   * Descendants d'un bloc conteneur — blocs **et** sections nichées (cas d'un
+   * bloc `loop`/`if` de page dont les zones portent des sections). Marche
+   * récursive blocs↔sections (zones de script + colonnes `${sectionId}-`).
+   */
+  function scriptDescendants(blockId: string): { blocks: Set<string>; sections: Set<string> } {
+    const outBlocks = new Set<string>()
+    const outSections = new Set<string>()
+    const blockStack = [blockId]
+    const sectionStack: string[] = []
+    while (blockStack.length || sectionStack.length) {
+      if (blockStack.length) {
+        const bid = blockStack.pop()!
+        for (const b of blocks.value) {
+          if (scriptIdFromZone(b.zoneId) === bid && !outBlocks.has(b.id)) {
+            outBlocks.add(b.id)
+            if (isContainerBlock(b.type)) blockStack.push(b.id)
+          }
+        }
+        for (const s of sections.value) {
+          if (s.zoneId && scriptIdFromZone(s.zoneId) === bid && !outSections.has(s.id)) {
+            outSections.add(s.id)
+            sectionStack.push(s.id)
+          }
+        }
+      } else {
+        const sid = sectionStack.pop()!
+        for (const b of blocks.value) {
+          if (b.zoneId.startsWith(`${sid}-`) && !outBlocks.has(b.id)) {
+            outBlocks.add(b.id)
+            if (isContainerBlock(b.type)) blockStack.push(b.id)
+          }
+        }
+      }
+    }
+    return { blocks: outBlocks, sections: outSections }
   }
 
   function removeBlock(blockId: string) {
@@ -695,8 +920,15 @@ export const useStudioStore = defineStore('studio', () => {
     if (target?.locked) return
     snapshot()
     const toRemove = new Set<string>([blockId])
-    if (target && isScriptBlock(target.type)) loopChildIds(blockId).forEach((id) => toRemove.add(id))
+    let sectionsToRemove = new Set<string>()
+    if (target && isContainerBlock(target.type)) {
+      const d = scriptDescendants(blockId)
+      d.blocks.forEach((id) => toRemove.add(id))
+      sectionsToRemove = d.sections
+    }
     blocks.value = blocks.value.filter((b: StudioBlock) => !toRemove.has(b.id))
+    if (sectionsToRemove.size) sections.value = sections.value.filter((s: Section) => !sectionsToRemove.has(s.id))
+    dropCanvasRef('block', blockId)
     if (selectedBlockId.value === blockId) {
       selectedBlockId.value = null
       isSidebarRightOpen.value = false
@@ -713,8 +945,8 @@ export const useStudioStore = defineStore('studio', () => {
     const originalIdx = blocks.value.findIndex((b: StudioBlock) => b.id === blockId)
     const inserts: StudioBlock[] = [clone]
 
-    // Bloc de script (loop / if) : cloner aussi ses enfants et les rattacher à la zone du clone.
-    if (isScriptBlock(block.type)) {
+    // Bloc conteneur (loop / if / layout) : cloner aussi ses enfants et les rattacher à la zone du clone.
+    if (isContainerBlock(block.type)) {
       const idMap = new Map<string, string>([[blockId, clone.id]])
       for (const childId of loopChildIds(blockId)) {
         const child = blocks.value.find((b: StudioBlock) => b.id === childId)
@@ -726,7 +958,7 @@ export const useStudioStore = defineStore('studio', () => {
           ...deepClone(child),
           id: newId,
           locked: undefined,
-          zoneId: scriptZoneId(idMap.get(parentOldId) ?? clone.id),
+          zoneId: scriptZoneId(idMap.get(parentOldId) ?? clone.id, scriptZoneBranch(child.zoneId)),
         })
       }
     }
@@ -803,12 +1035,125 @@ export const useStudioStore = defineStore('studio', () => {
     markDirty()
   }
 
+  /** Change l'agencement en colonnes d'un bloc « Disposition » — réaffecte les blocs des colonnes retirées vers la dernière colonne restante. */
+  function changeBlockLayout(blockId: string, layoutType: SectionLayout) {
+    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
+    if (!block || block.type !== 'layout') return
+    snapshot()
+    const newCols = getColCount(layoutType)
+    blocks.value = blocks.value.map((b: StudioBlock) => {
+      if (scriptIdFromZone(b.zoneId) !== blockId) return b
+      const colIdx = scriptZoneBranch(b.zoneId)
+      const safeIdx = Math.min(colIdx, newCols - 1)
+      return { ...b, zoneId: scriptZoneId(blockId, safeIdx) }
+    })
+    block.config = { ...block.config, layoutType }
+    markDirty()
+  }
+
   function updateBlockDataset(blockId: string, datasetId: string) {
     snapshot()
     const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
     if (!block) return
     block.datasetId = datasetId
     block.fieldMapping = {}
+    markDirty()
+  }
+
+  // ─── Branches du bloc « Condition » (if / elsif / else) ──────────────────────
+
+  /**
+   * Réindexe les zones de branche d'un bloc `if` : `remap(i)` renvoie le nouvel
+   * index de la branche `i`, ou `null` pour la supprimer (ses blocs + descendants
+   * de script sont retirés). Ne touche pas `block.config`.
+   */
+  function reindexIfBranches(blockId: string, remap: (branch: number) => number | null) {
+    const toRemove = new Set<string>()
+    const sectionsToRemove = new Set<string>()
+    for (const b of blocks.value) {
+      if (scriptIdFromZone(b.zoneId) !== blockId) continue
+      if (remap(scriptZoneBranch(b.zoneId)) === null) {
+        toRemove.add(b.id)
+        if (isContainerBlock(b.type)) loopChildIds(b.id).forEach((id) => toRemove.add(id))
+      }
+    }
+    // Sections nichées dans les branches (bloc `if` de page qui conditionne des sections).
+    for (const s of sections.value) {
+      if (!s.zoneId || scriptIdFromZone(s.zoneId) !== blockId) continue
+      if (remap(scriptZoneBranch(s.zoneId)) === null) {
+        const d = sectionDescendants(s.id)
+        sectionsToRemove.add(s.id)
+        d.blocks.forEach((id) => toRemove.add(id))
+        d.sections.forEach((id) => sectionsToRemove.add(id))
+      }
+    }
+    if (toRemove.size) blocks.value = blocks.value.filter((b: StudioBlock) => !toRemove.has(b.id))
+    if (sectionsToRemove.size) sections.value = sections.value.filter((s: Section) => !sectionsToRemove.has(s.id))
+    for (const b of blocks.value) {
+      if (scriptIdFromZone(b.zoneId) !== blockId) continue
+      const next = remap(scriptZoneBranch(b.zoneId))
+      if (next !== null) b.zoneId = scriptZoneId(blockId, next)
+    }
+    for (const s of sections.value) {
+      if (!s.zoneId || scriptIdFromZone(s.zoneId) !== blockId) continue
+      const next = remap(scriptZoneBranch(s.zoneId))
+      if (next !== null) s.zoneId = scriptZoneId(blockId, next)
+    }
+  }
+
+  /** Descendants d'une section (blocs de ses colonnes + sous-sections/blocs récursifs). */
+  function sectionDescendants(sectionId: string): { blocks: Set<string>; sections: Set<string> } {
+    const outBlocks = new Set<string>()
+    const outSections = new Set<string>()
+    const sectionStack = [sectionId]
+    const blockStack: string[] = []
+    while (sectionStack.length || blockStack.length) {
+      if (sectionStack.length) {
+        const sid = sectionStack.pop()!
+        for (const b of blocks.value) {
+          if (b.zoneId.startsWith(`${sid}-`) && !outBlocks.has(b.id)) {
+            outBlocks.add(b.id)
+            if (isContainerBlock(b.type)) blockStack.push(b.id)
+          }
+        }
+      } else {
+        const bid = blockStack.pop()!
+        for (const b of blocks.value) {
+          if (scriptIdFromZone(b.zoneId) === bid && !outBlocks.has(b.id)) {
+            outBlocks.add(b.id)
+            if (isContainerBlock(b.type)) blockStack.push(b.id)
+          }
+        }
+        for (const s of sections.value) {
+          if (s.zoneId && scriptIdFromZone(s.zoneId) === bid && !outSections.has(s.id)) {
+            outSections.add(s.id)
+            sectionStack.push(s.id)
+          }
+        }
+      }
+    }
+    return { blocks: outBlocks, sections: outSections }
+  }
+
+  function addIfBranch(blockId: string, kind: 'elsif' | 'else') {
+    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
+    if (!block || block.type !== 'if') return
+    const edit = withAddedBranch(readIfBranches(block.config), kind)
+    if (!edit) return
+    snapshot()
+    reindexIfBranches(blockId, edit.remap)
+    block.config = { ...block.config, ifBranches: edit.branches }
+    markDirty()
+  }
+
+  function removeIfBranch(blockId: string, branchIndex: number) {
+    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
+    if (!block || block.type !== 'if') return
+    const edit = withRemovedBranch(readIfBranches(block.config), branchIndex)
+    if (!edit) return
+    snapshot()
+    reindexIfBranches(blockId, edit.remap)
+    block.config = { ...block.config, ifBranches: edit.branches }
     markDirty()
   }
 
@@ -900,6 +1245,9 @@ export const useStudioStore = defineStore('studio', () => {
     currentPageId,
     currentPage,
     currentPageSections,
+    currentPageTopLevelSections,
+    currentPageCanvasItems,
+    sectionsInZone,
     pageParams,
     sections,
     blocks,
@@ -926,10 +1274,14 @@ export const useStudioStore = defineStore('studio', () => {
     setTitle,
     togglePreview,
     addSection,
-    addSectionPreset,
+    addSectionInFlow,
+    addPageBlock,
     removeSection,
-    changeSectionLayout,
     reorderSections,
+    reorderSectionZone,
+    moveSectionToZone,
+    moveSectionToFlow,
+    reorderPageCanvas,
     addPage,
     updatePage,
     switchPage,
@@ -938,6 +1290,7 @@ export const useStudioStore = defineStore('studio', () => {
     setPageParams,
     clearPageParams,
     currentPageParamDefs,
+    hasActivePageFilters,
     addPageParam,
     updatePageParam,
     removePageParam,
@@ -952,7 +1305,10 @@ export const useStudioStore = defineStore('studio', () => {
     moveBlockWithinZone,
     setZoneBlocks,
     updateBlockConfig,
+    changeBlockLayout,
     updateBlockDataset,
+    addIfBranch,
+    removeIfBranch,
     updateBlockFieldMapping,
     updateBlockFilters,
     updateBlockComparisonFilters,

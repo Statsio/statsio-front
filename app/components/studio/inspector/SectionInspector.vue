@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useStudioStore } from '@/stores/studio'
-import { slugify } from '@/lib/slug'
+import { stripInlineHtml } from '@/lib/inline-rich-text'
 import type { Section, SectionTheme } from '@/types/studio'
 
 const studio = useStudioStore()
@@ -10,6 +10,11 @@ const section = computed<Section | null>(() => studio.selectedSection)
 function set<K extends keyof Section>(key: K, value: Section[K] | undefined) {
   if (!section.value) return
   studio.updateSection(section.value.id, { [key]: value })
+}
+// L'en-tête est du texte enrichi (édité en place sur le canevas). Ici on n'édite
+// que le texte : saisir dans ces champs remet la valeur à plat.
+function plain(key: 'kicker' | 'title' | 'description') {
+  return stripInlineHtml(section.value?.[key])
 }
 function setText(key: 'kicker' | 'title' | 'description', e: Event) {
   set(key, (e.target as HTMLInputElement).value || undefined)
@@ -32,7 +37,7 @@ const THEMES: { v: SectionTheme; l: string }[] = [
       </span>
       <div class="min-w-0 flex-1">
         <p class="truncate text-[16px] font-extrabold text-[var(--studio-ink)]">Section</p>
-        <p class="text-[12.5px] text-[var(--studio-muted)]">En-tête, thème &amp; ancre</p>
+        <p class="text-[12.5px] text-[var(--studio-muted)]">En-tête &amp; thème</p>
       </div>
       <button
         class="shrink-0 text-[16px] leading-none text-[var(--studio-faint)] hover:text-[var(--studio-ink)]"
@@ -44,16 +49,22 @@ const THEMES: { v: SectionTheme; l: string }[] = [
     <div class="flex flex-1 flex-col gap-4 overflow-y-auto px-4 pb-6 pt-2">
       <div class="flex flex-col gap-1.5">
         <label class="text-xs font-semibold text-[var(--studio-muted)]">Sur-titre (kicker)</label>
-        <input :value="section.kicker ?? ''" type="text" class="cfg-input" placeholder="ex. Graphique · Barres" @input="setText('kicker', $event)" />
+        <input :value="plain('kicker')" type="text" class="cfg-input" placeholder="ex. Graphique · Barres" @input="setText('kicker', $event)" />
       </div>
       <div class="flex flex-col gap-1.5">
         <label class="text-xs font-semibold text-[var(--studio-muted)]">Titre</label>
-        <input :value="section.title ?? ''" type="text" class="cfg-input" placeholder="Titre de la section" @input="setText('title', $event)" />
+        <input :value="plain('title')" type="text" class="cfg-input" placeholder="Titre de la section" @input="setText('title', $event)" />
+        <p class="text-[11px] leading-relaxed text-[var(--studio-faint)]">
+          Un titre → la section apparaît dans le sommaire de la page publiée et devient accessible via une ancre <code class="font-mono">#…</code> générée automatiquement depuis le titre.
+        </p>
       </div>
       <div class="flex flex-col gap-1.5">
         <label class="text-xs font-semibold text-[var(--studio-muted)]">Description</label>
-        <textarea :value="section.description ?? ''" rows="2" class="cfg-input resize-none" placeholder="Phrase de contexte (optionnelle)" @input="setText('description', $event)" />
+        <textarea :value="plain('description')" rows="2" class="cfg-input resize-none" placeholder="Phrase de contexte (optionnelle)" @input="setText('description', $event)" />
       </div>
+      <p class="-mt-2 text-[11px] leading-relaxed text-[var(--studio-faint)]">
+        Mise en forme (gras, surlignage, variable…) : sélectionnez le texte directement sur le canevas.
+      </p>
 
       <div class="flex flex-col gap-1.5">
         <label class="text-xs font-semibold text-[var(--studio-muted)]">Thème de fond</label>
@@ -66,23 +77,6 @@ const THEMES: { v: SectionTheme; l: string }[] = [
             @click="set('theme', t.v === 'default' ? undefined : t.v)"
           >{{ t.l }}</button>
         </div>
-      </div>
-
-      <div class="flex flex-col gap-1.5">
-        <label class="text-xs font-semibold text-[var(--studio-muted)]">Ancre (sommaire)</label>
-        <div class="flex items-center gap-2">
-          <span class="font-mono text-[13px] text-[var(--studio-faint)]">#</span>
-          <input
-            :value="section.anchorId ?? ''"
-            type="text"
-            class="cfg-input font-mono !text-[12.5px]"
-            placeholder="ex. chiffres-cles"
-            @change="set('anchorId', slugify(($event.target as HTMLInputElement).value) || undefined)"
-          />
-        </div>
-        <p class="text-[11px] leading-relaxed text-[var(--studio-faint)]">
-          Renseignée + un titre → la section apparaît dans le sommaire de la page publiée et devient accessible via <code class="font-mono">…#{{ section.anchorId || 'ancre' }}</code>.
-        </p>
       </div>
     </div>
   </div>

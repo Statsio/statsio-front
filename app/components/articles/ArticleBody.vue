@@ -2,7 +2,9 @@
 import { computed } from 'vue'
 import BlockRenderer from '@/components/studio/blocks/BlockRenderer.vue'
 import { useStudioStore } from '@/stores/studio'
-import { SECTION_LAYOUT_DEFINITIONS, isFormBlock, isTextBlock, scriptIdFromZone } from '@/types/studio'
+import { isFormBlock, isTextBlock, scriptIdFromZone } from '@/types/studio'
+import { sectionAnchorId } from '@/lib/slug'
+import { sanitizeInlineHtml, isBlankInlineHtml } from '@/lib/inline-rich-text'
 import type { Section, StudioBlock } from '@/types/studio'
 
 const studio = useStudioStore()
@@ -17,16 +19,13 @@ interface Row {
 const rows = computed<Row[]>(() => {
   const out: Row[] = []
   for (const section of studio.currentPageSections) {
-    const def = SECTION_LAYOUT_DEFINITIONS.find((d) => d.type === section.layout) ?? SECTION_LAYOUT_DEFINITIONS[0]!
     const blocks: StudioBlock[] = []
-    for (let col = 0; col < def.cols; col++) {
-      for (const b of studio.blocksByZone[`${section.id}-${col}`] ?? []) {
-        if (!isFormBlock(b.type)) blocks.push(b)
-      }
+    for (const b of studio.blocksByZone[`${section.id}-0`] ?? []) {
+      if (!isFormBlock(b.type)) blocks.push(b)
     }
     out.push({
       section,
-      header: Boolean(section.kicker || section.title || section.description),
+      header: !isBlankInlineHtml(section.kicker) || !isBlankInlineHtml(section.title) || !isBlankInlineHtml(section.description),
       blocks,
     })
   }
@@ -52,6 +51,13 @@ function showsTitle(block: StudioBlock) {
 function isBare(block: StudioBlock) {
   return isTextBlock(block.type) || block.type === 'sd-embed' || block.type === 'retenir' || block.type === 'image'
 }
+
+function headStyle(section: Section) {
+  return {
+    ...(section.headerLetterSpacing != null ? { '--sec-head-ls': `${section.headerLetterSpacing}em` } : {}),
+    ...(section.headerLineHeight != null ? { '--sec-head-lh': String(section.headerLineHeight) } : {}),
+  }
+}
 </script>
 
 <template>
@@ -59,21 +65,28 @@ function isBare(block: StudioBlock) {
     <section v-for="row in rows" :key="row.section.id" class="flex flex-col gap-5">
       <header
         v-if="row.header"
-        :id="row.section.anchorId || undefined"
+        :id="sectionAnchorId(row.section)"
         class="scroll-mt-40"
+        :style="headStyle(row.section)"
       >
         <p
-          v-if="row.section.kicker"
-          class="mono mb-1.5 text-[10px] font-extrabold uppercase tracking-[0.1em] text-[var(--color-primary)]"
-        >{{ row.section.kicker }}</p>
+          v-if="!isBlankInlineHtml(row.section.kicker)"
+          class="mono mb-1.5 text-[10px] font-extrabold uppercase text-[var(--color-primary)]"
+          style="letter-spacing: var(--sec-head-ls, 0.1em); line-height: var(--sec-head-lh, 1.4)"
+          v-html="sanitizeInlineHtml(row.section.kicker)"
+        />
         <h2
-          v-if="row.section.title"
-          class="text-[24px] font-extrabold leading-[1.2] tracking-[-0.015em] text-[var(--studio-ink)] [text-wrap:balance]"
-        >{{ row.section.title }}</h2>
+          v-if="!isBlankInlineHtml(row.section.title)"
+          class="text-[24px] font-extrabold text-[var(--studio-ink)] [text-wrap:balance]"
+          style="line-height: var(--sec-head-lh, 1.2); letter-spacing: var(--sec-head-ls, -0.015em)"
+          v-html="sanitizeInlineHtml(row.section.title)"
+        />
         <p
-          v-if="row.section.description"
-          class="mt-2 max-w-[64ch] text-[15px] leading-[1.6] text-[var(--studio-muted)] [text-wrap:pretty]"
-        >{{ row.section.description }}</p>
+          v-if="!isBlankInlineHtml(row.section.description)"
+          class="mt-2 max-w-[64ch] text-[15px] text-[var(--studio-muted)] [text-wrap:pretty]"
+          style="line-height: var(--sec-head-lh, 1.6); letter-spacing: var(--sec-head-ls, normal)"
+          v-html="sanitizeInlineHtml(row.section.description)"
+        />
       </header>
 
       <template v-for="block in row.blocks" :key="block.id">
