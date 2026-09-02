@@ -4,6 +4,8 @@ import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import { useActiveEditor } from '@/composables/useActiveEditor'
 import type { StudioDocumentPage, StudioBlock } from '@/types/studio'
+import { blockColumnGroups } from '@/lib/studio-columns'
+import { blockDatasetIds } from '@/lib/studio-block-sources'
 
 const studio   = useStudioStore()
 const datasets = useStudioDatasetsStore()
@@ -12,38 +14,33 @@ const { insertToken } = useActiveEditor()
 const currentPage = computed(() => studio.pages.find((p: StudioDocumentPage) => p.id === studio.currentPageId))
 
 // Blocs qui alimentent un paramètre de la page courante : blocs `param` posés sur
-// la page + blocs `search` qui la ciblent (ou n'ont pas de cible = filtrent la page).
+// la page + blocs `search` de la page (leurs colonnes deviennent des params au clic).
 const feedingBlocks = computed(() => {
   const pageId = studio.currentPageId
   return studio.blocks.filter((b: StudioBlock) => {
     if (b.type === 'param') return true
-    if (b.type === 'search') return !b.fieldMapping.targetPageId || b.fieldMapping.targetPageId === pageId
+    if (b.type === 'search') return studio.pageIdOfBlock(b.id) === pageId
     return false
   })
 })
 
 watch(feedingBlocks, (blocks: StudioBlock[]) => {
   for (const block of blocks) {
-    if (block.datasetId) datasets.loadSchema(block.datasetId)
-    for (const src of block.fieldMapping.searchSources ?? []) {
-      if (src.datasetId) datasets.loadSchema(src.datasetId)
-    }
+    for (const id of blockDatasetIds(block)) datasets.loadSchema(id)
   }
 }, { immediate: true })
 
 const availableTokens = computed((): string[] => {
   const tokens = new Set<string>()
-  // Paramètres déclarés sur la page (bloc « Paramètre », migration template…).
-  for (const p of currentPage.value?.params ?? []) if (p.name) tokens.add(p.name)
+  // Paramètres déclarés sur la page (hors paramètres cachés auto-gérés).
+  for (const p of currentPage.value?.params ?? []) if (p.name && !p.hidden) tokens.add(p.name)
   if (currentPage.value?.paramName) tokens.add(currentPage.value.paramName)
   // Colonnes des sources de recherche (elles deviennent des params au clic sur un résultat).
   for (const block of feedingBlocks.value) {
-    for (const src of block.fieldMapping.searchSources ?? []) {
-      const schema = src.datasetId ? datasets.getSchema(src.datasetId) : null
-      if (schema) for (const col of schema.columns) tokens.add(col.name)
-      else for (const col of src.columns) tokens.add(col)
+    if (block.type !== 'search') continue
+    for (const g of blockColumnGroups(block, datasets)) {
+      for (const col of g.columns) tokens.add(col.name)
     }
-    if (block.datasetId && block.fieldMapping.searchColumn) tokens.add(block.fieldMapping.searchColumn)
   }
   return Array.from(tokens).sort()
 })

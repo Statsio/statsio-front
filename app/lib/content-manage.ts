@@ -14,7 +14,7 @@ export interface ManageOwnerContext {
  */
 export function contentManageMeta(doc: StatsDataDocument, ctx: ManageOwnerContext): ContentManageMeta {
   const type = doc.type ?? 'statsdata'
-  const status = getStatusMeta(doc.status, doc.visibility)
+  const status = getStatusMeta(doc.status)
   const owner = ctx.resolveOwner(doc)
 
   return {

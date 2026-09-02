@@ -910,13 +910,21 @@ describe('useStudioStore', () => {
       const tpl = store.pages.find((p) => p.id === 'pTpl')!
       expect(tpl.isTemplate).toBeFalsy()
       expect(tpl.paramName).toBeFalsy()
-      // slug d'URL basé sur la colonne identifiante (code_commune), pas le nom affiché.
+      // Le bloc recherche a auto-déclaré un paramètre point-barre (invisible) :
+      // segment d'URL = colonnes recherchées slugifiées.
+      expect(tpl.params).toHaveLength(1)
       expect(tpl.params?.[0]).toMatchObject({
-        name: 'code_commune', column: 'code_commune', slugColumn: 'code_commune', datasetId: '7', fanOut: true,
+        columns: ['nom_commune', 'code_commune'], datasetId: '7', fanOut: true, hidden: true, searchBlockId: 'search1',
       })
 
+      // Le bloc a rejoint le modèle graphe.
+      const search = store.blocks.find((b) => b.id === 'search1')!
+      expect(search.sources).toEqual([{ id: '7', datasetId: '7' }])
+      expect(search.fieldMapping.searchColumns).toEqual(['nom_commune', 'code_commune'])
+      expect(search.fieldMapping.searchSources).toBeUndefined()
+
       expect(store.sections.find((s) => s.id === 'sTpl')!.locked).toBeFalsy()
-      expect(store.blocks.find((b) => b.id === 'search1')!.locked).toBeFalsy()
+      expect(search.locked).toBeFalsy()
     })
 
     it('is a no-op for a document with only normal pages', () => {
@@ -928,6 +936,58 @@ describe('useStudioStore', () => {
         [{ id: 'p1', title: 'Principale' }],
       )
       expect(store.pages[0]!.params).toBeUndefined()
+    })
+  })
+
+  describe('search block — auto-managed page param', () => {
+    function seedSearchBlock() {
+      const store = useStudioStore()
+      const zone = `${store.sections[0]!.id}-0`
+      const block = store.addBlock('search', zone)
+      store.updateBlockDataset(block.id, '7')
+      return { store, id: block.id, pageId: store.currentPageId }
+    }
+
+    it('declares exactly one hidden fan-out param once search columns are set', () => {
+      const { store, id, pageId } = seedSearchBlock()
+      expect(store.pages.find((p) => p.id === pageId)!.params ?? []).toHaveLength(0)
+
+      store.updateBlockFieldMapping(id, { searchColumns: ['prenom', 'nom'] })
+      const params = store.pages.find((p) => p.id === pageId)!.params!
+      expect(params).toHaveLength(1)
+      expect(params[0]).toMatchObject({
+        columns: ['prenom', 'nom'], datasetId: '7', fanOut: true, hidden: true, searchBlockId: id,
+      })
+    })
+
+    it('removes the param when the search columns are cleared', () => {
+      const { store, id, pageId } = seedSearchBlock()
+      store.updateBlockFieldMapping(id, { searchColumns: ['prenom'] })
+      store.updateBlockFieldMapping(id, { searchColumns: undefined })
+      expect(store.pages.find((p) => p.id === pageId)!.params ?? []).toHaveLength(0)
+    })
+
+    it('drops the param when the search block is removed', () => {
+      const { store, id, pageId } = seedSearchBlock()
+      store.updateBlockFieldMapping(id, { searchColumns: ['prenom'] })
+      store.removeBlock(id)
+      expect(store.pages.find((p) => p.id === pageId)!.params ?? []).toHaveLength(0)
+    })
+
+    it('does not surface the hidden param in currentPageParamDefs seeding but keeps it declared', () => {
+      const { store, id } = seedSearchBlock()
+      store.updateBlockFieldMapping(id, { searchColumns: ['prenom'] })
+      // hidden param has no defaultValue → does not seed pageParams
+      expect(store.pageParams).toEqual({})
+    })
+
+    it('searchAltColumns do not affect the auto-managed PageParam', () => {
+      const { store, id, pageId } = seedSearchBlock()
+      store.updateBlockFieldMapping(id, { searchColumns: ['prenom', 'nom'] })
+      store.updateBlockFieldMapping(id, { searchAltColumns: ['email'] })
+      const params = store.pages.find((p) => p.id === pageId)!.params!
+      expect(params).toHaveLength(1)
+      expect(params[0]!.columns).toEqual(['prenom', 'nom'])
     })
   })
 

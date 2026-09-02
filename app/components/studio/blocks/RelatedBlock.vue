@@ -4,7 +4,7 @@ import { useRoute } from 'vue-router'
 import { useBlockData, rowKey } from '@/composables/useBlockData'
 import { useStudioStore } from '@/stores/studio'
 import { formatDisplayValue } from '@/utils/statsDataFormat'
-import { findFanOutTarget, fanOutSlugKey } from '@/lib/statsdata-fanout'
+import { buildFanOutSegment, findFanOutTarget } from '@/lib/statsdata-fanout'
 import { slugify } from '@/lib/slug'
 import type { StudioBlock } from '@/types/studio'
 
@@ -38,8 +38,8 @@ const items = computed(() => {
     const label = formatDisplayValue(r[labelKey], '')
     let href: string | undefined
     if (fanOut.value && docSlug.value) {
-      const seg = r[fanOutSlugKey(fanOut.value.param)] ?? r[labelKey]
-      if (seg) href = `/statsdata/${docSlug.value}/${slugify(String(seg))}`
+      const seg = buildFanOutSegment(fanOut.value.param, r) || slugify(String(r[labelKey] ?? ''))
+      if (seg) href = `/statsdata/${docSlug.value}/${seg}`
     }
     return { label, value: valueKey ? formatDisplayValue(r[valueKey], '') : '', href }
   }).filter((it) => it.label)

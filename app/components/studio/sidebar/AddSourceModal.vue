@@ -8,6 +8,7 @@ import StudioWizardModal from '@/components/studio/ui/StudioWizardModal.vue'
 import { useAddSourceWizard, ADD_SOURCE_WIZARD_STEPS } from '@/composables/useAddSourceWizard'
 import { createApiDataSource, type QueryMapping } from '@/api/data-sources'
 import StepSourceType from './add-source-steps/StepSourceType.vue'
+import StepDatagouvDataset from './add-source-steps/StepDatagouvDataset.vue'
 import StepApiDetect from './add-source-steps/StepApiDetect.vue'
 import StepSourceConfigure from './add-source-steps/StepSourceConfigure.vue'
 import StepProvenance from './add-source-steps/StepProvenance.vue'
@@ -31,13 +32,14 @@ categories.value = studio.content?.categories ?? []
 
 const activeSteps = computed(() => {
   if (sourceType.value === 'catalog') return ADD_SOURCE_WIZARD_STEPS.slice(0, 1)
+  // L'étape "Jeu de données" ne concerne que les sources data.gouv.fr.
   // L'étape "Détection" ne concerne que les sources API (rien à détecter pour un fichier).
-  if (sourceType.value === 'file') return ADD_SOURCE_WIZARD_STEPS.filter((s) => s.id !== 'detect')
-  // data.gouv.fr : l'identifiant de ressource suffit — pas de détection ni de configuration manuelle.
+  if (sourceType.value === 'file') return ADD_SOURCE_WIZARD_STEPS.filter((s) => s.id !== 'detect' && s.id !== 'datagouv')
+  // data.gouv.fr : on choisit la ressource à l'étape dédiée — pas de détection ni de configuration manuelle.
   if (sourceType.value === 'datagouv') {
     return ADD_SOURCE_WIZARD_STEPS.filter((s) => s.id !== 'detect' && s.id !== 'configure')
   }
-  return ADD_SOURCE_WIZARD_STEPS
+  return ADD_SOURCE_WIZARD_STEPS.filter((s) => s.id !== 'datagouv')
 })
 
 const wizardSteps = computed(() =>
@@ -57,9 +59,9 @@ function back() {
 }
 function next() {
   if (!canGoNext.value || submitting.value) return
-  // En quittant l'étape « Type » pour une source data.gouv.fr, on dérive la config API
-  // (URL tabular-api, enveloppe, pagination) depuis l'identifiant de ressource saisi.
-  if (currentStepId.value === 'type' && sourceType.value === 'datagouv') {
+  // En quittant l'étape « Jeu de données », on dérive la config API
+  // (URL tabular-api, enveloppe, pagination) depuis la ressource data.gouv.fr choisie.
+  if (currentStepId.value === 'datagouv') {
     applyDatagouvPreset()
   }
   if (isLastStep.value) {
@@ -208,11 +210,14 @@ async function handleAttached() {
     <StepSourceType
       v-if="currentStepId === 'type'"
       v-model="sourceType"
+      @attached="handleAttached"
+    />
+    <StepDatagouvDataset
+      v-else-if="currentStepId === 'datagouv'"
       :datagouv-input="datagouvInput"
       :datagouv-name="datagouvName"
       @update:datagouv-input="datagouvInput = $event"
       @update:datagouv-name="datagouvName = $event"
-      @attached="handleAttached"
     />
     <StepApiDetect
       v-else-if="currentStepId === 'detect'"

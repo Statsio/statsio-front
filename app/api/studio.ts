@@ -1,7 +1,7 @@
 import { apiHttp, publicHttp } from '@/lib/http'
 import { STATSIO_API } from './statsio-endpoints'
-import type { DatasetColumn, DatasetMeta, DatasetWithSchema, BlockQueryResult, StudioBlock, ContentVisibility } from '@/types/studio'
-import type { ContentType } from '@/types/content-creation'
+import type { DatasetColumn, DatasetMeta, DatasetWithSchema, BlockQueryResult, StudioBlock } from '@/types/studio'
+import type { ContentType, ContentCoverage } from '@/types/content-creation'
 
 // ─── Datasets ─────────────────────────────────────────────────────────────────
 
@@ -60,6 +60,12 @@ type BlockQueryParams = {
   aggregates?: import('@/types/studio').BlockAggregate[]
   groupBy?: string[]
   calcColumns?: import('@/types/studio').CalcColumn[]
+  /** Bloc recherche : requête plein-texte multi-mots. */
+  searchQ?: string
+  /** Bloc recherche : colonnes d'identité sur lesquelles porte `searchQ`. */
+  searchColumns?: string[]
+  /** Bloc recherche : colonnes secondaires (« OU ») — match alternatif de toute la requête. */
+  searchAltColumns?: string[]
 }
 
 function buildParamsSerializer(p: BlockQueryParams): string {
@@ -69,6 +75,11 @@ function buildParamsSerializer(p: BlockQueryParams): string {
   }
   if (p.limit !== undefined) parts.push(`limit=${p.limit}`)
   if (p.offset) parts.push(`offset=${p.offset}`)
+  if (p.searchQ) {
+    parts.push(`search_q=${encodeURIComponent(p.searchQ)}`)
+    ;(p.searchColumns ?? []).forEach((c) => parts.push(`search_columns[]=${encodeURIComponent(c)}`))
+    ;(p.searchAltColumns ?? []).forEach((c) => parts.push(`search_alt_columns[]=${encodeURIComponent(c)}`))
+  }
   if (p.distinctColumn) parts.push(`distinct_column=${encodeURIComponent(p.distinctColumn)}`)
   if (p.sortColumn) parts.push(`sort_column=${encodeURIComponent(p.sortColumn)}`)
   if (p.sortDirection) parts.push(`sort_direction=${p.sortDirection}`)
@@ -150,56 +161,6 @@ export async function fetchPublicBlockData(
     totalRows: data.data?.total_rows ?? 0,
     columnMap: data.data?.column_map ?? undefined,
   }
-}
-
-/** Jointure d'enrichissement d'une source de recherche (dérivée de SearchJoin). */
-export type SearchRowJoin = { datasetId: string; leftColumn: string; rightColumn: string; columns: string[]; type: 'inner' | 'left' }
-
-function buildSearchParamsSerializer(columns: string[], searchQ: string, limit: number, joins: SearchRowJoin[]): () => string {
-  return () => {
-    const parts = columns.map((c) => `search_columns[]=${encodeURIComponent(c)}`)
-    parts.push(`search_q=${encodeURIComponent(searchQ)}`)
-    parts.push(`limit=${limit}`)
-    if (joins.length) {
-      joins.forEach((j, i) => {
-        parts.push(`joins[${i}][dataset_id]=${encodeURIComponent(j.datasetId)}`)
-        parts.push(`joins[${i}][left_column]=${encodeURIComponent(j.leftColumn)}`)
-        parts.push(`joins[${i}][right_column]=${encodeURIComponent(j.rightColumn)}`)
-        parts.push(`joins[${i}][type]=${j.type}`)
-        j.columns.forEach((c) => parts.push(`joins[${i}][columns][]=${encodeURIComponent(c)}`))
-      })
-    }
-    return parts.join('&')
-  }
-}
-
-export async function fetchSearchRows(
-  datasetId: string,
-  columns: string[],
-  searchQ: string,
-  limit = 50,
-  joins: SearchRowJoin[] = [],
-): Promise<Record<string, unknown>[]> {
-  const { data } = await apiHttp.get(STATSIO_API.datasets.query(datasetId), {
-    params: {},
-    paramsSerializer: buildSearchParamsSerializer(columns, searchQ, limit, joins),
-  })
-  return data.data?.rows ?? []
-}
-
-export async function fetchPublicSearchRows(
-  docSlug: string,
-  datasetId: string,
-  columns: string[],
-  searchQ: string,
-  limit = 50,
-  joins: SearchRowJoin[] = [],
-): Promise<Record<string, unknown>[]> {
-  const { data } = await publicHttp.get(STATSIO_API.studioContent.publicDatasetQuery(docSlug, datasetId), {
-    params: {},
-    paramsSerializer: buildSearchParamsSerializer(columns, searchQ, limit, joins),
-  })
-  return data.data?.rows ?? []
 }
 
 export interface DistinctSourceCtx {
@@ -446,10 +407,14 @@ export interface StatsDataDocument {
   slug?: string
   status?: string
   views_count?: number
-  visibility?: ContentVisibility
   thumbnail_url?: string | null
   published_as?: 'user' | 'channel' | null
   channel_id?: number | null
+  /** Numéro de la version actuellement en ligne (v1, v2…). Null tant que non publié. */
+  published_version?: number | null
+  /** ISO — 1re publication. Présent ⇒ l'auteur (profil/chaîne) est verrouillé. */
+  first_published_at?: string | null
+  last_published_at?: string | null
   /** Only present when published_as === 'channel' — the channel's name + custom brand colors. */
   channel?: ContentChannel | null
   author?: { name: string }
@@ -460,8 +425,10 @@ export interface StatsDataDocument {
   sections?: import('@/types/studio').Section[]
   blocks?: StudioBlock[]
   categories?: string[]
-  coverage_type?: 'monde' | 'pays' | 'ville' | null
+  coverage?: ContentCoverage | null
   emoji?: string | null
+  /** Bloc graphique choisi pour le mini-graphe de la carte de catalogue. Null = automatique. */
+  card_block_id?: string | null
   /** Only meaningful for `type === 'survey'`. Null/undefined = ouvert indéfiniment. */
   response_deadline?: string | null
   /** `type === 'survey'` only — format de la consultation. */
@@ -489,11 +456,7 @@ export interface CreateStudioContentPayload {
   title: string
   type: ContentType
   categories?: string[]
-  coverage_type?: string
-  coverage_data?: string[]
-  visibility?: ContentVisibility
-  published_as?: 'user' | 'channel'
-  channel_id?: number
+  coverage?: ContentCoverage
   survey_kind?: import('@/types/content-creation').SurveyKind
   requires_identity_verification?: boolean
 }
@@ -637,6 +600,21 @@ export async function fetchStatsDataEmbeddableBlocks(
   return { doc: data.data?.doc, blocks: data.data?.blocks ?? [] }
 }
 
+/**
+ * Aperçu du mini-graphe réel de la carte de catalogue d'un Statsdata : le backend
+ * reprend le premier bloc graphique (ou `card_block_id`), exécute sa requête et
+ * renvoie des séries compactes. `blockId` force un bloc (aperçu live des réglages).
+ */
+export async function fetchStatsDataCardPreview(
+  slug: string,
+  blockId?: string,
+): Promise<import('@/types/catalog').CardPreview> {
+  const { data } = await publicHttp.get(STATSIO_API.studioContent.cardPreview(slug), {
+    params: blockId ? { block_id: blockId } : undefined,
+  })
+  return (data?.data ?? { empty: true }) as import('@/types/catalog').CardPreview
+}
+
 /** Résout un bloc unique d'un Statsdata publié pour l'afficher dans un article. */
 export async function fetchPublicStatsDataBlock(
   slug: string,
@@ -656,10 +634,11 @@ export interface SaveStatsDataDocumentPayload {
   title?: string
   slug?: string
   description?: string | null
-  status?: string
-  visibility?: ContentVisibility
   categories?: string[]
+  coverage?: ContentCoverage | null
   emoji?: string | null
+  /** Bloc graphique du mini-graphe de la carte. Null = automatique (premier graphique). */
+  card_block_id?: string | null
   response_deadline?: string | null
   /** `type === 'survey'` uniquement — format de la consultation. */
   survey_kind?: import('@/types/content-creation').SurveyKind
@@ -700,9 +679,8 @@ function appendSavePayload(form: FormData, payload: SaveStatsDataDocumentPayload
   if (payload.title !== undefined) form.append('title', payload.title)
   if (payload.slug !== undefined) form.append('slug', payload.slug)
   if (payload.description !== undefined) form.append('description', payload.description ?? '')
-  if (payload.status !== undefined) form.append('status', payload.status)
-  if (payload.visibility !== undefined) form.append('visibility', payload.visibility)
   if (payload.categories !== undefined) payload.categories.forEach((c) => form.append('categories[]', c))
+  if (payload.coverage !== undefined) form.append('coverage', payload.coverage ?? '')
   if (payload.emoji !== undefined) form.append('emoji', payload.emoji ?? '')
   if (payload.response_deadline !== undefined) form.append('response_deadline', payload.response_deadline ?? '')
   if (payload.survey_kind !== undefined) form.append('survey_kind', payload.survey_kind)
@@ -716,12 +694,43 @@ export async function deleteStatsDataDocument(documentId: string): Promise<void>
   await apiHttp.delete(STATSIO_API.studioContent.one(documentId))
 }
 
-export async function publishStatsDataDocument(documentId: string): Promise<void> {
-  await apiHttp.patch(STATSIO_API.studioContent.one(documentId), { status: 'published' })
+/**
+ * Publie le contenu (fige une nouvelle version, met la page publique à jour).
+ * `publishedAs` / `channelId` ne sont pris en compte qu'à la 1re publication.
+ */
+export async function publishStudioContent(
+  documentId: string,
+  opts: { publishedAs?: 'user' | 'channel'; channelId?: number | null } = {},
+): Promise<StatsDataDocument> {
+  const { data } = await apiHttp.post(STATSIO_API.studioContent.publish(documentId), {
+    ...(opts.publishedAs ? { published_as: opts.publishedAs } : {}),
+    ...(opts.channelId != null ? { channel_id: opts.channelId } : {}),
+  })
+  return data.data
 }
 
-export async function setStatsDataDocumentStatus(documentId: string, status: 'draft' | 'published'): Promise<StatsDataDocument> {
-  const { data } = await apiHttp.patch(STATSIO_API.studioContent.one(documentId), { status })
+export async function unpublishStudioContent(documentId: string): Promise<StatsDataDocument> {
+  const { data } = await apiHttp.post(STATSIO_API.studioContent.unpublish(documentId))
+  return data.data
+}
+
+export interface StudioContentVersionRow {
+  version: number
+  title: string
+  created_at: string | null
+  published_as: 'user' | 'channel' | null
+  author_name: string
+  is_current: boolean
+}
+
+export async function fetchContentVersions(documentId: string): Promise<StudioContentVersionRow[]> {
+  const { data } = await apiHttp.get(STATSIO_API.studioContent.versions(documentId))
+  return data.data ?? []
+}
+
+/** Recharge une version antérieure dans le brouillon de travail (public inchangé). */
+export async function restoreContentVersion(documentId: string, version: number): Promise<StatsDataDocument> {
+  const { data } = await apiHttp.post(STATSIO_API.studioContent.restoreVersion(documentId, version))
   return data.data
 }
 

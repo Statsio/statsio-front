@@ -80,6 +80,14 @@ describe('columnRefLabel — colonne calculée', () => {
   })
 })
 
+describe('columnRefLabel — libellé personnalisé (columnLabels)', () => {
+  it('columnLabels[ref] a priorité sur le nom brut et la source', () => {
+    const b = block({ fieldMapping: { columnLabels: { nom: 'Nom complet', 'pop@2': 'Habitants' } } })
+    expect(columnRefLabel('nom', b, datasets)).toBe('Nom complet')
+    expect(columnRefLabel('pop@2', b, datasets)).toBe('Habitants')
+  })
+})
+
 describe('primarySourceId', () => {
   it('prefers primarySourceId, then first source, then datasetId', () => {
     expect(primarySourceId(block())).toBe('1')

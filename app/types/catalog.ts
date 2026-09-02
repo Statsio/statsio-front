@@ -12,6 +12,25 @@ export type SurveyQuestionPreview = {
   rows: { label: string; pct: number; count: number }[]
 }
 
+export type CardPreviewKind = 'line' | 'bar' | 'pie'
+
+export type CardPreviewSeries = { name: string; values: number[] }
+
+/**
+ * Mini-graphe réel d'une carte Statsdata — reprend le premier bloc graphique du
+ * document (ou celui choisi par le créateur). Chargé à la demande par la carte,
+ * jamais dans le payload du catalogue. `empty` = pas de graphique exploitable.
+ */
+export type CardPreview = {
+  block_id?: string
+  kind?: CardPreviewKind
+  labels?: string[]
+  series?: CardPreviewSeries[]
+  unit?: string
+  orientation?: 'vertical' | 'horizontal'
+  empty?: boolean
+}
+
 export type CatalogPublisher = {
   name: string
   initials: string

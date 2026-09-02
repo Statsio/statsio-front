@@ -2,7 +2,6 @@
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useStudioStore } from '@/stores/studio'
-import { publishStatsDataDocument } from '@/api/studio'
 import { contentPropertiesPath } from '@/lib/content-display'
 import StudioModal from '@/components/studio/ui/StudioModal.vue'
 import VariablePickerModal from '@/components/studio/VariablePickerModal.vue'
@@ -11,11 +10,17 @@ import { slugify } from '@/lib/slug'
 import type { StudioDocumentPage } from '@/types/studio'
 import studioLogo from '@/assets/brand/statsio-studio.svg'
 
-const emit = defineEmits<{ save: [] }>()
+const emit = defineEmits<{ save: []; publish: [] }>()
 const studio = useStudioStore()
 
-const isPublishing = ref(false)
+const props = defineProps<{ publishing?: boolean }>()
+
 const isPublished = computed(() => studio.content?.status === 'published')
+const publishLabel = computed(() => {
+  if (props.publishing) return 'PUBLICATION…'
+  if (!isPublished.value) return 'PUBLIER'
+  return studio.isDirty ? 'METTRE À JOUR' : '✓ PUBLIÉ'
+})
 
 const settingsPath = computed(() => {
   const content = studio.content
@@ -102,16 +107,10 @@ function confirmAddPage() {
   showAddModal.value = false
 }
 
-async function publish() {
+function publish() {
   const id = studio.content?.id
   if (!id || id === 'demo') return
-  isPublishing.value = true
-  try {
-    await publishStatsDataDocument(id)
-    if (studio.content) studio.content.status = 'published'
-  } finally {
-    isPublishing.value = false
-  }
+  emit('publish')
 }
 
 // ─── Document title ──────────────────────────────────────────────────────────
@@ -376,10 +375,10 @@ const saveDotClass = computed(() => {
       <button
         type="button"
         class="studio-gradient rounded-full px-5 py-[11px] text-[12.5px] font-extrabold tracking-[0.08em] text-white disabled:opacity-50"
-        :disabled="isPublishing"
+        :disabled="publishing"
         @click="publish"
       >
-        {{ isPublishing ? 'PUBLICATION…' : isPublished ? '✓ PUBLIÉ' : 'PUBLIER' }}
+        {{ publishLabel }}
       </button>
     </div>
   </header>

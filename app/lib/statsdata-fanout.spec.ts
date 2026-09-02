@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import type { StudioDocumentPage } from '@/types/studio'
-import { findFanOutTarget, fanOutSlugKey, resolveSegment } from './statsdata-fanout'
+import type { PageParam, StudioDocumentPage } from '@/types/studio'
+import { buildFanOutSegment, fanOutSegmentKeys, findFanOutTarget, fanOutSlugKey, resolveSegment } from './statsdata-fanout'
 
 const main: StudioDocumentPage = { id: 'main', title: 'National', slug: 'national' }
 const commune: StudioDocumentPage = {
@@ -21,6 +21,29 @@ describe('fanOutSlugKey', () => {
     expect(fanOutSlugKey(commune.params![0]!)).toBe('nom_commune')
     expect(fanOutSlugKey({ name: 'carburant', column: 'carburant', fanOut: true })).toBe('carburant')
     expect(fanOutSlugKey({ name: 'annee', fanOut: true })).toBe('annee')
+  })
+})
+
+describe('fanOutSegmentKeys / buildFanOutSegment', () => {
+  const mono: PageParam = { name: 'code', column: 'code', slugColumn: 'code', fanOut: true }
+  const composite: PageParam = { name: 'q', columns: ['prenom', 'nom'], fanOut: true, hidden: true }
+
+  it('falls back to the single slug key when no columns', () => {
+    expect(fanOutSegmentKeys(mono)).toEqual(['code'])
+  })
+
+  it('uses the columns list for a composite param', () => {
+    expect(fanOutSegmentKeys(composite)).toEqual(['prenom', 'nom'])
+  })
+
+  it('builds a dash-joined slug segment from the row values', () => {
+    expect(buildFanOutSegment(composite, { prenom: 'Jean', nom: 'Dupond' })).toBe('jean-dupond')
+    // équivalent au slug du terme entier → dé-slugification triviale
+    expect(buildFanOutSegment(composite, { prenom: 'Jean', nom: 'Dupond' })).toBe('jean dupond'.replace(/ /g, '-'))
+  })
+
+  it('drops empty values from the segment', () => {
+    expect(buildFanOutSegment(composite, { prenom: '', nom: 'Dupond' })).toBe('dupond')
   })
 })
 

@@ -2,8 +2,9 @@
 import { computed, ref, watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
-import type { StudioBlock, DatasetColumn, StudioDocumentPage, SearchSource, AggregateFunction } from '@/types/studio'
-import { makeColumnRef, primarySourceId } from '@/lib/studio-columns'
+import type { StudioBlock, DatasetColumn, StudioDocumentPage, AggregateFunction } from '@/types/studio'
+import { blockColumnGroups, makeColumnRef, primarySourceId } from '@/lib/studio-columns'
+import { blockDatasetIds } from '@/lib/studio-block-sources'
 
 export interface ColumnGroup {
   label: string
@@ -99,35 +100,14 @@ const tokenGroups = computed((): TokenGroup[] => {
   if (paramTokens.length) {
     groups.push({ label: 'Paramètres de la page', tokens: paramTokens })
   }
-  const seenDatasets = new Set<string>()
+  const seenLabels = new Set<string>()
 
   for (const block of studio.blocks) {
-    if (block.type !== 'search' || block.fieldMapping.targetPageId !== pageId) continue
-
-    for (const src of (block.fieldMapping.searchSources ?? []) as SearchSource[]) {
-      if (!src.datasetId || seenDatasets.has(src.datasetId)) continue
-      seenDatasets.add(src.datasetId)
-      const schema = datasets.getSchema(src.datasetId)
-      const dsName = datasets.readyDatasets.find(d => d.id === src.datasetId)?.name ?? 'Source principale'
-      const tokens = schema ? schema.columns.map(c => c.name) : src.columns
-      if (tokens.length) groups.push({ label: dsName, tokens })
-    }
-
-    if (block.datasetId && block.fieldMapping.searchColumn && !seenDatasets.has(block.datasetId)) {
-      seenDatasets.add(block.datasetId)
-      const schema = datasets.getSchema(block.datasetId)
-      const dsName = datasets.readyDatasets.find(d => d.id === block.datasetId)?.name ?? 'Source principale'
-      const tokens = schema ? schema.columns.map(c => c.name) : [block.fieldMapping.searchColumn]
-      if (tokens.length) groups.push({ label: dsName, tokens })
-    }
-
-    for (const join of block.fieldMapping.searchJoins ?? []) {
-      if (!join.datasetId || seenDatasets.has(join.datasetId)) continue
-      seenDatasets.add(join.datasetId)
-      const schema = datasets.getSchema(join.datasetId)
-      if (!schema) continue
-      const dsName = datasets.readyDatasets.find(d => d.id === join.datasetId)?.name ?? 'Jointure'
-      groups.push({ label: `Jointure — ${dsName}`, tokens: schema.columns.map(c => c.name) })
+    if (block.type !== 'search' || studio.pageIdOfBlock(block.id) !== pageId) continue
+    for (const g of blockColumnGroups(block, datasets)) {
+      if (!g.columns.length || seenLabels.has(g.label)) continue
+      seenLabels.add(g.label)
+      groups.push({ label: g.label, tokens: g.columns.map((c) => c.name) })
     }
   }
   return groups
@@ -221,13 +201,7 @@ watch(
       activeSection.value = defaultSection()
       for (const block of studio.blocks) {
         if (block.type !== 'search') continue
-        for (const src of (block.fieldMapping.searchSources ?? []) as SearchSource[]) {
-          if (src.datasetId) datasets.loadSchema(src.datasetId)
-        }
-        if (block.datasetId) datasets.loadSchema(block.datasetId)
-        for (const join of block.fieldMapping.searchJoins ?? []) {
-          if (join.datasetId) datasets.loadSchema(join.datasetId)
-        }
+        for (const id of blockDatasetIds(block)) datasets.loadSchema(id)
       }
       for (const src of props.block.sources ?? []) {
         if (src.datasetId) datasets.loadSchema(src.datasetId)

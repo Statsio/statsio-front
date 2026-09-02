@@ -57,6 +57,22 @@ describe('ChartMappingField — bar', () => {
     expect(w.text()).toContain('Grouper par')
   })
 
+  it('un libellé personnalisé pour l\'axe X / la série est écrit dans columnLabels', async () => {
+    const block = seed('bar', { xAxis: 'annee', yAxes: ['ca'] })
+    const store = useStudioStore()
+    const w = mount(ChartMappingField, { props: { block } })
+
+    const inputs = w.findAll('input[type="text"]')
+    // 1er input texte = libellé de l'axe X (placeholder = nom brut)
+    expect((inputs[0]!.element as HTMLInputElement).placeholder).toBe('annee')
+    await inputs[0]!.setValue('Année scolaire')
+    expect(store.selectedBlock!.fieldMapping.columnLabels).toEqual({ annee: 'Année scolaire' })
+
+    // vider le champ retire l'entrée
+    await inputs[0]!.setValue('')
+    expect(store.selectedBlock!.fieldMapping.columnLabels).toBeUndefined()
+  })
+
   it('opens the column drill-in and writes xAxis on commit', async () => {
     const block = seed('bar', { yAxes: ['ca'] })
     const store = useStudioStore()
