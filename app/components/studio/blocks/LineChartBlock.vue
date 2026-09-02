@@ -1,21 +1,25 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useChart, PALETTE } from '@/composables/useChart'
-import { useBlockData } from '@/composables/useBlockData'
+import { useBlockData, rowKey } from '@/composables/useBlockData'
 import { useExpressionNumber } from '@/composables/useResolvedTokens'
 import { useStudioStore } from '@/stores/studio'
+import { useStudioDatasetsStore } from '@/stores/studio-datasets'
+import { columnRefLabel } from '@/lib/studio-columns'
 import { formatDisplayValue, parseNumericValue } from '@/utils/statsDataFormat'
 import type { StudioBlock } from '@/types/studio'
 
 const props = defineProps<{ block: StudioBlock; readonly?: boolean; scope?: Record<string, string> }>()
 
 const studio = useStudioStore()
+const datasets = useStudioDatasetsStore()
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const { data, isLoading, error } = useBlockData(() => props.block, props.readonly, () => props.scope)
 
 const { value: refValue } = useExpressionNumber({
   expression: () => props.block.config.referenceExpression,
   tokenMap: () => ({ ...studio.pageParams, ...props.scope }),
+  block: () => props.block,
   datasetId: () => props.block.datasetId,
   readonly: () => props.readonly ?? false,
   docSlug: () => studio.content?.slug,
@@ -33,11 +37,13 @@ const hasMultipleSeries = computed(
   () => Boolean(props.block.fieldMapping.series) || yColumns.value.length >= 2,
 )
 
+const yLabels = computed(() => yColumns.value.map((c) => columnRefLabel(c, props.block, datasets)))
+
 const chartData = computed(() => {
   const rows = data.value?.rows ?? []
-  const xKey = props.block.fieldMapping.xAxis ?? ''
-  const seriesKey = props.block.fieldMapping.series
-  const yCols = yColumns.value
+  const xKey = rowKey(data.value, props.block.fieldMapping.xAxis ?? '')
+  const seriesKey = props.block.fieldMapping.series ? rowKey(data.value, props.block.fieldMapping.series) : undefined
+  const yCols = yColumns.value.map((c) => rowKey(data.value, c))
 
   // ── Long format: group by series column ──
   if (seriesKey && rows.length > 0) {
@@ -83,7 +89,7 @@ const chartData = computed(() => {
       datasets: yCols.map((col, i) => {
         const color = PALETTE[i % PALETTE.length]
         return {
-          label: col,
+          label: yLabels.value[i] ?? col,
           data: rows.map((r: Record<string, unknown>) => parseNumericValue(r[col])),
           borderColor: color,
           backgroundColor: color + '22',
@@ -102,7 +108,7 @@ const chartData = computed(() => {
     labels: rows.map((r: Record<string, unknown>) => formatDisplayValue(r[xKey], '')),
     datasets: [
       {
-        label: props.block.config.title ?? yKey,
+        label: props.block.config.title ?? yLabels.value[0] ?? yKey,
         data: rows.map((r: Record<string, unknown>) => parseNumericValue(r[yKey])),
         borderColor: color,
         backgroundColor: color + (props.block.config.lineFill === false ? '00' : '22'),

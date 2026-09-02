@@ -7,17 +7,17 @@ import type { AgentPatchOp } from '@/api/ai'
 describe('applyAgentPatch', () => {
   beforeEach(() => setActivePinia(createPinia()))
 
-  it('applies section chrome (kicker / title / theme / anchor) from addSection', () => {
+  it('applies section chrome (kicker / title / theme) from addSection', () => {
     const studio = useStudioStore()
     applyAgentPatch(
-      [{ op: 'addSection', ref: 's1', pageRef: 'default', layout: '1-col', kicker: 'KPI', title: 'Chiffres clés', theme: 'dark', anchorId: 'chiffres' }],
+      [{ op: 'addSection', ref: 's1', pageRef: 'default', layout: '1-col', kicker: 'KPI', title: 'Chiffres clés', theme: 'dark' }],
       studio,
     )
     const section = studio.sections.at(-1)!
-    expect(section).toMatchObject({ kicker: 'KPI', title: 'Chiffres clés', theme: 'dark', anchorId: 'chiffres' })
+    expect(section).toMatchObject({ kicker: 'KPI', title: 'Chiffres clés', theme: 'dark' })
   })
 
-  it('maps refs and drops a data block into the right zone', () => {
+  it('maps refs and drops a data block into the right zone (col is ignored — a section is always 1-col)', () => {
     const studio = useStudioStore()
     const ops: AgentPatchOp[] = [
       { op: 'addSection', ref: 's1', pageRef: 'default', layout: '2-cols' },
@@ -40,7 +40,8 @@ describe('applyAgentPatch', () => {
 
     const section = studio.sections[studio.sections.length - 1]!
     const block = studio.blocks.at(-1)!
-    expect(block.zoneId).toBe(`${section.id}-1`)
+    expect(section.layout).toBe('1-col')
+    expect(block.zoneId).toBe(`${section.id}-0`)
     expect(block.type).toBe('bar')
     expect(block.datasetId).toBe('42')
     expect(block.fieldMapping.xAxis).toBe('region')

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { PALETTE } from '@/composables/useChart'
-import { useBlockData } from '@/composables/useBlockData'
+import { useBlockData, rowKey } from '@/composables/useBlockData'
 import { markColor } from '@/lib/studio-chart'
 import { formatDisplayValue, parseNumericValue } from '@/utils/statsDataFormat'
 import type { StudioBlock } from '@/types/studio'
@@ -18,8 +18,8 @@ interface Segment {
 
 const segments = computed<Segment[]>(() => {
   const rows = data.value?.rows ?? []
-  const labelKey = props.block.fieldMapping.label ?? ''
-  const valueKey = props.block.fieldMapping.value ?? ''
+  const labelKey = rowKey(data.value, props.block.fieldMapping.label ?? '')
+  const valueKey = rowKey(data.value, props.block.fieldMapping.value ?? '')
   const limit = props.block.config.rowLimit ?? 12
   const colors = props.block.config.colors?.length ? props.block.config.colors : PALETTE
 

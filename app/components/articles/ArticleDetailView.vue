@@ -16,6 +16,8 @@ import { isFormBlock, isTextBlock } from '@/types/studio'
 import type { StudioBlock } from '@/types/studio'
 import { getHttpErrorStatus } from '@/lib/http-errors'
 import { publicContentListPath } from '@/lib/content-display'
+import { sectionAnchorId } from '@/lib/slug'
+import { stripInlineHtml } from '@/lib/inline-rich-text'
 
 const props = withDefaults(defineProps<{ categories?: string[]; embed?: boolean }>(), { embed: false })
 
@@ -77,8 +79,10 @@ const readingMinutes = computed(() => {
 const tocEntries = computed(() => {
   const out: { id: string; label: string }[] = []
   for (const section of studio.currentPageSections) {
-    if (section.title && section.anchorId) {
-      out.push({ id: section.anchorId, label: section.title })
+    const anchor = sectionAnchorId(section)
+    const label = stripInlineHtml(section.title)
+    if (label && anchor) {
+      out.push({ id: anchor, label })
     }
     const zones = Object.keys(studio.blocksByZone).filter((z) => z.startsWith(`${section.id}-`))
     for (const zone of zones) {

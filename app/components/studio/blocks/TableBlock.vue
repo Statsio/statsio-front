@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { useBlockData } from '@/composables/useBlockData'
+import { useBlockData, rowKey } from '@/composables/useBlockData'
 import { useAggregateValues } from '@/composables/useResolvedTokens'
 import { useStudioStore } from '@/stores/studio'
 import { formatDisplayValue } from '@/utils/statsDataFormat'
 import { parseExpression, evaluate, formatNumber, type AggregateRef } from '@/lib/studio-expression'
 import { rowsToCsv, downloadCsv, csvFileName } from '@/lib/csv'
+import { useStudioDatasetsStore } from '@/stores/studio-datasets'
+import { columnRefLabel } from '@/lib/studio-columns'
 import type { StudioBlock, TableCellRule, TableColumnFormat } from '@/types/studio'
 
 const props = defineProps<{ block: StudioBlock; readonly?: boolean; scope?: Record<string, string> }>()
 const studio = useStudioStore()
+const datasets = useStudioDatasetsStore()
 
 const showPagination = computed(() => props.block.config.showPagination === true)
 const pageSize = computed(() => Math.max(1, props.block.config.pageSize ?? 10))
@@ -56,6 +59,7 @@ const aggRefs = computed<AggregateRef[]>(() => {
 
 const { values: aggValues } = useAggregateValues({
   refs: () => aggRefs.value,
+  block: () => props.block,
   datasetId: () => props.block.datasetId,
   readonly: () => props.readonly ?? false,
   docSlug: () => studio.content?.slug,
@@ -70,9 +74,14 @@ function num(v: unknown): number | null {
 const rows = computed<Record<string, unknown>[]>(() => {
   const base = data.value?.rows ?? []
   if (!computedDefs.value.length) return base
+  const colMapRefs = data.value?.columnMap ?? {}
   return base.map((row) => {
     const colMap = new Map<string, number | null>()
     for (const k of Object.keys(row)) colMap.set(k, num(row[k]))
+    // Rend `{colonne@source}` utilisable dans les expressions de colonnes calculées.
+    for (const [ref, key] of Object.entries(colMapRefs)) {
+      if (!colMap.has(ref) && key in row) colMap.set(ref, num(row[key]))
+    }
     const out: Record<string, unknown> = { ...row }
     for (const d of computedDefs.value) {
       out[d.name] = d.parsed ? evaluate(d.parsed.node, aggValues.value, colMap) : null
@@ -91,10 +100,15 @@ const visibleColumns = computed(() => {
 })
 
 function columnLabel(col: string) {
-  return props.block.fieldMapping.columnLabels?.[col] ?? col
+  return props.block.fieldMapping.columnLabels?.[col] ?? columnRefLabel(col, props.block, datasets)
 }
 function columnFormat(col: string): TableColumnFormat {
   return props.block.fieldMapping.columnFormats?.[col] ?? {}
+}
+/** Valeur de cellule pour une ref de colonne (nue, `col@<sourceId>`, ou colonne calculée). */
+function cellVal(row: Record<string, unknown>, col: string): unknown {
+  const k = rowKey(data.value, col)
+  return k in row ? row[k] : row[col]
 }
 
 // ─── Rendu de cellule ────────────────────────────────────────────────────────
@@ -115,7 +129,7 @@ const colBounds = computed<Record<string, { min: number; max: number }>>(() => {
   const out: Record<string, { min: number; max: number }> = {}
   for (const rule of props.block.fieldMapping.cellRules ?? []) {
     if (rule.when !== 'top' && rule.when !== 'bottom') continue
-    const vals = rows.value.map((r) => num(r[rule.column])).filter((v): v is number => v !== null)
+    const vals = rows.value.map((r) => num(cellVal(r, rule.column))).filter((v): v is number => v !== null)
     if (vals.length) out[rule.column] = { min: Math.min(...vals), max: Math.max(...vals) }
   }
   return out
@@ -148,7 +162,7 @@ function cellStyle(col: string, value: unknown): Record<string, string> {
 
 function isMono(col: string) {
   const f = columnFormat(col).format
-  return f === 'mono' || f === 'currency' || f === 'percent' || f === 'number' || typeof rows.value[0]?.[col] === 'number'
+  return f === 'mono' || f === 'currency' || f === 'percent' || f === 'number' || typeof (rows.value[0] ? cellVal(rows.value[0], col) : undefined) === 'number'
 }
 
 const totalRows = computed(() => data.value?.totalRows ?? rows.value.length)
@@ -163,7 +177,7 @@ function exportCsv() {
   const cols = visibleColumns.value
   const labelled = rows.value.map((row) => {
     const out: Record<string, unknown> = {}
-    for (const col of cols) out[columnLabel(col)] = row[col]
+    for (const col of cols) out[columnLabel(col)] = cellVal(row, col)
     return out
   })
   const csv = rowsToCsv(cols.map(columnLabel), labelled)
@@ -222,9 +236,9 @@ function exportCsv() {
                   :key="col"
                   class="whitespace-nowrap px-3.5 py-3 text-[12px]"
                   :class="isMono(col) ? 'mono' : ''"
-                  :style="cellStyle(col, row[col])"
+                  :style="cellStyle(col, cellVal(row, col))"
                 >
-                  {{ formatCell(col, row[col]) }}
+                  {{ formatCell(col, cellVal(row, col)) }}
                 </td>
               </tr>
             </tbody>

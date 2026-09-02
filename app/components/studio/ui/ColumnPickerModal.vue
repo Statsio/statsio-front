@@ -2,11 +2,15 @@
 import { computed, ref, watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
-import type { StudioBlock, DatasetColumn, StudioDocumentPage, SearchSource, BlockJoin, AggregateFunction } from '@/types/studio'
+import type { StudioBlock, DatasetColumn, StudioDocumentPage, SearchSource, AggregateFunction } from '@/types/studio'
+import { makeColumnRef, primarySourceId } from '@/lib/studio-columns'
 
 export interface ColumnGroup {
   label: string
   columns: DatasetColumn[]
+  /** Id local de la source (pour qualifier les refs `col@<sourceId>`). */
+  sourceId?: string
+  isPrimary?: boolean
 }
 
 interface TokenGroup {
@@ -52,24 +56,35 @@ const isMulti      = computed(() => props.mode === 'multi')
 
 // ─── Column groups (the block's own sources) ───────────────────────────────────
 
+const primaryId = computed(() => primarySourceId(props.block))
+
 const derivedGroups = computed<ColumnGroup[]>(() => {
+  const sources = props.block.sources?.length
+    ? props.block.sources
+    : props.block.datasetId
+      ? [{ id: props.block.datasetId, datasetId: props.block.datasetId, alias: undefined }]
+      : []
   const groups: ColumnGroup[] = []
-  const primary = datasets.getSchema(props.block.datasetId ?? '')
-  if (primary) {
-    const name = datasets.readyDatasets.find(d => d.id === props.block.datasetId)?.name ?? 'Source principale'
-    groups.push({ label: name, columns: primary.columns })
+  for (const src of sources) {
+    const schema = datasets.getSchema(src.datasetId)
+    if (!schema) continue
+    const dsName = datasets.readyDatasets.find(d => d.id === src.datasetId)?.name
+    groups.push({
+      label: src.alias || dsName || (src.id === primaryId.value ? 'Source principale' : src.id),
+      columns: schema.columns,
+      sourceId: src.id,
+      isPrimary: src.id === primaryId.value,
+    })
   }
-  ;(props.block.joins ?? []).forEach((join, i) => {
-    const schema = datasets.getSchema(join.datasetId)
-    if (schema) {
-      const name = datasets.readyDatasets.find(d => d.id === join.datasetId)?.name ?? `Jointure ${i + 1}`
-      groups.push({ label: `Jointure — ${name}`, columns: schema.columns })
-    }
-  })
   return groups
 })
 
 const activeGroups = computed(() => props.customGroups ?? derivedGroups.value)
+
+/** Référence de colonne pour le groupe courant : nue si primaire, sinon `col@<sourceId>`. */
+function refFor(name: string, group: ColumnGroup | null): string {
+  return makeColumnRef(name, group?.sourceId, primaryId.value)
+}
 
 // ─── Dynamic variable groups from search blocks ────────────────────────────────
 
@@ -106,7 +121,7 @@ const tokenGroups = computed((): TokenGroup[] => {
       if (tokens.length) groups.push({ label: dsName, tokens })
     }
 
-    for (const join of (block.joins ?? []) as BlockJoin[]) {
+    for (const join of block.fieldMapping.searchJoins ?? []) {
       if (!join.datasetId || seenDatasets.has(join.datasetId)) continue
       seenDatasets.add(join.datasetId)
       const schema = datasets.getSchema(join.datasetId)
@@ -160,13 +175,13 @@ function filteredTokens(tokens: string[]): string[] {
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
 
-function pickColumn(name: string) {
+function pickColumn(ref: string) {
   if (isExpression.value) {
-    formula.value += name
+    formula.value += ref
   } else if (isMulti.value) {
-    emit('toggle', name)
+    emit('toggle', ref)
   } else {
-    emit('update:modelValue', name)
+    emit('update:modelValue', ref)
     emit('close')
   }
 }
@@ -210,10 +225,14 @@ watch(
           if (src.datasetId) datasets.loadSchema(src.datasetId)
         }
         if (block.datasetId) datasets.loadSchema(block.datasetId)
-        for (const join of (block.joins ?? []) as BlockJoin[]) {
+        for (const join of block.fieldMapping.searchJoins ?? []) {
           if (join.datasetId) datasets.loadSchema(join.datasetId)
         }
       }
+      for (const src of props.block.sources ?? []) {
+        if (src.datasetId) datasets.loadSchema(src.datasetId)
+      }
+      if (props.block.datasetId) datasets.loadSchema(props.block.datasetId)
     }
   },
 )
@@ -404,22 +423,22 @@ const OPERATORS = [
                   v-for="col in filteredCols(currentColGroup.columns)"
                   :key="col.name"
                   class="group flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 transition-all"
-                  :class="isMulti && selectedValues?.includes(col.name)
+                  :class="isMulti && selectedValues?.includes(refFor(col.name, currentColGroup))
                     ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/8 hover:bg-[var(--color-primary)]/12'
                     : 'border-[var(--studio-line-strong)] bg-white hover:border-[var(--color-primary)] hover:bg-[var(--color-primary)]/5'"
-                  @click="pickColumn(col.name)"
+                  @click="pickColumn(refFor(col.name, currentColGroup))"
                 >
                   <span
                     class="min-w-[20px] shrink-0 rounded px-1 text-center text-[9px] font-bold uppercase leading-[18px]"
                     :class="TYPE_BADGE[col.type]?.cls ?? 'bg-slate-100 text-[var(--studio-muted)]'"
                   >{{ TYPE_BADGE[col.type]?.label ?? '?' }}</span>
                   <span class="font-mono text-[12px] text-[var(--studio-ink)] transition-colors group-hover:text-[var(--color-primary)]"
-                    :class="isMulti && selectedValues?.includes(col.name) ? 'text-[var(--color-primary)]' : ''"
+                    :class="isMulti && selectedValues?.includes(refFor(col.name, currentColGroup)) ? 'text-[var(--color-primary)]' : ''"
                   >
                     {{ col.name }}
                   </span>
                   <svg
-                    v-if="isMulti && selectedValues?.includes(col.name)"
+                    v-if="isMulti && selectedValues?.includes(refFor(col.name, currentColGroup))"
                     class="ml-auto h-3.5 w-3.5 shrink-0 text-[var(--color-primary)]"
                     fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"
                   >

@@ -2,20 +2,28 @@
 import { computed, ref, watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { fetchDistinctValues, fetchPublicDistinctValues } from '@/api/studio'
+import { blockSourceParams } from '@/composables/useBlockData'
 import { interpolateTokens } from '@/lib/studio-tokens'
-import { loopZoneId } from '@/types/studio'
-import type { StudioBlock, BlockFilter } from '@/types/studio'
+import { loopZoneId, isPageZone } from '@/types/studio'
+import type { StudioBlock, BlockFilter, Section } from '@/types/studio'
 import BlockRenderer from './BlockRenderer.vue'
 import BlockCard from './BlockCard.vue'
 import CanvasZone from '@/components/studio/canvas/CanvasZone.vue'
+import CanvasSectionZone from '@/components/studio/canvas/CanvasSectionZone.vue'
+import StatsDataSection from '@/components/statsdata/detail/StatsDataSection.vue'
 
 const props = defineProps<{ block: StudioBlock; readonly?: boolean; scope?: Record<string, string> }>()
 const studio = useStudioStore()
 
 const HARD_CAP = 50
 
+// Bloc posé au niveau page (`page:{id}`) → sa zone contient des sections, pas des blocs.
+const pageLevel = computed(() => isPageZone(props.block.zoneId))
+
 const zoneId = computed(() => loopZoneId(props.block.id))
 const children = computed<StudioBlock[]>(() => studio.blocksByZone[zoneId.value] ?? [])
+const childSections = computed<Section[]>(() => studio.sectionsInZone(zoneId.value))
+const isEmpty = computed(() => (pageLevel.value ? childSections.value.length === 0 : children.value.length === 0))
 
 const loopColumn = computed(() => props.block.fieldMapping.loopColumn ?? '')
 const loopVar = computed(() => props.block.fieldMapping.loopVar || 'item')
@@ -36,9 +44,9 @@ const isLoading = ref(false)
 const error = ref<string | null>(null)
 
 async function loadValues() {
-  const datasetId = props.block.datasetId
+  const sp = blockSourceParams(props.block)
   const col = loopColumn.value
-  if (!datasetId || !col) {
+  if (!sp.urlDatasetId || !col) {
     values.value = []
     return
   }
@@ -48,10 +56,11 @@ async function loadValues() {
     const filters = (props.block.filters ?? [])
       .filter((f: BlockFilter) => f.column && f.value !== '')
       .map((f: BlockFilter) => ({ ...f, value: interpolateTokens(f.value, { ...studio.pageParams, ...props.scope }) }))
+    const ctx = { sources: sp.sources, primarySourceId: sp.primarySourceId, joins: sp.joins }
     const docSlug = studio.content?.slug
     values.value = props.readonly && docSlug
-      ? await fetchPublicDistinctValues(docSlug, datasetId, col, '', filters)
-      : await fetchDistinctValues(datasetId, col, '', filters)
+      ? await fetchPublicDistinctValues(docSlug, sp.urlDatasetId, col, '', filters, ctx)
+      : await fetchDistinctValues(sp.urlDatasetId, col, '', filters, ctx)
   } catch {
     error.value = 'Impossible de charger les valeurs de la boucle.'
     values.value = []
@@ -102,11 +111,9 @@ const summary = computed(() => {
       </span>
     </div>
 
-    <!-- La zone gère elle-même le drop palette + le drag des blocs existants ;
-         la zone de section parente s'efface quand le drag vise cette zone imbriquée
-         (voir CanvasZone.targetsNestedZone). -->
     <div class="rounded-2xl bg-[var(--studio-wash)]/40 p-1" @click.stop>
-      <CanvasZone :zone-id="zoneId" :col-index="0" nested />
+      <CanvasSectionZone v-if="pageLevel" :zone-id="zoneId" />
+      <CanvasZone v-else :zone-id="zoneId" :col-index="0" nested />
     </div>
   </div>
 
@@ -114,8 +121,20 @@ const summary = computed(() => {
   <template v-else>
     <div v-if="isLoading" class="py-6 text-center text-sm text-[#18181f]/45">Chargement…</div>
     <div v-else-if="error" class="py-6 text-center text-sm text-red-500">{{ error }}</div>
-    <div v-else-if="!children.length" class="py-6 text-center text-sm text-[#18181f]/45">Boucle vide</div>
+    <div v-else-if="isEmpty" class="py-6 text-center text-sm text-[#18181f]/45">Boucle vide</div>
     <div v-else-if="!iterations.length" class="py-6 text-center text-sm text-[#18181f]/45">Aucune valeur à parcourir</div>
+
+    <!-- Niveau page : chaque itération répète l'ensemble des sections, empilées -->
+    <div v-else-if="pageLevel" class="flex flex-col gap-4">
+      <template v-for="value in iterations" :key="value">
+        <StatsDataSection
+          v-for="child in childSections"
+          :key="child.id + '::' + value"
+          :section="child"
+          :scope="scopeFor(value)"
+        />
+      </template>
+    </div>
 
     <div
       v-else

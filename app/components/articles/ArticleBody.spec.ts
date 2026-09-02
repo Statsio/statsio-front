@@ -34,7 +34,7 @@ describe('ArticleBody', () => {
     seed(
       [
         { id: 'intro', title: undefined },
-        { id: 'sec1', kicker: 'Tendance', title: 'Le grand écart', description: 'Analyse', anchorId: 'ecart' },
+        { id: 'sec1', kicker: 'Tendance', title: 'Le grand écart', description: 'Analyse' },
       ],
       [
         { id: 'p0', type: 'paragraph', zoneId: 'intro-0', fieldMapping: {}, config: { content: '<p>chapô</p>' } },
@@ -46,7 +46,7 @@ describe('ArticleBody', () => {
 
     const h2 = w.find('h2')
     expect(h2.text()).toBe('Le grand écart')
-    expect(w.find('header#ecart').exists()).toBe(true)
+    expect(w.find('header#le-grand-ecart').exists()).toBe(true)
     expect(w.text()).toContain('Tendance')
     expect(w.text()).toContain('Analyse')
     expect(w.findAllComponents({ name: 'BlockRenderer' })).toHaveLength(2)
@@ -59,7 +59,7 @@ describe('ArticleBody', () => {
 
   it('renders sd-embed blocks bare (no bordered card wrapper)', () => {
     seed(
-      [{ id: 's1', title: 'Chiffres', anchorId: 'chiffres' }],
+      [{ id: 's1', title: 'Chiffres' }],
       [{ id: 'e1', type: 'sd-embed', zoneId: 's1-0', fieldMapping: {}, config: { sourceSlug: 'x', sourceBlockId: 'b' } }],
     )
     const w = mount(ArticleBody, { global: { stubs } })

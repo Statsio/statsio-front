@@ -111,15 +111,25 @@ describe('app/api/studio', () => {
 
       await fetchBlockData('42', {
         filters: [{ column: 'city', operator: '=', value: 'Paris' }],
-        joins: [{ datasetId: '7', leftColumn: 'a', rightColumn: 'b', type: 'inner', columns: ['c'] }],
+        sources: [
+          { id: '42', datasetId: '42' },
+          { id: '7', datasetId: '7' },
+        ],
+        primarySourceId: '42',
+        joins: [{ leftSourceId: '42', leftColumn: 'a', rightSourceId: '7', rightColumn: 'b', type: 'inner' }],
+        aggregates: [{ column: 'pop@7', fn: 'sum' }],
+        groupBy: ['city'],
       })
 
       expect(capturedQuery).toContain('filters[0][column]=city')
       expect(capturedQuery).toContain('filters[0][operator]=%3D')
       expect(capturedQuery).toContain('filters[0][value]=Paris')
-      expect(capturedQuery).toContain('joins[0][dataset_id]=7')
+      expect(capturedQuery).toContain('sources[1][dataset_id]=7')
+      expect(capturedQuery).toContain('joins[0][left_source]=42')
+      expect(capturedQuery).toContain('joins[0][right_source]=7')
       expect(capturedQuery).toContain('joins[0][type]=inner')
-      expect(capturedQuery).toContain('joins[0][columns][]=c')
+      expect(capturedQuery).toContain('aggregates[0][column]=pop%407')
+      expect(capturedQuery).toContain('aggregates[0][fn]=sum')
     })
   })
 
@@ -151,8 +161,8 @@ describe('app/api/studio', () => {
       })
 
       expect(value).toBe(1.712)
-      expect(capturedQuery).toContain('aggregate=avg')
-      expect(capturedQuery).toContain('aggregate_columns[]=prix')
+      expect(capturedQuery).toContain('aggregates[0][column]=prix')
+      expect(capturedQuery).toContain('aggregates[0][fn]=avg')
       expect(capturedQuery).not.toContain('group_by')
       expect(capturedQuery).toContain('filters[0][value]=gazole')
     })

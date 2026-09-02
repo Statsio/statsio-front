@@ -1,6 +1,6 @@
 import type { useStudioStore } from '@/stores/studio'
 import type { AgentPatchOp } from '@/api/ai'
-import type { BlockType, FieldMapping, BlockConfig, BlockFilter, SectionLayout } from '@/types/studio'
+import type { BlockType, FieldMapping, BlockConfig, BlockFilter } from '@/types/studio'
 import { loopZoneId } from '@/types/studio'
 
 type StudioStore = ReturnType<typeof useStudioStore>
@@ -103,7 +103,7 @@ function applyAddPage(op: AgentPatchOp, studio: StudioStore, refs: Map<string, s
       slugColumn: idColumn,
     })
 
-    const section = studio.addSection('1-col', 0)
+    const section = studio.addSection(0)
     const block = studio.addBlock('search', `${section.id}-0`, 0)
 
     const fieldMapping: Record<string, unknown> = { targetPageId: page.id }
@@ -133,11 +133,13 @@ function applyAddSection(
 ) {
   studio.switchPage(resolve(op.pageRef))
   const index = typeof op.index === 'number' ? op.index : undefined
-  const section = studio.addSection((op.layout as SectionLayout) ?? '1-col', index)
+  // `op.layout` (agencement en colonnes) n'est plus porté par la section — ignoré ;
+  // ce rôle est désormais celui du bloc « Disposition ».
+  const section = studio.addSection(index)
   refs.set(String(op.ref), section.id)
 
   const patch: Record<string, unknown> = {}
-  for (const k of ['kicker', 'title', 'description', 'anchorId'] as const) {
+  for (const k of ['kicker', 'title', 'description'] as const) {
     if (typeof op[k] === 'string' && op[k]) patch[k] = op[k]
   }
   if (op.theme === 'dark' || op.theme === 'accent') patch.theme = op.theme
@@ -150,10 +152,11 @@ function applyAddBlock(
   refs: Map<string, string>,
   resolve: (r: unknown) => string,
 ) {
-  // Bloc enfant d'une boucle : `loopRef` désigne le bloc loop ; sinon section + colonne.
+  // Bloc enfant d'une boucle : `loopRef` désigne le bloc loop ; sinon section (toujours
+  // colonne 0 — une section n'a plus qu'une seule colonne, `op.col` est ignoré).
   const zoneId = op.loopRef != null
     ? loopZoneId(resolve(op.loopRef))
-    : `${resolve(op.sectionRef)}-${Number(op.col ?? 0)}`
+    : `${resolve(op.sectionRef)}-0`
   const block = studio.addBlock(op.type as BlockType, zoneId)
   refs.set(String(op.ref), block.id)
 

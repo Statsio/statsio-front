@@ -12,7 +12,10 @@ const scriptBlocks = computed(
 
 function onDragStart(event: DragEvent, type: BlockType) {
   if (!event.dataTransfer) return
+  // Déposé dans une zone de bloc → boucle/condition de blocs (comportement historique).
   event.dataTransfer.setData('studio-block-type', type)
+  // Déposé entre deux sections (niveau page) → bloc qui répète/conditionne des sections entières.
+  if (type === 'loop' || type === 'if') event.dataTransfer.setData('studio-page-block-type', type)
   event.dataTransfer.effectAllowed = 'copy'
 }
 </script>
@@ -22,6 +25,7 @@ function onDragStart(event: DragEvent, type: BlockType) {
     <div class="shrink-0 px-[22px] pb-3">
       <p class="text-[12px] leading-[1.5] text-[var(--studio-muted)]">
         Blocs de logique : ils répètent ou conditionnent d'autres blocs placés à l'intérieur.
+        Déposés entre deux sections, ils répètent ou conditionnent des sections entières.
       </p>
     </div>
 

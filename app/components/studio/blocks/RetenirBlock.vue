@@ -13,6 +13,7 @@ const color    = computed(() => props.block.config.retenirColor ?? 'violet')
 const tokenMap = () => ({ ...studio.pageParams, ...props.scope })
 const resolveOpts = {
   tokenMap,
+  block: () => props.block,
   datasetId: () => props.block.datasetId,
   readonly: () => props.readonly ?? false,
   docSlug: () => studio.content?.slug,

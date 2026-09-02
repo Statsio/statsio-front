@@ -11,7 +11,8 @@ import type { FilterOperator } from '@/types/studio'
  *   {{ (MAX(prix@7) - MIN(prix@7)) * 100 : 0 }}
  *   {{ AVG(prix@7 | carburant = $carburant & annee >= 2020) }}
  *
- * `@N`  → id du dataset (sinon : dataset du bloc appelant).
+ * `@N`  → id d'une source du bloc appelant (`BlockSource.id`, = id du dataset quand la
+ *         source est unique) ; sinon id de dataset brut. Absent → source primaire du bloc.
  * `|`   → filtres `colonne <op> valeur`, séparés par `&`. `$nom` = valeur d'un
  *         paramètre de page / d'une variable de boucle.
  * `: N` → nombre de décimales à la fin de l'expression (sinon : auto).

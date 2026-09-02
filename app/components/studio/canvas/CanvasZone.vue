@@ -153,12 +153,20 @@ onBeforeUnmount(() => {
     <!-- Empty placeholder -->
     <div
       v-if="isEmpty && !isDragOver && !studio.isPreview"
-      class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center"
+      class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2"
     >
-      <svg class="mb-1.5 h-6 w-6 text-[var(--studio-line-strong)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <svg class="h-6 w-6 text-[var(--studio-line-strong)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4.5v15m7.5-7.5h-15" />
       </svg>
       <p class="text-[11px] font-medium text-[var(--studio-faint)]">Glisser un bloc ici</p>
+      <button
+        v-if="!nested"
+        type="button"
+        class="pointer-events-auto rounded-lg border border-dashed border-[var(--studio-line-strong)] px-2.5 py-1 text-[11px] font-semibold text-[var(--studio-muted)] transition-colors hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+        @click="studio.addBlock('layout', zoneId)"
+      >
+        + Ajouter une disposition
+      </button>
     </div>
 
     <!-- Drag over highlight text (empty zone) -->

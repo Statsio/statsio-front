@@ -1,7 +1,7 @@
 import { computed, type MaybeRefOrGetter, toValue, watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
-import type { BlockJoin, DatasetColumn, SearchSource, StudioDocumentPage } from '@/types/studio'
+import type { DatasetColumn, SearchSource, StudioDocumentPage } from '@/types/studio'
 
 export interface VariableItem {
   /** Bare name, e.g. "region" — wrap in {{ }} at insert time. */
@@ -50,7 +50,7 @@ export function useStudioVariables(
         for (const src of (block.fieldMapping.searchSources ?? []) as SearchSource[]) {
           if (src.datasetId) datasets.loadSchema(src.datasetId)
         }
-        for (const join of (block.joins ?? []) as BlockJoin[]) {
+        for (const join of block.fieldMapping.searchJoins ?? []) {
           if (join.datasetId) datasets.loadSchema(join.datasetId)
         }
       }
@@ -116,7 +116,7 @@ export function useStudioVariables(
         out.push(dataGroup(src.datasetId, dsName(src.datasetId, 'Source principale'), cols))
       }
 
-      for (const join of (block.joins ?? []) as BlockJoin[]) {
+      for (const join of block.fieldMapping.searchJoins ?? []) {
         if (!join.datasetId || seen.has(join.datasetId)) continue
         seen.add(join.datasetId)
         const schema = datasets.getSchema(join.datasetId)

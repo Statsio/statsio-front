@@ -46,22 +46,24 @@
   font-family: var(--font-jetbrains, 'JetBrains Mono', monospace);
   font-size: 10px;
   font-weight: 800;
-  letter-spacing: 0.1em;
+  letter-spacing: var(--sec-head-ls, 0.1em);
+  line-height: var(--sec-head-lh, 1.4);
   text-transform: uppercase;
   color: var(--sd-sec-accent);
 }
 .sd-sec__title {
   font-size: 22px;
   font-weight: 800;
-  line-height: 1.15;
-  letter-spacing: -0.015em;
+  line-height: var(--sec-head-lh, 1.15);
+  letter-spacing: var(--sec-head-ls, -0.015em);
   text-wrap: balance;
 }
 .sd-sec__desc {
   margin-top: 8px;
   max-width: 64ch;
   font-size: 14px;
-  line-height: 1.55;
+  line-height: var(--sec-head-lh, 1.55);
+  letter-spacing: var(--sec-head-ls, normal);
   color: var(--sd-sec-muted);
   text-wrap: pretty;
 }
@@ -69,3 +71,9 @@
   margin-bottom: 16px;
   min-width: 0;
 }
+/* Marques inline autorisées dans les en-têtes de section (toolbar restreinte). */
+.sd-sec__head :where(strong, b) { font-weight: 900; }
+.sd-sec__head :where(em, i) { font-style: italic; }
+.sd-sec__head u { text-underline-offset: 0.15em; }
+.sd-sec__head mark { border-radius: 3px; padding: 0 0.12em; }
+.sd-sec__head p { margin: 0; }
