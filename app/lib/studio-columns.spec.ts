@@ -1,0 +1,75 @@
+import { describe, it, expect } from 'vitest'
+import { parseColumnRef, makeColumnRef, columnRefLabel, blockColumnGroups, primarySourceId } from './studio-columns'
+import type { StudioBlock } from '@/types/studio'
+
+function block(overrides: Partial<StudioBlock> = {}): StudioBlock {
+  return {
+    id: 'b1', type: 'bar', zoneId: 'z', fieldMapping: {}, config: {},
+    sources: [{ id: '1', datasetId: '1' }, { id: '2', datasetId: '2', alias: 'Régions' }],
+    primarySourceId: '1',
+    ...overrides,
+  }
+}
+
+const datasets = {
+  getSchema: (id: string) => ({
+    '1': { columns: [{ name: 'ville', type: 'string' as const, nullable: false }, { name: 'nom', type: 'string' as const, nullable: false }] },
+    '2': { columns: [{ name: 'nom', type: 'string' as const, nullable: false }, { name: 'pop', type: 'integer' as const, nullable: false }] },
+  }[id]),
+  readyDatasets: [{ id: '1', name: 'Villes' }, { id: '2', name: 'Régions données' }],
+}
+
+describe('parseColumnRef', () => {
+  it('bare name → no sourceId', () => {
+    expect(parseColumnRef('prix')).toEqual({ name: 'prix', sourceId: null })
+  })
+  it('qualified name splits on the last @', () => {
+    expect(parseColumnRef('e@mail@7')).toEqual({ name: 'e@mail', sourceId: '7' })
+  })
+  it('leading @ is treated as a bare name', () => {
+    expect(parseColumnRef('@weird')).toEqual({ name: '@weird', sourceId: null })
+  })
+})
+
+describe('makeColumnRef', () => {
+  it('bare for the primary source', () => {
+    expect(makeColumnRef('nom', '1', '1')).toBe('nom')
+  })
+  it('qualified for a joined source', () => {
+    expect(makeColumnRef('nom', '2', '1')).toBe('nom@2')
+  })
+  it('bare when sourceId missing', () => {
+    expect(makeColumnRef('nom', undefined, '1')).toBe('nom')
+  })
+})
+
+describe('columnRefLabel', () => {
+  it('bare ref → name only', () => {
+    expect(columnRefLabel('nom', block(), datasets)).toBe('nom')
+  })
+  it('qualified ref → name · source alias', () => {
+    expect(columnRefLabel('nom@2', block(), datasets)).toBe('nom · Régions')
+  })
+})
+
+describe('blockColumnGroups', () => {
+  it('one group per source with sourceId + isPrimary', () => {
+    const groups = blockColumnGroups(block(), datasets)
+    expect(groups).toHaveLength(2)
+    expect(groups[0]).toMatchObject({ sourceId: '1', isPrimary: true })
+    expect(groups[1]).toMatchObject({ sourceId: '2', isPrimary: false, label: 'Régions' })
+  })
+  it('falls back to legacy datasetId when no sources', () => {
+    const groups = blockColumnGroups(block({ sources: undefined, primarySourceId: undefined, datasetId: '1' }), datasets)
+    expect(groups).toHaveLength(1)
+    expect(groups[0]).toMatchObject({ sourceId: '1', isPrimary: true })
+  })
+})
+
+describe('primarySourceId', () => {
+  it('prefers primarySourceId, then first source, then datasetId', () => {
+    expect(primarySourceId(block())).toBe('1')
+    expect(primarySourceId(block({ primarySourceId: undefined }))).toBe('1')
+    expect(primarySourceId(block({ sources: undefined, primarySourceId: undefined, datasetId: '9' }))).toBe('9')
+  })
+})

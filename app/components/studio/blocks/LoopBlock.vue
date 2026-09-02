@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { fetchDistinctValues, fetchPublicDistinctValues } from '@/api/studio'
+import { blockSourceParams } from '@/composables/useBlockData'
 import { interpolateTokens } from '@/lib/studio-tokens'
 import { loopZoneId, isPageZone } from '@/types/studio'
 import type { StudioBlock, BlockFilter, Section } from '@/types/studio'
@@ -43,9 +44,9 @@ const isLoading = ref(false)
 const error = ref<string | null>(null)
 
 async function loadValues() {
-  const datasetId = props.block.datasetId
+  const sp = blockSourceParams(props.block)
   const col = loopColumn.value
-  if (!datasetId || !col) {
+  if (!sp.urlDatasetId || !col) {
     values.value = []
     return
   }
@@ -55,10 +56,11 @@ async function loadValues() {
     const filters = (props.block.filters ?? [])
       .filter((f: BlockFilter) => f.column && f.value !== '')
       .map((f: BlockFilter) => ({ ...f, value: interpolateTokens(f.value, { ...studio.pageParams, ...props.scope }) }))
+    const ctx = { sources: sp.sources, primarySourceId: sp.primarySourceId, joins: sp.joins }
     const docSlug = studio.content?.slug
     values.value = props.readonly && docSlug
-      ? await fetchPublicDistinctValues(docSlug, datasetId, col, '', filters)
-      : await fetchDistinctValues(datasetId, col, '', filters)
+      ? await fetchPublicDistinctValues(docSlug, sp.urlDatasetId, col, '', filters, ctx)
+      : await fetchDistinctValues(sp.urlDatasetId, col, '', filters, ctx)
   } catch {
     error.value = 'Impossible de charger les valeurs de la boucle.'
     values.value = []

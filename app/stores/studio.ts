@@ -16,6 +16,9 @@ import type {
 import { SECTION_LAYOUT_DEFINITIONS, scriptZoneId, scriptIdFromZone, scriptZoneBranch, pageZoneId, isPageZone, isScriptBlock, isContainerBlock, FORM_BLOCK_TYPES } from '@/types/studio'
 import type { CanvasItemRef } from '@/types/studio'
 import { readIfBranches, withAddedBranch, withRemovedBranch } from '@/lib/studio-if'
+import { normalizeBlockSources } from '@/lib/studio-block-sources'
+import { parseColumnRef } from '@/lib/studio-columns'
+import type { BlockSource, BlockJoin } from '@/types/studio'
 
 function uid(): string {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
@@ -400,7 +403,7 @@ export const useStudioStore = defineStore('studio', () => {
       pageId: s.pageId ?? defaultPageId,
     }))
 
-    blocks.value = pageBlocks ?? []
+    blocks.value = (pageBlocks ?? []).map(normalizeBlockSources)
 
     migrateLegacyTemplatePages()
     migrateMultiColumnSections()
@@ -1051,13 +1054,111 @@ export const useStudioStore = defineStore('studio', () => {
     markDirty()
   }
 
+  /**
+   * Compat : « choisir une source unique ». Remplace toutes les sources du bloc
+   * par un seul dataset et purge les refs de colonnes devenues invalides.
+   */
   function updateBlockDataset(blockId: string, datasetId: string) {
     snapshot()
     const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
     if (!block) return
+    if (block.sources?.length === 1 && block.sources[0]?.datasetId === datasetId) return
     block.datasetId = datasetId
-    block.fieldMapping = {}
+    block.sources = [{ id: datasetId, datasetId }]
+    block.primarySourceId = datasetId
+    block.joins = []
+    pruneBlockColumnRefs(block)
     markDirty()
+  }
+
+  function updateBlockSources(blockId: string, sources: BlockSource[]) {
+    snapshot()
+    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
+    if (!block) return
+    block.sources = sources
+    if (!block.primarySourceId || !sources.some((s) => s.id === block.primarySourceId)) {
+      block.primarySourceId = sources[0]?.id
+    }
+    block.datasetId = sources.find((s) => s.id === block.primarySourceId)?.datasetId ?? sources[0]?.datasetId
+    block.joins = (block.joins ?? []).filter(
+      (j) => sources.some((s) => s.id === j.leftSourceId) && sources.some((s) => s.id === j.rightSourceId),
+    )
+    pruneBlockColumnRefs(block)
+    markDirty()
+  }
+
+  function addBlockSource(blockId: string, datasetId: string): string | undefined {
+    snapshot()
+    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
+    if (!block) return
+    const existing = block.sources ?? []
+    let id = datasetId
+    let n = 2
+    while (existing.some((s) => s.id === id)) id = `${datasetId}~${n++}`
+    block.sources = [...existing, { id, datasetId }]
+    if (!block.primarySourceId) block.primarySourceId = id
+    block.datasetId ??= datasetId
+    markDirty()
+    return id
+  }
+
+  function removeBlockSource(blockId: string, sourceId: string) {
+    snapshot()
+    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
+    if (!block?.sources) return
+    block.sources = block.sources.filter((s) => s.id !== sourceId)
+    block.joins = (block.joins ?? []).filter((j) => j.leftSourceId !== sourceId && j.rightSourceId !== sourceId)
+    if (block.primarySourceId === sourceId) block.primarySourceId = block.sources[0]?.id
+    block.datasetId = block.sources.find((s) => s.id === block.primarySourceId)?.datasetId ?? block.sources[0]?.datasetId
+    pruneBlockColumnRefs(block)
+    markDirty()
+  }
+
+  function setPrimarySource(blockId: string, sourceId: string) {
+    snapshot()
+    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
+    if (!block?.sources?.some((s) => s.id === sourceId)) return
+    block.primarySourceId = sourceId
+    block.datasetId = block.sources.find((s) => s.id === sourceId)?.datasetId
+    pruneBlockColumnRefs(block)
+    markDirty()
+  }
+
+  /** Retire des `fieldMapping` / `config` / `filters` toute ref `col@<sourceId>` dont la source n'existe plus. */
+  function pruneBlockColumnRefs(block: StudioBlock) {
+    const ids = new Set((block.sources ?? []).map((s) => s.id))
+    const ok = (ref?: string | null): boolean => {
+      if (!ref) return true
+      const { sourceId } = parseColumnRef(ref)
+      return !sourceId || ids.has(sourceId)
+    }
+    const keepArr = (a?: string[]) => a?.filter(ok)
+    const keepKeys = <T>(rec?: Record<string, T>) =>
+      rec ? Object.fromEntries(Object.entries(rec).filter(([k]) => ok(k))) : rec
+    const fm = block.fieldMapping
+    block.fieldMapping = {
+      ...fm,
+      xAxis: ok(fm.xAxis) ? fm.xAxis : undefined,
+      yAxis: ok(fm.yAxis) ? fm.yAxis : undefined,
+      yAxes: keepArr(fm.yAxes),
+      label: ok(fm.label) ? fm.label : undefined,
+      value: ok(fm.value) ? fm.value : undefined,
+      series: ok(fm.series) ? fm.series : undefined,
+      columns: keepArr(fm.columns),
+      columnLabels: keepKeys(fm.columnLabels),
+      columnFormats: keepKeys(fm.columnFormats),
+      cellRules: fm.cellRules?.filter((c) => ok(c.column)),
+      recordTitleColumn: ok(fm.recordTitleColumn) ? fm.recordTitleColumn : undefined,
+      valueColumn: ok(fm.valueColumn) ? fm.valueColumn : undefined,
+      comparisonColumn: ok(fm.comparisonColumn) ? fm.comparisonColumn : undefined,
+      aggregates: fm.aggregates?.filter((a) => ok(a.column)),
+      loopColumn: ok(fm.loopColumn) ? fm.loopColumn : undefined,
+      paramColumn: ok(fm.paramColumn) ? fm.paramColumn : undefined,
+    }
+    if (block.config.distinctColumn && !ok(block.config.distinctColumn)) block.config = { ...block.config, distinctColumn: null }
+    if (block.config.sortColumn && !ok(block.config.sortColumn)) block.config = { ...block.config, sortColumn: null }
+    block.filters = block.filters?.filter((f) => ok(f.column))
+    block.comparisonFilters = block.comparisonFilters?.filter((f) => ok(f.column))
   }
 
   // ─── Branches du bloc « Condition » (if / elsif / else) ──────────────────────
@@ -1181,7 +1282,7 @@ export const useStudioStore = defineStore('studio', () => {
     markDirty()
   }
 
-  function updateBlockJoins(blockId: string, joins: import('@/types/studio').BlockJoin[]) {
+  function updateBlockJoins(blockId: string, joins: BlockJoin[]) {
     snapshot()
     const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
     if (!block) return
@@ -1235,7 +1336,14 @@ export const useStudioStore = defineStore('studio', () => {
       title: content.value?.title,
       pages: pages.value,
       sections: sections.value,
-      blocks: blocks.value,
+      // Transition : on réécrit `datasetId` = dataset de la source primaire pour que
+      // l'ancien back / les agrégateurs publics restent valides si le front est déployé avant.
+      blocks: blocks.value.map((b: StudioBlock) => {
+        const srcs = b.sources
+        if (!srcs?.length) return b
+        const primary = srcs.find((s) => s.id === b.primarySourceId) ?? srcs[0]
+        return { ...b, datasetId: primary?.datasetId ?? b.datasetId }
+      }),
     }
   }
 
@@ -1307,6 +1415,10 @@ export const useStudioStore = defineStore('studio', () => {
     updateBlockConfig,
     changeBlockLayout,
     updateBlockDataset,
+    updateBlockSources,
+    addBlockSource,
+    removeBlockSource,
+    setPrimarySource,
     addIfBranch,
     removeIfBranch,
     updateBlockFieldMapping,

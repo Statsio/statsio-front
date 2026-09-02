@@ -27,6 +27,7 @@ const studio = useStudioStore()
 
 const resolveOpts = {
   tokenMap: () => ({ ...studio.pageParams, ...props.scope }),
+  block: () => props.block,
   datasetId: () => props.block.datasetId,
   readonly: () => props.readonly ?? true,
   docSlug: () => studio.content?.slug,

@@ -9,13 +9,18 @@ import {
   type AggregateRef,
 } from '@/lib/studio-expression'
 import { fetchScalarAggregate, fetchPublicScalarAggregate } from '@/api/studio'
+import { blockSourceParams } from '@/composables/useBlockData'
+import { makeColumnRef, parseColumnRef } from '@/lib/studio-columns'
+import type { StudioBlock, BlockSource, BlockJoin } from '@/types/studio'
 
 interface Options {
   /** Texte brut (peut contenir des `{{ }}`). */
   raw: () => string | undefined
   /** Variables disponibles : `pageParams` + scope de boucle. */
   tokenMap: () => Record<string, string>
-  /** Dataset du bloc appelant — utilisé quand une expression ne précise pas `@N`. */
+  /** Bloc appelant — fournit les sources / jointures pour les agrégats `@<sourceId>`. */
+  block?: () => StudioBlock | null
+  /** Dataset du bloc appelant — utilisé quand une expression ne précise pas `@N` et qu'aucun bloc n'est fourni (ex. embed). */
   datasetId?: () => string | undefined
   /** Vue publiée → passe par les endpoints publics. */
   readonly?: () => boolean
@@ -30,26 +35,67 @@ export function clearAggregateCache(): void {
   aggCache.clear()
 }
 
-type AggregateContext = Pick<Options, 'datasetId' | 'readonly' | 'docSlug'>
+/** Clé de dépendance : dataset + sources + jointures du bloc appelant (pour les `watch`). */
+function blockCtxKey(opts: { block?: () => StudioBlock | null; datasetId?: () => string | undefined }): string {
+  const b = opts.block?.()
+  return b
+    ? `${b.datasetId ?? ''}|${JSON.stringify(b.sources ?? [])}|${b.primarySourceId ?? ''}|${JSON.stringify(b.joins ?? [])}`
+    : (opts.datasetId?.() ?? '')
+}
 
+type AggregateContext = Pick<Options, 'block' | 'datasetId' | 'readonly' | 'docSlug'>
+
+/**
+ * Résout l'agrégat `ref` (issu de `{{ AVG(col@X) }}`) contre :
+ * - une source du bloc appelant si `@X` correspond à un `BlockSource.id` (multi-sources
+ *   → on envoie `sources`/`joins` pour que colonnes et filtres inter-sources se résolvent) ;
+ * - sinon `@X` est traité comme un id de dataset brut (rétro-compat) ;
+ * - sinon (pas de `@X`) la source primaire du bloc.
+ */
 function resolveAggregate(ref: AggregateRef, opts: AggregateContext): Promise<number | null> {
-  const datasetId = ref.datasetId ?? opts.datasetId?.()
-  if (!datasetId || (ref.fn !== 'count' && !ref.column)) return Promise.resolve(null)
+  if (ref.fn !== 'count' && !ref.column) return Promise.resolve(null)
+
+  const block = opts.block?.()
+  const sp = block ? blockSourceParams(block) : null
+  const at = ref.datasetId
+  const blockSource = at ? sp?.sources.find((s) => s.id === at) : undefined
+
+  let urlDatasetId: string | undefined
+  let column = ref.column === '*' ? (ref.filters[0]?.column ?? '') : ref.column
+  let multi: { sources: BlockSource[]; primarySourceId: string; joins: BlockJoin[] } | undefined
+
+  const filters = ref.filters.filter((f) => f.value !== '')
+
+  if (blockSource && sp) {
+    // `@X` = une source du bloc. Colonne qualifiée si source non primaire.
+    column = makeColumnRef(column, at ?? null, sp.primarySourceId)
+    urlDatasetId = sp.urlDatasetId
+    const filterTouchesOther = filters.some((f) => {
+      const { sourceId } = parseColumnRef(f.column)
+      return sourceId && sourceId !== sp.primarySourceId && sp.sources.some((s) => s.id === sourceId)
+    })
+    if (sp.sources.length > 1 && (at !== sp.primarySourceId || filterTouchesOther)) {
+      multi = { sources: sp.sources, primarySourceId: sp.primarySourceId, joins: sp.joins }
+    }
+  } else if (at) {
+    // `@X` = id de dataset brut (rétro-compat) — requête directe sur ce dataset.
+    urlDatasetId = at
+  } else {
+    urlDatasetId = sp?.urlDatasetId ?? opts.datasetId?.()
+  }
+
+  if (!urlDatasetId) return Promise.resolve(null)
 
   const readonly = opts.readonly?.() ?? false
   const docSlug = opts.docSlug?.()
-  const cacheKey = `${readonly ? `pub:${docSlug}` : 'priv'}|${datasetId}|${ref.key}`
+  const cacheKey = `${readonly ? `pub:${docSlug}` : 'priv'}|${urlDatasetId}|${JSON.stringify(multi ?? null)}|${ref.key}`
 
   let hit = aggCache.get(cacheKey)
   if (!hit) {
-    const params = {
-      fn: ref.fn,
-      column: ref.column === '*' ? (ref.filters[0]?.column ?? '') : ref.column,
-      filters: ref.filters.filter((f) => f.value !== ''),
-    }
+    const params = { fn: ref.fn, column, filters, ...multi }
     hit = (readonly && docSlug
-      ? fetchPublicScalarAggregate(docSlug, datasetId, params)
-      : fetchScalarAggregate(datasetId, params)
+      ? fetchPublicScalarAggregate(docSlug, urlDatasetId, params)
+      : fetchScalarAggregate(urlDatasetId, params)
     ).catch(() => null)
     aggCache.set(cacheKey, hit)
   }
@@ -129,7 +175,7 @@ export function useResolvedTokens(opts: Options): { text: Ref<string>; pending: 
   }
 
   watch(
-    () => `${opts.raw() ?? ''}|${JSON.stringify(opts.tokenMap())}|${opts.datasetId?.() ?? ''}|${embed ? `${embed.docSlug}:${JSON.stringify(embed.params)}` : ''}`,
+    () => `${opts.raw() ?? ''}|${JSON.stringify(opts.tokenMap())}|${blockCtxKey(opts)}|${embed ? `${embed.docSlug}:${JSON.stringify(embed.params)}` : ''}`,
     run,
     { immediate: true },
   )
@@ -148,7 +194,7 @@ export function useAggregateValues(
   const pending = ref(false)
 
   watch(
-    () => opts.refs().map((r) => r.key).join('|') + '|' + (opts.datasetId?.() ?? ''),
+    () => opts.refs().map((r) => r.key).join('|') + '|' + blockCtxKey(opts),
     async () => {
       const refs = opts.refs()
       if (!refs.length) { values.value = new Map(); return }

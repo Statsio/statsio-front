@@ -138,6 +138,12 @@ export interface SearchJoin {
 
 export type AggregateFunction = 'sum' | 'avg' | 'count' | 'min' | 'max'
 
+/** Agrégat par colonne : `{ column: refQualifiée, fn }`. Remplace le `FieldMapping.aggregate` unique. */
+export interface BlockAggregate {
+  column: string
+  fn: AggregateFunction
+}
+
 // ─── Tableau v2 ───────────────────────────────────────────────────────────────
 
 export interface TableColumnFormat {
@@ -192,8 +198,10 @@ export interface FieldMapping {
   recordTitleColumn?: string
   valueColumn?: string
   comparisonColumn?: string
-  /** Aggregation applied to the value column(s) — shared by kpi/pie/bar/line, grouped by xAxis/label/series */
+  /** Legacy : fonction d'agrégation unique appliquée à toutes les colonnes de valeur. Fallback de migration vers `aggregates`. */
   aggregate?: AggregateFunction
+  /** Agrégats par colonne (kpi/pie/bar/line), regroupés par xAxis/label/series. */
+  aggregates?: BlockAggregate[]
   /** Loop block: column whose distinct values drive the iterations. */
   loopColumn?: string
   /** Loop block: variable name exposed to child blocks (default "item"). */
@@ -406,11 +414,20 @@ export const FILTER_OPERATORS: { value: FilterOperator; label: string; short: st
   { value: 'not_contains', label: 'ne contient pas', short: '⊄' },
 ]
 
-export interface BlockJoin {
+/** Une source d'un bloc data. `id` = id local stable (= datasetId si unique dans le bloc). */
+export interface BlockSource {
+  id: string
   datasetId: string
-  leftColumn: string   // column from primary dataset
-  rightColumn: string  // column from secondary dataset
-  columns: string[]    // columns to pull from secondary dataset
+  /** Libellé d'affichage optionnel (utile en self-join). */
+  alias?: string
+}
+
+/** Jointure entre deux sources du bloc (graphe : chaînage + self-join possibles). */
+export interface BlockJoin {
+  leftSourceId: string
+  leftColumn: string
+  rightSourceId: string
+  rightColumn: string
   type: 'inner' | 'left'
 }
 
@@ -418,11 +435,17 @@ export interface StudioBlock {
   id: string
   type: BlockType
   zoneId: string
+  /** Legacy : source unique. Migré vers `sources` au chargement, réécrit = source primaire à la sauvegarde. */
   datasetId?: string
+  /** Sources du bloc data (première = primaire par défaut, voir `primarySourceId`). */
+  sources?: BlockSource[]
+  /** Id de la source primaire (table du FROM). Défaut = sources[0].id. */
+  primarySourceId?: string
   fieldMapping: FieldMapping
   config: BlockConfig
   filters?: BlockFilter[]
   comparisonFilters?: BlockFilter[]
+  /** Graphe de jointures entre `sources`. */
   joins?: BlockJoin[]
   /** Non-removable via the block toolbar (still draggable/configurable) — used for the auto-provisioned search block on param pages. */
   locked?: boolean
@@ -542,6 +565,8 @@ export interface BlockQueryResult {
   columns: string[]
   rows: Record<string, unknown>[]
   totalRows: number
+  /** Multi-sources : `refDemandée => cléRéelleDeLaLigne` (voir `rowKey`). */
+  columnMap?: Record<string, string>
 }
 
 // ─── Autosave ─────────────────────────────────────────────────────────────────

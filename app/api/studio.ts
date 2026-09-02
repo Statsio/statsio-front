@@ -52,9 +52,12 @@ type BlockQueryParams = {
   sortColumn?: string | null
   sortDirection?: 'asc' | 'desc' | null
   filters?: import('@/types/studio').BlockFilter[]
+  sources?: import('@/types/studio').BlockSource[]
+  primarySourceId?: string
   joins?: import('@/types/studio').BlockJoin[]
   aggregate?: import('@/types/studio').AggregateFunction
   aggregateColumns?: string[]
+  aggregates?: import('@/types/studio').BlockAggregate[]
   groupBy?: string[]
 }
 
@@ -75,18 +78,32 @@ function buildParamsSerializer(p: BlockQueryParams): string {
       parts.push(`filters[${i}][value]=${encodeURIComponent(f.value)}`)
     })
   }
-  if (p.joins?.length) {
-    p.joins.forEach((j: import('@/types/studio').BlockJoin, i: number) => {
-      parts.push(`joins[${i}][dataset_id]=${encodeURIComponent(j.datasetId)}`)
+  // Multi-sources : n'émettre `sources[]` que s'il y a > 1 source (une source unique
+  // reste sur le chemin mono-source du back, identique à l'existant).
+  if (p.sources && p.sources.length > 1) {
+    p.sources.forEach((s, i) => {
+      parts.push(`sources[${i}][id]=${encodeURIComponent(s.id)}`)
+      parts.push(`sources[${i}][dataset_id]=${encodeURIComponent(s.datasetId)}`)
+      if (s.id === p.primarySourceId) parts.push(`sources[${i}][primary]=1`)
+    })
+    ;(p.joins ?? []).forEach((j, i) => {
+      parts.push(`joins[${i}][left_source]=${encodeURIComponent(j.leftSourceId)}`)
       parts.push(`joins[${i}][left_column]=${encodeURIComponent(j.leftColumn)}`)
+      parts.push(`joins[${i}][right_source]=${encodeURIComponent(j.rightSourceId)}`)
       parts.push(`joins[${i}][right_column]=${encodeURIComponent(j.rightColumn)}`)
       parts.push(`joins[${i}][type]=${j.type}`)
-      j.columns.forEach((c) => parts.push(`joins[${i}][columns][]=${encodeURIComponent(c)}`))
     })
   }
-  if (p.aggregate && p.aggregateColumns?.length) {
-    parts.push(`aggregate=${encodeURIComponent(p.aggregate)}`)
-    p.aggregateColumns.forEach((c) => parts.push(`aggregate_columns[]=${encodeURIComponent(c)}`))
+  const aggs: import('@/types/studio').BlockAggregate[] = p.aggregates?.length
+    ? p.aggregates
+    : (p.aggregate && p.aggregateColumns?.length
+        ? p.aggregateColumns.map((c) => ({ column: c, fn: p.aggregate! }))
+        : [])
+  if (aggs.length) {
+    aggs.forEach((a, i) => {
+      parts.push(`aggregates[${i}][column]=${encodeURIComponent(a.column)}`)
+      parts.push(`aggregates[${i}][fn]=${encodeURIComponent(a.fn)}`)
+    })
     p.groupBy?.forEach((c) => parts.push(`group_by[]=${encodeURIComponent(c)}`))
   }
   return parts.join('&')
@@ -104,6 +121,7 @@ export async function fetchBlockData(
     columns: data.data?.columns ?? [],
     rows: data.data?.rows ?? [],
     totalRows: data.data?.total_rows ?? 0,
+    columnMap: data.data?.column_map ?? undefined,
   }
 }
 
@@ -120,10 +138,14 @@ export async function fetchPublicBlockData(
     columns: data.data?.columns ?? [],
     rows: data.data?.rows ?? [],
     totalRows: data.data?.total_rows ?? 0,
+    columnMap: data.data?.column_map ?? undefined,
   }
 }
 
-function buildSearchParamsSerializer(columns: string[], searchQ: string, limit: number, joins: import('@/types/studio').BlockJoin[]): () => string {
+/** Jointure d'enrichissement d'une source de recherche (dérivée de SearchJoin). */
+export type SearchRowJoin = { datasetId: string; leftColumn: string; rightColumn: string; columns: string[]; type: 'inner' | 'left' }
+
+function buildSearchParamsSerializer(columns: string[], searchQ: string, limit: number, joins: SearchRowJoin[]): () => string {
   return () => {
     const parts = columns.map((c) => `search_columns[]=${encodeURIComponent(c)}`)
     parts.push(`search_q=${encodeURIComponent(searchQ)}`)
@@ -146,7 +168,7 @@ export async function fetchSearchRows(
   columns: string[],
   searchQ: string,
   limit = 50,
-  joins: import('@/types/studio').BlockJoin[] = [],
+  joins: SearchRowJoin[] = [],
 ): Promise<Record<string, unknown>[]> {
   const { data } = await apiHttp.get(STATSIO_API.datasets.query(datasetId), {
     params: {},
@@ -161,7 +183,7 @@ export async function fetchPublicSearchRows(
   columns: string[],
   searchQ: string,
   limit = 50,
-  joins: import('@/types/studio').BlockJoin[] = [],
+  joins: SearchRowJoin[] = [],
 ): Promise<Record<string, unknown>[]> {
   const { data } = await publicHttp.get(STATSIO_API.studioContent.publicDatasetQuery(docSlug, datasetId), {
     params: {},
@@ -170,10 +192,17 @@ export async function fetchPublicSearchRows(
   return data.data?.rows ?? []
 }
 
+export interface DistinctSourceCtx {
+  sources?: import('@/types/studio').BlockSource[]
+  primarySourceId?: string
+  joins?: import('@/types/studio').BlockJoin[]
+}
+
 function distinctParamsSerializer(
   column: string,
   search: string,
   filters: import('@/types/studio').BlockFilter[],
+  ctx: DistinctSourceCtx = {},
 ): () => string {
   return () => {
     let qs = `columns[]=${encodeURIComponent(column)}&distinct=true&limit=100`
@@ -184,6 +213,20 @@ function distinctParamsSerializer(
       qs += `&filters[${i}][operator]=${encodeURIComponent(f.operator)}`
       qs += `&filters[${i}][value]=${encodeURIComponent(f.value)}`
     })
+    if (ctx.sources && ctx.sources.length > 1) {
+      ctx.sources.forEach((s, i) => {
+        qs += `&sources[${i}][id]=${encodeURIComponent(s.id)}`
+        qs += `&sources[${i}][dataset_id]=${encodeURIComponent(s.datasetId)}`
+        if (s.id === ctx.primarySourceId) qs += `&sources[${i}][primary]=1`
+      })
+      ;(ctx.joins ?? []).forEach((j, i) => {
+        qs += `&joins[${i}][left_source]=${encodeURIComponent(j.leftSourceId)}`
+        qs += `&joins[${i}][left_column]=${encodeURIComponent(j.leftColumn)}`
+        qs += `&joins[${i}][right_source]=${encodeURIComponent(j.rightSourceId)}`
+        qs += `&joins[${i}][right_column]=${encodeURIComponent(j.rightColumn)}`
+        qs += `&joins[${i}][type]=${j.type}`
+      })
+    }
     return qs
   }
 }
@@ -202,10 +245,11 @@ export async function fetchDistinctValues(
   column: string,
   search: string,
   filters: import('@/types/studio').BlockFilter[] = [],
+  ctx: DistinctSourceCtx = {},
 ): Promise<string[]> {
   const { data } = await apiHttp.get(STATSIO_API.datasets.query(datasetId), {
     params: {},
-    paramsSerializer: distinctParamsSerializer(column, search, filters),
+    paramsSerializer: distinctParamsSerializer(column, search, filters, ctx),
   })
   return pluckDistinct(data.data?.rows ?? [], column)
 }
@@ -216,10 +260,11 @@ export async function fetchPublicDistinctValues(
   column: string,
   search = '',
   filters: import('@/types/studio').BlockFilter[] = [],
+  ctx: DistinctSourceCtx = {},
 ): Promise<string[]> {
   const { data } = await publicHttp.get(
     STATSIO_API.studioContent.publicDatasetQuery(docSlug, datasetId),
-    { params: {}, paramsSerializer: distinctParamsSerializer(column, search, filters) },
+    { params: {}, paramsSerializer: distinctParamsSerializer(column, search, filters, ctx) },
   )
   return pluckDistinct(data.data?.rows ?? [], column)
 }
@@ -232,8 +277,12 @@ export async function fetchPublicDistinctValues(
 
 export interface ScalarAggregateParams {
   fn: import('@/types/studio').AggregateFunction
+  /** Référence de colonne : nue (source primaire) ou `col@<sourceId>`. */
   column: string
   filters?: import('@/types/studio').BlockFilter[]
+  /** Contexte multi-sources du bloc appelant (nécessaire quand la ref/les filtres visent une source jointe). */
+  sources?: import('@/types/studio').BlockSource[]
+  primarySourceId?: string
   joins?: import('@/types/studio').BlockJoin[]
 }
 
@@ -242,15 +291,16 @@ function scalarAggregateQuery(p: ScalarAggregateParams): BlockQueryParams {
     columns: [p.column],
     limit: 1,
     filters: p.filters,
+    sources: p.sources,
+    primarySourceId: p.primarySourceId,
     joins: p.joins,
-    aggregate: p.fn,
-    aggregateColumns: [p.column],
+    aggregates: [{ column: p.column, fn: p.fn }],
     groupBy: [],
   }
 }
 
 function readScalar(result: BlockQueryResult, column: string): number | null {
-  const raw = result.rows[0]?.[column]
+  const raw = result.rows[0]?.[result.columnMap?.[column] ?? column]
   if (raw === null || raw === undefined || raw === '') return null
   const n = typeof raw === 'number' ? raw : Number(raw)
   return Number.isFinite(n) ? n : null

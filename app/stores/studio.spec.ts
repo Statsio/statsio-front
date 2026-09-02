@@ -873,4 +873,61 @@ describe('useStudioStore', () => {
       expect(store.pages[0]!.params).toBeUndefined()
     })
   })
+
+  describe('multi-sources', () => {
+    function seedBarBlock() {
+      const store = useStudioStore()
+      const zone = `${store.sections[0]!.id}-0`
+      const block = store.addBlock('bar', zone)
+      store.updateBlockDataset(block.id, '1')
+      return { store, id: block.id }
+    }
+
+    it('updateBlockDataset sets a single normalized source', () => {
+      const { store, id } = seedBarBlock()
+      const b = store.blocks.find((x) => x.id === id)!
+      expect(b.sources).toEqual([{ id: '1', datasetId: '1' }])
+      expect(b.primarySourceId).toBe('1')
+    })
+
+    it('addBlockSource appends a source with a unique id and removeBlockSource prunes joins + refs', () => {
+      const { store, id } = seedBarBlock()
+      const sid = store.addBlockSource(id, '2')!
+      store.updateBlockJoins(id, [
+        { leftSourceId: '1', leftColumn: 'a', rightSourceId: sid, rightColumn: 'b', type: 'left' },
+      ])
+      store.updateBlockFieldMapping(id, { xAxis: `nom@${sid}`, yAxes: ['montant'] })
+
+      store.removeBlockSource(id, sid)
+      const b = store.blocks.find((x) => x.id === id)!
+      expect(b.sources).toEqual([{ id: '1', datasetId: '1' }])
+      expect(b.joins).toEqual([])
+      expect(b.fieldMapping.xAxis).toBeUndefined()
+      expect(b.fieldMapping.yAxes).toEqual(['montant'])
+    })
+
+    it('addBlockSource disambiguates a duplicate datasetId', () => {
+      const { store, id } = seedBarBlock()
+      const sid = store.addBlockSource(id, '1')!
+      expect(sid).toBe('1~2')
+    })
+
+    it('setPrimarySource moves the primary and updates datasetId', () => {
+      const { store, id } = seedBarBlock()
+      const sid = store.addBlockSource(id, '2')!
+      store.setPrimarySource(id, sid)
+      const b = store.blocks.find((x) => x.id === id)!
+      expect(b.primarySourceId).toBe(sid)
+      expect(b.datasetId).toBe('2')
+    })
+
+    it('getPayload rewrites datasetId to the primary source dataset', () => {
+      const { store, id } = seedBarBlock()
+      const sid = store.addBlockSource(id, '2')!
+      store.setPrimarySource(id, sid)
+      const payload = store.getPayload()
+      const b = payload.blocks.find((x) => x.id === id)!
+      expect(b.datasetId).toBe('2')
+    })
+  })
 })

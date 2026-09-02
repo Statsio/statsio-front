@@ -9,6 +9,7 @@ vi.mock('@/api/studio', () => ({
 }))
 
 import { useResolvedTokens, useResolvedTokenList, useExpressionNumber, clearAggregateCache } from './useResolvedTokens'
+import type { StudioBlock } from '@/types/studio'
 
 async function settle() {
   await nextTick()
@@ -111,6 +112,41 @@ describe('useResolvedTokens', () => {
     expect(scalar).toHaveBeenLastCalledWith('1', expect.objectContaining({
       filters: [{ column: 'annee', operator: '=', value: '2021' }],
     }))
+  })
+
+  it('routes @<sourceId> through the block primary dataset with sources/joins when the source is joined', async () => {
+    scalar.mockResolvedValue(3)
+    const block: StudioBlock = {
+      id: 'b', type: 'kpi', zoneId: 'z', fieldMapping: {}, config: {},
+      datasetId: '1', primarySourceId: '1',
+      sources: [{ id: '1', datasetId: '1' }, { id: '2', datasetId: '2' }],
+      joins: [{ leftSourceId: '1', leftColumn: 'k', rightSourceId: '2', rightColumn: 'k', type: 'left' }],
+    }
+    const { text } = useResolvedTokens({
+      raw: () => '{{ AVG(pop@2) }}',
+      tokenMap: () => ({}),
+      block: () => block,
+    })
+    await settle()
+    // URL = dataset primaire, colonne qualifiée, contexte multi-sources joint
+    expect(scalar).toHaveBeenLastCalledWith('1', expect.objectContaining({
+      fn: 'avg',
+      column: 'pop@2',
+      sources: block.sources,
+      primarySourceId: '1',
+      joins: block.joins,
+    }))
+    expect(text.value).toBe('3')
+  })
+
+  it('treats @<datasetId> as a raw dataset when it is not a block source', async () => {
+    scalar.mockResolvedValue(7)
+    const block: StudioBlock = { id: 'b', type: 'kpi', zoneId: 'z', fieldMapping: {}, config: {}, datasetId: '1', primarySourceId: '1', sources: [{ id: '1', datasetId: '1' }] }
+    const { text } = useResolvedTokens({ raw: () => '{{ SUM(x@42) }}', tokenMap: () => ({}), block: () => block })
+    await settle()
+    expect(scalar).toHaveBeenLastCalledWith('42', expect.objectContaining({ fn: 'sum', column: 'x' }))
+    expect(scalar.mock.calls[0]![1]).not.toHaveProperty('sources')
+    expect(text.value).toBe('7')
   })
 })
 

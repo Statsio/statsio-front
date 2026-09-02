@@ -20,6 +20,7 @@ const { setActiveEditor, clearActiveEditor } = useActiveEditor()
 const { text: resolvedContent } = useResolvedTokens({
   raw: () => props.block.config.content || '<p></p>',
   tokenMap: () => ({ ...studio.pageParams, ...props.scope }),
+  block: () => props.block,
   datasetId: () => props.block.datasetId,
   readonly: () => props.readonly ?? false,
   docSlug: () => studio.content?.slug,

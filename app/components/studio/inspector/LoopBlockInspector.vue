@@ -3,10 +3,11 @@ import { computed, ref, watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import { fetchDistinctValues } from '@/api/studio'
+import { blockSourceParams } from '@/composables/useBlockData'
 import type { BlockFilter, DatasetMeta, StudioBlock } from '@/types/studio'
 import FieldPicker from '@/components/studio/fields/FieldPicker.vue'
 import FieldNote from '@/components/studio/fields/FieldNote.vue'
-import DataSourcePickerModal from '@/components/studio/ui/DataSourcePickerModal.vue'
+import DataSourceWizard from '@/components/studio/ui/DataSourceWizard.vue'
 import ColumnPickerModal from '@/components/studio/ui/ColumnPickerModal.vue'
 import FiltersModal from '@/components/studio/ui/FiltersModal.vue'
 
@@ -39,17 +40,19 @@ const preview = ref<string[]>([])
 const previewLoading = ref(false)
 
 watch(
-  () => [props.block.datasetId, loopColumn.value, JSON.stringify(filters.value)].join('|'),
+  () => [props.block.datasetId, JSON.stringify(props.block.sources ?? []), JSON.stringify(props.block.joins ?? []), loopColumn.value, JSON.stringify(filters.value)].join('|'),
   async () => {
     preview.value = []
-    if (!props.block.datasetId || !loopColumn.value) return
+    const sp = blockSourceParams(props.block)
+    if (!sp.urlDatasetId || !loopColumn.value) return
     previewLoading.value = true
     try {
       preview.value = await fetchDistinctValues(
-        props.block.datasetId,
+        sp.urlDatasetId,
         loopColumn.value,
         '',
         filters.value.filter((f) => f.column && f.value !== ''),
+        { sources: sp.sources, primarySourceId: sp.primarySourceId, joins: sp.joins },
       )
     } catch {
       preview.value = []
@@ -89,7 +92,7 @@ const LAYOUTS = [
           action="Changer"
           @open="showDataSourceModal = true"
         />
-        <DataSourcePickerModal :show="showDataSourceModal" :block="block" @close="showDataSourceModal = false" />
+        <DataSourceWizard :show="showDataSourceModal" :block="block" @close="showDataSourceModal = false" />
 
         <template v-if="block.datasetId">
           <FieldPicker
