@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useBlockData } from '@/composables/useBlockData'
+import { useBlockData, rowKey } from '@/composables/useBlockData'
 import { formatDisplayValue } from '@/utils/statsDataFormat'
 import type { StudioBlock } from '@/types/studio'
 
@@ -24,10 +24,13 @@ const cols = computed(() => {
   return row.value ? Object.keys(row.value) : []
 })
 const titleCol = computed(() => props.block.fieldMapping.recordTitleColumn ?? cols.value[0] ?? '')
+/** Valeur de ligne pour une ref (nue ou `col@<sourceId>`). */
+const cellValue = (ref: string) => row.value?.[rowKey(data.value, ref)]
+const titleValue = computed(() => cellValue(titleCol.value))
 const fields = computed(() =>
   cols.value
-    .filter((c) => c !== titleCol.value && row.value?.[c] != null && row.value?.[c] !== '')
-    .map((c) => ({ label: props.block.fieldMapping.columnLabels?.[c] ?? c, value: formatDisplayValue(row.value![c]) })),
+    .filter((c) => c !== titleCol.value && cellValue(c) != null && cellValue(c) !== '')
+    .map((c) => ({ label: props.block.fieldMapping.columnLabels?.[c] ?? c, value: formatDisplayValue(cellValue(c)) })),
 )
 </script>
 
@@ -39,8 +42,8 @@ const fields = computed(() =>
     <div v-else-if="!row" class="py-6 text-center text-sm text-[var(--studio-faint)]">Aucun enregistrement</div>
 
     <template v-else>
-      <p v-if="titleCol && row[titleCol]" class="text-[17px] font-extrabold tracking-[-0.01em] text-[var(--studio-ink)]">
-        {{ formatDisplayValue(row[titleCol]) }}
+      <p v-if="titleCol && titleValue" class="text-[17px] font-extrabold tracking-[-0.01em] text-[var(--studio-ink)]">
+        {{ formatDisplayValue(titleValue) }}
       </p>
       <dl class="mt-3 flex flex-col divide-y divide-[var(--studio-line)]">
         <div v-for="f in fields" :key="f.label" class="flex items-baseline justify-between gap-4 py-2">

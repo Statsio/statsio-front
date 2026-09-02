@@ -27,6 +27,7 @@ const studio = useStudioStore()
 
 const resolveOpts = {
   tokenMap: () => ({ ...studio.pageParams, ...props.scope }),
+  block: () => props.block,
   datasetId: () => props.block.datasetId,
   readonly: () => props.readonly ?? true,
   docSlug: () => studio.content?.slug,
@@ -51,7 +52,7 @@ const trend = computed<{ text: string; down: boolean } | null>(() => {
 
 const bare = computed(() => {
   const t = props.block.type
-  return isTextBlock(t) || isEditorialBlock(t) || t === 'loop' || t === 'if' || t === 'param'
+  return isTextBlock(t) || isEditorialBlock(t) || t === 'loop' || t === 'if' || t === 'layout' || t === 'param'
 })
 
 const wrapperClass = computed(() => {

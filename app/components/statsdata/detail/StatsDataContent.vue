@@ -1,17 +1,18 @@
 <script setup lang="ts">
 import { computed, nextTick, watch } from 'vue'
 import StatsDataSection from './StatsDataSection.vue'
-import type { Section } from '@/types/studio'
+import BlockRenderer from '@/components/studio/blocks/BlockRenderer.vue'
+import type { CanvasItemRef, Section, StudioBlock } from '@/types/studio'
 
 const props = defineProps<{
-  sections: Section[]
+  items: Array<{ ref: CanvasItemRef; section?: Section; block?: StudioBlock }>
 }>()
 
-const visibleSections = computed(() => props.sections)
+const visibleItems = computed(() => props.items)
 
-// Rejoue l'animation de révélation au scroll quand la liste de sections change
+// Rejoue l'animation de révélation au scroll quand la liste change
 // (chargement initial, changement d'onglet / de page).
-watch(() => visibleSections.value, async () => {
+watch(() => visibleItems.value, async () => {
   if (typeof window === 'undefined') return
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
   await nextTick()
@@ -38,8 +39,13 @@ watch(() => visibleSections.value, async () => {
 </script>
 
 <template>
-  <template v-if="visibleSections.length > 0">
-    <StatsDataSection v-for="section in visibleSections" :key="section.id" :section="section" />
+  <template v-if="visibleItems.length > 0">
+    <template v-for="item in visibleItems" :key="item.ref.kind + ':' + item.ref.id">
+      <StatsDataSection v-if="item.section" :section="item.section" />
+      <div v-else-if="item.block" data-block-anim class="min-w-0">
+        <BlockRenderer :block="item.block" :readonly="true" />
+      </div>
+    </template>
   </template>
 
   <div v-else class="rounded-2xl border border-dashed border-[#18181f]/15 bg-[#18181f]/[0.02] py-20 text-center text-[#18181f]/40">

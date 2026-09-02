@@ -4,6 +4,8 @@ import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import { fetchDistinctValues } from '@/api/studio'
 import { blockColumnGroups } from '@/lib/studio-columns'
+import { blockDatasetIds } from '@/lib/studio-block-sources'
+import { blockSourceParams } from '@/composables/useBlockData'
 import type { StudioBlock, BlockFilter } from '@/types/studio'
 import StudioSubModal from './StudioSubModal.vue'
 import FieldFilters from '@/components/studio/fields/FieldFilters.vue'
@@ -32,8 +34,7 @@ watch(
   () => props.show,
   (open) => {
     if (!open) return
-    if (props.block.datasetId) datasets.loadSchema(props.block.datasetId)
-    ;(props.block.joins ?? []).forEach((j) => j.datasetId && datasets.loadSchema(j.datasetId))
+    blockDatasetIds(props.block).forEach((id) => datasets.loadSchema(id))
   },
   { immediate: true },
 )
@@ -52,13 +53,14 @@ const suggestions = ref<Record<string, string[]>>({})
 watch(
   [filters, () => props.show],
   async () => {
-    const dsId = props.block.datasetId
-    if (!props.show || !dsId) return
+    const sp = blockSourceParams(props.block)
+    if (!props.show || !sp.urlDatasetId) return
+    const ctx = { sources: sp.sources, primarySourceId: sp.primarySourceId, joins: sp.joins }
     for (const f of filters.value) {
       if (!f.column || f.column in suggestions.value) continue
       suggestions.value = { ...suggestions.value, [f.column]: [] }
       try {
-        const values = await fetchDistinctValues(dsId, f.column, '')
+        const values = await fetchDistinctValues(sp.urlDatasetId, f.column, '', [], ctx)
         suggestions.value = { ...suggestions.value, [f.column]: values.slice(0, 8) }
       } catch {
         /* pas de suggestions pour cette colonne */

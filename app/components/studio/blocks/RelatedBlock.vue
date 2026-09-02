@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { useBlockData } from '@/composables/useBlockData'
+import { useBlockData, rowKey } from '@/composables/useBlockData'
 import { useStudioStore } from '@/stores/studio'
 import { formatDisplayValue } from '@/utils/statsDataFormat'
 import { findFanOutTarget, fanOutSlugKey } from '@/lib/statsdata-fanout'
@@ -31,17 +31,19 @@ const valueCol = computed(() => cols.value[1] ?? '')
 const fanOut = computed(() => findFanOutTarget(studio.pages))
 const docSlug = computed(() => String(route.params.slug ?? studio.content?.slug ?? ''))
 
-const items = computed(() =>
-  (data.value?.rows ?? []).slice(0, limit.value).map((r) => {
-    const label = formatDisplayValue(r[labelCol.value], '')
+const items = computed(() => {
+  const labelKey = rowKey(data.value, labelCol.value)
+  const valueKey = valueCol.value ? rowKey(data.value, valueCol.value) : ''
+  return (data.value?.rows ?? []).slice(0, limit.value).map((r) => {
+    const label = formatDisplayValue(r[labelKey], '')
     let href: string | undefined
     if (fanOut.value && docSlug.value) {
-      const seg = r[fanOutSlugKey(fanOut.value.param)] ?? r[labelCol.value]
+      const seg = r[fanOutSlugKey(fanOut.value.param)] ?? r[labelKey]
       if (seg) href = `/statsdata/${docSlug.value}/${slugify(String(seg))}`
     }
-    return { label, value: valueCol.value ? formatDisplayValue(r[valueCol.value], '') : '', href }
-  }).filter((it) => it.label),
-)
+    return { label, value: valueKey ? formatDisplayValue(r[valueKey], '') : '', href }
+  }).filter((it) => it.label)
+})
 </script>
 
 <template>

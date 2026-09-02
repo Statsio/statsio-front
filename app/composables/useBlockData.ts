@@ -1,9 +1,10 @@
 import { ref, watch, computed, inject } from 'vue'
 import { fetchBlockData, fetchPublicBlockData } from '@/api/studio'
-import type { StudioBlock, BlockFilter, BlockQueryResult, AggregateFunction } from '@/types/studio'
+import type { StudioBlock, BlockFilter, BlockQueryResult, BlockAggregate } from '@/types/studio'
 import { useStudioStore } from '@/stores/studio'
 import { getErrorMessage } from '@/lib/http-errors'
 import { interpolateTokens } from '@/lib/studio-tokens'
+import { primarySourceId } from '@/lib/studio-columns'
 import { STUDIO_EMBED_CONTEXT, type StudioEmbedContext } from '@/composables/studioEmbedContext'
 
 export interface BlockDataOverrides {
@@ -13,6 +14,28 @@ export interface BlockDataOverrides {
   /** Pagination serveur. */
   offset?: number
   limit?: number
+}
+
+/** dataset (URL) + sources + jointures d'un bloc, pour un appel `fetchBlockData`. */
+export function blockSourceParams(block: StudioBlock) {
+  const primary = primarySourceId(block)
+  const sources = block.sources?.length
+    ? block.sources
+    : block.datasetId
+      ? [{ id: block.datasetId, datasetId: block.datasetId }]
+      : []
+  const urlDatasetId = sources.find((s) => s.id === primary)?.datasetId ?? sources[0]?.datasetId ?? block.datasetId
+  return {
+    urlDatasetId,
+    sources,
+    primarySourceId: primary,
+    joins: block.joins ?? [],
+  }
+}
+
+/** Clé de ligne réelle pour une référence de colonne (nue ou `col@<sourceId>`). */
+export function rowKey(result: BlockQueryResult | null, ref: string): string {
+  return result?.columnMap?.[ref] ?? ref
 }
 
 export function useBlockData(
@@ -30,7 +53,7 @@ export function useBlockData(
 
   const canFetch = computed(() => {
     const b = block()
-    return b?.datasetId != null
+    return b != null && (b.sources?.some((s) => s.datasetId) || b.datasetId != null)
   })
 
   function resolveFilterValue(value: string): string {
@@ -50,7 +73,8 @@ export function useBlockData(
 
   async function load() {
     const b = block()
-    if (!b?.datasetId) {
+    const sp = b ? blockSourceParams(b) : null
+    if (!b || !sp?.urlDatasetId) {
       data.value = null
       return
     }
@@ -70,11 +94,13 @@ export function useBlockData(
       // réglages peuvent coexister dans block.config sans rapport l'un avec l'autre (ex. l'un
       // laissé d'un essai précédent), donc on ignore distinctColumn dès qu'une agrégation est active
       // plutôt que d'envoyer une combinaison que le backend rejette de toute façon.
-      distinctColumn: aggregationParams.aggregate ? undefined : (b.config.distinctColumn ?? undefined),
+      distinctColumn: aggregationParams.aggregates ? undefined : (b.config.distinctColumn ?? undefined),
       sortColumn: (ov.sortColumn ?? b.config.sortColumn) ?? undefined,
       sortDirection: (ov.sortColumn !== undefined && ov.sortColumn !== null ? ov.sortDirection : b.config.sortDirection) ?? undefined,
       filters: resolveFilters(b.filters ?? []),
-      joins: b.joins?.length ? b.joins : undefined,
+      sources: sp.sources,
+      primarySourceId: sp.primarySourceId,
+      joins: sp.joins,
       ...aggregationParams,
     }
 
@@ -84,8 +110,8 @@ export function useBlockData(
       // Bloc réutilisé dans un article : les données viennent du Statsdata source.
       const docSlug = embed?.docSlug ?? studio.content?.slug
       data.value = readonly && docSlug
-        ? await fetchPublicBlockData(docSlug, b.datasetId, params)
-        : await fetchBlockData(b.datasetId, params)
+        ? await fetchPublicBlockData(docSlug, sp.urlDatasetId, params)
+        : await fetchBlockData(sp.urlDatasetId, params)
     } catch (e: unknown) {
       error.value = getErrorMessage(e, 'Impossible de charger les données.')
       data.value = null
@@ -99,7 +125,7 @@ export function useBlockData(
     (): string | null => {
       const b = block()
       return b
-        ? `${b.datasetId}|${JSON.stringify(b.fieldMapping)}|${JSON.stringify(b.filters ?? [])}|${JSON.stringify(b.joins ?? [])}|${JSON.stringify(studio.pageParams)}|${JSON.stringify(scope?.() ?? null)}|${b.config.rowLimit ?? ''}|${b.config.distinctColumn ?? ''}|${b.config.sortColumn ?? ''}|${b.config.sortDirection ?? ''}|${JSON.stringify(overrides?.() ?? null)}`
+        ? `${b.datasetId}|${JSON.stringify(b.sources ?? [])}|${b.primarySourceId ?? ''}|${JSON.stringify(b.fieldMapping)}|${JSON.stringify(b.filters ?? [])}|${JSON.stringify(b.joins ?? [])}|${JSON.stringify(studio.pageParams)}|${JSON.stringify(scope?.() ?? null)}|${b.config.rowLimit ?? ''}|${b.config.distinctColumn ?? ''}|${b.config.sortColumn ?? ''}|${b.config.sortDirection ?? ''}|${JSON.stringify(overrides?.() ?? null)}`
         : null
     },
     (key, prev) => {
@@ -116,23 +142,32 @@ export function useBlockData(
  * Shared by the main fetch above and by KpiBlock's comparison fetch, so both
  * the primary value and the comparison value use the exact same aggregation.
  */
-export function resolveAggregationParams(block: StudioBlock): { aggregate?: AggregateFunction; aggregateColumns?: string[]; groupBy?: string[] } {
+export function resolveAggregationParams(block: StudioBlock): { aggregates?: BlockAggregate[]; groupBy?: string[] } {
   const m = block.fieldMapping
-  if (!m.aggregate) return {}
+  // Fonction par colonne : `aggregates[]` ; fallback legacy : `aggregate` unique.
+  const fnFor = (col: string): BlockAggregate['fn'] | undefined =>
+    m.aggregates?.find((a) => a.column === col)?.fn ?? m.aggregate
+  const specs = (cols: string[]): BlockAggregate[] =>
+    cols.map((c) => ({ column: c, fn: fnFor(c) })).filter((a): a is BlockAggregate => Boolean(a.fn))
+
+  if (!m.aggregate && !m.aggregates?.length) return {}
 
   if (block.type === 'kpi') {
     if (!m.valueColumn) return {}
-    return { aggregate: m.aggregate, aggregateColumns: [m.valueColumn], groupBy: [] }
+    const s = specs([m.valueColumn])
+    return s.length ? { aggregates: s, groupBy: [] } : {}
   }
   if (block.type === 'pie') {
     if (!m.value) return {}
-    return { aggregate: m.aggregate, aggregateColumns: [m.value], groupBy: m.label ? [m.label] : [] }
+    const s = specs([m.value])
+    return s.length ? { aggregates: s, groupBy: m.label ? [m.label] : [] } : {}
   }
   if (block.type === 'bar' || block.type === 'line') {
     const yCols = m.yAxes?.length ? m.yAxes : (m.yAxis ? [m.yAxis] : [])
-    if (!yCols.length) return {}
+    const s = specs(yCols)
+    if (!s.length) return {}
     const groupBy = [m.xAxis, m.series].filter((c): c is string => Boolean(c))
-    return { aggregate: m.aggregate, aggregateColumns: yCols, groupBy }
+    return { aggregates: s, groupBy }
   }
   return {}
 }

@@ -4,6 +4,7 @@ import { RouterLink, useRoute } from 'vue-router'
 import { useStatsDataDetail } from '@/composables/useStatsDataDetail'
 import { useStatsDataChrome } from '@/composables/useStatsDataChrome'
 import { publicContentListPath } from '@/lib/content-display'
+import { sectionAnchorId } from '@/lib/slug'
 import { useContentBasePath } from '@/composables/useContentBasePath'
 import StatsDataHero from './StatsDataHero.vue'
 import StatsDataSubHeader from './StatsDataSubHeader.vue'
@@ -22,6 +23,7 @@ const {
   activePage,
   allPages,
   pageSections,
+  canvasItems,
   resolveToken,
 } = useStatsDataDetail()
 
@@ -70,7 +72,8 @@ const searchAnchor = computed(() => {
   for (const section of pageSections.value) {
     const zones = Object.keys(studio.blocksByZone).filter((z) => z.startsWith(`${section.id}-`))
     const hasSearch = zones.some((z) => (studio.blocksByZone[z] ?? []).some((b) => b.type === 'search'))
-    if (hasSearch && section.anchorId) return section.anchorId
+    const anchor = sectionAnchorId(section)
+    if (hasSearch && anchor) return anchor
   }
   return null
 })
@@ -96,7 +99,7 @@ const searchAnchor = computed(() => {
       <!-- Embed : contenu seul -->
       <template v-if="embed">
         <main class="mx-auto flex max-w-[1180px] flex-col gap-4 px-3 py-4 sm:px-5">
-          <StatsDataContent :sections="pageSections" />
+          <StatsDataContent :items="canvasItems" />
           <a
             :href="shareUrl"
             target="_blank"
@@ -145,7 +148,7 @@ const searchAnchor = computed(() => {
             </div>
 
             <main class="flex min-w-0 flex-col gap-4 pb-24">
-              <StatsDataContent :sections="pageSections" />
+              <StatsDataContent :items="canvasItems" />
 
               <StatsDataUsefulBar
                 :is-favorite="isFavorite"

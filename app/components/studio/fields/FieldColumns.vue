@@ -1,22 +1,29 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import StudioField from './StudioField.vue'
-import { COLUMN_TYPE_BADGE, type StudioColumnGroup } from '@/lib/studio-columns'
+import { COLUMN_TYPE_BADGE, makeColumnRef, type StudioColumnGroup, type ColumnItem } from '@/lib/studio-columns'
 
 const props = withDefaults(
   defineProps<{
     label?: string
     hint?: string
     groups: StudioColumnGroup[]
-    /** Colonne(s) sélectionnée(s), pour la mise en évidence. */
+    /** Colonne(s) sélectionnée(s) (références), pour la mise en évidence. */
     selected?: string | readonly string[] | null
+    /** Id de la source primaire — pour qualifier les refs des sources jointes. */
+    primarySourceId?: string
     /** Chip « aucune » en tête (mode simple). */
     noneLabel?: string
   }>(),
-  { label: '', hint: '', selected: null, noneLabel: '' },
+  { label: '', hint: '', selected: null, primarySourceId: '', noneLabel: '' },
 )
 
-const emit = defineEmits<{ pick: [name: string]; none: [] }>()
+const emit = defineEmits<{ pick: [ref: string]; none: [] }>()
+
+/** Référence d'une colonne dans son groupe (nue si primaire, sinon `col@<sourceId>`). */
+function refOf(c: ColumnItem, g: StudioColumnGroup): string {
+  return makeColumnRef(c.name, g.sourceId, props.primarySourceId)
+}
 
 const search = ref('')
 
@@ -41,7 +48,7 @@ watch(
   () => {
     const next = new Set<string>()
     props.groups.forEach((g, i) => {
-      if (i === 0 || g.columns.some((c) => selectedSet.value.has(c.name))) next.add(g.label)
+      if (i === 0 || g.columns.some((c) => selectedSet.value.has(refOf(c, g)))) next.add(g.label)
     })
     openGroups.value = next
   },
@@ -108,17 +115,17 @@ const totalColumns = computed(() => props.groups.reduce((n, g) => n + g.columns.
           <div v-show="isOpen(g.label)" class="flex flex-wrap gap-1.5 px-1 pb-2 pt-0.5">
             <button
               v-for="c in g.columns"
-              :key="c.name"
+              :key="`${g.label}:${c.name}`"
               type="button"
               class="flex items-center gap-1.5 rounded-[16px] border-[1.5px] px-2.5 py-1.5 transition-colors"
-              :class="selectedSet.has(c.name)
+              :class="selectedSet.has(refOf(c, g))
                 ? 'border-[var(--color-primary)] bg-[var(--studio-accent-wash)]'
                 : 'border-[var(--studio-line-strong)] hover:border-[var(--color-primary)]'"
-              @click="emit('pick', c.name)"
+              @click="emit('pick', refOf(c, g))"
             >
               <span
                 class="font-mono text-[11px] font-semibold"
-                :class="selectedSet.has(c.name) ? 'text-[var(--studio-tag-ink)]' : 'text-[var(--studio-muted)]'"
+                :class="selectedSet.has(refOf(c, g)) ? 'text-[var(--studio-tag-ink)]' : 'text-[var(--studio-muted)]'"
               >{{ c.name }}</span>
               <span v-if="c.type" class="text-[9.5px] text-[var(--studio-faint)]">{{ COLUMN_TYPE_BADGE[c.type] ?? '?' }}</span>
             </button>

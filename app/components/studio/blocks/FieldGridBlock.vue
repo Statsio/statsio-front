@@ -17,6 +17,7 @@ const cols = computed(() => props.block.config.fieldGridColumns ?? 3)
 const { list: values } = useResolvedTokenList({
   items: () => rawItems.value.map((it) => it.value),
   tokenMap: () => ({ ...studio.pageParams, ...props.scope }),
+  block: () => props.block,
   datasetId: () => props.block.datasetId,
   readonly: () => props.readonly ?? false,
   docSlug: () => studio.content?.slug,

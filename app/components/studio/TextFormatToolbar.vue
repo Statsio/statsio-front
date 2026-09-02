@@ -5,7 +5,7 @@ import { useStudioStore } from '@/stores/studio'
 import { TEXT_BLOCK_TYPES } from '@/types/studio'
 import VariablePickerModal from './VariablePickerModal.vue'
 
-const { activeEditor, editorVersion } = useActiveEditor()
+const { activeEditor, activeEditorContext, editorVersion } = useActiveEditor()
 const studio = useStudioStore()
 const toolbarRef = ref<HTMLElement | null>(null)
 
@@ -13,11 +13,20 @@ const selectedBlock = computed(() =>
   studio.blocks.find(b => b.id === studio.selectedBlockId),
 )
 
-// Only show when a text block is selected and has an active editor
+// En-tête de section : jeu de contrôles restreint (marques de caractère + variable).
+const restricted = computed(() => activeEditorContext.value.kind === 'section-header')
+const headerSection = computed(() => {
+  const ctx = activeEditorContext.value
+  return ctx.kind === 'section-header'
+    ? studio.sections.find(s => s.id === ctx.sectionId) ?? null
+    : null
+})
+
+// Show when an active editor belongs to a selected text block, or to a section header.
 const show = computed(() =>
-  !!selectedBlock.value &&
-  TEXT_BLOCK_TYPES.includes(selectedBlock.value.type) &&
-  activeEditor.value !== null,
+  activeEditor.value !== null &&
+  (restricted.value ||
+    (!!selectedBlock.value && TEXT_BLOCK_TYPES.includes(selectedBlock.value.type))),
 )
 
 // ── Popover management ────────────────────────────────────────────────────────
@@ -154,33 +163,46 @@ function setHighlight(color: string) {
 
 // ── Spacing (block-level) ─────────────────────────────────────────────────────
 
-const currentLetterSpacing = computed(() => selectedBlock.value?.config.letterSpacing ?? 0)
-const currentLineHeight    = computed(() => selectedBlock.value?.config.lineHeight    ?? 1.7)
+// Spacing cible le bloc sélectionné, ou — pour un en-tête de section — la section.
+const currentLetterSpacing = computed(() =>
+  restricted.value
+    ? (headerSection.value?.headerLetterSpacing ?? 0)
+    : (selectedBlock.value?.config.letterSpacing ?? 0),
+)
+const currentLineHeight = computed(() =>
+  restricted.value
+    ? (headerSection.value?.headerLineHeight ?? 1.3)
+    : (selectedBlock.value?.config.lineHeight ?? 1.7),
+)
+
+function setSpacing(patch: { letterSpacing?: number; lineHeight?: number }) {
+  if (restricted.value) {
+    if (!headerSection.value) return
+    studio.updateSection(headerSection.value.id, {
+      ...(patch.letterSpacing !== undefined ? { headerLetterSpacing: patch.letterSpacing } : {}),
+      ...(patch.lineHeight !== undefined ? { headerLineHeight: patch.lineHeight } : {}),
+    })
+  } else if (selectedBlock.value) {
+    studio.updateBlockConfig(selectedBlock.value.id, patch)
+  }
+}
 
 function adjustLetterSpacing(delta: number) {
-  if (!selectedBlock.value) return
-  const next = Math.round((currentLetterSpacing.value + delta) * 100) / 100
-  studio.updateBlockConfig(selectedBlock.value.id, { letterSpacing: next })
+  setSpacing({ letterSpacing: Math.round((currentLetterSpacing.value + delta) * 100) / 100 })
 }
 
 function onLetterSpacingInput(e: Event) {
   const val = parseFloat((e.target as HTMLInputElement).value)
-  if (!isNaN(val) && selectedBlock.value) {
-    studio.updateBlockConfig(selectedBlock.value.id, { letterSpacing: val })
-  }
+  if (!isNaN(val)) setSpacing({ letterSpacing: val })
 }
 
 function adjustLineHeight(delta: number) {
-  if (!selectedBlock.value) return
-  const next = Math.max(0.5, Math.round((currentLineHeight.value + delta) * 10) / 10)
-  studio.updateBlockConfig(selectedBlock.value.id, { lineHeight: next })
+  setSpacing({ lineHeight: Math.max(0.5, Math.round((currentLineHeight.value + delta) * 10) / 10) })
 }
 
 function onLineHeightInput(e: Event) {
   const val = parseFloat((e.target as HTMLInputElement).value)
-  if (!isNaN(val) && val > 0 && selectedBlock.value) {
-    studio.updateBlockConfig(selectedBlock.value.id, { lineHeight: val })
-  }
+  if (!isNaN(val) && val > 0) setSpacing({ lineHeight: val })
 }
 
 // ── Insert dynamic value modal ─────────────────────────────────────────────────
@@ -213,14 +235,15 @@ function handleCopyFormat() {
       if (f.italic)    c.setItalic();    else c.unsetItalic()
       if (f.underline) c.setUnderline(); else c.unsetUnderline()
       if (f.strike)    c.setStrike();    else c.unsetStrike()
-      if (f.color)     c.setColor(f.color); else c.unsetColor()
       if (f.highlight) c.setHighlight({ color: f.highlight }); else c.unsetHighlight()
-      c.setMark('textStyle', {
-        textTransform: f.textTransform ?? null,
-        fontFamily:    f.fontFamily    ?? null,
-      }).run()
+      const marks: Record<string, unknown> = { textTransform: f.textTransform ?? null }
+      if (!restricted.value) {
+        if (f.color) c.setColor(f.color); else c.unsetColor()
+        marks.fontFamily = f.fontFamily ?? null
+      }
+      c.setMark('textStyle', marks).run()
     }
-    if (selectedBlock.value && f.fontSize !== undefined) {
+    if (!restricted.value && selectedBlock.value && f.fontSize !== undefined) {
       studio.updateBlockConfig(selectedBlock.value.id, { fontSize: f.fontSize })
     }
     isCopyMode.value   = false
@@ -252,70 +275,72 @@ function handleCopyFormat() {
     ref="toolbarRef"
     class="inline-flex items-center h-10 px-3 bg-white/95 backdrop-blur-sm border border-[var(--studio-line)] shadow-[var(--studio-shadow-pop)] rounded-[11px] gap-0.5 flex-shrink-0 select-none"
   >
-    <!-- Font family -->
-    <AppSelect
-      :model-value="currentFontFamily"
-      :options="FONT_OPTIONS"
-      size="sm"
-      teleport
-      button-class="!h-7 !rounded-lg !border-[var(--studio-line-strong)] !w-32 !min-h-0 !text-xs !text-[var(--studio-ink)]"
-      @update:model-value="setFontFamily($event as string)"
-    />
+    <template v-if="!restricted">
+      <!-- Font family -->
+      <AppSelect
+        :model-value="currentFontFamily"
+        :options="FONT_OPTIONS"
+        size="sm"
+        teleport
+        button-class="!h-7 !rounded-lg !border-[var(--studio-line-strong)] !w-32 !min-h-0 !text-xs !text-[var(--studio-ink)]"
+        @update:model-value="setFontFamily($event as string)"
+      />
 
-    <div class="w-px h-[18px] bg-[var(--studio-line)] mx-1 flex-shrink-0" />
+      <div class="w-px h-[18px] bg-[var(--studio-line)] mx-1 flex-shrink-0" />
 
-    <!-- Font size -->
-    <button
-      class="w-6 h-7 flex items-center justify-center text-[var(--studio-faint)] hover:text-[var(--color-primary)] hover:bg-[var(--studio-wash)] rounded-lg text-sm font-medium flex-shrink-0 transition-colors"
-      @mousedown.prevent="adjustFontSize(-1)"
-    >−</button>
-    <input
-      type="number"
-      :value="currentFontSize"
-      min="8"
-      max="200"
-      class="w-10 h-7 text-center text-xs border border-[var(--studio-line-strong)] rounded-lg focus:outline-none focus:border-[var(--color-primary)] [appearance:textfield] flex-shrink-0 text-[var(--studio-ink)]"
-      @change="onFontSizeInput"
-    />
-    <button
-      class="w-6 h-7 flex items-center justify-center text-[var(--studio-faint)] hover:text-[var(--color-primary)] hover:bg-[var(--studio-wash)] rounded-lg text-sm font-medium flex-shrink-0 transition-colors"
-      @mousedown.prevent="adjustFontSize(1)"
-    >+</button>
-
-    <div class="w-px h-[18px] bg-[var(--studio-line)] mx-1 flex-shrink-0" />
-
-    <!-- Text color -->
-    <div class="relative flex-shrink-0">
+      <!-- Font size -->
       <button
-        class="w-7 h-7 flex flex-col items-center justify-center rounded-lg transition-colors"
-        :class="openPopover === 'color' ? 'bg-[var(--studio-tag)] text-[var(--studio-tag-ink)]' : 'hover:bg-[var(--studio-wash)]'"
-        title="Couleur du texte"
-        @mousedown.prevent="togglePopover('color')"
-      >
-        <span class="text-xs font-bold text-[var(--studio-ink)] leading-none">A</span>
-        <span class="w-4 h-1 rounded-full mt-0.5" :style="{ backgroundColor: currentColor || '#374151' }" />
-      </button>
-      <div
-        v-if="openPopover === 'color'"
-        class="absolute top-full left-0 mt-1.5 z-50 bg-white border border-[var(--studio-line-strong)] rounded-xl shadow-[var(--studio-shadow-pop)] p-2.5"
-        style="min-width: 128px"
-      >
-        <div class="grid grid-cols-4 gap-1.5 mb-2">
-          <button
-            v-for="c in TEXT_COLORS"
-            :key="c"
-            class="w-6 h-6 rounded-lg border-2 hover:scale-110 transition-transform"
-            :style="{ backgroundColor: c }"
-            :class="currentColor === c ? 'border-[var(--studio-ink)] scale-110' : 'border-transparent'"
-            @mousedown.prevent="setColor(c)"
-          />
-        </div>
+        class="w-6 h-7 flex items-center justify-center text-[var(--studio-faint)] hover:text-[var(--color-primary)] hover:bg-[var(--studio-wash)] rounded-lg text-sm font-medium flex-shrink-0 transition-colors"
+        @mousedown.prevent="adjustFontSize(-1)"
+      >−</button>
+      <input
+        type="number"
+        :value="currentFontSize"
+        min="8"
+        max="200"
+        class="w-10 h-7 text-center text-xs border border-[var(--studio-line-strong)] rounded-lg focus:outline-none focus:border-[var(--color-primary)] [appearance:textfield] flex-shrink-0 text-[var(--studio-ink)]"
+        @change="onFontSizeInput"
+      />
+      <button
+        class="w-6 h-7 flex items-center justify-center text-[var(--studio-faint)] hover:text-[var(--color-primary)] hover:bg-[var(--studio-wash)] rounded-lg text-sm font-medium flex-shrink-0 transition-colors"
+        @mousedown.prevent="adjustFontSize(1)"
+      >+</button>
+
+      <div class="w-px h-[18px] bg-[var(--studio-line)] mx-1 flex-shrink-0" />
+
+      <!-- Text color -->
+      <div class="relative flex-shrink-0">
         <button
-          class="w-full text-[11px] text-[var(--studio-faint)] hover:text-[var(--studio-tag-ink)] transition-colors mt-0.5"
-          @mousedown.prevent="setColor('')"
-        >↺ Réinitialiser</button>
+          class="w-7 h-7 flex flex-col items-center justify-center rounded-lg transition-colors"
+          :class="openPopover === 'color' ? 'bg-[var(--studio-tag)] text-[var(--studio-tag-ink)]' : 'hover:bg-[var(--studio-wash)]'"
+          title="Couleur du texte"
+          @mousedown.prevent="togglePopover('color')"
+        >
+          <span class="text-xs font-bold text-[var(--studio-ink)] leading-none">A</span>
+          <span class="w-4 h-1 rounded-full mt-0.5" :style="{ backgroundColor: currentColor || '#374151' }" />
+        </button>
+        <div
+          v-if="openPopover === 'color'"
+          class="absolute top-full left-0 mt-1.5 z-50 bg-white border border-[var(--studio-line-strong)] rounded-xl shadow-[var(--studio-shadow-pop)] p-2.5"
+          style="min-width: 128px"
+        >
+          <div class="grid grid-cols-4 gap-1.5 mb-2">
+            <button
+              v-for="c in TEXT_COLORS"
+              :key="c"
+              class="w-6 h-6 rounded-lg border-2 hover:scale-110 transition-transform"
+              :style="{ backgroundColor: c }"
+              :class="currentColor === c ? 'border-[var(--studio-ink)] scale-110' : 'border-transparent'"
+              @mousedown.prevent="setColor(c)"
+            />
+          </div>
+          <button
+            class="w-full text-[11px] text-[var(--studio-faint)] hover:text-[var(--studio-tag-ink)] transition-colors mt-0.5"
+            @mousedown.prevent="setColor('')"
+          >↺ Réinitialiser</button>
+        </div>
       </div>
-    </div>
+    </template>
 
     <!-- Highlight -->
     <div class="relative flex-shrink-0">
@@ -394,6 +419,7 @@ function handleCopyFormat() {
       @mousedown.prevent="toggleUppercase"
     >aA</button>
 
+    <template v-if="!restricted">
     <div class="w-px h-[18px] bg-[var(--studio-line)] mx-1 flex-shrink-0" />
 
     <!-- Alignment dropdown -->
@@ -506,6 +532,7 @@ function handleCopyFormat() {
         </button>
       </div>
     </div>
+    </template>
 
     <div class="w-px h-[18px] bg-[var(--studio-line)] mx-1 flex-shrink-0" />
 
@@ -612,7 +639,7 @@ function handleCopyFormat() {
   <!-- Insertion de variable dynamique -->
   <VariablePickerModal
     v-if="showCodeModal"
-    :context="`${selectedBlock?.type ?? 'texte'} · contenu`"
+    :context="restricted ? 'en-tête de section' : `${selectedBlock?.type ?? 'texte'} · contenu`"
     @pick="onPickVariable"
     @close="showCodeModal = false"
   />
