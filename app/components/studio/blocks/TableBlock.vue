@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useBlockData, rowKey } from '@/composables/useBlockData'
 import { useAggregateValues } from '@/composables/useResolvedTokens'
 import { useStudioStore } from '@/stores/studio'
-import { formatDisplayValue } from '@/utils/statsDataFormat'
+import { formatDisplayValue, toNumericOrNull } from '@/utils/statsDataFormat'
 import { parseExpression, evaluate, formatNumber, type AggregateRef } from '@/lib/studio-expression'
 import { rowsToCsv, downloadCsv, csvFileName } from '@/lib/csv'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
@@ -66,9 +66,8 @@ const { values: aggValues } = useAggregateValues({
 })
 
 function num(v: unknown): number | null {
-  if (v === null || v === undefined || v === '') return null
-  const n = typeof v === 'number' ? v : Number(String(v).replace(',', '.').replace(/\s/g, ''))
-  return Number.isFinite(n) ? n : null
+  // Extrait le nombre même d'une valeur décorée (« 90 % », « 1 234 », « 12 € »).
+  return toNumericOrNull(v)
 }
 
 const rows = computed<Record<string, unknown>[]>(() => {

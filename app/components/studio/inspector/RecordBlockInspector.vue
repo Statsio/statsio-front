@@ -3,12 +3,12 @@ import { computed, ref, watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import { blockColumnGroups } from '@/lib/studio-columns'
-import type { BlockFilter, DatasetMeta, StudioBlock } from '@/types/studio'
+import type { DatasetMeta, StudioBlock } from '@/types/studio'
 import FieldPicker from '@/components/studio/fields/FieldPicker.vue'
 import FieldNote from '@/components/studio/fields/FieldNote.vue'
 import FieldColumns from '@/components/studio/fields/FieldColumns.vue'
 import DataSourceWizard from '@/components/studio/ui/DataSourceWizard.vue'
-import FiltersModal from '@/components/studio/ui/FiltersModal.vue'
+import BlockFiltersField from '@/components/studio/fields/BlockFiltersField.vue'
 
 const props = defineProps<{ block: StudioBlock; activeTab: string }>()
 const studio = useStudioStore()
@@ -24,7 +24,6 @@ watch(() => props.block.datasetId, (id) => { if (id) datasets.loadSchema(id) }, 
 
 const columnGroups = computed(() => blockColumnGroups(props.block, datasets))
 const cols = computed<string[]>(() => props.block.fieldMapping.columns ?? [])
-const filters = computed<BlockFilter[]>(() => props.block.filters ?? [])
 const datasetName = computed(() =>
   props.block.datasetId
     ? (datasets.readyDatasets.find((d: DatasetMeta) => d.id === props.block.datasetId)?.name ?? 'Source sélectionnée')
@@ -37,7 +36,6 @@ function toggleColumn(col: string) {
 }
 
 const showSourceModal = ref(false)
-const showFiltersModal = ref(false)
 </script>
 
 <template>
@@ -80,13 +78,7 @@ const showFiltersModal = ref(false)
       <div class="flex flex-col gap-[11px] px-4 pb-1 pt-3">
         <FieldNote v-if="!block.datasetId">Connectez d'abord une source dans l'onglet Données.</FieldNote>
         <template v-else>
-          <FieldPicker
-            label="Filtres"
-            :value="filters.length ? `${filters.length} filtre${filters.length > 1 ? 's' : ''}` : 'Aucun filtre'"
-            :action="filters.length ? 'Modifier' : 'Ajouter'"
-            @open="showFiltersModal = true"
-          />
-          <FiltersModal :show="showFiltersModal" :block="block" mode="primary" @close="showFiltersModal = false" />
+          <BlockFiltersField :block="block" mode="primary" />
 
           <div class="flex flex-col gap-1.5">
             <label class="text-xs font-semibold text-[var(--studio-muted)]">{{ isRelated ? 'Trier par' : 'Trier par (choix de la ligne)' }}</label>

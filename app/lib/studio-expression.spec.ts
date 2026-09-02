@@ -53,6 +53,17 @@ describe('parseExpression', () => {
     expect(p.aggregates[0]!.column).toBe('prix moyen')
   })
 
+  it('accepts a quoted column with no @dataset (primary source) — pie segments', () => {
+    const p = parseExpression('SUM("Inscrits") - SUM("Admis")')!
+    expect(p.aggregates).toHaveLength(2)
+    expect(p.aggregates.map((a) => [a.fn, a.column, a.datasetId])).toEqual([
+      ['sum', 'Inscrits', null],
+      ['sum', 'Admis', null],
+    ])
+    const vals = new Map([[p.aggregates[0]!.key, 1000], [p.aggregates[1]!.key, 870]])
+    expect(evaluate(p.node, vals)).toBe(130)
+  })
+
   it('parses {col} row-references for computed table columns and evaluates them per row', () => {
     const p = parseExpression('{prix} - AVG(prix@7)')!
     expect(p.columns).toEqual(['prix'])

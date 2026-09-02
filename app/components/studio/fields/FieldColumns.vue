@@ -37,7 +37,7 @@ const filteredGroups = computed<StudioColumnGroup[]>(() => {
   const q = search.value.trim().toLowerCase()
   if (!q) return props.groups
   return props.groups
-    .map((g) => ({ ...g, columns: g.columns.filter((c) => c.name.toLowerCase().includes(q)) }))
+    .map((g) => ({ ...g, columns: g.columns.filter((c) => (c.label ?? c.name).toLowerCase().includes(q)) }))
     .filter((g) => g.columns.length)
 })
 
@@ -126,7 +126,7 @@ const totalColumns = computed(() => props.groups.reduce((n, g) => n + g.columns.
               <span
                 class="font-mono text-[11px] font-semibold"
                 :class="selectedSet.has(refOf(c, g)) ? 'text-[var(--studio-tag-ink)]' : 'text-[var(--studio-muted)]'"
-              >{{ c.name }}</span>
+              >{{ c.label ?? c.name }}</span>
               <span v-if="c.type" class="text-[9.5px] text-[var(--studio-faint)]">{{ COLUMN_TYPE_BADGE[c.type] ?? '?' }}</span>
             </button>
           </div>

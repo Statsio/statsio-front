@@ -4,7 +4,6 @@ import type { CatalogItem } from '@/types/catalog'
 import type { ContentCardFormat, ContentManageMeta } from '@/types/content-card'
 import { CONTENT_TYPE_META } from '@/lib/content-display'
 import { formatCatalogCount } from '@/lib/catalog-format'
-import { resolveChannelColors, channelBannerStyle } from '@/lib/channel-brand'
 import { getNameInitials } from '@/lib/format'
 
 /**
@@ -27,14 +26,6 @@ const props = withDefaults(
 const typeMeta = computed(() => CONTENT_TYPE_META[props.item.type ?? 'statsdata'] ?? CONTENT_TYPE_META.statsdata)
 const views = computed(() => (props.manage.live ? `${formatCatalogCount(props.manage.viewsCount)} vues` : '— vues'))
 
-const ownerColors = computed(() =>
-  resolveChannelColors(props.item.publisher.handle ?? props.item.publisher.name, null, null),
-)
-const ownerBg = computed(() =>
-  props.item.publisher.is_channel
-    ? channelBannerStyle(ownerColors.value.primary, ownerColors.value.secondary).background
-    : 'linear-gradient(135deg,#8b5cf6,#3b82f6)',
-)
 const ownerInitials = computed(() => props.item.publisher.initials || getNameInitials(props.manage.ownerLabel) || '?')
 </script>
 
@@ -98,9 +89,8 @@ const ownerInitials = computed(() => props.item.publisher.initials || getNameIni
 
       <div v-if="!hideOwner" class="mt-3 flex items-center gap-2">
         <span
-          class="flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden text-[8.5px] font-extrabold text-white"
+          class="flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden border border-slate-200 bg-white text-[8.5px] font-extrabold text-[#18181f]"
           :class="item.publisher.is_channel ? 'rounded-[6px]' : 'rounded-full'"
-          :style="item.publisher.logo_url ? undefined : { background: ownerBg }"
         >
           <img v-if="item.publisher.logo_url" :src="item.publisher.logo_url" alt="" class="h-full w-full object-cover" />
           <span v-else>{{ ownerInitials }}</span>

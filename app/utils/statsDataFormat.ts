@@ -30,21 +30,47 @@ export function formatDisplayValue(value: unknown, fallback = '—'): string {
 }
 
 /**
- * Coerces a raw dataset cell into a number for charting/aggregation. Handles values stored
- * as formatted strings (e.g. "500,000,000+", "1 234", "12%") by stripping thousands separators
- * and non-numeric decoration before parsing — a bare `Number(...)` returns NaN on these and
- * silently drops the point (no bar/line segment drawn).
+ * Coerces a raw dataset cell into a number, or `null` when nothing numeric can be read.
+ * Handles values stored as decorated strings (e.g. "500,000,000+", "1 234", "90%", "12 €")
+ * by stripping thousands separators and non-numeric decoration before parsing — a bare
+ * `Number(...)` returns NaN on these. Shared by every chart / KPI / filter / aggregate path
+ * so they all see the same number.
  */
-export function parseNumericValue(value: unknown): number {
-  if (typeof value === 'number') return value
-  if (value === null || value === undefined || value === '') return 0
+export function toNumericOrNull(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null
+  if (value === null || value === undefined || value === '' || typeof value === 'boolean') return null
   if (typeof value !== 'string') {
     const n = Number(value)
-    return Number.isNaN(n) ? 0 : n
+    return Number.isFinite(n) ? n : null
   }
-  const cleaned = value.replace(/[,\s]/g, '').replace(/[^0-9.-]/g, '')
+
+  let s = value.trim().replace(/\s/g, '')
+  if (s === '') return null
+
+  const hasDot = s.includes('.')
+  const hasComma = s.includes(',')
+  if (hasDot && hasComma) {
+    s = s.replace(/,/g, '') // "1,234.56" → "1234.56" : virgule = séparateur de milliers
+  } else if (hasComma) {
+    // "12,5" → décimale ; "1,234" / "10,000" → milliers.
+    const singleComma = (s.match(/,/g) as string[]).length === 1
+    s = singleComma && /,\d{1,2}$/.test(s.replace(/[^0-9,]/g, ''))
+      ? s.replace(',', '.')
+      : s.replace(/,/g, '')
+  }
+
+  const cleaned = s.replace(/[^0-9.-]/g, '')
+  if (cleaned === '' || !/\d/.test(cleaned)) return null
   const n = Number(cleaned)
-  return Number.isNaN(n) ? 0 : n
+  return Number.isFinite(n) ? n : null
+}
+
+/**
+ * Like {@link toNumericOrNull} but returns `0` instead of `null` — for chart series where a
+ * missing/unparseable value should render as a zero-height bar rather than a gap.
+ */
+export function parseNumericValue(value: unknown): number {
+  return toNumericOrNull(value) ?? 0
 }
 
 export function formatRowCount(n?: number): string | null {

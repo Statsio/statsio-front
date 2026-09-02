@@ -1,6 +1,7 @@
 import { watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { saveStatsDataDocument } from '@/api/studio'
+import { getHttpErrorStatus } from '@/lib/http-errors'
 
 const DEBOUNCE_MS = 1500
 
@@ -38,7 +39,18 @@ export function useStudioAutosave() {
         studio.setSaveStatus('idle')
         scheduleAutosave()
       }
-    } catch {
+    } catch (e) {
+      const status = getHttpErrorStatus(e, 0)
+      if (status === 404 || status === 403) {
+        // Document supprimé (404) ou accès révoqué (403) : réessayer ne sert à rien.
+        // La page bascule sur un écran d'erreur via `studio.saveErrorStatus`.
+        if (debounceTimer) {
+          clearTimeout(debounceTimer)
+          debounceTimer = null
+        }
+        studio.setSaveError(status)
+        return
+      }
       studio.setSaveStatus('error')
       // Retry after a longer delay on failure
       debounceTimer = setTimeout(() => persist(), 5000)

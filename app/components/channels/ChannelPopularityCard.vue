@@ -1,11 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
-import AppAvatar from '@/components/ui/AppAvatar.vue'
 import ChannelBadgeList from '@/components/channels/ChannelBadgeList.vue'
 import type { Channel } from '@/api/channels'
 import { formatCompactNumber } from '@/lib/format'
-import { channelBannerStyle, resolveChannelColors } from '@/lib/channel-brand'
 
 const props = defineProps<{
   channel: Channel
@@ -20,15 +18,6 @@ const initials = computed(() =>
     .slice(0, 2)
     .toUpperCase(),
 )
-
-const avatarBackground = computed(() => {
-  const colors = resolveChannelColors(
-    String(props.channel.id),
-    props.channel.profile.custom_color_primary,
-    props.channel.profile.custom_color_secondary,
-  )
-  return channelBannerStyle(colors.primary, colors.secondary).background
-})
 </script>
 
 <template>
@@ -36,13 +25,17 @@ const avatarBackground = computed(() => {
     :to="`/channels/${encodeURIComponent(channel.profile.handle)}`"
     class="flex flex-1 items-center gap-3 rounded-2xl bg-slate-50 p-4 transition hover:bg-slate-100"
   >
-    <AppAvatar
-      :src="channel.profile.logo_url ?? undefined"
-      :initials="initials"
-      :alt="channel.profile.name"
-      :background="avatarBackground"
-      size="md"
-    />
+    <span
+      class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white text-base font-extrabold text-slate-900"
+    >
+      <img
+        v-if="channel.profile.logo_url"
+        :src="channel.profile.logo_url"
+        :alt="channel.profile.name"
+        class="h-full w-full object-cover"
+      />
+      <span v-else>{{ initials }}</span>
+    </span>
     <div class="min-w-0">
       <div class="flex items-center gap-1.5">
         <p class="truncate text-sm font-bold text-slate-900">{{ channel.profile.name }}</p>

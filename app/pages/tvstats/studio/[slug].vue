@@ -5,7 +5,9 @@ import { useRoute } from 'vue-router'
 import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import { useStudioAutosave } from '@/composables/useStudioAutosave'
+import { useStudioDocumentGuard } from '@/composables/useStudioDocumentGuard'
 import { fetchStatsDataDocument } from '@/api/studio'
+import { getHttpErrorStatus } from '@/lib/http-errors'
 import StudioHeader from '@/components/studio/StudioHeader.vue'
 import StudioSidebarLeft from '@/components/studio/StudioSidebarLeft.vue'
 import StudioSidebarRight from '@/components/studio/StudioSidebarRight.vue'
@@ -15,6 +17,7 @@ const route = useRoute()
 const studio = useStudioStore()
 const datasets = useStudioDatasetsStore()
 const { saveNow } = useStudioAutosave()
+const { fail } = useStudioDocumentGuard()
 
 onMounted(async () => {
   const documentId = route.params.slug as string | undefined
@@ -29,8 +32,8 @@ onMounted(async () => {
         doc.blocks,
         doc.pages,
       )
-    } catch {
-      studio.initPage({ id: documentId, type: 'statsdata', title: 'Nouveau dashboard' })
+    } catch (e) {
+      fail(getHttpErrorStatus(e, 404))
     }
   } else {
     studio.initPage({ id: 'demo', type: 'statsdata', title: 'Mon dashboard' })
