@@ -83,6 +83,7 @@ export interface ApiFormShape {
 
 export const ADD_SOURCE_WIZARD_STEPS: ModalStep[] = [
   { id: 'type', title: 'Type de source', description: 'Choisissez la provenance de vos données' },
+  { id: 'datagouv', title: 'Jeu de données', description: 'Choisissez la ressource data.gouv.fr à importer' },
   { id: 'detect', title: 'Détection', description: "Connectez votre API pour pré-remplir la configuration" },
   { id: 'configure', title: 'Configuration', description: 'Importez votre fichier ou connectez une API' },
   { id: 'provenance', title: 'Provenance', description: "D'où proviennent vos données ?" },
@@ -252,9 +253,10 @@ export function useAddSourceWizard() {
 
   const canGoNext = computed(() => {
     if (currentStepId.value === 'type') {
-      if (sourceType.value === 'file' || sourceType.value === 'api') return true
-      if (sourceType.value === 'datagouv') return datagouvResourceId.value.length >= 16
-      return false
+      return sourceType.value === 'file' || sourceType.value === 'api' || sourceType.value === 'datagouv'
+    }
+    if (currentStepId.value === 'datagouv') {
+      return datagouvResourceId.value.length >= 16
     }
     if (currentStepId.value === 'detect') {
       return !!apiForm.value.url.trim()

@@ -38,9 +38,19 @@ describe('normalizeBlockSources', () => {
     expect(b2).toBe(b1)
   })
 
-  it('leaves search blocks untouched', () => {
-    const b = block({ type: 'search', datasetId: '5' })
-    expect(normalizeBlockSources(b)).toBe(b)
+  it('migrates a legacy search block onto the graph model', () => {
+    const b = normalizeBlockSources(block({
+      type: 'search',
+      fieldMapping: {
+        searchSources: [{ datasetId: '5', columns: ['prenom', 'nom'] }],
+        resultTitleColumn: 'prenom',
+      },
+    }))
+    expect(b.sources).toEqual([{ id: '5', datasetId: '5' }])
+    expect(b.primarySourceId).toBe('5')
+    expect(b.fieldMapping.searchColumns).toEqual(['prenom', 'nom'])
+    expect(b.fieldMapping.resultTitleParts).toEqual([{ ref: 'prenom' }])
+    expect(b.fieldMapping.searchSources).toBeUndefined()
   })
 
   it('leaves source-less blocks untouched', () => {

@@ -17,7 +17,7 @@ import { useContentDashboard } from '@/composables/useContentDashboard'
 
 const router = useRouter()
 const notifications = useAppNotifications()
-const { content, isPublishing, publicPath, togglePublish } = useContentDashboard()
+const { content, isPublishing, publicPath, unpublish } = useContentDashboard()
 
 const isDeleting = ref(false)
 const confirmingDelete = ref(false)
@@ -30,16 +30,11 @@ const shareUrl = computed(() => {
   return `${window.location.origin}${publicPath.value}`
 })
 
-const shareHint = computed(() => {
-  switch (content.value?.visibility) {
-    case 'public':
-      return 'Lien public : partageable partout, visible dans la recherche Statsio.'
-    case 'protege':
-      return 'Lien secret : seules les personnes disposant de cette adresse y accèdent.'
-    default:
-      return 'Contenu privé : publiez-le pour obtenir un lien partageable.'
-  }
-})
+const shareHint = computed(() =>
+  content.value?.status === 'published'
+    ? 'Lien public : partageable partout, visible dans la recherche Statsio.'
+    : 'Contenu non publié : publiez-le pour obtenir un lien partageable.',
+)
 
 async function copyLink() {
   if (!shareUrl.value) return
@@ -148,7 +143,7 @@ async function confirmDelete() {
             type="button"
             :disabled="isPublishing"
             class="rounded-full border-[1.5px] border-[#18181f]/[0.14] bg-white px-5 py-2.5 text-[12.5px] font-bold text-[#18181f] disabled:opacity-50"
-            @click="togglePublish"
+            @click="unpublish"
           >
             {{ isPublishing ? 'Dépublication…' : 'Dépublier' }}
           </button>

@@ -4,13 +4,17 @@ import { useRoute } from 'vue-router'
 import DashboardShell from '@/components/layout/DashboardShell.vue'
 import ContentSidebar from '@/components/contents/dashboard/ContentSidebar.vue'
 import ContentTopbar from '@/components/contents/dashboard/ContentTopbar.vue'
+import StudioPublishModal from '@/components/studio/StudioPublishModal.vue'
 import { useContentDashboard } from '@/composables/useContentDashboard'
 
 usePageSeo({ title: 'Propriétés du contenu', robots: 'noindex,nofollow' })
 
 const route = useRoute()
 const slug = computed(() => String(route.params.slug ?? ''))
-const { content, isLoading, loadError, ensureLoaded } = useContentDashboard()
+const {
+  content, isLoading, loadError, ensureLoaded,
+  publishModalOpen, publishMode, publishNextVersion, isPublishing, confirmPublish,
+} = useContentDashboard()
 
 onMounted(() => ensureLoaded(slug.value))
 watch(slug, (value) => ensureLoaded(value))
@@ -43,5 +47,14 @@ watch(slug, (value) => ensureLoaded(value))
 
       <slot v-else-if="content" />
     </div>
+
+    <StudioPublishModal
+      v-if="publishModalOpen"
+      :mode="publishMode"
+      :next-version="publishNextVersion"
+      :publishing="isPublishing"
+      @close="publishModalOpen = false"
+      @confirm="confirmPublish"
+    />
   </DashboardShell>
 </template>

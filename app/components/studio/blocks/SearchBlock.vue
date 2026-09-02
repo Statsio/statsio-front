@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount, inject } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { fetchSearchRows, fetchPublicSearchRows } from '@/api/studio'
-import { slugify } from '@/lib/slug'
+import { fetchBlockData, fetchPublicBlockData } from '@/api/studio'
 import { useStudioStore } from '@/stores/studio'
+import { blockSourceParams } from '@/composables/useBlockData'
+import { bareNames } from '@/lib/studio-search'
+import { buildFanOutSegment } from '@/lib/statsdata-fanout'
+import { isCalcRef, parseColumnRef } from '@/lib/studio-columns'
 import { STUDIO_EMBED_CONTEXT, type StudioEmbedContext } from '@/composables/studioEmbedContext'
-import type { StudioBlock, StudioDocumentPage, SearchSource, SearchJoin } from '@/types/studio'
+import type { BlockQueryResult, ResultPart, StudioBlock, StudioDocumentPage, PageParam } from '@/types/studio'
 
 const props = defineProps<{ block: StudioBlock; readonly?: boolean }>()
 
@@ -20,37 +23,40 @@ const availablePages = computed<StudioDocumentPage[]>(() => embed?.pages ?? stud
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
-// Support both new multi-source and legacy single-column config
-const searchSources = computed(() => {
-  const sources = props.block.fieldMapping.searchSources ?? []
-  if (sources.length > 0) return sources
-  // Legacy fallback
-  if (props.block.datasetId && props.block.fieldMapping.searchColumn) {
-    return [{ datasetId: props.block.datasetId, columns: [props.block.fieldMapping.searchColumn] }]
-  }
-  return []
-})
+const fm = computed(() => props.block.fieldMapping)
+const cfg = computed(() => props.block.config)
 
-const targetPageId        = computed(() => props.block.fieldMapping.targetPageId)
-const placeholder         = computed(() => props.block.config.searchPlaceholder || 'Rechercher…')
-const isConfigured        = computed(() => searchSources.value.some((s: SearchSource) => s.datasetId && s.columns.length > 0))
-const urlParamCols        = computed(() => props.block.fieldMapping.urlParams ?? [])
-const resultTitleColumn      = computed(() => props.block.fieldMapping.resultTitleColumn ?? '')
-const resultDescColumns      = computed(() => props.block.fieldMapping.resultDescColumns ?? [])
-const resultDescColumnLabels = computed(() => props.block.fieldMapping.resultDescColumnLabels ?? {})
+const sourceParams = computed(() => blockSourceParams(props.block))
+/** Réfs qualifiées des colonnes d'identité (envoyées à l'API — résolues côté serveur). */
+const searchRefs = computed(() => fm.value.searchColumns ?? [])
+/** Réfs qualifiées des colonnes de recherche secondaires (« OU »). */
+const searchAltRefs = computed(() => fm.value.searchAltColumns ?? [])
+/** Noms nus des colonnes d'identité (pour indexer les lignes de résultat renvoyées par l'API). */
+const searchCols = computed(() => bareNames(fm.value.searchColumns))
+const titleParts = computed<ResultPart[]>(() => fm.value.resultTitleParts ?? [])
+const descParts = computed<ResultPart[]>(() => fm.value.resultDescParts ?? [])
+const titleSeparator = computed(() => cfg.value.resultTitleSeparator ?? ' ')
+const placeholder = computed(() => cfg.value.searchPlaceholder || 'Rechercher…')
 
-// For URL navigation: doc slug from route (ou du Statsdata source si embarqué)
+const isConfigured = computed(() => Boolean(sourceParams.value.urlDatasetId) && searchCols.value.length > 0)
+
 const docSlug = computed(() => embed?.docSlug || String(route.params.slug ?? ''))
-const targetPageSlug = computed(() => {
-  const page = availablePages.value.find((p: StudioDocumentPage) => p.id === targetPageId.value)
-  return page?.slug ?? page?.id ?? ''
+
+/** Page à laquelle appartient ce bloc (fan-out cible). */
+const blockPage = computed<StudioDocumentPage | undefined>(() => {
+  const pid = studio.pageIdOfBlock(props.block.id)
+  return availablePages.value.find((p) => p.id === pid) ?? availablePages.value[0]
+})
+const fanParam = computed<PageParam | undefined>(() => {
+  const params = blockPage.value?.params ?? []
+  return params.find((p) => p.searchBlockId === props.block.id) ?? params.find((p) => p.fanOut && p.name)
 })
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
 interface SearchResult {
   key: string
-  displayValue: string
+  title: string
   subValues: { label: string; value: string }[]
   row: Record<string, unknown>
 }
@@ -78,6 +84,46 @@ function updateDropdownPosition() {
   }
 }
 
+// ─── Résolution des valeurs d'une ligne ──────────────────────────────────────
+
+function cellValue(row: Record<string, unknown>, ref: string, columnMap?: Record<string, string>): string {
+  const mapped = columnMap?.[ref]
+  if (mapped != null && row[mapped] != null) return String(row[mapped])
+  if (row[ref] != null) return String(row[ref])
+  const bare = parseColumnRef(ref).name
+  return row[bare] != null ? String(row[bare]) : ''
+}
+
+function partLabel(part: ResultPart): string {
+  return part.label || (isCalcRef(part.ref) ? 'Valeur' : parseColumnRef(part.ref).name)
+}
+
+function buildTitle(row: Record<string, unknown>, columnMap?: Record<string, string>): string {
+  if (!titleParts.value.length) {
+    // Repli : 1re colonne recherchée qui contient la requête, sinon la 1re.
+    const q = query.value.toLowerCase()
+    const hit = searchCols.value.find((c) => String(row[c] ?? '').toLowerCase().includes(q))
+    return String(row[hit ?? searchCols.value[0] ?? ''] ?? '')
+  }
+  return titleParts.value
+    .map((p) => `${p.prefix ?? ''}${cellValue(row, p.ref, columnMap)}${p.suffix ?? ''}`)
+    .join(titleSeparator.value)
+    .trim()
+}
+
+function buildSubValues(row: Record<string, unknown>, columnMap?: Record<string, string>) {
+  if (descParts.value.length) {
+    return descParts.value
+      .map((p) => ({ label: partLabel(p), value: cellValue(row, p.ref, columnMap) }))
+      .filter((s) => s.value !== '')
+  }
+  // Repli : colonnes recherchées non utilisées dans le titre.
+  const titleCols = new Set(titleParts.value.map((p) => parseColumnRef(p.ref).name))
+  return searchCols.value
+    .filter((c) => !titleCols.has(c) && row[c] != null && row[c] !== '')
+    .map((c) => ({ label: c, value: String(row[c]) }))
+}
+
 // ─── Search logic ─────────────────────────────────────────────────────────────
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -98,74 +144,39 @@ function scheduleSearch(q: string) {
 
 async function doSearch(q: string) {
   searchError.value = ''
+  const sp = sourceParams.value
+  if (!sp.urlDatasetId) return
+  const calcColumns = fm.value.calcColumns?.length ? fm.value.calcColumns : undefined
+  const params = {
+    sources: sp.sources,
+    primarySourceId: sp.primarySourceId,
+    joins: sp.joins,
+    searchQ: q,
+    searchColumns: searchRefs.value,
+    searchAltColumns: searchAltRefs.value,
+    calcColumns,
+    limit: 30,
+  }
   try {
-    const allRows: SearchResult[] = []
+    const querySlug = embed?.docSlug ?? studio.content?.slug
+    const res: BlockQueryResult = (props.readonly && querySlug)
+      ? await fetchPublicBlockData(querySlug, sp.urlDatasetId, params)
+      : await fetchBlockData(sp.urlDatasetId, params)
+
     const seen = new Set<string>()
-
-    await Promise.all(
-      searchSources.value
-        .filter((s: SearchSource) => s.datasetId && s.columns.length > 0)
-        .map(async (source: SearchSource) => {
-          const sourceJoins = (props.block.fieldMapping.searchJoins ?? [])
-            .filter((j: SearchJoin) => j.sourceDatasetId === source.datasetId)
-            .map((j: SearchJoin) => ({ datasetId: j.datasetId, leftColumn: j.leftColumn, rightColumn: j.rightColumn, columns: j.columns, type: j.type }))
-          const querySlug = embed?.docSlug ?? studio.content?.slug
-          const rows = (props.readonly && querySlug)
-            ? await fetchPublicSearchRows(querySlug, source.datasetId, source.columns, q, 30, sourceJoins)
-            : await fetchSearchRows(source.datasetId, source.columns, q, 30, sourceJoins)
-          for (const row of rows) {
-            const titleCol = resultTitleColumn.value
-            const descCols = resultDescColumns.value
-
-            // Determine display value (title)
-            let displayValue: string
-            let primaryCol: string
-            if (titleCol && String(row[titleCol] ?? '') !== '') {
-              displayValue = String(row[titleCol])
-              primaryCol = titleCol
-            } else {
-              primaryCol = source.columns.find(
-                (c: string) => String(row[c] ?? '').toLowerCase().includes(q.toLowerCase()),
-              ) ?? source.columns[0]!
-              displayValue = String(row[primaryCol] ?? '')
-            }
-
-            if (!displayValue) continue
-
-            // Deux résultats distincts peuvent partager le même libellé d'affichage
-            // (ex : plusieurs communes françaises nommées "Grigny") — dédoublonner
-            // uniquement sur `displayValue` fusionnerait ces entrées différentes et,
-            // pire, figerait la navigation (urlParams) sur la première rencontrée
-            // au hasard. On dédoublonne donc sur l'identité complète de la ligne :
-            // les colonnes utilisées pour la navigation si configurées, sinon
-            // toutes les colonnes recherchées.
-            const identityCols = urlParamCols.value.length > 0 ? urlParamCols.value : source.columns
-            const identityKey = identityCols.map((c: string) => String(row[c] ?? '')).join(' ')
-            const dedupeKey = `${displayValue} ${identityKey}`
-            if (seen.has(dedupeKey)) continue
-            seen.add(dedupeKey)
-
-            // Determine sub-info (description)
-            const labels = resultDescColumnLabels.value
-            const subValues = descCols.length > 0
-              ? descCols
-                  .filter((c: string) => row[c] != null && String(row[c]) !== '')
-                  .map((c: string) => ({ label: labels[c] || c, value: String(row[c]) }))
-              : source.columns
-                  .filter((c: string) => c !== primaryCol && row[c] != null && row[c] !== '')
-                  .map((c: string) => ({ label: c, value: String(row[c]) }))
-
-            allRows.push({
-              key: `${source.datasetId}:${identityKey || displayValue}`,
-              displayValue,
-              subValues,
-              row,
-            })
-          }
-        }),
-    )
-
-    results.value = allRows
+    const out: SearchResult[] = []
+    for (const row of res.rows) {
+      const title = buildTitle(row, res.columnMap)
+      if (!title) continue
+      // Dédoublonnage sur l'identité complète (colonnes recherchées) — deux
+      // résultats peuvent partager le même titre (ex. deux communes « Grigny »).
+      const identity = searchCols.value.map((c) => String(row[c] ?? '')).join(' | ')
+      const dedupeKey = `${title} | ${identity}`
+      if (seen.has(dedupeKey)) continue
+      seen.add(dedupeKey)
+      out.push({ key: dedupeKey, title, subValues: buildSubValues(row, res.columnMap), row })
+    }
+    results.value = out
   } catch (e: unknown) {
     results.value = []
     const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message
@@ -181,16 +192,16 @@ watch(query, (q: string) => {
   scheduleSearch(q)
 })
 
-watch(searchSources, () => {
+watch(searchCols, () => {
   query.value = ''
   results.value = []
   isOpen.value = false
 })
 
-// ─── Select a result — set ALL row columns as page params ─────────────────────
+// ─── Select a result ─────────────────────────────────────────────────────────
 
 function onSelect(result: SearchResult) {
-  query.value = result.displayValue
+  query.value = result.title
   isOpen.value = false
 
   // Toutes les colonnes de la ligne choisie (résolvent les jetons `{{col}}`).
@@ -199,64 +210,25 @@ function onSelect(result: SearchResult) {
     if (val !== null && val !== undefined && val !== '') rowParams[col] = String(val)
   }
 
-  // Recherche embarquée dans un article : on quitte l'article pour le Statsdata
-  // source (page fan-out par valeur si disponible, sinon page cible / racine).
+  const param = fanParam.value
+  const seg = param ? buildFanOutSegment(param, result.row) : ''
+
+  // Recherche embarquée dans un article : on quitte l'article pour le Statsdata source.
   if (embed && docSlug.value) {
-    const destPage = availablePages.value.find(
-      (p: StudioDocumentPage) => p.id === (targetPageId.value || availablePages.value[0]?.id),
-    )
-    const fanParam = destPage?.params?.find((p) => p.fanOut && p.name)
-    const fanValue = fanParam
-      ? rowParams[fanParam.slugColumn || fanParam.column || fanParam.name] ?? rowParams[fanParam.name]
-      : null
-    if (fanValue) {
-      router.push(`/statsdata/${docSlug.value}/${slugify(fanValue)}`)
-    } else if (targetPageSlug.value) {
-      router.push(`/statsdata/${docSlug.value}/${targetPageSlug.value}`)
-    } else {
-      router.push(`/statsdata/${docSlug.value}`)
-    }
+    if (seg) router.push(`/statsdata/${docSlug.value}/${seg}`)
+    else router.push(`/statsdata/${docSlug.value}`)
     return
   }
 
-  const target = targetPageId.value
-  const goesElsewhere = Boolean(target) && target !== studio.currentPageId
-  const destPage = studio.pages.find(
-    (p: StudioDocumentPage) => p.id === (goesElsewhere ? target : studio.currentPageId),
-  )
-  const fanParam = destPage?.params?.find((p) => p.fanOut && p.name)
-
-  // Page fan-out : en public, on pousse l'URL indexable /statsdata/{slug}/{valeur}.
-  if (props.readonly && fanParam && docSlug.value) {
-    const slugKey = fanParam.slugColumn || fanParam.column || fanParam.name
-    const value = rowParams[slugKey] ?? rowParams[fanParam.name]
-    if (value) {
-      studio.setPageParams(goesElsewhere ? rowParams : { ...studio.pageParams, ...rowParams })
-      router.push(`/statsdata/${docSlug.value}/${slugify(value)}`)
-      return
-    }
-  }
-
-  // Navigation vers une AUTRE page sans fan-out : en public, URL profonde `?param=`.
-  if (goesElsewhere && props.readonly && docSlug.value && targetPageSlug.value) {
-    const mapping = props.block.fieldMapping.urlParamMapping ?? {}
-    const queryParams: Record<string, string> = {}
-    for (const urlKey of urlParamCols.value) {
-      const val = rowParams[mapping[urlKey] ?? urlKey] ?? rowParams[urlKey]
-      if (val) { queryParams[urlKey] = val; rowParams[urlKey] = val }
-    }
-    studio.setPageParams(rowParams)
-    router.push({ path: `/statsdata/${docSlug.value}/${targetPageSlug.value}`, query: queryParams })
-    return
-  }
-
-  if (goesElsewhere) {
-    studio.switchPage(target!)
-    studio.setPageParams(rowParams)
-  } else {
-    // Filtre la page courante : on fusionne avec les autres paramètres déjà posés.
+  // Rendu public : URL indexable /statsdata/{slug}/{segment}.
+  if (props.readonly && docSlug.value && seg) {
     studio.setPageParams({ ...studio.pageParams, ...rowParams })
+    router.push(`/statsdata/${docSlug.value}/${seg}`)
+    return
   }
+
+  // Éditeur (aperçu) ou pas de fan-out : on filtre la page courante.
+  studio.setPageParams({ ...studio.pageParams, ...rowParams })
 }
 
 function onFocus() {
@@ -291,7 +263,7 @@ onBeforeUnmount(() => {
       <svg class="w-8 h-8 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
       </svg>
-      <span class="text-xs">Configurer les sources de recherche →</span>
+      <span class="text-xs">Choisissez une source et des colonnes de recherche →</span>
     </div>
 
     <!-- Search UI -->
@@ -342,7 +314,7 @@ onBeforeUnmount(() => {
             class="w-full text-left px-4 py-2.5 hover:bg-[var(--studio-note)] transition-colors first:rounded-t-lg last:rounded-b-lg border-b border-[var(--studio-line)] last:border-0"
             @mousedown.prevent="onSelect(result)"
           >
-            <p class="text-sm font-medium text-[var(--studio-ink)]">{{ result.displayValue }}</p>
+            <p class="text-sm font-medium text-[var(--studio-ink)]">{{ result.title }}</p>
             <div v-if="result.subValues.length > 0" class="flex flex-wrap gap-2 mt-0.5">
               <span
                 v-for="sub in result.subValues"

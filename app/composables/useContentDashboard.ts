@@ -2,7 +2,8 @@ import { computed } from 'vue'
 import {
   fetchStatsDataDocument,
   saveStatsDataDocument,
-  setStatsDataDocumentStatus,
+  publishStudioContent,
+  unpublishStudioContent,
   type SaveStatsDataDocumentPayload,
   type StatsDataDocument,
 } from '@/api/studio'
@@ -20,12 +21,17 @@ export function useContentDashboard() {
   const loadError = useState('content-dashboard:error', () => '')
   const loadedSlug = useState<string | null>('content-dashboard:slug', () => null)
   const isPublishing = useState('content-dashboard:publishing', () => false)
+  const publishModalOpen = useState('content-dashboard:publish-open', () => false)
 
   const notifications = useAppNotifications()
 
   const contentType = computed<ContentType>(() => content.value?.type ?? 'statsdata')
   const typeLabel = computed(() => CONTENT_TYPE_META[contentType.value].label)
-  const statusMeta = computed(() => getStatusMeta(content.value?.status, content.value?.visibility))
+  const statusMeta = computed(() => getStatusMeta(content.value?.status))
+  const publishMode = computed<'author' | 'confirm'>(() =>
+    content.value?.first_published_at ? 'confirm' : 'author',
+  )
+  const publishNextVersion = computed(() => (content.value?.published_version ?? 0) + 1)
 
   const slugOrId = computed(
     () => content.value?.slug || content.value?.id || loadedSlug.value || '',
@@ -85,16 +91,45 @@ export function useContentDashboard() {
     }
   }
 
-  async function togglePublish() {
+  /**
+   * Ouvre le flux de publication : re-publication directe si l'auteur est déjà
+   * verrouillé, sinon la modal de choix profil / chaîne.
+   */
+  function startPublish() {
+    const doc = content.value
+    if (!doc) return
+    if (doc.status !== 'published' && doc.first_published_at) {
+      void confirmPublish({})
+      return
+    }
+    publishModalOpen.value = true
+  }
+
+  async function confirmPublish(opts: { publishedAs?: 'user' | 'channel'; channelId?: number | null } = {}) {
     const id = content.value?.slug || content.value?.id
-    if (!id || !content.value) return
-    const next = content.value.status === 'published' ? 'draft' : 'published'
+    if (!id) return
     isPublishing.value = true
     try {
-      content.value = await setStatsDataDocumentStatus(id, next)
-      notifications.success(next === 'published' ? 'Contenu publié.' : 'Contenu dépublié.')
+      content.value = await publishStudioContent(id, opts)
+      publishModalOpen.value = false
+      notifications.success('Contenu publié.')
+    } catch (err) {
+      const status = (err as { response?: { status?: number } })?.response?.status
+      notifications.error(status === 403 ? 'Vous ne gérez pas cette chaîne.' : "Le contenu n'a pas pu être publié.")
+    } finally {
+      isPublishing.value = false
+    }
+  }
+
+  async function unpublish() {
+    const id = content.value?.slug || content.value?.id
+    if (!id) return
+    isPublishing.value = true
+    try {
+      content.value = await unpublishStudioContent(id)
+      notifications.success('Contenu dépublié.')
     } catch {
-      notifications.error("Le statut n'a pas pu être modifié.")
+      notifications.error("Le contenu n'a pas pu être dépublié.")
     } finally {
       isPublishing.value = false
     }
@@ -105,6 +140,9 @@ export function useContentDashboard() {
     isLoading,
     loadError,
     isPublishing,
+    publishModalOpen,
+    publishMode,
+    publishNextVersion,
     contentType,
     typeLabel,
     statusMeta,
@@ -114,6 +152,8 @@ export function useContentDashboard() {
     ensureLoaded,
     reload,
     patch,
-    togglePublish,
+    startPublish,
+    confirmPublish,
+    unpublish,
   }
 }

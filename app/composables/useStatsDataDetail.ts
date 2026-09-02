@@ -1,10 +1,11 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { fetchPublicStatsDataDocument, fetchPublicSearchRows, fetchPublicDistinctValues } from '@/api/studio'
+import { fetchPublicStatsDataDocument, fetchPublicBlockData, fetchPublicDistinctValues } from '@/api/studio'
 import type { StatsDataDocument } from '@/api/studio'
 import { useStudioStore } from '@/stores/studio'
 import type { PageParam, StudioBlock, StudioDocumentPage } from '@/types/studio'
-import { fanOutSlugKey, resolveSegment } from '@/lib/statsdata-fanout'
+import { buildFanOutSegment, fanOutSegmentKeys, fanOutSlugKey, resolveSegment } from '@/lib/statsdata-fanout'
+import { blockSourceParams } from '@/composables/useBlockData'
 import { slugify } from '@/lib/slug'
 
 function queryToParams(q: import('vue-router').LocationQuery): Record<string, string> {
@@ -45,40 +46,44 @@ export function useStatsDataDetail() {
    */
   async function hydrateFanOut(page: StudioDocumentPage, param: PageParam, seg: string) {
     const slugKey = fanOutSlugKey(param)
+    const keys = fanOutSegmentKeys(param)
     const term = seg.replace(/-+/g, ' ')
 
-    const searchBlock = studio.blocks.find(
-      (b: StudioBlock) => b.type === 'search'
-        && (!b.fieldMapping.targetPageId || b.fieldMapping.targetPageId === page.id),
-    )
+    // Bloc recherche qui alimente cette page (sinon le premier du document).
+    const searchBlock =
+      studio.blocks.find((b: StudioBlock) => b.type === 'search' && studio.pageIdOfBlock(b.id) === page.id) ??
+      studio.blocks.find((b: StudioBlock) => b.type === 'search')
 
-    const sources = searchBlock?.fieldMapping.searchSources?.length
-      ? searchBlock.fieldMapping.searchSources
-      : (searchBlock?.datasetId && searchBlock.fieldMapping.searchColumn
-          ? [{ datasetId: searchBlock.datasetId, columns: [searchBlock.fieldMapping.searchColumn] }]
-          : [])
-
-    for (const source of sources) {
-      if (!source.datasetId || !source.columns.length) continue
-      try {
-        const rows = await fetchPublicSearchRows(docSlug.value, source.datasetId, source.columns, term, 30)
-        const match = rows.find((row) =>
-          slugify(String(row[slugKey] ?? row[param.column ?? ''] ?? '')) === seg,
-        )
-        if (!match) continue
-        const rowParams: Record<string, string> = {}
-        for (const [col, val] of Object.entries(match)) {
-          if (val !== null && val !== undefined && val !== '') rowParams[col] = String(val)
-        }
-        studio.setPageParams(rowParams)
-        return
-      } catch { /* best effort */ }
+    const searchRefs = searchBlock?.fieldMapping.searchColumns ?? []
+    if (searchBlock && searchRefs.length) {
+      const sp = blockSourceParams(searchBlock)
+      if (sp.urlDatasetId) {
+        try {
+          const res = await fetchPublicBlockData(docSlug.value, sp.urlDatasetId, {
+            sources: sp.sources,
+            primarySourceId: sp.primarySourceId,
+            joins: sp.joins,
+            searchQ: term,
+            searchColumns: searchRefs,
+            limit: 30,
+          })
+          const match = res.rows.find((row) => buildFanOutSegment(param, row) === seg)
+          if (match) {
+            const rowParams: Record<string, string> = {}
+            for (const [col, val] of Object.entries(match)) {
+              if (val !== null && val !== undefined && val !== '') rowParams[col] = String(val)
+            }
+            studio.setPageParams(rowParams)
+            return
+          }
+        } catch { /* best effort */ }
+      }
     }
 
     // Fan-out piloté par un bloc `param` (pas de ligne à hydrater) : on retrouve
     // la valeur exacte parmi les valeurs distinctes de la colonne.
     const col = param.column || slugKey
-    if (param.datasetId && col) {
+    if (keys.length === 1 && param.datasetId && col) {
       try {
         const values = await fetchPublicDistinctValues(docSlug.value, param.datasetId, col)
         const exact = values.find((v) => slugify(v) === seg)
@@ -100,7 +105,9 @@ export function useStatsDataDetail() {
 
     if (fanOut) {
       studio.switchPageKeepParams(page.id)
-      studio.setPageParam(fanOutSlugKey(fanOut.param), fanOut.segment.replace(/-+/g, ' '))
+      const deslug = fanOut.segment.replace(/-+/g, ' ')
+      studio.setPageParam(fanOut.param.name, deslug)
+      studio.setPageParam(fanOutSlugKey(fanOut.param), deslug)
       for (const [k, v] of Object.entries(urlParams)) studio.setPageParam(k, v)
       void hydrateFanOut(page, fanOut.param, fanOut.segment)
       return
@@ -151,7 +158,9 @@ export function useStatsDataDetail() {
       if (fanOut) {
         studio.switchPageKeepParams(page.id)
         studio.setPageParams({ ...savedParams, ...urlParams })
-        studio.setPageParam(fanOutSlugKey(fanOut.param), fanOut.segment.replace(/-+/g, ' '))
+        const deslug = fanOut.segment.replace(/-+/g, ' ')
+        studio.setPageParam(fanOut.param.name, deslug)
+        studio.setPageParam(fanOutSlugKey(fanOut.param), deslug)
         if (!hasSaved) void hydrateFanOut(page, fanOut.param, fanOut.segment)
         return
       }

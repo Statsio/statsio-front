@@ -13,10 +13,11 @@ import type {
   Section,
   SectionLayout,
 } from '@/types/studio'
-import { SECTION_LAYOUT_DEFINITIONS, scriptZoneId, scriptIdFromZone, scriptZoneBranch, pageZoneId, isPageZone, isScriptBlock, isContainerBlock, FORM_BLOCK_TYPES } from '@/types/studio'
+import { SECTION_LAYOUT_DEFINITIONS, scriptZoneId, scriptIdFromZone, scriptZoneBranch, pageZoneId, isPageZone, pageIdFromZone, isScriptBlock, isContainerBlock, FORM_BLOCK_TYPES } from '@/types/studio'
 import type { CanvasItemRef } from '@/types/studio'
 import { readIfBranches, withAddedBranch, withRemovedBranch } from '@/lib/studio-if'
 import { normalizeBlockSources } from '@/lib/studio-block-sources'
+import { desiredSearchPageParam, sameSearchPageParam } from '@/lib/studio-search'
 import { parseColumnRef } from '@/lib/studio-columns'
 import type { BlockSource, BlockJoin } from '@/types/studio'
 
@@ -315,29 +316,18 @@ export const useStudioStore = defineStore('studio', () => {
     for (const page of pages.value) {
       if (!page.isTemplate) continue
 
-      const feedingSearch = blocks.value.find(
-        (b: StudioBlock) => b.type === 'search' && b.fieldMapping.targetPageId === page.id,
-      )
-      const src = feedingSearch?.fieldMapping.searchSources?.[0]
-      // Colonne identifiante (unique) : celle qui pilotait les filtres `{{param}}`.
-      // On l'utilise aussi pour l'URL fan-out — un slug de code postal / code commune
-      // est sans ambiguïté (deux « Grigny » n'ont pas le même code).
-      const idColumn =
-        page.paramName ||
-        feedingSearch?.fieldMapping.urlParams?.[0] ||
-        feedingSearch?.fieldMapping.resultTitleColumn ||
-        src?.columns?.[0]
-
-      if (idColumn) {
+      // Colonne identifiante legacy : celle qui pilotait les filtres `{{param}}`.
+      // Les pages pilotées par un bloc recherche sont ensuite réconciliées par
+      // `syncAllSearchPageParams` (qui remplace ce param par le param auto-géré).
+      const idColumn = page.paramName
+      if (idColumn && !(page.params ?? []).some((p) => p.name === idColumn)) {
         const decl: PageParam = {
           name: idColumn,
           column: idColumn,
-          datasetId: src?.datasetId ?? feedingSearch?.datasetId,
-          defaultValue: undefined,
           fanOut: true,
           slugColumn: idColumn,
         }
-        page.params = [decl, ...(page.params ?? []).filter((p) => p.name !== idColumn)]
+        page.params = [decl, ...(page.params ?? [])]
       }
 
       page.isTemplate = undefined
@@ -409,6 +399,7 @@ export const useStudioStore = defineStore('studio', () => {
 
     migrateLegacyTemplatePages()
     migrateMultiColumnSections()
+    syncAllSearchPageParams()
     pageParams.value = defaultParamsForPage(pages.value.find((p) => p.id === currentPageId.value))
 
     selectedBlockId.value = null
@@ -859,6 +850,77 @@ export const useStudioStore = defineStore('studio', () => {
     markDirty()
   }
 
+  // ─── Bloc recherche : paramètre point-barre auto-géré ────────────────────────
+  // Un bloc recherche déclare toujours, de façon invisible, exactement un
+  // `PageParam` (fan-out) sur sa propre page, dérivé de ses `searchColumns`.
+  // Aucun réglage exposé — voir `desiredSearchPageParam`.
+
+  /** Id de la page à laquelle appartient une zone (remonte sections + zones de script). */
+  function pageIdOfZone(zoneId: string | undefined): string | undefined {
+    if (!zoneId) return undefined
+    if (isPageZone(zoneId)) return pageIdFromZone(zoneId) ?? undefined
+    const scriptId = scriptIdFromZone(zoneId)
+    if (scriptId) {
+      const parent = blocks.value.find((b: StudioBlock) => b.id === scriptId)
+      return parent ? pageIdOfZone(parent.zoneId) : undefined
+    }
+    const sectionId = zoneId.replace(/-\d+$/, '')
+    const section = sections.value.find((s: Section) => s.id === sectionId)
+    if (!section) return undefined
+    return section.zoneId ? pageIdOfZone(section.zoneId) : (section.pageId ?? 'default')
+  }
+
+  function pageIdOfBlock(blockId: string): string | undefined {
+    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
+    return block ? pageIdOfZone(block.zoneId) : undefined
+  }
+
+  /** Réconcilie le `PageParam` géré par un bloc recherche (add / update / remove). */
+  function syncSearchPageParam(blockId: string) {
+    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
+    if (!block || block.type !== 'search') return
+    const targetPageId = pageIdOfBlock(blockId)
+    const ownedByBlock = (p: PageParam) => p.searchBlockId === blockId
+
+    // Retire les déclarations de ce bloc restées sur d'autres pages.
+    for (const page of pages.value) {
+      if (!page.params?.length) continue
+      const keep = page.params.filter((p) => !(ownedByBlock(p) && page.id !== targetPageId))
+      if (keep.length !== page.params.length) page.params = keep.length ? keep : undefined
+    }
+
+    const page = targetPageId ? pages.value.find((p: StudioDocumentPage) => p.id === targetPageId) : undefined
+    if (!page) return
+
+    const existing = (page.params ?? []).find(ownedByBlock)
+    const reserved = new Set<string>()
+    for (const p of page.params ?? []) if (!ownedByBlock(p)) reserved.add(p.name)
+    const desired = desiredSearchPageParam(block, { existingName: existing?.name, reserved })
+
+    if (!desired) {
+      if (existing) {
+        const next = (page.params ?? []).filter((p) => !ownedByBlock(p))
+        page.params = next.length ? next : undefined
+      }
+      return
+    }
+
+    // Sur une page pilotée par un bloc recherche : un seul param fan-out, le sien.
+    // Purge les params fan-out legacy (déclarés sans `searchBlockId`).
+    let params = (page.params ?? []).filter((p) => ownedByBlock(p) || !(p.fanOut && !p.searchBlockId))
+
+    if (!existing) {
+      params = [...params.filter((p) => p.name !== desired.name), desired]
+    } else if (!sameSearchPageParam(existing, desired)) {
+      params = params.map((p) => (ownedByBlock(p) ? desired : p))
+    }
+    page.params = params
+  }
+
+  function syncAllSearchPageParams() {
+    for (const b of blocks.value) if (b.type === 'search') syncSearchPageParam(b.id)
+  }
+
   // ─── Blocks ──────────────────────────────────────────────────────────────────
 
   const TEXT_DEFAULTS: Partial<Record<BlockType, object>> = {
@@ -997,6 +1059,12 @@ export const useStudioStore = defineStore('studio', () => {
     }
     blocks.value = blocks.value.filter((b: StudioBlock) => !toRemove.has(b.id))
     if (sectionsToRemove.size) sections.value = sections.value.filter((s: Section) => !sectionsToRemove.has(s.id))
+    // Retire les `PageParam` auto-déclarés par les blocs recherche supprimés.
+    for (const page of pages.value) {
+      if (!page.params?.length) continue
+      const keep = page.params.filter((p) => !p.searchBlockId || !toRemove.has(p.searchBlockId))
+      if (keep.length !== page.params.length) page.params = keep.length ? keep : undefined
+    }
     dropCanvasRef('block', blockId)
     if (selectedBlockId.value === blockId) {
       selectedBlockId.value = null
@@ -1051,6 +1119,7 @@ export const useStudioStore = defineStore('studio', () => {
     const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
     if (!block) return
     block.zoneId = toZoneId
+    if (block.type === 'search') syncSearchPageParam(blockId)
     markDirty()
   }
 
@@ -1091,6 +1160,7 @@ export const useStudioStore = defineStore('studio', () => {
       .filter(Boolean) as StudioBlock[]
     const otherBlocks = blocks.value.filter((b: StudioBlock) => !blockIds.includes(b.id) && b.zoneId !== zoneId)
     blocks.value = [...otherBlocks, ...zoneBlocks]
+    for (const b of zoneBlocks) if (b.type === 'search') syncSearchPageParam(b.id)
     markDirty()
   }
 
@@ -1134,6 +1204,7 @@ export const useStudioStore = defineStore('studio', () => {
     block.primarySourceId = datasetId
     block.joins = []
     pruneBlockColumnRefs(block)
+    if (block.type === 'search') syncSearchPageParam(blockId)
     markDirty()
   }
 
@@ -1150,6 +1221,7 @@ export const useStudioStore = defineStore('studio', () => {
       (j) => sources.some((s) => s.id === j.leftSourceId) && sources.some((s) => s.id === j.rightSourceId),
     )
     pruneBlockColumnRefs(block)
+    if (block.type === 'search') syncSearchPageParam(blockId)
     markDirty()
   }
 
@@ -1164,6 +1236,7 @@ export const useStudioStore = defineStore('studio', () => {
     block.sources = [...existing, { id, datasetId }]
     if (!block.primarySourceId) block.primarySourceId = id
     block.datasetId ??= datasetId
+    if (block.type === 'search') syncSearchPageParam(blockId)
     markDirty()
     return id
   }
@@ -1177,6 +1250,7 @@ export const useStudioStore = defineStore('studio', () => {
     if (block.primarySourceId === sourceId) block.primarySourceId = block.sources[0]?.id
     block.datasetId = block.sources.find((s) => s.id === block.primarySourceId)?.datasetId ?? block.sources[0]?.datasetId
     pruneBlockColumnRefs(block)
+    if (block.type === 'search') syncSearchPageParam(blockId)
     markDirty()
   }
 
@@ -1187,6 +1261,7 @@ export const useStudioStore = defineStore('studio', () => {
     block.primarySourceId = sourceId
     block.datasetId = block.sources.find((s) => s.id === sourceId)?.datasetId
     pruneBlockColumnRefs(block)
+    if (block.type === 'search') syncSearchPageParam(blockId)
     markDirty()
   }
 
@@ -1220,6 +1295,10 @@ export const useStudioStore = defineStore('studio', () => {
       aggregates: fm.aggregates?.filter((a) => ok(a.column)),
       loopColumn: ok(fm.loopColumn) ? fm.loopColumn : undefined,
       paramColumn: ok(fm.paramColumn) ? fm.paramColumn : undefined,
+      searchColumns: keepArr(fm.searchColumns),
+      searchAltColumns: keepArr(fm.searchAltColumns),
+      resultTitleParts: fm.resultTitleParts?.filter((p) => ok(p.ref)),
+      resultDescParts: fm.resultDescParts?.filter((p) => ok(p.ref)),
     }
     if (block.config.distinctColumn && !ok(block.config.distinctColumn)) block.config = { ...block.config, distinctColumn: null }
     if (block.config.sortColumn && !ok(block.config.sortColumn)) block.config = { ...block.config, sortColumn: null }
@@ -1329,6 +1408,7 @@ export const useStudioStore = defineStore('studio', () => {
     const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
     if (!block) return
     block.fieldMapping = { ...block.fieldMapping, ...mapping }
+    if (block.type === 'search') syncSearchPageParam(blockId)
     markDirty()
   }
 
@@ -1353,6 +1433,7 @@ export const useStudioStore = defineStore('studio', () => {
     const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
     if (!block) return
     block.joins = joins
+    if (block.type === 'search') syncSearchPageParam(blockId)
     markDirty()
   }
 
@@ -1478,6 +1559,8 @@ export const useStudioStore = defineStore('studio', () => {
     addPageParam,
     updatePageParam,
     removePageParam,
+    pageIdOfBlock,
+    syncSearchPageParam,
     switchPageKeepParams,
     reorderCurrentPageSections,
     addBlock,

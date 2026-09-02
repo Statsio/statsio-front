@@ -28,4 +28,17 @@ describe('useStudioVariables — loop variables', () => {
     const { groups } = useStudioVariables(undefined, () => block.id)
     expect(groups.value.some((g) => g.key.startsWith('loop:'))).toBe(false)
   })
+
+  it('hides the auto-managed search param but exposes visible params', () => {
+    const studio = useStudioStore()
+    const section = studio.sections[0]!
+    const search = studio.addBlock('search', `${section.id}-0`)
+    studio.updateBlockDataset(search.id, '7')
+    studio.updateBlockFieldMapping(search.id, { searchColumns: ['prenom'] })
+    studio.addPageParam(studio.currentPageId, { name: 'annee', column: 'annee' })
+
+    const { groups } = useStudioVariables(() => studio.currentPageId)
+    const paramGroup = groups.value.find((g) => g.key === 'param')
+    expect(paramGroup?.items.map((i) => i.name)).toEqual(['annee'])
+  })
 })

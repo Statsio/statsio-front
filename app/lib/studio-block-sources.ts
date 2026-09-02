@@ -1,4 +1,5 @@
 import type { BlockJoin, BlockSource, DatasetColumn, FieldMapping, StudioBlock } from '@/types/studio'
+import { migrateSearchBlock } from '@/lib/studio-search'
 
 /**
  * Ancien format de jointure d'un bloc data (rattachée à la source primaire) :
@@ -61,8 +62,9 @@ function requalifyMapping(fm: FieldMapping, colToSource: Map<string, string>): F
  * jointes. Ne touche pas les blocs recherche ni les blocs sans source.
  */
 export function normalizeBlockSources(block: StudioBlock): StudioBlock {
-  // Le bloc recherche garde son modèle propre (searchSources / searchJoins).
-  if (block.type === 'search') return block
+  // Le bloc recherche rejoint le modèle graphe (sources[] / joins[]) via sa
+  // propre migration (searchSources / searchJoins / resultTitleColumn → …).
+  if (block.type === 'search') return migrateSearchBlock(block)
 
   // Déjà au nouveau format.
   const existing = block.sources

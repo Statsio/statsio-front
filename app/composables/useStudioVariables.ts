@@ -1,7 +1,9 @@
 import { computed, type MaybeRefOrGetter, toValue, watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
-import type { DatasetColumn, SearchSource, StudioDocumentPage } from '@/types/studio'
+import type { StudioDocumentPage } from '@/types/studio'
+import { blockColumnGroups } from '@/lib/studio-columns'
+import { blockDatasetIds } from '@/lib/studio-block-sources'
 
 export interface VariableItem {
   /** Bare name, e.g. "region" — wrap in {{ }} at insert time. */
@@ -20,10 +22,9 @@ export interface VariableGroup {
 }
 
 /**
- * Variables disponibles pour une page : le paramètre d'une page template + les
- * colonnes des datasets rattachés par un bloc Recherche ciblant cette page.
- * Source unique de vérité pour `VariablePickerModal` (remplace la logique
- * dupliquée dans ColumnPickerModal / l'ancien SidebarVariables).
+ * Variables disponibles pour une page : les paramètres déclarés (hors paramètres
+ * cachés auto-gérés) + les colonnes des sources d'un bloc Recherche de la page.
+ * Source unique de vérité pour `VariablePickerModal`.
  */
 export function useStudioVariables(
   pageIdRef?: MaybeRefOrGetter<string | undefined>,
@@ -38,21 +39,16 @@ export function useStudioVariables(
     studio.pages.find((p: StudioDocumentPage) => p.id === pageId.value),
   )
 
-  const dsName = (id: string, fallback: string) =>
-    datasets.readyDatasets.find((d) => d.id === id)?.name ?? fallback
+  const searchBlocksOnPage = computed(() =>
+    studio.blocks.filter((b) => b.type === 'search' && studio.pageIdOfBlock(b.id) === pageId.value),
+  )
 
-  // Charge les schémas des datasets référencés par les blocs de recherche.
+  // Charge les schémas des datasets référencés par les blocs de recherche de la page.
   watch(
-    pageId,
+    [pageId, searchBlocksOnPage],
     () => {
-      for (const block of studio.blocks) {
-        if (block.type !== 'search' || block.fieldMapping.targetPageId !== pageId.value) continue
-        for (const src of (block.fieldMapping.searchSources ?? []) as SearchSource[]) {
-          if (src.datasetId) datasets.loadSchema(src.datasetId)
-        }
-        for (const join of block.fieldMapping.searchJoins ?? []) {
-          if (join.datasetId) datasets.loadSchema(join.datasetId)
-        }
+      for (const block of searchBlocksOnPage.value) {
+        for (const id of blockDatasetIds(block)) datasets.loadSchema(id)
       }
     },
     { immediate: true },
@@ -62,7 +58,6 @@ export function useStudioVariables(
     const out: VariableGroup[] = []
 
     // Variables des blocs boucle englobants (du plus proche au plus lointain).
-    // `loopAncestors` remonte aussi les blocs `if` — ils n'exposent pas de variable.
     if (blockId.value) {
       for (const loop of studio.loopAncestors(blockId.value).filter((b) => b.type === 'loop')) {
         const name = loop.fieldMapping.loopVar || 'item'
@@ -78,15 +73,14 @@ export function useStudioVariables(
       }
     }
 
-    // Paramètres déclarés sur la page (bloc « Paramètre », barre de recherche) +
-    // l'ancien `paramName` des pages template.
+    // Paramètres déclarés sur la page (bloc « Paramètre », barre de recherche) —
+    // hors paramètres cachés auto-gérés (bloc recherche).
     const paramItems: VariableItem[] = []
     const seenParams = new Set<string>()
     for (const p of page.value?.params ?? []) {
-      if (p.name && !seenParams.has(p.name)) {
-        seenParams.add(p.name)
-        paramItems.push({ name: p.name, hint: p.column ? `valeurs de ${p.column}` : 'paramètre' })
-      }
+      if (p.hidden || !p.name || seenParams.has(p.name)) continue
+      seenParams.add(p.name)
+      paramItems.push({ name: p.name, hint: p.column ? `valeurs de ${p.column}` : 'paramètre' })
     }
     if (page.value?.isTemplate && page.value.paramName && !seenParams.has(page.value.paramName)) {
       paramItems.push({ name: page.value.paramName, hint: 'valeur du lien sélectionné' })
@@ -104,40 +98,21 @@ export function useStudioVariables(
     }
 
     const seen = new Set<string>()
-    for (const block of studio.blocks) {
-      if (block.type !== 'search' || block.fieldMapping.targetPageId !== pageId.value) continue
-
-      for (const src of (block.fieldMapping.searchSources ?? []) as SearchSource[]) {
-        if (!src.datasetId || seen.has(src.datasetId)) continue
-        seen.add(src.datasetId)
-        const schema = datasets.getSchema(src.datasetId)
-        const cols = schema ? schema.columns.map((c: DatasetColumn) => c.name) : src.columns
-        if (!cols.length) continue
-        out.push(dataGroup(src.datasetId, dsName(src.datasetId, 'Source principale'), cols))
-      }
-
-      for (const join of block.fieldMapping.searchJoins ?? []) {
-        if (!join.datasetId || seen.has(join.datasetId)) continue
-        seen.add(join.datasetId)
-        const schema = datasets.getSchema(join.datasetId)
-        if (!schema) continue
-        out.push(
-          dataGroup(
-            join.datasetId,
-            `Jointure — ${dsName(join.datasetId, 'source')}`,
-            schema.columns.map((c: DatasetColumn) => c.name),
-          ),
-        )
+    for (const block of searchBlocksOnPage.value) {
+      for (const g of blockColumnGroups(block, datasets)) {
+        if (!g.columns.length || seen.has(g.label)) continue
+        seen.add(g.label)
+        out.push(columnGroup(g.label, g.columns.map((c) => c.name), g.sourceId))
       }
     }
 
     return out
   })
 
-  function dataGroup(id: string, name: string, cols: string[]): VariableGroup {
-    const meta = datasets.datasets.find((d) => d.id === id)
+  function columnGroup(name: string, cols: string[], datasetKey?: string): VariableGroup {
+    const meta = datasetKey ? datasets.datasets.find((d) => d.id === datasetKey) : undefined
     return {
-      key: `ds:${id}`,
+      key: `ds:${datasetKey ?? name}`,
       name,
       meta: meta ? `${meta.rowCount} lignes` : 'colonnes',
       iconText: 'COL',
