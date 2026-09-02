@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
-import { blockColumnGroups } from '@/lib/studio-columns'
-import type { StudioBlock, DatasetColumn, BlockJoin, AggregateFunction, TableColumnFormat, TableCellRule } from '@/types/studio'
+import { blockColumnGroups, columnRefLabel, primarySourceId } from '@/lib/studio-columns'
+import { blockDatasetIds } from '@/lib/studio-block-sources'
+import type { StudioBlock, AggregateFunction, TableColumnFormat, TableCellRule } from '@/types/studio'
 import StudioSubModal from './StudioSubModal.vue'
 import FieldColumns from '@/components/studio/fields/FieldColumns.vue'
 
@@ -18,10 +19,21 @@ const needsLabelVal = computed(() => props.block.type === 'pie')
 const needsValue = computed(() => props.block.type === 'kpi')
 const isTable = computed(() => props.block.type === 'table')
 
-const joins = computed<BlockJoin[]>(() => props.block.joins ?? [])
 const fm = computed(() => props.block.fieldMapping)
+const primaryId = computed(() => primarySourceId(props.block))
+const hasSource = computed(() => Boolean(primaryId.value))
 const groups = computed(() => blockColumnGroups(props.block, datasets))
-const columnNames = computed(() => datasets.getSchema(props.block.datasetId ?? '')?.columns.map((c: DatasetColumn) => c.name) ?? [])
+/** Toutes les références de colonnes disponibles (union de toutes les sources). */
+const allRefs = computed<string[]>(() =>
+  groups.value.flatMap((g) => g.columns.map((c) => (g.isPrimary ? c.name : `${c.name}@${g.sourceId}`))),
+)
+const refLabel = (ref: string) => columnRefLabel(ref, props.block, datasets)
+
+watch(
+  () => props.show,
+  (open) => { if (open) blockDatasetIds(props.block).forEach((id) => datasets.loadSchema(id)) },
+  { immediate: true },
+)
 
 const yAxes = computed<string[]>(() => {
   const axes = fm.value.yAxes
@@ -29,7 +41,8 @@ const yAxes = computed<string[]>(() => {
   return fm.value.yAxis ? [fm.value.yAxis] : []
 })
 
-const AGGS: { value: AggregateFunction; label: string }[] = [
+const AGG_OPTIONS: { value: AggregateFunction | ''; label: string }[] = [
+  { value: '', label: 'Aucune' },
   { value: 'sum', label: 'Somme' },
   { value: 'avg', label: 'Moyenne' },
   { value: 'count', label: 'Nombre' },
@@ -37,33 +50,45 @@ const AGGS: { value: AggregateFunction; label: string }[] = [
   { value: 'max', label: 'Max' },
 ]
 
-function syncJoinColumn(value: string) {
-  if (!value || columnNames.value.includes(value)) return
-  joins.value.forEach((j, i) => {
-    const jCols = datasets.getSchema(j.datasetId)?.columns.map((c: DatasetColumn) => c.name) ?? []
-    if (jCols.includes(value) && !j.columns.includes(value)) {
-      studio.updateBlockJoins(props.block.id, joins.value.map((jj, ii) => (ii === i ? { ...jj, columns: [...jj.columns, value] } : jj)))
-    }
-  })
+/** Colonnes de valeur du bloc (celles auxquelles s'applique une fonction d'agrégation). */
+const valueColumns = computed<string[]>(() => {
+  if (needsXY.value) return yAxes.value
+  if (needsLabelVal.value) return fm.value.value ? [fm.value.value] : []
+  if (needsValue.value) return fm.value.valueColumn ? [fm.value.valueColumn] : []
+  return []
+})
+
+function aggFor(col: string): AggregateFunction | undefined {
+  return fm.value.aggregates?.find((a) => a.column === col)?.fn ?? fm.value.aggregate
+}
+/** Écrit la table `aggregates[]` (une entrée par colonne de valeur ayant une fonction). */
+function setAggFor(col: string, fn: AggregateFunction | '') {
+  const cur = new Map((fm.value.aggregates ?? []).map((a) => [a.column, a.fn as AggregateFunction | '']))
+  cur.set(col, fn)
+  const next = valueColumns.value
+    .map((c) => ({ column: c, fn: (cur.get(c) ?? fm.value.aggregate ?? '') as AggregateFunction | '' }))
+    .filter((e): e is { column: string; fn: AggregateFunction } => e.fn !== '')
+  studio.updateBlockFieldMapping(props.block.id, { aggregates: next.length ? next : undefined, aggregate: undefined })
 }
 
 function set(key: string, value: string | undefined) {
   studio.updateBlockFieldMapping(props.block.id, { [key]: value || undefined })
-  if (value) syncJoinColumn(value)
-}
-function setAggregate(value: AggregateFunction) {
-  studio.updateBlockFieldMapping(props.block.id, { aggregate: value })
 }
 
 function toggleYAxis(col: string) {
-  const next = yAxes.value.includes(col) ? yAxes.value.filter((c) => c !== col) : [...yAxes.value, col]
+  const adding = !yAxes.value.includes(col)
+  const next = adding ? [...yAxes.value, col] : yAxes.value.filter((c) => c !== col)
   studio.updateBlockFieldMapping(props.block.id, { yAxes: next.length ? next : undefined, yAxis: next[0] ?? undefined })
-  syncJoinColumn(col)
+  // Nouvelle colonne de valeur : hérite de la fonction courante quand un agrégat par colonne existe déjà.
+  const aggs = fm.value.aggregates
+  if (adding && aggs?.length && !aggs.some((a) => a.column === col)) {
+    setAggFor(col, aggs[0]!.fn)
+  }
 }
 
 // ─── Tableau : colonnes affichées + libellés ────────────────────────────────
 
-const tableColumns = computed<string[]>(() => (fm.value.columns?.length ? fm.value.columns : columnNames.value))
+const tableColumns = computed<string[]>(() => (fm.value.columns?.length ? fm.value.columns : allRefs.value))
 const columnLabels = computed<Record<string, string>>(() => fm.value.columnLabels ?? {})
 const isCustomized = computed(() => (fm.value.columns?.length ?? 0) > 0)
 
@@ -79,7 +104,6 @@ function toggleTableColumn(col: string) {
     })
   } else {
     studio.updateBlockFieldMapping(props.block.id, { columns: [...cur, col] })
-    syncJoinColumn(col)
   }
 }
 function moveColumn(col: string, dir: -1 | 1) {
@@ -174,7 +198,7 @@ const FORMAT_OPTIONS = [
     :width="600"
     @close="emit('close')"
   >
-    <p v-if="!block.datasetId" class="py-10 text-center text-[13px] text-[var(--studio-faint)]">
+    <p v-if="!hasSource" class="py-10 text-center text-[13px] text-[var(--studio-faint)]">
       Connectez d'abord une source dans l'onglet « Données ».
     </p>
 
@@ -184,6 +208,7 @@ const FORMAT_OPTIONS = [
         <FieldColumns
           label="Axe X — catégorie"
           :groups="groups"
+          :primary-source-id="primaryId"
           :selected="fm.xAxis ?? null"
           @pick="set('xAxis', $event)"
         />
@@ -192,25 +217,30 @@ const FORMAT_OPTIONS = [
             label="Axe Y — valeurs"
             hint="cliquez pour ajouter / retirer"
             :groups="groups"
+            :primary-source-id="primaryId"
             :selected="yAxes"
             @pick="toggleYAxis"
           />
-          <div class="mt-2 flex flex-wrap gap-1.5">
-            <button
-              v-for="a in AGGS"
-              :key="a.value"
-              type="button"
-              class="rounded-lg border-[1.5px] px-2.5 py-1.5 text-[11.5px] font-bold transition-colors"
-              :class="(fm.aggregate ?? 'sum') === a.value
-                ? 'border-[var(--studio-ink)] bg-[var(--studio-ink)] text-white'
-                : 'border-[var(--studio-line-strong)] text-[var(--studio-muted)]'"
-              @click="setAggregate(a.value)"
-            >{{ a.label }}</button>
+          <div v-if="valueColumns.length" class="mt-2.5">
+            <p class="mb-1.5 text-[11px] font-extrabold uppercase tracking-[0.07em] text-[var(--studio-faint)]">Agrégation par colonne</p>
+            <div class="flex flex-col gap-1.5">
+              <div v-for="col in valueColumns" :key="col" class="flex items-center gap-2">
+                <span class="min-w-0 flex-1 truncate font-mono text-[11.5px] text-[var(--studio-muted)]">{{ refLabel(col) }}</span>
+                <select
+                  class="studio-input shrink-0 !w-[108px] !py-1.5 !text-[11px]"
+                  :value="aggFor(col) ?? ''"
+                  @change="setAggFor(col, ($event.target as HTMLSelectElement).value as AggregateFunction | '')"
+                >
+                  <option v-for="o in AGG_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
+                </select>
+              </div>
+            </div>
           </div>
         </div>
         <FieldColumns
           label="Série de regroupement"
           :groups="groups"
+          :primary-source-id="primaryId"
           :selected="fm.series ?? null"
           none-label="Aucune"
           @pick="set('series', $event)"
@@ -220,20 +250,23 @@ const FORMAT_OPTIONS = [
 
       <!-- ── PIE ── -->
       <template v-else-if="needsLabelVal">
-        <FieldColumns label="Étiquettes" :groups="groups" :selected="fm.label ?? null" @pick="set('label', $event)" />
+        <FieldColumns label="Étiquettes" :groups="groups" :primary-source-id="primaryId" :selected="fm.label ?? null" @pick="set('label', $event)" />
         <div>
-          <FieldColumns label="Valeurs" :groups="groups" :selected="fm.value ?? null" @pick="set('value', $event)" />
-          <div class="mt-2 flex flex-wrap gap-1.5">
-            <button
-              v-for="a in AGGS"
-              :key="a.value"
-              type="button"
-              class="rounded-lg border-[1.5px] px-2.5 py-1.5 text-[11.5px] font-bold transition-colors"
-              :class="(fm.aggregate ?? 'sum') === a.value
-                ? 'border-[var(--studio-ink)] bg-[var(--studio-ink)] text-white'
-                : 'border-[var(--studio-line-strong)] text-[var(--studio-muted)]'"
-              @click="setAggregate(a.value)"
-            >{{ a.label }}</button>
+          <FieldColumns label="Valeurs" :groups="groups" :primary-source-id="primaryId" :selected="fm.value ?? null" @pick="set('value', $event)" />
+          <div v-if="valueColumns.length" class="mt-2.5">
+            <p class="mb-1.5 text-[11px] font-extrabold uppercase tracking-[0.07em] text-[var(--studio-faint)]">Agrégation par colonne</p>
+            <div class="flex flex-col gap-1.5">
+              <div v-for="col in valueColumns" :key="col" class="flex items-center gap-2">
+                <span class="min-w-0 flex-1 truncate font-mono text-[11.5px] text-[var(--studio-muted)]">{{ refLabel(col) }}</span>
+                <select
+                  class="studio-input shrink-0 !w-[108px] !py-1.5 !text-[11px]"
+                  :value="aggFor(col) ?? ''"
+                  @change="setAggFor(col, ($event.target as HTMLSelectElement).value as AggregateFunction | '')"
+                >
+                  <option v-for="o in AGG_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
+                </select>
+              </div>
+            </div>
           </div>
         </div>
       </template>
@@ -255,18 +288,21 @@ const FORMAT_OPTIONS = [
           </p>
         </div>
         <div v-if="!block.config.valueExpression">
-          <FieldColumns label="Valeur principale" :groups="groups" :selected="fm.valueColumn ?? null" @pick="set('valueColumn', $event)" />
-          <div class="mt-2 flex flex-wrap gap-1.5">
-            <button
-              v-for="a in AGGS"
-              :key="a.value"
-              type="button"
-              class="rounded-lg border-[1.5px] px-2.5 py-1.5 text-[11.5px] font-bold transition-colors"
-              :class="(fm.aggregate ?? 'sum') === a.value
-                ? 'border-[var(--studio-ink)] bg-[var(--studio-ink)] text-white'
-                : 'border-[var(--studio-line-strong)] text-[var(--studio-muted)]'"
-              @click="setAggregate(a.value)"
-            >{{ a.label }}</button>
+          <FieldColumns label="Valeur principale" :groups="groups" :primary-source-id="primaryId" :selected="fm.valueColumn ?? null" @pick="set('valueColumn', $event)" />
+          <div v-if="valueColumns.length" class="mt-2.5">
+            <p class="mb-1.5 text-[11px] font-extrabold uppercase tracking-[0.07em] text-[var(--studio-faint)]">Agrégation par colonne</p>
+            <div class="flex flex-col gap-1.5">
+              <div v-for="col in valueColumns" :key="col" class="flex items-center gap-2">
+                <span class="min-w-0 flex-1 truncate font-mono text-[11.5px] text-[var(--studio-muted)]">{{ refLabel(col) }}</span>
+                <select
+                  class="studio-input shrink-0 !w-[108px] !py-1.5 !text-[11px]"
+                  :value="aggFor(col) ?? ''"
+                  @change="setAggFor(col, ($event.target as HTMLSelectElement).value as AggregateFunction | '')"
+                >
+                  <option v-for="o in AGG_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
+                </select>
+              </div>
+            </div>
           </div>
         </div>
         <div>
@@ -299,12 +335,12 @@ const FORMAT_OPTIONS = [
                 <button type="button" class="flex h-[14px] w-[22px] items-center justify-center rounded-[5px] bg-[var(--studio-wash)] text-[9px] text-[var(--studio-muted)] disabled:opacity-30" :disabled="i === 0" @click="moveColumn(col, -1)">▲</button>
                 <button type="button" class="flex h-[14px] w-[22px] items-center justify-center rounded-[5px] bg-[var(--studio-wash)] text-[9px] text-[var(--studio-muted)] disabled:opacity-30" :disabled="i === tableColumns.length - 1" @click="moveColumn(col, 1)">▼</button>
               </span>
-              <span class="w-[92px] shrink-0 truncate rounded-md bg-[var(--studio-tag)] px-2 py-1.5 font-mono text-[10.5px] font-semibold text-[var(--studio-tag-ink)]" :title="col">{{ col }}</span>
+              <span class="w-[92px] shrink-0 truncate rounded-md bg-[var(--studio-tag)] px-2 py-1.5 font-mono text-[10.5px] font-semibold text-[var(--studio-tag-ink)]" :title="refLabel(col)">{{ refLabel(col) }}</span>
               <input
                 :value="columnLabels[col] ?? ''"
                 type="text"
                 class="studio-input min-w-0 flex-1 !py-2 !text-[12.5px]"
-                :placeholder="col"
+                :placeholder="refLabel(col)"
                 @change="setColumnLabel(col, ($event.target as HTMLInputElement).value)"
               />
               <select
@@ -327,6 +363,7 @@ const FORMAT_OPTIONS = [
         <FieldColumns
           label="Ajouter / retirer une colonne"
           :groups="groups"
+          :primary-source-id="primaryId"
           :selected="tableColumns"
           @pick="toggleTableColumn"
         />
@@ -338,7 +375,7 @@ const FORMAT_OPTIONS = [
             <button type="button" class="text-[11px] font-bold text-[var(--color-primary)]" @click="addComputed">+ Ajouter</button>
           </div>
           <p v-if="!computedCols.length" class="text-[11.5px] text-[var(--studio-faint)]">
-            Ex. <code class="font-mono">{prix} - AVG(prix@{{ block.datasetId }})</code> — <code class="font-mono">{col}</code> = valeur de ligne, agrégats <code class="font-mono">FN(col@id)</code>.
+            Ex. <code class="font-mono">{prix} - AVG(prix)</code> — <code class="font-mono">{col}</code> = valeur de ligne, agrégats <code class="font-mono">FN(colonne)</code> (ajoutez <code class="font-mono">@source</code> pour une source jointe).
           </p>
           <div v-for="(c, i) in computedCols" :key="i" class="mb-2 flex items-center gap-2">
             <input
@@ -367,7 +404,7 @@ const FORMAT_OPTIONS = [
           </div>
           <div v-for="(r, i) in cellRules" :key="i" class="mb-2 flex flex-wrap items-center gap-1.5">
             <select class="studio-input !w-[120px] !py-2 !text-[11px]" :value="r.column" @change="updateRule(i, { column: ($event.target as HTMLSelectElement).value })">
-              <option v-for="c in allTableColumns" :key="c" :value="c">{{ c }}</option>
+              <option v-for="c in allTableColumns" :key="c" :value="c">{{ refLabel(c) }}</option>
             </select>
             <select class="studio-input !w-[128px] !py-2 !text-[11px]" :value="r.when" @change="updateRule(i, { when: ($event.target as HTMLSelectElement).value as TableCellRule['when'] })">
               <option v-for="w in RULE_WHENS" :key="w.v" :value="w.v">{{ w.l }}</option>

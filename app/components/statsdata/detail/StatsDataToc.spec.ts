@@ -9,7 +9,7 @@ vi.mock('@/api/studio', () => ({
   fetchPublicScalarAggregate: vi.fn<(...a: unknown[]) => unknown>(),
 }))
 
-function seed(sections: { id: string; anchorId?: string; title?: string }[], params: Record<string, string> = {}, pageParams: { name: string; label?: string }[] = []) {
+function seed(sections: { id: string; title?: string }[], params: Record<string, string> = {}, pageParams: { name: string; label?: string }[] = []) {
   const store = useStudioStore()
   store.initPage(
     { id: 'c1', type: 'statsdata', title: 'Doc' },
@@ -24,30 +24,30 @@ function seed(sections: { id: string; anchorId?: string; title?: string }[], par
 describe('StatsDataToc', () => {
   beforeEach(() => setActivePinia(createPinia()))
 
-  it('renders one numbered entry per section with an anchorId + title, in order', () => {
+  it('renders one numbered entry per titled section, anchor slugified from the title, in order', () => {
     seed([
-      { id: 's1', anchorId: 'kpi', title: 'Chiffres clés' },
-      { id: 's2', title: 'sans ancre' },
-      { id: 's3', anchorId: 'regions', title: 'Écarts régionaux' },
+      { id: 's1', title: 'Chiffres clés' },
+      { id: 's2' },
+      { id: 's3', title: 'Écarts régionaux' },
     ])
     const w = mount(StatsDataToc)
     const links = w.findAll('a')
     expect(links).toHaveLength(2)
     expect(links[0]!.text()).toContain('01')
     expect(links[0]!.text()).toContain('Chiffres clés')
-    expect(links[0]!.attributes('href')).toBe('#kpi')
+    expect(links[0]!.attributes('href')).toBe('#chiffres-cles')
     expect(links[1]!.text()).toContain('02')
-    expect(links[1]!.attributes('href')).toBe('#regions')
+    expect(links[1]!.attributes('href')).toBe('#ecarts-regionaux')
   })
 
-  it('hides itself when there are fewer than 2 anchored sections', () => {
-    seed([{ id: 's1', anchorId: 'a', title: 'Seul' }])
+  it('hides itself when there are fewer than 2 titled sections', () => {
+    seed([{ id: 's1', title: 'Seul' }])
     expect(mount(StatsDataToc).find('nav').exists()).toBe(false)
   })
 
   it('shows the active value of declared page params', () => {
     seed(
-      [{ id: 's1', anchorId: 'a', title: 'A' }, { id: 's2', anchorId: 'b', title: 'B' }],
+      [{ id: 's1', title: 'A' }, { id: 's2', title: 'B' }],
       { carburant: 'Gazole', code_commune: '69003' },
       [{ name: 'carburant', label: 'Carburant' }],
     )

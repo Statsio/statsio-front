@@ -4,7 +4,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { fetchPublicStatsDataDocument } from '@/api/studio'
 import { useStudioStore } from '@/stores/studio'
-import { SECTION_LAYOUT_DEFINITIONS, isFormBlock } from '@/types/studio'
+import { isFormBlock } from '@/types/studio'
 import type { StudioBlock, StudioDocumentPage } from '@/types/studio'
 import BlockRenderer from '@/components/studio/blocks/BlockRenderer.vue'
 
@@ -21,19 +21,15 @@ usePageSeo({
   title: computed(() => studio.content?.title),
 })
 
-// Sections of the current page
-const pageSections = computed(() => studio.currentPageSections)
+// Sections racine de la page (les sections nichées dans un bloc de script de page
+// sont rendues par leur bloc — non supporté sur cette route TVStats historique).
+const pageSections = computed(() => studio.currentPageTopLevelSections)
 
 // Blocks grouped by zone
 const blocksByZone = computed(() => studio.blocksByZone)
 
-function sectionDef(layout: string) {
-  return SECTION_LAYOUT_DEFINITIONS.find((d) => d.type === layout) ?? SECTION_LAYOUT_DEFINITIONS[0]!
-}
-
-function blocksInZone(sectionId: string, colIdx: number): StudioBlock[] {
-  const zoneId = `${sectionId}-${colIdx}`
-  return blocksByZone.value[zoneId] ?? []
+function blocksInZone(sectionId: string): StudioBlock[] {
+  return blocksByZone.value[`${sectionId}-0`] ?? []
 }
 
 // Other (non-template) pages of the same doc for navigation
@@ -164,26 +160,19 @@ function copyLink() {
               <div
                 v-for="section in pageSections"
                 :key="section.id"
-                class="section-grid gap-4"
-                :style="{ '--cols': sectionDef(section.layout).gridCols.map((n: number) => `${n}fr`).join(' ') }"
+                class="flex flex-col gap-4 min-w-0"
               >
                 <div
-                  v-for="(_, colIdx) in sectionDef(section.layout).gridCols"
-                  :key="colIdx"
-                  class="flex flex-col gap-4 min-w-0"
+                  v-for="block in blocksInZone(section.id)"
+                  :key="block.id"
+                  class="bg-white rounded-[1.75rem] border border-slate-200 shadow-[0_12px_40px_-24px_rgba(15,23,42,0.15)] overflow-hidden"
                 >
-                  <div
-                    v-for="block in blocksInZone(section.id, colIdx)"
-                    :key="block.id"
-                    class="bg-white rounded-[1.75rem] border border-slate-200 shadow-[0_12px_40px_-24px_rgba(15,23,42,0.15)] overflow-hidden"
-                  >
-                    <div v-if="block.config.title && !isFormBlock(block.type)" class="border-b border-slate-100 px-5 py-3">
-                      <p class="text-sm font-semibold text-slate-800">{{ block.config.title }}</p>
-                      <p v-if="block.config.description" class="mt-1 text-xs text-slate-500">{{ block.config.description }}</p>
-                    </div>
-                    <div class="p-4">
-                      <BlockRenderer :block="block" :readonly="true" />
-                    </div>
+                  <div v-if="block.config.title && !isFormBlock(block.type)" class="border-b border-slate-100 px-5 py-3">
+                    <p class="text-sm font-semibold text-slate-800">{{ block.config.title }}</p>
+                    <p v-if="block.config.description" class="mt-1 text-xs text-slate-500">{{ block.config.description }}</p>
+                  </div>
+                  <div class="p-4">
+                    <BlockRenderer :block="block" :readonly="true" />
                   </div>
                 </div>
               </div>
@@ -226,15 +215,3 @@ function copyLink() {
     </section>
   </main>
 </template>
-
-<style scoped>
-.section-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-}
-@media (min-width: 640px) {
-  .section-grid {
-    grid-template-columns: var(--cols);
-  }
-}
-</style>

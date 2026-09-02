@@ -3,10 +3,11 @@ import { computed, ref, watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import { fetchDistinctValues } from '@/api/studio'
+import { blockSourceParams } from '@/composables/useBlockData'
 import type { DatasetMeta, StudioBlock } from '@/types/studio'
 import FieldPicker from '@/components/studio/fields/FieldPicker.vue'
 import FieldNote from '@/components/studio/fields/FieldNote.vue'
-import DataSourcePickerModal from '@/components/studio/ui/DataSourcePickerModal.vue'
+import DataSourceWizard from '@/components/studio/ui/DataSourceWizard.vue'
 import ColumnPickerModal from '@/components/studio/ui/ColumnPickerModal.vue'
 
 const props = defineProps<{ block: StudioBlock }>()
@@ -37,13 +38,14 @@ const values = ref<string[]>([])
 const loadingValues = ref(false)
 
 watch(
-  () => [props.block.datasetId, column.value].join('|'),
+  () => [props.block.datasetId, JSON.stringify(props.block.sources ?? []), JSON.stringify(props.block.joins ?? []), column.value].join('|'),
   async () => {
     values.value = []
-    if (!props.block.datasetId || !column.value) return
+    const sp = blockSourceParams(props.block)
+    if (!sp.urlDatasetId || !column.value) return
     loadingValues.value = true
     try {
-      values.value = await fetchDistinctValues(props.block.datasetId, column.value, '')
+      values.value = await fetchDistinctValues(sp.urlDatasetId, column.value, '', [], { sources: sp.sources, primarySourceId: sp.primarySourceId, joins: sp.joins })
     } catch {
       values.value = []
     } finally {
@@ -92,7 +94,7 @@ const CONTROLS = [
 <template>
   <div class="flex flex-col gap-[11px] px-4 pb-2 pt-3">
     <FieldPicker label="Source" :value="datasetName" action="Changer" @open="showDataSourceModal = true" />
-    <DataSourcePickerModal :show="showDataSourceModal" :block="block" @close="showDataSourceModal = false" />
+    <DataSourceWizard :show="showDataSourceModal" :block="block" @close="showDataSourceModal = false" />
 
     <template v-if="block.datasetId">
       <FieldPicker

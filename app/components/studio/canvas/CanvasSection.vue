@@ -1,24 +1,55 @@
 <script setup lang="ts">
-import { ref, computed, provide } from 'vue'
+import { computed, provide, onBeforeUnmount } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { useResolvedTokens } from '@/composables/useResolvedTokens'
-import { SECTION_LAYOUT_DEFINITIONS } from '@/types/studio'
-import type { Section, SectionLayout } from '@/types/studio'
+import { sanitizeInlineHtml, isBlankInlineHtml } from '@/lib/inline-rich-text'
+import type { Section } from '@/types/studio'
 import CanvasZone from './CanvasZone.vue'
+import SectionInlineText from './SectionInlineText.vue'
 import { SECTION_CONTEXT } from './section-context'
 
 const props = defineProps<{ section: Section }>()
 const studio = useStudioStore()
 
-const showLayoutMenu = ref(false)
+// ─── Édition en place de l'en-tête (sur-titre / titre / description) ───────────
+// Débounce type « bloc Titre » : une rafale de frappe = un seul point d'annulation.
+type HeaderField = 'kicker' | 'title' | 'description'
+const pendingHeader: Partial<Record<HeaderField, string>> = {}
+let headerTimer: ReturnType<typeof setTimeout> | null = null
 
-const def = computed(
-  () => SECTION_LAYOUT_DEFINITIONS.find((d) => d.type === props.section.layout)!,
-)
+function flushHeader() {
+  if (headerTimer) {
+    clearTimeout(headerTimer)
+    headerTimer = null
+  }
+  const keys = Object.keys(pendingHeader) as HeaderField[]
+  if (keys.length === 0) return
+  const patch: Partial<Record<HeaderField, string | undefined>> = {}
+  for (const key of keys) {
+    patch[key] = (pendingHeader[key] ?? '').trim() || undefined
+    delete pendingHeader[key]
+  }
+  studio.updateSection(props.section.id, patch)
+}
 
-const zoneIds = computed(() =>
-  Array.from({ length: def.value.cols }, (_, i) => `${props.section.id}-${i}`),
-)
+function setHeaderField(key: HeaderField, value: string) {
+  pendingHeader[key] = value
+  if (headerTimer) clearTimeout(headerTimer)
+  headerTimer = setTimeout(flushHeader, 350)
+}
+
+onBeforeUnmount(flushHeader)
+
+function onSectionClick(event: MouseEvent) {
+  if (studio.isPreview) return
+  const target = event.target as HTMLElement | null
+  if (!target) return
+  // Un clic dans un bloc enfant ou dans la barre d'outils garde son propre comportement.
+  if (target.closest('[data-block-index]') || target.closest('[data-section-toolbar]')) return
+  studio.selectSection(props.section.id)
+}
+
+const zoneId = computed(() => `${props.section.id}-0`)
 
 const resolveOpts = {
   tokenMap: () => studio.pageParams,
@@ -30,10 +61,24 @@ const { text: kicker } = useResolvedTokens({ raw: () => props.section.kicker, ..
 const { text: title } = useResolvedTokens({ raw: () => props.section.title, ...resolveOpts })
 const { text: description } = useResolvedTokens({ raw: () => props.section.description, ...resolveOpts })
 
-const hasHeader = computed(() => Boolean(props.section.kicker || props.section.title || props.section.description))
+const kickerHtml = computed(() => sanitizeInlineHtml(kicker.value))
+const titleHtml = computed(() => sanitizeInlineHtml(title.value))
+const descriptionHtml = computed(() => sanitizeInlineHtml(description.value))
+
+const headStyle = computed(() => ({
+  ...(props.section.headerLetterSpacing != null ? { '--sec-head-ls': `${props.section.headerLetterSpacing}em` } : {}),
+  ...(props.section.headerLineHeight != null ? { '--sec-head-lh': String(props.section.headerLineHeight) } : {}),
+}))
+
+const hasKicker = computed(() => !isBlankInlineHtml(props.section.kicker))
+const hasTitle = computed(() => !isBlankInlineHtml(props.section.title))
+const hasDescription = computed(() => !isBlankInlineHtml(props.section.description))
+const hasHeader = computed(() => hasKicker.value || hasTitle.value || hasDescription.value)
 const theme = computed(() => props.section.theme ?? 'default')
 const dark = computed(() => theme.value === 'dark')
-const carded = computed(() => hasHeader.value || theme.value !== 'default')
+// Toute section est une carte (fond blanc + blocs « nus » à l'intérieur), avec ou
+// sans en-tête — même rendu dans l'éditeur et sur la page publiée.
+const carded = computed(() => true)
 
 // Aperçu WYSIWYG : les blocs enfants savent s'ils sont dans une carte sombre / sans carte.
 // Objet à accesseurs → `BlockWrapper` lit toujours la valeur réactive courante.
@@ -41,21 +86,22 @@ provide(SECTION_CONTEXT, {
   get dark() { return dark.value },
   get carded() { return carded.value },
 })
-
-function changeLayout(layout: SectionLayout) {
-  studio.changeSectionLayout(props.section.id, layout)
-  showLayoutMenu.value = false
-}
 </script>
 
 <template>
   <div
+    :data-section-id="section.id"
     class="group/section relative"
-    :class="[studio.isPreview ? '' : 'pt-9', section.locked ? 'cursor-not-allowed' : '']"
+    :class="[
+      studio.isPreview ? '' : 'pt-9',
+      section.locked ? 'cursor-not-allowed' : (studio.isPreview ? '' : 'cursor-pointer'),
+    ]"
+    @click="onSectionClick"
   >
     <!-- Barre d'outils de section -->
     <div
       v-if="!section.locked && !studio.isPreview"
+      data-section-toolbar
       class="absolute left-0 right-0 top-0 z-30 flex h-8 items-center justify-between opacity-0 transition-opacity group-hover/section:opacity-100"
     >
       <div
@@ -81,38 +127,6 @@ function changeLayout(layout: SectionLayout) {
             <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
           </svg>
         </button>
-        <div class="relative">
-          <button
-            class="flex items-center gap-1 rounded-lg border border-[var(--studio-line)] bg-white px-2 py-1 text-[10px] font-medium text-[var(--studio-muted)] shadow-[var(--studio-shadow-card)] hover:bg-[var(--studio-wash)]"
-            @click.stop="showLayoutMenu = !showLayoutMenu"
-          >
-            {{ def.label }}
-          </button>
-          <div
-            v-if="showLayoutMenu"
-            class="absolute right-0 top-7 z-40 w-52 rounded-xl border border-[var(--studio-line)] bg-white p-1.5 shadow-[var(--studio-shadow-pop)]"
-            @click.stop
-          >
-            <button
-              v-for="ld in SECTION_LAYOUT_DEFINITIONS"
-              :key="ld.type"
-              class="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition-colors hover:bg-[var(--studio-wash)]"
-              :class="ld.type === section.layout ? 'bg-[var(--studio-accent-wash)] font-semibold text-[var(--color-primary)]' : 'text-[var(--studio-ink)]'"
-              @click="changeLayout(ld.type)"
-            >
-              <span class="flex h-3.5 w-16 shrink-0 gap-0.5">
-                <span
-                  v-for="(span, i) in ld.gridCols"
-                  :key="i"
-                  class="rounded-[2px] bg-[var(--color-secondary)]"
-                  :style="{ flex: span }"
-                />
-              </span>
-              {{ ld.label }}
-            </button>
-          </div>
-        </div>
-
         <button
           class="flex h-6 w-6 items-center justify-center rounded-lg border border-[var(--studio-line)] bg-white text-[var(--studio-faint)] shadow-[var(--studio-shadow-card)] transition-colors hover:border-red-200 hover:bg-red-50 hover:text-[var(--color-error)]"
           title="Supprimer cette section"
@@ -146,20 +160,60 @@ function changeLayout(layout: SectionLayout) {
         'outline outline-2 outline-offset-4 outline-[var(--color-primary)] rounded-[18px]': studio.selectedSectionId === section.id && !studio.isPreview,
       }"
     >
-      <div v-if="hasHeader" class="sd-sec__head">
-        <p v-if="section.kicker" class="sd-sec__kicker">{{ kicker }}</p>
-        <h2 v-if="section.title" class="sd-sec__title">{{ title }}</h2>
-        <p v-if="section.description" class="sd-sec__desc">{{ description }}</p>
+      <!-- Édition : en-tête toujours présent, éditable en place -->
+      <div
+        v-if="!studio.isPreview"
+        class="sd-sec__head"
+        :class="{ 'sd-sec__head--empty': !hasHeader }"
+        :style="headStyle"
+        @focusout="flushHeader"
+      >
+        <SectionInlineText
+          class="sd-sec__kicker"
+          :section-id="section.id"
+          field="kicker"
+          :model-value="section.kicker ?? ''"
+          placeholder="Sur-titre"
+          @update:model-value="setHeaderField('kicker', $event)"
+        />
+        <SectionInlineText
+          class="sd-sec__title"
+          :section-id="section.id"
+          field="title"
+          :model-value="section.title ?? ''"
+          placeholder="Titre de la section"
+          @update:model-value="setHeaderField('title', $event)"
+        />
+        <SectionInlineText
+          class="sd-sec__desc"
+          :section-id="section.id"
+          field="description"
+          :model-value="section.description ?? ''"
+          placeholder="Description (optionnelle)"
+          @update:model-value="setHeaderField('description', $event)"
+        />
       </div>
 
-      <div
-        class="grid items-start gap-4"
-        :style="{ gridTemplateColumns: def.gridCols.map((s: number) => `${s}fr`).join(' ') }"
-      >
-        <CanvasZone v-for="(zoneId, i) in zoneIds" :key="zoneId" :zone-id="zoneId" :col-index="i" />
+      <!-- Rendu : en-tête affiché seulement si renseigné -->
+      <div v-else-if="hasHeader" class="sd-sec__head" :style="headStyle">
+        <p v-if="hasKicker" class="sd-sec__kicker" v-html="kickerHtml" />
+        <h2 v-if="hasTitle" class="sd-sec__title" v-html="titleHtml" />
+        <p v-if="hasDescription" class="sd-sec__desc" v-html="descriptionHtml" />
       </div>
+
+      <CanvasZone :zone-id="zoneId" :col-index="0" />
     </div>
   </div>
-
-  <div v-if="showLayoutMenu" class="fixed inset-0 z-20" @click="showLayoutMenu = false" />
 </template>
+
+<style scoped>
+/* En-tête encore vierge : discret tant qu'on ne le survole pas / édite pas. */
+.sd-sec__head--empty {
+  opacity: 0.65;
+  transition: opacity 0.15s ease;
+}
+.sd-sec__head--empty:hover,
+.sd-sec__head--empty:focus-within {
+  opacity: 1;
+}
+</style>

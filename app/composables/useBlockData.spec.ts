@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { defineComponent, h, provide } from 'vue'
 import { mount } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
-import { useBlockData } from './useBlockData'
+import { useBlockData, resolveAggregationParams, rowKey } from './useBlockData'
 import { STUDIO_EMBED_CONTEXT } from './studioEmbedContext'
 import { useStudioStore } from '@/stores/studio'
 import { fetchBlockData, fetchPublicBlockData } from '@/api/studio'
@@ -152,5 +152,59 @@ describe('useBlockData', () => {
     expect(data.value).toBeNull()
     expect(fetchBlockData).not.toHaveBeenCalled()
     expect(fetchPublicBlockData).not.toHaveBeenCalled()
+  })
+
+  it('load() sends sources[] + joins for a multi-source block', async () => {
+    vi.mocked(fetchBlockData).mockResolvedValue(result)
+    const block = makeBlock({
+      type: 'bar',
+      sources: [{ id: '1', datasetId: 'dataset-1' }, { id: '2', datasetId: 'dataset-2' }],
+      primarySourceId: '1',
+      joins: [{ leftSourceId: '1', leftColumn: 'a', rightSourceId: '2', rightColumn: 'b', type: 'left' }],
+      fieldMapping: { xAxis: 'x', yAxes: ['y@2'], aggregates: [{ column: 'y@2', fn: 'sum' }] },
+    })
+    const { reload } = useBlockData(() => block, false)
+    await reload()
+
+    const [urlDataset, params] = vi.mocked(fetchBlockData).mock.calls[0]!
+    expect(urlDataset).toBe('dataset-1')
+    expect(params?.sources).toHaveLength(2)
+    expect(params?.primarySourceId).toBe('1')
+    expect(params?.joins).toHaveLength(1)
+    expect(params?.aggregates).toEqual([{ column: 'y@2', fn: 'sum' }])
+  })
+})
+
+describe('resolveAggregationParams', () => {
+  const base: StudioBlock = { id: 'b', type: 'bar', zoneId: 'z', fieldMapping: {}, config: {} }
+
+  it('returns nothing without any aggregate', () => {
+    expect(resolveAggregationParams(base)).toEqual({})
+  })
+
+  it('per-column aggregates override the legacy uniform function', () => {
+    const r = resolveAggregationParams({
+      ...base,
+      fieldMapping: { xAxis: 'country', yAxes: ['ca', 'marge'], aggregate: 'sum', aggregates: [{ column: 'marge', fn: 'avg' }] },
+    })
+    expect(r.aggregates).toEqual([{ column: 'ca', fn: 'sum' }, { column: 'marge', fn: 'avg' }])
+    expect(r.groupBy).toEqual(['country'])
+  })
+
+  it('falls back to the legacy uniform aggregate for every value column', () => {
+    const r = resolveAggregationParams({
+      ...base, type: 'kpi',
+      fieldMapping: { valueColumn: 'total', aggregate: 'sum' },
+    })
+    expect(r.aggregates).toEqual([{ column: 'total', fn: 'sum' }])
+  })
+})
+
+describe('rowKey', () => {
+  it('maps a ref through columnMap, falling back to the ref itself', () => {
+    const res: BlockQueryResult = { columns: [], rows: [], totalRows: 0, columnMap: { 'nom@2': 'nom@2' } }
+    expect(rowKey(res, 'nom@2')).toBe('nom@2')
+    expect(rowKey(res, 'ville')).toBe('ville')
+    expect(rowKey(null, 'ville')).toBe('ville')
   })
 })

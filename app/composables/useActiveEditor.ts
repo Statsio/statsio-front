@@ -1,15 +1,25 @@
 import { ref, readonly } from 'vue'
 import type { Editor } from '@tiptap/core'
 
+/**
+ * Décrit le propriétaire de l'éditeur actif — la toolbar l'utilise pour savoir
+ * si elle est en mode « bloc de texte » (complet) ou « en-tête de section »
+ * (restreint : marques de caractère + variable, pas de listes / couleur / police).
+ */
+export type ActiveEditorContext =
+  | { kind: 'block' }
+  | { kind: 'section-header'; sectionId: string; field: 'kicker' | 'title' | 'description' }
+
 // Module-level singletons so all components share the same active target
 const _editor = ref<Editor | null>(null)
 const _input  = ref<HTMLInputElement | HTMLTextAreaElement | null>(null)
 const _editorVersion = ref(0)
+const _context = ref<ActiveEditorContext>({ kind: 'block' })
 
 function _onTransaction() { _editorVersion.value++ }
 
 export function useActiveEditor() {
-  function setActiveEditor(editor: Editor) {
+  function setActiveEditor(editor: Editor, context: ActiveEditorContext = { kind: 'block' }) {
     if (_editor.value && _editor.value !== editor) {
       try { _editor.value.off('transaction', _onTransaction) } catch {}
     }
@@ -17,6 +27,7 @@ export function useActiveEditor() {
       _editor.value = editor
       editor.on('transaction', _onTransaction)
     }
+    _context.value = context
     _input.value = null
   }
 
@@ -34,6 +45,7 @@ export function useActiveEditor() {
       if (document.activeElement !== _input.value && _editor.value?.isFocused === false) {
         _input.value  = null
         _editor.value = null
+        _context.value = { kind: 'block' }
       }
     })
   }
@@ -45,6 +57,7 @@ export function useActiveEditor() {
       try { _editor.value.off('transaction', _onTransaction) } catch {}
     }
     _editor.value = null
+    _context.value = { kind: 'block' }
   }
 
   /** Insère du texte brut à la position du curseur de la cible active (éditeur Tiptap ou input/textarea). */
@@ -82,6 +95,7 @@ export function useActiveEditor() {
 
   return {
     activeEditor: readonly(_editor),
+    activeEditorContext: readonly(_context),
     editorVersion: readonly(_editorVersion),
     setActiveEditor,
     setActiveInput,

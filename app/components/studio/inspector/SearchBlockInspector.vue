@@ -6,14 +6,18 @@ import type {
   BlockConfig,
   DatasetColumn,
   DatasetMeta,
+  PageParam,
   SearchJoin,
   SearchSource,
   StudioBlock,
 } from '@/types/studio'
 import type { ColumnGroup } from '@/components/studio/ui/ColumnPickerModal.vue'
 import InspectorSection from '@/components/studio/fields/InspectorSection.vue'
+import StudioField from '@/components/studio/fields/StudioField.vue'
 import FieldText from '@/components/studio/fields/FieldText.vue'
 import FieldTextarea from '@/components/studio/fields/FieldTextarea.vue'
+import FieldToggle from '@/components/studio/fields/FieldToggle.vue'
+import FieldNote from '@/components/studio/fields/FieldNote.vue'
 import FieldPicker from '@/components/studio/fields/FieldPicker.vue'
 import DataSourceModal from '@/components/studio/ui/DataSourceModal.vue'
 import SearchResultsDisplayModal from '@/components/studio/ui/SearchResultsDisplayModal.vue'
@@ -82,6 +86,84 @@ const allSourceColumns = computed(() => {
   searchSourceColumnGroups.value.forEach((g) => g.columns.forEach((c) => cols.add(c)))
   return [...cols]
 })
+
+// ─── Paramètre de page piloté par la recherche ───────────────────────────────
+// Comme un bloc « Paramètre » : on déclare un `PageParam` sur la page ciblée
+// (badge PARM, fan-out d'URL, ré-amorçage des blocs). Au runtime, `SearchBlock`
+// pose déjà toutes les colonnes de la ligne choisie dans `pageParams` et gère la
+// navigation fan-out — il ne manquait que la déclaration.
+
+const searchAsParam = computed({
+  get: () => props.block.config.searchAsParam === true,
+  set: (v: boolean) => studio.updateBlockConfig(props.block.id, { searchAsParam: v }),
+})
+const paramColumn = computed(() => props.block.fieldMapping.paramColumn ?? '')
+const paramFanOut = computed({
+  get: () => props.block.config.paramFanOut === true,
+  set: (v: boolean) => studio.updateBlockConfig(props.block.id, { paramFanOut: v }),
+})
+
+function setParamColumn(col: string) {
+  studio.updateBlockFieldMapping(props.block.id, { paramColumn: col })
+}
+
+/** Dataset auquel appartient la colonne identifiante (parmi les sources/jointures). */
+const paramDatasetId = computed(
+  () =>
+    searchSourceColumnGroups.value.find((g) => g.columns.includes(paramColumn.value))?.datasetId ??
+    props.block.datasetId,
+)
+
+/** Page qui devient paramétrée : la page cible de la recherche, sinon celle du bloc. */
+const blockPageId = computed(() => {
+  const zid = props.block.zoneId ?? ''
+  if (zid.startsWith('page:')) return zid.slice(5)
+  const sectionId = zid.replace(/-\d+$/, '')
+  return studio.sections.find((s) => s.id === sectionId)?.pageId ?? studio.currentPageId
+})
+const paramPageId = computed(() => props.block.fieldMapping.targetPageId || blockPageId.value)
+const paramPageName = computed(
+  () => studio.pages.find((p) => p.id === paramPageId.value)?.title ?? '',
+)
+const paramToken = computed(() => `{{ ${paramColumn.value} }}`)
+
+watch(
+  () => ({
+    on: searchAsParam.value,
+    col: paramColumn.value,
+    ds: paramDatasetId.value,
+    page: paramPageId.value,
+    fan: paramFanOut.value,
+  }),
+  (cur, prev) => {
+    // La cible a bougé (autre page / autre colonne) ou la fonction a été coupée :
+    // on retire d'abord la déclaration devenue orpheline.
+    if (prev && prev.col && prev.page && (prev.page !== cur.page || prev.col !== cur.col || (prev.on && !cur.on))) {
+      studio.removePageParam(prev.page, prev.col)
+    }
+    if (!cur.on || !cur.col || !cur.page) return
+    const decl: PageParam = {
+      name: cur.col,
+      column: cur.col,
+      datasetId: cur.ds,
+      defaultValue: undefined,
+      fanOut: cur.fan || undefined,
+      slugColumn: cur.fan ? cur.col : undefined,
+    }
+    const existing = studio.pages.find((p) => p.id === cur.page)?.params?.find((p) => p.name === decl.name)
+    if (!existing) {
+      studio.addPageParam(cur.page, decl)
+    } else if (
+      existing.column !== decl.column ||
+      existing.datasetId !== decl.datasetId ||
+      Boolean(existing.fanOut) !== Boolean(decl.fanOut) ||
+      (existing.slugColumn ?? undefined) !== decl.slugColumn
+    ) {
+      studio.updatePageParam(cur.page, decl.name, decl)
+    }
+  },
+  { immediate: true, deep: true },
+)
 
 // ─── Sub-modals ──────────────────────────────────────────────────────────────
 
@@ -167,6 +249,37 @@ const urlSummary = computed(() => {
         :column-groups="searchSourceColumnGroups"
         @close="showUrl = false"
       />
+    </InspectorSection>
+
+    <InspectorSection v-if="allSourceColumns.length" label="Paramètre de page">
+      <FieldToggle
+        v-model="searchAsParam"
+        label="Les résultats pilotent un paramètre de page"
+        sub="Comme un bloc Paramètre : la page prend le badge PARM et les blocs qui filtrent sur ce paramètre se rechargent au choix d'un résultat."
+      />
+      <template v-if="searchAsParam">
+        <StudioField label="Colonne identifiante">
+          <select
+            class="studio-input"
+            :value="paramColumn"
+            @change="setParamColumn(($event.target as HTMLSelectElement).value)"
+          >
+            <option value="">Choisir une colonne…</option>
+            <option v-for="c in allSourceColumns" :key="c" :value="c">{{ c }}</option>
+          </select>
+        </StudioField>
+        <FieldToggle
+          v-model="paramFanOut"
+          label="Générer une page indexable par valeur"
+          sub="Publie une URL /statsdata/…/valeur pour chaque résultat (SEO)."
+        />
+        <FieldNote v-if="paramColumn && paramPageName">
+          Paramètre <code class="font-mono">{{ paramToken }}</code> déclaré sur la page « {{ paramPageName }} ».
+        </FieldNote>
+        <FieldNote v-else>
+          Choisissez la colonne qui identifie chaque résultat (souvent un code : UAI, code commune…).
+        </FieldNote>
+      </template>
     </InspectorSection>
   </div>
 </template>

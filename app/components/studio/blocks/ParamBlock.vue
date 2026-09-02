@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { fetchDistinctValues, fetchPublicDistinctValues } from '@/api/studio'
+import { blockSourceParams } from '@/composables/useBlockData'
 import type { StudioBlock } from '@/types/studio'
 
 /**
@@ -27,17 +28,19 @@ const isLoading = ref(false)
 const loadError = ref<string | null>(null)
 
 async function loadValues() {
-  if (!datasetId.value || !column.value) {
+  const sp = blockSourceParams(props.block)
+  if (!sp.urlDatasetId || !column.value) {
     values.value = []
     return
   }
   isLoading.value = true
   loadError.value = null
   try {
+    const ctx = { sources: sp.sources, primarySourceId: sp.primarySourceId, joins: sp.joins }
     const docSlug = studio.content?.slug
     values.value = props.readonly && docSlug
-      ? await fetchPublicDistinctValues(docSlug, datasetId.value, column.value)
-      : await fetchDistinctValues(datasetId.value, column.value, '')
+      ? await fetchPublicDistinctValues(docSlug, sp.urlDatasetId, column.value, '', [], ctx)
+      : await fetchDistinctValues(sp.urlDatasetId, column.value, '', [], ctx)
   } catch {
     loadError.value = 'Valeurs indisponibles'
     values.value = []
@@ -46,7 +49,11 @@ async function loadValues() {
   }
 }
 
-watch(() => [datasetId.value, column.value].join('|'), loadValues, { immediate: true })
+watch(
+  () => [datasetId.value, column.value, JSON.stringify(props.block.sources ?? []), JSON.stringify(props.block.joins ?? [])].join('|'),
+  loadValues,
+  { immediate: true },
+)
 
 const current = computed<string>(() => (paramName.value ? studio.pageParams[paramName.value] ?? '' : ''))
 

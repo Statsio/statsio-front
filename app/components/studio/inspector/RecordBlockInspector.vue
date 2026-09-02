@@ -7,7 +7,7 @@ import type { BlockFilter, DatasetMeta, StudioBlock } from '@/types/studio'
 import FieldPicker from '@/components/studio/fields/FieldPicker.vue'
 import FieldNote from '@/components/studio/fields/FieldNote.vue'
 import FieldColumns from '@/components/studio/fields/FieldColumns.vue'
-import DataSourcePickerModal from '@/components/studio/ui/DataSourcePickerModal.vue'
+import DataSourceWizard from '@/components/studio/ui/DataSourceWizard.vue'
 import FiltersModal from '@/components/studio/ui/FiltersModal.vue'
 
 const props = defineProps<{ block: StudioBlock; activeTab: string }>()
@@ -45,7 +45,7 @@ const showFiltersModal = ref(false)
     <template v-if="activeTab === 'data'">
       <div class="flex flex-col gap-[11px] px-4 pb-1 pt-3">
         <FieldPicker label="Source" :value="datasetName" action="Changer" @open="showSourceModal = true" />
-        <DataSourcePickerModal :show="showSourceModal" :block="block" @close="showSourceModal = false" />
+        <DataSourceWizard :show="showSourceModal" :block="block" @close="showSourceModal = false" />
 
         <template v-if="block.datasetId">
           <FieldColumns

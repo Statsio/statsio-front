@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { useBlockData, resolveAggregationParams } from '@/composables/useBlockData'
+import { useBlockData, resolveAggregationParams, blockSourceParams, rowKey } from '@/composables/useBlockData'
 import { fetchBlockData, fetchPublicBlockData } from '@/api/studio'
 import { interpolateTokens } from '@/lib/studio-tokens'
 import { useResolvedTokens } from '@/composables/useResolvedTokens'
@@ -22,6 +22,7 @@ const expr = computed(() => props.block.config.valueExpression?.trim() || '')
 const { text: exprValue, pending: exprPending } = useResolvedTokens({
   raw: () => (expr.value ? `{{ ${expr.value} }}` : ''),
   tokenMap: () => ({ ...studio.pageParams, ...props.scope }),
+  block: () => props.block,
   datasetId: () => props.block.datasetId,
   readonly: () => props.readonly ?? false,
   docSlug: () => studio.content?.slug,
@@ -30,7 +31,7 @@ const { text: exprValue, pending: exprPending } = useResolvedTokens({
 const rawValue = computed(() => {
   const col = valueCol.value
   if (!col || !data.value?.rows?.length) return null
-  return data.value.rows[0]?.[col] ?? null
+  return data.value.rows[0]?.[rowKey(data.value, col)] ?? null
 })
 
 const formattedValue = computed(() => {
@@ -59,7 +60,9 @@ const hasComparisonSetup = computed(() =>
 )
 
 async function loadComparison() {
-  if (!props.block.datasetId || !hasComparisonSetup.value) {
+  const sp = blockSourceParams(props.block)
+  const urlDatasetId = sp.urlDatasetId
+  if (!urlDatasetId || !hasComparisonSetup.value) {
     compData.value  = null
     compError.value = null
     return
@@ -82,11 +85,16 @@ async function loadComparison() {
     // Reuse the same aggregation as the main value (resolveAggregationParams), just
     // pointed at the comparison column instead of valueColumn.
     const agg = resolveAggregationParams(props.block)
-    const params = agg.aggregate ? { ...agg, aggregateColumns: [col] } : {}
+    // Même agrégation que la valeur principale, pointée sur la colonne de comparaison.
+    const aggFn = agg.aggregates?.[0]?.fn
+    const params = aggFn
+      ? { aggregates: [{ column: col, fn: aggFn }], groupBy: [] as string[] }
+      : {}
+    const sourceParams = { sources: sp.sources, primarySourceId: sp.primarySourceId, joins: sp.joins }
     const docSlug = studio.content?.slug
     compData.value = props.readonly && docSlug
-      ? await fetchPublicBlockData(docSlug, props.block.datasetId, { columns: [col], limit: 500, filters, ...params })
-      : await fetchBlockData(props.block.datasetId, { columns: [col], limit: 500, filters, ...params })
+      ? await fetchPublicBlockData(docSlug, urlDatasetId, { columns: [col], limit: 500, filters, ...sourceParams, ...params })
+      : await fetchBlockData(urlDatasetId, { columns: [col], limit: 500, filters, ...sourceParams, ...params })
   } catch {
     compError.value = 'Erreur de chargement'
     compData.value  = null
@@ -98,8 +106,11 @@ async function loadComparison() {
 watch(
   [
     () => props.block.datasetId,
+    () => JSON.stringify(props.block.sources ?? []),
+    () => JSON.stringify(props.block.joins ?? []),
     () => props.block.fieldMapping.comparisonColumn,
     () => props.block.fieldMapping.aggregate,
+    () => JSON.stringify(props.block.fieldMapping.aggregates ?? []),
     () => JSON.stringify(props.block.comparisonFilters ?? []),
     () => JSON.stringify(props.block.filters ?? []),
     () => JSON.stringify(studio.pageParams),
@@ -118,7 +129,7 @@ const previousValue = computed(() => {
   // n'a pas encore répondu.
   const src = compData.value ?? data.value
   if (!src?.rows?.length) return null
-  return src.rows[0]?.[col] ?? null
+  return src.rows[0]?.[rowKey(src, col)] ?? null
 })
 
 // ─── Delta ────────────────────────────────────────────────────────────────────

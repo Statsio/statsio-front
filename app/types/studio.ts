@@ -15,7 +15,7 @@ export interface StudioContent {
 
 // ─── Blocks ───────────────────────────────────────────────────────────────────
 
-export type BlockType = 'bar' | 'line' | 'pie' | 'table' | 'kpi' | 'record' | 'related' | 'heading' | 'paragraph' | 'quote' | 'callout' | 'search' | 'param' | 'image' | 'video' | 'button' | 'link-card' | 'retenir' | 'map' | 'field-grid' | 'choice' | 'checkboxes' | 'dropdown' | 'scale' | 'rating' | 'loop' | 'if' | 'sd-embed'
+export type BlockType = 'bar' | 'line' | 'pie' | 'table' | 'kpi' | 'record' | 'related' | 'heading' | 'paragraph' | 'quote' | 'callout' | 'search' | 'param' | 'image' | 'video' | 'button' | 'link-card' | 'retenir' | 'map' | 'field-grid' | 'choice' | 'checkboxes' | 'dropdown' | 'scale' | 'rating' | 'loop' | 'if' | 'layout' | 'sd-embed'
 
 /**
  * Types de blocs qu'un article peut réutiliser via un bloc `sd-embed`
@@ -28,27 +28,48 @@ export const EDITORIAL_BLOCK_TYPES: BlockType[] = ['image', 'video', 'button', '
 export const FORM_BLOCK_TYPES: BlockType[] = ['choice', 'checkboxes', 'dropdown', 'scale', 'rating']
 /** Blocs de logique (script) : conteneurs qui répètent (`loop`) / conditionnent (`if`) d'autres blocs. */
 export const SCRIPT_BLOCK_TYPES: BlockType[] = ['loop', 'if']
+/** Tout bloc « conteneur » possédant ses propres zones enfants (script + mise en page). */
+export const CONTAINER_BLOCK_TYPES: BlockType[] = [...SCRIPT_BLOCK_TYPES, 'layout']
 export function isTextBlock(type: BlockType) { return TEXT_BLOCK_TYPES.includes(type) }
 export function isEditorialBlock(type: BlockType) { return EDITORIAL_BLOCK_TYPES.includes(type) }
 export function isFormBlock(type: BlockType) { return FORM_BLOCK_TYPES.includes(type) }
 export function isScriptBlock(type: BlockType) { return SCRIPT_BLOCK_TYPES.includes(type) }
+export function isContainerBlock(type: BlockType) { return CONTAINER_BLOCK_TYPES.includes(type) }
 export function isLoopBlock(type: BlockType) { return type === 'loop' }
 
 /**
  * Zone sentinelle des enfants d'un bloc de script (`loop` ou `if`) :
- * `loop:{blockId}:0`. Le préfixe `loop:` est historique — conservé pour que les
- * `zoneId` déjà persistés restent valides.
+ * `loop:{blockId}:{branche}`. Le préfixe `loop:` est historique — conservé pour
+ * que les `zoneId` déjà persistés restent valides. Une boucle n'a que la branche
+ * `0` ; un bloc `if` a une zone par branche (`Si` / `Sinon si` / `Sinon`).
  */
-export function scriptZoneId(blockId: string) { return `loop:${blockId}:0` }
+export function scriptZoneId(blockId: string, branch = 0) { return `loop:${blockId}:${branch}` }
 /** Renvoie l'id du bloc de script si `zoneId` est une zone de script, sinon null. */
 export function scriptIdFromZone(zoneId: string): string | null {
-  const m = /^loop:(.+):0$/.exec(zoneId)
+  const m = /^loop:(.+):(\d+)$/.exec(zoneId)
   return m ? m[1]! : null
+}
+/** Index de branche d'une zone de script (`0` par défaut / si non reconnu). */
+export function scriptZoneBranch(zoneId: string): number {
+  const m = /^loop:(.+):(\d+)$/.exec(zoneId)
+  return m ? Number(m[2]) : 0
 }
 /** @deprecated Utiliser {@link scriptZoneId} — alias conservé pour compat. */
 export const loopZoneId = scriptZoneId
 /** @deprecated Utiliser {@link scriptIdFromZone} — alias conservé pour compat. */
 export const loopIdFromZone = scriptIdFromZone
+
+/**
+ * Zone racine d'une page : `page:{pageId}`. Un bloc `loop`/`if` peut y vivre pour
+ * répéter / conditionner des sections entières (hors des sections). Analogue à
+ * une colonne de section, mais au niveau page.
+ */
+export function pageZoneId(pageId: string) { return `page:${pageId}` }
+export function isPageZone(zoneId: string): boolean { return zoneId.startsWith('page:') }
+/** Renvoie l'id de page d'une zone `page:{pageId}`, sinon null. */
+export function pageIdFromZone(zoneId: string): string | null {
+  return isPageZone(zoneId) ? zoneId.slice('page:'.length) : null
+}
 
 export interface BlockDefinition {
   type: BlockType
@@ -90,6 +111,7 @@ export const BLOCK_META: Record<BlockType, { label: string; iconPath: string; ti
   rating:     { label: 'Avis',             tint: 'bg-amber-100 text-amber-600',     iconPath: 'M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5z' },
   loop:       { label: 'Boucle',           tint: 'bg-indigo-100 text-indigo-600',   iconPath: 'M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99' },
   if:         { label: 'Condition',        tint: 'bg-indigo-100 text-indigo-600',   iconPath: 'M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0 0 21 18V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v12a2.25 2.25 0 0 0 2.25 2.25Z' },
+  layout:     { label: 'Disposition',      tint: 'bg-slate-100 text-slate-600',     iconPath: 'M9 4.5v15m6-15v15m-10.875 0h15.75c.621 0 1.125-.504 1.125-1.125V5.625c0-.621-.504-1.125-1.125-1.125H4.125C3.504 4.5 3 5.004 3 5.625v12.75c0 .621.504 1.125 1.125 1.125Z' },
   'sd-embed': { label: 'Bloc Statsdata',   tint: 'bg-violet-100 text-violet-600',   iconPath: 'M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244' },
 }
 
@@ -115,6 +137,12 @@ export interface SearchJoin {
 }
 
 export type AggregateFunction = 'sum' | 'avg' | 'count' | 'min' | 'max'
+
+/** Agrégat par colonne : `{ column: refQualifiée, fn }`. Remplace le `FieldMapping.aggregate` unique. */
+export interface BlockAggregate {
+  column: string
+  fn: AggregateFunction
+}
 
 // ─── Tableau v2 ───────────────────────────────────────────────────────────────
 
@@ -170,8 +198,10 @@ export interface FieldMapping {
   recordTitleColumn?: string
   valueColumn?: string
   comparisonColumn?: string
-  /** Aggregation applied to the value column(s) — shared by kpi/pie/bar/line, grouped by xAxis/label/series */
+  /** Legacy : fonction d'agrégation unique appliquée à toutes les colonnes de valeur. Fallback de migration vers `aggregates`. */
   aggregate?: AggregateFunction
+  /** Agrégats par colonne (kpi/pie/bar/line), regroupés par xAxis/label/series. */
+  aggregates?: BlockAggregate[]
   /** Loop block: column whose distinct values drive the iterations. */
   loopColumn?: string
   /** Loop block: variable name exposed to child blocks (default "item"). */
@@ -268,11 +298,18 @@ export interface BlockConfig {
   buttonAlign?: 'left' | 'center' | 'right'
   buttonSize?: 'sm' | 'md' | 'lg'
   // Link card block config
+  /** Cible du lien : URL externe, contenu publié du site, ou une page du Statsdata courant. */
+  linkMode?: 'url' | 'content' | 'page'
   linkUrl?: string
   linkTitle?: string
   linkDescription?: string
   linkImage?: string
   linkDomain?: string
+  /** mode `content` — type + slug d'un contenu publié (article / statsdata / sondage). */
+  linkContentType?: ContentType
+  linkContentSlug?: string
+  /** mode `page` — id d'une page du Statsdata en cours d'édition. */
+  linkPageId?: string
   // Retenir block config
   retenirTitle?: string
   retenirItems?: string[]
@@ -290,6 +327,9 @@ export interface BlockConfig {
   loopLimit?: number
   /** Layout of the repeated iterations. */
   loopLayout?: '1-col' | '2-cols' | '3-cols'
+  // ── Bloc Disposition (layout) ──
+  /** Agencement en colonnes du bloc — pilote le nombre et la largeur des zones enfants. */
+  layoutType?: SectionLayout
   // Param block config
   /** Control style: segmented pills (default) or a dropdown. */
   paramControl?: 'segmented' | 'dropdown'
@@ -301,13 +341,22 @@ export interface BlockConfig {
   paramAllLabel?: string
   /** Publish one indexable page per value (`/statsdata/{slug}/{valeur}`) — sets the param's `fanOut`. */
   paramFanOut?: boolean
+  // Search block config
+  /** Search block: results also declare a page parameter (like a Param block, but search-driven). */
+  searchAsParam?: boolean
   // If block config
-  /** Page parameter the condition compares. */
+  /** @deprecated Remplacé par `ifConditions` — lu en repli par `readIfConditions`. */
   ifParam?: string
-  /** Comparison operator (reuses the filter operators). */
+  /** @deprecated Remplacé par `ifConditions`. */
   ifOperator?: FilterOperator
-  /** Value compared against — supports `{{tokens}}`. */
+  /** @deprecated Remplacé par `ifConditions`. */
   ifValue?: string
+  /** Clauses de la branche `Si` — repli quand `ifBranches` est absent. */
+  ifConditions?: IfCondition[]
+  /** Combine les clauses de la branche `Si` : `all` = ET (défaut), `any` = OU. */
+  ifMatch?: 'all' | 'any'
+  /** Branches du bloc « Condition » : `Si`, puis `Sinon si` (elsif), puis `Sinon` (else). */
+  ifBranches?: IfBranch[]
   // ── Bloc Statsdata (sd-embed) ──
   /** Slug du Statsdata publié dont on réutilise un bloc. */
   sourceSlug?: string
@@ -331,6 +380,29 @@ export interface BlockFilter {
   value: string
 }
 
+/** Une clause du bloc « Condition » : compare la valeur active d'un paramètre de page à une valeur. */
+export interface IfCondition {
+  /** Nom du paramètre de page comparé (`{{param}}`). */
+  param: string
+  operator: FilterOperator
+  /** Valeur comparée — supporte les `{{tokens}}`. */
+  value: string
+}
+
+/** Une branche du bloc « Condition ». */
+export interface IfBranch {
+  conditions: IfCondition[]
+  /** Combine les clauses : `all` = ET, `any` = OU. */
+  match: 'all' | 'any'
+  /**
+   * Branche « Sinon » (else) : s'affiche quand aucune branche au-dessus ne
+   * correspond, `conditions` est ignoré. Un drapeau explicite plutôt qu'une
+   * déduction sur `conditions` vide — une clause `elsif` tout juste ajoutée n'a
+   * elle aussi encore aucun paramètre choisi.
+   */
+  else?: boolean
+}
+
 export const FILTER_OPERATORS: { value: FilterOperator; label: string; short: string }[] = [
   { value: '=', label: 'égal à', short: '=' },
   { value: '!=', label: 'différent de', short: '≠' },
@@ -342,11 +414,20 @@ export const FILTER_OPERATORS: { value: FilterOperator; label: string; short: st
   { value: 'not_contains', label: 'ne contient pas', short: '⊄' },
 ]
 
-export interface BlockJoin {
+/** Une source d'un bloc data. `id` = id local stable (= datasetId si unique dans le bloc). */
+export interface BlockSource {
+  id: string
   datasetId: string
-  leftColumn: string   // column from primary dataset
-  rightColumn: string  // column from secondary dataset
-  columns: string[]    // columns to pull from secondary dataset
+  /** Libellé d'affichage optionnel (utile en self-join). */
+  alias?: string
+}
+
+/** Jointure entre deux sources du bloc (graphe : chaînage + self-join possibles). */
+export interface BlockJoin {
+  leftSourceId: string
+  leftColumn: string
+  rightSourceId: string
+  rightColumn: string
   type: 'inner' | 'left'
 }
 
@@ -354,11 +435,17 @@ export interface StudioBlock {
   id: string
   type: BlockType
   zoneId: string
+  /** Legacy : source unique. Migré vers `sources` au chargement, réécrit = source primaire à la sauvegarde. */
   datasetId?: string
+  /** Sources du bloc data (première = primaire par défaut, voir `primarySourceId`). */
+  sources?: BlockSource[]
+  /** Id de la source primaire (table du FROM). Défaut = sources[0].id. */
+  primarySourceId?: string
   fieldMapping: FieldMapping
   config: BlockConfig
   filters?: BlockFilter[]
   comparisonFilters?: BlockFilter[]
+  /** Graphe de jointures entre `sources`. */
   joins?: BlockJoin[]
   /** Non-removable via the block toolbar (still draggable/configurable) — used for the auto-provisioned search block on param pages. */
   locked?: boolean
@@ -478,6 +565,8 @@ export interface BlockQueryResult {
   columns: string[]
   rows: Record<string, unknown>[]
   totalRows: number
+  /** Multi-sources : `refDemandée => cléRéelleDeLaLigne` (voir `rowKey`). */
+  columnMap?: Record<string, string>
 }
 
 // ─── Autosave ─────────────────────────────────────────────────────────────────
@@ -486,7 +575,7 @@ export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 // ─── Sidebar tabs ─────────────────────────────────────────────────────────────
 
-export type SidebarLeftTab = 'blocks' | 'layouts' | 'script' | 'sources' | 'assistant'
+export type SidebarLeftTab = 'blocks' | 'script' | 'sources' | 'filters' | 'assistant'
 
 // ─── Sections (canvas model) ──────────────────────────────────────────────────
 
@@ -498,16 +587,29 @@ export interface Section {
   id: string
   layout: SectionLayout
   pageId?: string
+  /**
+   * Si renseigné, la section vit dans la zone d'un bloc de script de page
+   * (`scriptZoneId(blockId, branch)`, préfixe `loop:`) plutôt qu'à la racine de
+   * la page — calqué sur `StudioBlock.zoneId`. La section garde son `pageId`.
+   */
+  zoneId?: string
   /** Non-removable, non-reorderable via section controls — used for the auto-provisioned search section on param pages. */
   locked?: boolean
-  /** En-tête de section rendu au-dessus des blocs (supporte les `{{jetons}}`). */
+  /**
+   * En-tête de section rendu au-dessus des blocs (supporte les `{{jetons}}`).
+   * HTML « inline » restreint : gras / italique / souligné / barré / surlignage /
+   * majuscules + jetons `{{…}}` (voir `sanitizeInlineHtml`). Les valeurs
+   * héritées en texte brut restent valides.
+   */
   kicker?: string
   title?: string
   description?: string
+  /** Interlettrage de l'en-tête (em) — réglé depuis la toolbar de texte. */
+  headerLetterSpacing?: number
+  /** Interligne de l'en-tête — réglé depuis la toolbar de texte. */
+  headerLineHeight?: number
   /** Fond de la section au rendu public. */
   theme?: SectionTheme
-  /** Ancre `#id` + entrée du sommaire automatique (Phase 7). Slug simple. */
-  anchorId?: string
 }
 
 // ─── Document pages ───────────────────────────────────────────────────────────
@@ -536,11 +638,23 @@ export interface PageParam {
   slugColumn?: string
 }
 
+/** Référence à un élément de premier niveau du flux d'une page : une section racine ou un bloc de page. */
+export interface CanvasItemRef {
+  kind: 'section' | 'block'
+  id: string
+}
+
 export interface StudioDocumentPage {
   id: string
   title: string
   slug?: string
   description?: string
+  /**
+   * Ordre des éléments de premier niveau du flux de la page : sections racine +
+   * blocs `loop`/`if` de page, entrelacés. Absent (docs existants) → repli sur
+   * l'ordre des sections racine. Matérialisé au 1ᵉʳ ajout de bloc de page / drag.
+   */
+  canvas?: CanvasItemRef[]
   /** @deprecated Le type « template » a été supprimé — migré en `params` au chargement (voir `migrateLegacyTemplatePages`). */
   isTemplate?: boolean
   /** @deprecated Migré vers une entrée `params` au chargement. */
@@ -567,26 +681,6 @@ export const SECTION_LAYOUT_DEFINITIONS: SectionLayoutDefinition[] = [
   { type: '1-2-cols', label: 'Étroite + large',  cols: 2, gridCols: [4, 8],    preview: [['████', '████████']] },
 ]
 
-// ─── Section presets ──────────────────────────────────────────────────────────
-// Mises en page prêtes à l'emploi de l'onglet « Sections » : une section 1-col
-// préremplie de plusieurs blocs, ajoutée à la fin de la page.
-
-export interface SectionPreset {
-  key: string
-  label: string
-  hint: string
-  blocks: BlockType[]
-  /** Aperçu visuel : largeurs relatives des blocs empilés. */
-  shape: number[]
-}
-
-export const SECTION_PRESETS: SectionPreset[] = [
-  { key: 'hero', label: 'Chapô + KPI', hint: 'Titre, paragraphe et un indicateur', blocks: ['heading', 'paragraph', 'kpi'], shape: [2, 1] },
-  { key: 'chart_text', label: 'Graphique + analyse', hint: 'Barres puis paragraphe', blocks: ['bar', 'paragraph'], shape: [1, 1] },
-  { key: 'trend', label: 'Tendance annuelle', hint: 'Courbe + à retenir', blocks: ['line', 'retenir'], shape: [1] },
-  { key: 'table_block', label: 'Tableau détaillé', hint: 'Table paginée + encadré source', blocks: ['table', 'callout'], shape: [1, 1] },
-]
-
 // ─── Block categories ─────────────────────────────────────────────────────────
 
 export interface BlockCategoryDef {
@@ -604,6 +698,13 @@ export const BLOCK_CATEGORIES: BlockCategoryDef[] = [
       { type: 'paragraph', label: 'Paragraphe', description: 'Bloc de texte libre',       iconPath: 'M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5' },
       { type: 'quote',     label: 'Citation',   description: 'Bloc citation stylisé',     iconPath: 'M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z' },
       { type: 'callout',   label: 'Encadré',    description: 'Note ou info mise en avant', iconPath: 'M12 18v-5.25m0 0a6.01 6.01 0 0 0 1.5-.189m-1.5.189a6.01 6.01 0 0 1-1.5-.189m3.75 7.478a12.06 12.06 0 0 1-4.5 0m3.75 2.383a14.406 14.406 0 0 1-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 1 0-7.517 0c.85.493 1.509 1.333 1.509 2.316V18' },
+    ],
+  },
+  {
+    id: 'layout',
+    label: 'Disposition',
+    blocks: [
+      { type: 'layout', label: 'Disposition', description: 'Grille de colonnes pour organiser des blocs côte à côte', iconPath: 'M9 4.5v15m6-15v15m-10.875 0h15.75c.621 0 1.125-.504 1.125-1.125V5.625c0-.621-.504-1.125-1.125-1.125H4.125C3.504 4.5 3 5.004 3 5.625v12.75c0 .621.504 1.125 1.125 1.125Z' },
     ],
   },
   {

@@ -27,16 +27,18 @@ import RatingBlock from './RatingBlock.vue'
 const props = defineProps<{ block: StudioBlock; readonly?: boolean; scope?: Record<string, string> }>()
 
 // Résolus via l'auto-import Nuxt pour éviter le cycle d'import
-// BlockRenderer → LoopBlock/IfBlock → CanvasZone → BlockWrapper → BlockRenderer,
+// BlockRenderer → LoopBlock/IfBlock/LayoutBlock → CanvasZone → BlockWrapper → BlockRenderer,
 // et BlockRenderer → SdEmbedBlock → BlockRenderer.
 const LoopBlock = resolveComponent('LoopBlock')
 const IfBlock = resolveComponent('IfBlock')
+const LayoutBlock = resolveComponent('LayoutBlock')
 const SdEmbedBlock = resolveComponent('SdEmbedBlock')
 
 const component = computed(() => {
   switch (props.block.type) {
     case 'loop':      return LoopBlock
     case 'if':        return IfBlock
+    case 'layout':    return LayoutBlock
     case 'sd-embed':  return SdEmbedBlock
     case 'param':     return ParamBlock
     case 'bar':       return BarChartBlock

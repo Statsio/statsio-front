@@ -3,12 +3,13 @@ import { computed, ref, watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import { useActiveEditor } from '@/composables/useActiveEditor'
-import type { BlockFilter, BlockJoin, ChartMarkRule, DatasetColumn, DatasetMeta, StudioBlock } from '@/types/studio'
+import type { BlockFilter, ChartMarkRule, DatasetMeta, StudioBlock } from '@/types/studio'
 import FieldPicker from '@/components/studio/fields/FieldPicker.vue'
 import FieldNote from '@/components/studio/fields/FieldNote.vue'
 import FieldColumns from '@/components/studio/fields/FieldColumns.vue'
-import { blockColumnGroups } from '@/lib/studio-columns'
-import DataSourcePickerModal from '@/components/studio/ui/DataSourcePickerModal.vue'
+import { blockColumnGroups, columnRefLabel, primarySourceId } from '@/lib/studio-columns'
+import { blockDatasetIds } from '@/lib/studio-block-sources'
+import DataSourceWizard from '@/components/studio/ui/DataSourceWizard.vue'
 import FiltersModal from '@/components/studio/ui/FiltersModal.vue'
 import ColumnsMappingModal from '@/components/studio/ui/ColumnsMappingModal.vue'
 
@@ -51,35 +52,18 @@ function updateMarkRule(i: number, patch: Partial<ChartMarkRule>) {
 }
 function removeMarkRule(i: number) { setMarkRules(markRules.value.filter((_, idx) => idx !== i)) }
 
-const schema = computed(() => props.block.datasetId ? (datasets.getSchema(props.block.datasetId) ?? null) : null)
-const columnNames = computed(() => schema.value?.columns.map((c: DatasetColumn) => c.name) ?? [])
+const primaryId = computed(() => primarySourceId(props.block))
+const hasSource = computed(() => Boolean(primaryId.value))
 
-const joins = computed<BlockJoin[]>(() => props.block.joins ?? [])
-
-/** Colonnes disponibles groupées par source (source principale + jointures). */
+/** Colonnes disponibles groupées par source. */
 const columnGroups = computed(() => blockColumnGroups(props.block, datasets))
-function joinSchema(joinIdx: number) {
-  const id = joins.value[joinIdx]?.datasetId
-  return id ? (datasets.getSchema(id) ?? null) : null
-}
-function updateJoin(i: number, patch: Partial<BlockJoin>) {
-  const updated = joins.value.map((j: BlockJoin, idx: number) => idx === i ? { ...j, ...patch } : j)
-  studio.updateBlockJoins(props.block.id, updated)
-  if (patch.datasetId) datasets.loadSchema(patch.datasetId)
-}
-function updateMappingWithJoinSync(key: string, value: string) {
-  updateMapping(key, value)
-  if (!value || columnNames.value.includes(value)) return
-  joins.value.forEach((j: BlockJoin, i: number) => {
-    const jCols = joinSchema(i)?.columns.map((c: DatasetColumn) => c.name) ?? []
-    if (jCols.includes(value) && !j.columns.includes(value)) updateJoin(i, { columns: [...j.columns, value] })
-  })
-}
+const refLabel = (ref: string) => columnRefLabel(ref, props.block, datasets)
 
-watch(() => props.block.datasetId, (id) => { if (id) datasets.loadSchema(id) }, { immediate: true })
-watch(() => props.block.id, () => {
-  joins.value.forEach((j: BlockJoin) => { if (j.datasetId) datasets.loadSchema(j.datasetId) })
-}, { immediate: true })
+watch(
+  () => [props.block.id, JSON.stringify(props.block.sources ?? []), props.block.datasetId].join('|'),
+  () => blockDatasetIds(props.block).forEach((id) => datasets.loadSchema(id)),
+  { immediate: true },
+)
 
 const needsXY = computed(() => props.block.type === 'bar' || props.block.type === 'line')
 const needsLabelVal = computed(() => props.block.type === 'pie')
@@ -105,25 +89,30 @@ const showCompFiltersModal = ref(false)
 const showColumnsMappingModal = ref(false)
 
 // ─── FieldPicker summaries ───────────────────────────────────────────────────
-const datasetName = computed(() =>
-  props.block.datasetId
-    ? (datasets.readyDatasets.find((d: DatasetMeta) => d.id === props.block.datasetId)?.name ?? 'Source sélectionnée')
-    : 'Aucune source',
-)
+const sources = computed(() => props.block.sources ?? [])
+const primaryName = computed(() => {
+  const src = sources.value.find((s) => s.id === primaryId.value) ?? sources.value[0]
+  return src?.alias || datasets.readyDatasets.find((d: DatasetMeta) => d.id === src?.datasetId)?.name || 'Source sélectionnée'
+})
 const sourceSummary = computed(() => {
-  if (!props.block.datasetId) return 'Aucune source sélectionnée'
-  return datasetName.value + (joins.value.length ? ` · ${joins.value.length} jointure${joins.value.length > 1 ? 's' : ''}` : '')
+  if (!hasSource.value) return 'Aucune source sélectionnée'
+  const extra = sources.value.length - 1
+  return primaryName.value + (extra > 0 ? ` + ${extra} source${extra > 1 ? 's' : ''}` : '')
 })
 const columnsSummary = computed(() => {
   const fm = props.block.fieldMapping ?? {}
   if (needsXY.value) {
     const parts: string[] = []
-    if (fm.xAxis) parts.push(`X : ${fm.xAxis}`)
-    if (yAxes.value.length) parts.push(`Y : ${yAxes.value.slice(0, 2).join(', ')}${yAxes.value.length > 2 ? '…' : ''}`)
+    if (fm.xAxis) parts.push(`X : ${refLabel(fm.xAxis)}`)
+    if (yAxes.value.length) parts.push(`Y : ${yAxes.value.slice(0, 2).map(refLabel).join(', ')}${yAxes.value.length > 2 ? '…' : ''}`)
     return parts.join(' · ') || 'Configurer les axes'
   }
-  if (needsLabelVal.value) return (fm.label || fm.value) ? `${fm.label ?? '?'} / ${fm.value ?? '?'}` : 'Configurer étiquettes et valeurs'
-  if (needsValue.value) return fm.valueColumn ? `${(fm.aggregate ?? '').toUpperCase()} (${fm.valueColumn})` : 'Configurer la valeur'
+  if (needsLabelVal.value) return (fm.label || fm.value) ? `${fm.label ? refLabel(fm.label) : '?'} / ${fm.value ? refLabel(fm.value) : '?'}` : 'Configurer étiquettes et valeurs'
+  if (needsValue.value) {
+    if (!fm.valueColumn) return 'Configurer la valeur'
+    const fn = fm.aggregates?.find((a) => a.column === fm.valueColumn)?.fn ?? fm.aggregate
+    return `${(fn ?? '').toUpperCase()} (${refLabel(fm.valueColumn)})`.trim()
+  }
   if (isTable.value) return fm.columns?.length ? `${fm.columns.length} colonne${fm.columns.length > 1 ? 's' : ''} affichée${fm.columns.length > 1 ? 's' : ''}` : 'Toutes les colonnes affichées'
   return 'Toutes les colonnes affichées'
 })
@@ -147,9 +136,9 @@ const compFiltersSummary = computed(() =>
               action="Changer"
               @open="showDataSourceModal = true"
             />
-            <DataSourcePickerModal :show="showDataSourceModal" :block="block" @close="showDataSourceModal = false" />
+            <DataSourceWizard :show="showDataSourceModal" :block="block" @close="showDataSourceModal = false" />
 
-            <template v-if="block.datasetId">
+            <template v-if="hasSource">
               <FieldPicker
                 label="Colonnes"
                 :value="columnsSummary"
@@ -232,6 +221,7 @@ const compFiltersSummary = computed(() =>
             <div v-show="open('distinct')" class="accordion-body flex flex-col gap-1.5">
               <FieldColumns
                 :groups="columnGroups"
+                :primary-source-id="primaryId"
                 :selected="block.config.distinctColumn ?? null"
                 none-label="Aucun"
                 @pick="updateConfig('distinctColumn', $event)"
@@ -316,10 +306,11 @@ const compFiltersSummary = computed(() =>
                 <p class="text-[11px] text-[var(--studio-faint)] mb-2 leading-relaxed">Par défaut, même colonne que la valeur principale.</p>
                 <FieldColumns
                   :groups="columnGroups"
+                  :primary-source-id="primaryId"
                   :selected="block.fieldMapping.comparisonColumn ?? null"
                   none-label="Même que la valeur"
-                  @pick="updateMappingWithJoinSync('comparisonColumn', $event)"
-                  @none="updateMappingWithJoinSync('comparisonColumn', '')"
+                  @pick="updateMapping('comparisonColumn', $event)"
+                  @none="updateMapping('comparisonColumn', '')"
                 />
               </div>
             </div>
