@@ -13,6 +13,7 @@ import StatsDataSettingsGeneralCard from '@/components/statsdata/settings/StatsD
 import StatsDataSettingsCategoriesCard from '@/components/statsdata/settings/StatsDataSettingsCategoriesCard.vue'
 import StatsDataSettingsEmojiCard from '@/components/statsdata/settings/StatsDataSettingsEmojiCard.vue'
 import StatsDataSettingsThumbnailCard from '@/components/statsdata/settings/StatsDataSettingsThumbnailCard.vue'
+import StatsDataSettingsCardVisualCard from '@/components/statsdata/settings/StatsDataSettingsCardVisualCard.vue'
 import StatsDataSettingsResponseDeadlineCard from '@/components/statsdata/settings/StatsDataSettingsResponseDeadlineCard.vue'
 import StatsDataSettingsSurveyKindCard from '@/components/statsdata/settings/StatsDataSettingsSurveyKindCard.vue'
 import StatsDataSettingsIdentityCard from '@/components/statsdata/settings/StatsDataSettingsIdentityCard.vue'
@@ -37,6 +38,7 @@ const description = ref('')
 const slug = ref('')
 const categories = ref<string[]>([])
 const emoji = ref<string | null>(null)
+const cardBlockId = ref<string | null>(null)
 const responseDeadline = ref<string | null>(null)
 const surveyKind = ref<SurveyKind>('single_question')
 const requiresIdentity = ref(false)
@@ -57,6 +59,7 @@ watch(
     slug.value = doc.slug ?? ''
     categories.value = [...(doc.categories ?? [])]
     emoji.value = doc.emoji ?? null
+    cardBlockId.value = doc.card_block_id ?? null
     responseDeadline.value = doc.response_deadline ? doc.response_deadline.slice(0, 10) : null
     surveyKind.value = doc.survey_kind ?? 'single_question'
     requiresIdentity.value = doc.requires_identity_verification ?? false
@@ -104,6 +107,7 @@ async function save() {
         slug: slug.value || undefined,
         categories: categories.value,
         ...(showEmoji.value ? { emoji: emoji.value } : {}),
+        ...(contentType.value === 'statsdata' ? { card_block_id: cardBlockId.value } : {}),
         ...(contentType.value === 'survey'
           ? {
               response_deadline: responseDeadline.value,
@@ -176,6 +180,13 @@ async function save() {
       <StatsDataSettingsCategoriesCard v-model="categories" />
 
       <StatsDataSettingsEmojiCard v-if="showEmoji" v-model="emoji" />
+
+      <StatsDataSettingsCardVisualCard
+        v-if="contentType === 'statsdata' && content?.slug"
+        v-model="cardBlockId"
+        :slug="content.slug"
+        :categories="categories"
+      />
 
       <template v-if="contentType === 'survey'">
         <StatsDataSettingsSurveyKindCard v-model="surveyKind" />

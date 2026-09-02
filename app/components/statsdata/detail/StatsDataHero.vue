@@ -23,11 +23,17 @@ const category = computed(() => props.doc.categories?.[0] ?? null)
 const datasets = computed<ContentDataset[]>(() => props.doc.datasets ?? [])
 const freshness = computed(() => primaryFreshness(datasets.value))
 
-const COVERAGE_LABEL: Record<string, string> = { monde: 'Monde', pays: 'National', ville: 'Local' }
+const COVERAGE_LABEL: Record<string, string> = {
+  mondiale: 'Mondiale',
+  continentale: 'Continentale',
+  nationale: 'Nationale',
+  regionale: 'Régionale',
+  locale: 'Locale',
+}
 
 const meta = computed(() => {
   const items: { label: string; value: string }[] = []
-  if (props.doc.coverage_type) items.push({ label: 'Couverture', value: COVERAGE_LABEL[props.doc.coverage_type] ?? props.doc.coverage_type })
+  if (props.doc.coverage) items.push({ label: 'Couverture', value: COVERAGE_LABEL[props.doc.coverage] ?? props.doc.coverage })
   const rows = datasets.value.reduce((sum, d) => sum + (d.row_count ?? 0), 0)
   if (rows) items.push({ label: 'Volume', value: formatRowCount(rows) ?? '—' })
   if (datasets.value.length) items.push({ label: 'Sources', value: String(datasets.value.length) })

@@ -73,7 +73,7 @@ describe('applyAgentPatch', () => {
     expect(studio.loopChildIds(loop.id)).toEqual([kpi.id])
   })
 
-  it('translates a legacy template page op into a declared param + a normal search block', () => {
+  it('translates a legacy template page op into a search block that auto-declares its param', () => {
     const studio = useStudioStore()
 
     applyAgentPatch(
@@ -95,16 +95,16 @@ describe('applyAgentPatch', () => {
 
     const page = studio.pages.at(-1)!
     expect(page.isTemplate).toBeFalsy()
-    expect(page.params?.[0]).toMatchObject({ name: 'region', column: 'region', datasetId: '7', fanOut: true })
 
     const search = studio.blocks.find((b) => b.type === 'search')!
     expect(search.locked).toBeFalsy()
-    expect(search.fieldMapping.targetPageId).toBe(page.id)
-    expect(search.fieldMapping.searchSources).toEqual([
-      { datasetId: '7', columns: ['region', 'population'] },
-    ])
-    expect(search.fieldMapping.resultTitleColumn).toBe('region')
-    expect(search.fieldMapping.urlParams).toEqual(['region'])
+    expect(search.sources).toEqual([{ id: '7', datasetId: '7' }])
+    expect(search.fieldMapping.searchColumns).toEqual(['region', 'population'])
+    expect(search.fieldMapping.resultTitleParts).toEqual([{ ref: 'region' }])
+
+    expect(page.params?.[0]).toMatchObject({
+      columns: ['region', 'population'], datasetId: '7', fanOut: true, hidden: true, searchBlockId: search.id,
+    })
   })
 
   it('collapses the whole patch into a single undo step', () => {
@@ -153,10 +153,10 @@ describe('applyAgentPatch', () => {
         {
           op: 'updateBlock',
           blockRef: search.id,
-          // datasetId en nombre (comme le modèle le renvoie parfois) → coercé en chaîne.
+          datasetId: 9,
           fieldMapping: {
-            searchSources: [{ datasetId: 9, columns: ['region'] }],
-            resultTitleColumn: 'region',
+            searchColumns: ['region'],
+            resultTitleParts: [{ ref: 'region' }],
           },
         },
       ],
@@ -165,8 +165,10 @@ describe('applyAgentPatch', () => {
 
     expect(result.errors).toEqual([])
     const updated = studio.blocks.find((b) => b.id === search.id)!
-    expect(updated.fieldMapping.searchSources).toEqual([{ datasetId: '9', columns: ['region'] }])
-    // targetPageId préservé (pas de reset via updateBlockDataset sur un bloc search).
-    expect(updated.fieldMapping.targetPageId).toBeTruthy()
+    expect(updated.sources).toEqual([{ id: '9', datasetId: '9' }])
+    expect(updated.fieldMapping.searchColumns).toEqual(['region'])
+    // Le bloc recherche a auto-déclaré un paramètre point-barre (fan-out) sur sa page.
+    const page = studio.pages.find((p) => p.id === studio.pageIdOfBlock(search.id))!
+    expect(page.params?.some((p) => p.searchBlockId === search.id && p.fanOut && p.hidden)).toBe(true)
   })
 })

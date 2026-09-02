@@ -1,4 +1,5 @@
 import type { StudioDocumentPage, PageParam } from '@/types/studio'
+import { slugify } from '@/lib/slug'
 
 /**
  * « Fan-out » : une page dont un paramètre est marqué `fanOut` est publiée sous
@@ -21,6 +22,23 @@ export function findFanOutTarget(
 /** Colonne dont la valeur forme le segment d'URL (défaut : la colonne source, sinon le nom). */
 export function fanOutSlugKey(param: PageParam): string {
   return param.slugColumn || param.column || param.name
+}
+
+/**
+ * Colonnes dont les valeurs slugifiées, jointes par `-`, forment le segment
+ * d'URL fan-out. Un bloc recherche multi-colonnes (`prénom` + `nom`) produit
+ * `param.columns` ; sinon on retombe sur la colonne unique {@link fanOutSlugKey}.
+ */
+export function fanOutSegmentKeys(param: PageParam): string[] {
+  return param.columns?.length ? param.columns : [fanOutSlugKey(param)]
+}
+
+/** Segment d'URL fan-out pour une ligne : `slug(val1)-slug(val2)…`. */
+export function buildFanOutSegment(param: PageParam, row: Record<string, unknown>): string {
+  return fanOutSegmentKeys(param)
+    .map((k) => slugify(String(row[k] ?? '')))
+    .filter(Boolean)
+    .join('-')
 }
 
 export interface SegmentResolution {

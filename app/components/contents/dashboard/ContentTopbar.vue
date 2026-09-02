@@ -5,9 +5,13 @@ import AppWordmark from '@/components/ui/AppWordmark.vue'
 import statsioLogo from '@/assets/brand/statsio-logo.svg'
 import { useContentDashboard } from '@/composables/useContentDashboard'
 
-const { content, statusMeta, isPublishing, publicPath, togglePublish } = useContentDashboard()
+const { content, statusMeta, isPublishing, publicPath, startPublish } = useContentDashboard()
 
 const isPublished = computed(() => content.value?.status === 'published')
+const publishLabel = computed(() => {
+  if (isPublishing.value) return 'Publication…'
+  return content.value?.first_published_at ? 'Mettre à jour' : 'Publier'
+})
 
 const saveDot = computed(() => (isPublished.value ? 'bg-emerald-500' : 'bg-amber-500'))
 const saveText = computed(() =>
@@ -64,9 +68,9 @@ const saveText = computed(() =>
         variant="gradient"
         size="md"
         :disabled="isPublishing"
-        @click="togglePublish"
+        @click="startPublish"
       >
-        {{ isPublishing ? 'Publication…' : 'Publier' }}
+        {{ publishLabel }}
       </AppButton>
     </div>
   </div>

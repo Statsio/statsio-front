@@ -7,9 +7,13 @@ interface SitemapPageParam {
   name?: string
   column?: string
   slugColumn?: string
+  columns?: string[]
   datasetId?: string
   fanOut?: boolean
 }
+
+/** Nombre max d'URLs fan-out émises par document (garde-fou anti-sitemap géant). */
+const FANOUT_URL_CAP = 5000
 
 interface SitemapPage {
   slug?: string
@@ -56,19 +60,23 @@ async function fanOutEntries(
     const param = (page.params ?? []).find((p) => p.fanOut && p.name)
     if (!param) continue
     const datasetId = param.datasetId
-    const column = param.slugColumn || param.column
-    if (!datasetId || !column) continue
+    const keys = param.columns?.length
+      ? param.columns
+      : [param.slugColumn || param.column].filter((c): c is string => Boolean(c))
+    if (!datasetId || !keys.length) continue
 
     try {
       const qs =
-        `columns[]=${encodeURIComponent(column)}&distinct=true&limit=2000`
+        keys.length === 1
+          ? `columns[]=${encodeURIComponent(keys[0]!)}&distinct=true&limit=2000`
+          : keys.map((k) => `columns[]=${encodeURIComponent(k)}`).join('&') + '&limit=2000'
       const res = await $fetch<DistinctResponse>(
         `${apiBaseUrl}/studio/content/public/${encodeURIComponent(item.slug!)}/datasets/${encodeURIComponent(datasetId)}/query?${qs}`,
       )
       for (const row of res.data?.rows ?? []) {
-        const value = row[column]
-        const seg = slugify(value)
+        const seg = keys.map((k) => slugify(row[k])).filter(Boolean).join('-')
         if (!seg || seen.has(seg)) continue
+        if (seen.size >= FANOUT_URL_CAP) break
         seen.add(seg)
         out.push({ loc: `${basePath}/statsdata/${item.slug}/${seg}`, lastmod: item.updated_at })
       }

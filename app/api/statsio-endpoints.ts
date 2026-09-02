@@ -51,6 +51,10 @@ export const STATSIO_API = {
     upload: '/data-sources/upload',
     previewSpreadsheet: '/data-sources/preview-spreadsheet',
     public: '/data-sources/public',
+    /** `GET /api/data-sources/datagouv/search?q=` — recherche de jeux de données dans le catalogue data.gouv.fr (proxy). */
+    datagouvSearch: '/data-sources/datagouv/search',
+    /** `GET /api/data-sources/datagouv/dataset?ref=` — détail d'un jeu data.gouv.fr (id, slug ou URL) + ressources requêtables. */
+    datagouvDataset: '/data-sources/datagouv/dataset',
     one: (id: string | number) => `/data-sources/${encodeURIComponent(String(id))}`,
     attach: (id: string | number) => `/data-sources/${encodeURIComponent(String(id))}/attach`,
     refresh: (id: string | number) => `/data-sources/${encodeURIComponent(String(id))}/refresh`,
@@ -72,6 +76,11 @@ export const STATSIO_API = {
     collection: '/studio/content',
     one: (id: string) => `/studio/content/${encodeURIComponent(id)}`,
     dataSources: (id: string) => `/studio/content/${encodeURIComponent(id)}/data-sources`,
+    publish: (id: string) => `/studio/content/${encodeURIComponent(id)}/publish`,
+    unpublish: (id: string) => `/studio/content/${encodeURIComponent(id)}/unpublish`,
+    versions: (id: string) => `/studio/content/${encodeURIComponent(id)}/versions`,
+    restoreVersion: (id: string, version: number) =>
+      `/studio/content/${encodeURIComponent(id)}/versions/${version}/restore`,
     publicCollection: '/studio/content/public',
     publicCatalog: '/studio/content/public/catalog',
     /** Recherche de contenus publiés pour la mention `@` de l'assistant du Studio. */
@@ -88,6 +97,8 @@ export const STATSIO_API = {
     /** Résout un bloc unique d'un Statsdata publié pour l'afficher dans un article. */
     publicBlock: (slug: string, blockId: string) =>
       `/studio/content/public/${encodeURIComponent(slug)}/blocks/${encodeURIComponent(blockId)}`,
+    /** Mini-graphe réel de la carte de catalogue (premier graphique, ou `card_block_id`). */
+    cardPreview: (slug: string) => `/studio/content/public/${encodeURIComponent(slug)}/card-preview`,
   },
   /** Vérification d'identité (Didit) — sondages « à identité vérifiée ». */
   identity: {

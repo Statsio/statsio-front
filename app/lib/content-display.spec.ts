@@ -15,21 +15,12 @@ describe('CONTENT_TYPE_META', () => {
 
 describe('getStatusMeta', () => {
   it('reports a draft for anything that is not published', () => {
-    expect(getStatusMeta(undefined, undefined)).toMatchObject({ label: 'Brouillon', live: false })
-    expect(getStatusMeta('draft', 'public')).toMatchObject({ label: 'Brouillon', live: false })
+    expect(getStatusMeta(undefined)).toMatchObject({ label: 'Brouillon', live: false })
+    expect(getStatusMeta('draft')).toMatchObject({ label: 'Brouillon', live: false })
   })
 
-  it('reports private visibility for a published private item', () => {
-    expect(getStatusMeta('published', 'private')).toMatchObject({ label: 'Privé', live: true })
-  })
-
-  it('reports protected visibility for a published protege item', () => {
-    expect(getStatusMeta('published', 'protege')).toMatchObject({ label: 'Protégé', live: true })
-  })
-
-  it('reports published for any other visibility', () => {
-    expect(getStatusMeta('published', 'public')).toMatchObject({ label: 'Publié', live: true })
-    expect(getStatusMeta('published', undefined)).toMatchObject({ label: 'Publié', live: true })
+  it('reports published once the content is published', () => {
+    expect(getStatusMeta('published')).toMatchObject({ label: 'Publié', live: true })
   })
 })
 

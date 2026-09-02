@@ -1,27 +1,21 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { ref, watch } from 'vue'
 import { apiHttp } from '@/lib/http'
 import { STATSIO_API } from '@/api/statsio-endpoints'
 import { fetchContentCategories } from '@/api/content-categories'
 import { getErrorMessage } from '@/lib/http-errors'
 import type { ContentCategory } from '@/types/content-creation'
 import type { SourceType } from '@/composables/useAddSourceWizard'
-import { parseDatagouvResourceId } from '@/composables/useAddSourceWizard'
+import dataGouvLogo from '@/assets/sources_logo/data-gouv-logo.webp'
 
 const props = defineProps<{
   modelValue: SourceType | null
-  datagouvInput: string
-  datagouvName: string
 }>()
 
 const emit = defineEmits<{
   'update:modelValue': [SourceType | null]
-  'update:datagouvInput': [string]
-  'update:datagouvName': [string]
   attached: []
 }>()
-
-const datagouvResourceId = computed(() => parseDatagouvResourceId(props.datagouvInput))
 
 function selectType(type: SourceType) {
   emit('update:modelValue', type)
@@ -108,7 +102,7 @@ watch(
 
 <template>
   <div class="flex flex-col gap-5 py-2">
-    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div class="grid grid-cols-2 gap-3">
       <!-- File -->
       <button
         class="group flex flex-col items-center gap-3 rounded-2xl border-2 p-5 text-center transition-all"
@@ -166,54 +160,14 @@ watch(
         :class="modelValue === 'datagouv' ? 'border-orange-400 bg-orange-50/40' : 'border-[var(--studio-line-strong)] bg-white hover:border-orange-400 hover:bg-orange-50/40'"
         @click="selectType('datagouv')"
       >
-        <div class="w-12 h-12 rounded-2xl bg-orange-50 group-hover:bg-orange-100 flex items-center justify-center transition-colors">
-          <svg class="w-6 h-6 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0 0a13.5 13.5 0 0 0 0-18m0 18a13.5 13.5 0 0 1 0-18M3 12h18" />
-          </svg>
+        <div class="h-12 flex items-center justify-center">
+          <img :src="dataGouvLogo" alt="data.gouv.fr" class="h-7 w-auto max-w-[120px] object-contain" />
         </div>
         <div>
           <p class="text-sm font-bold text-[var(--studio-ink)]">data.gouv.fr</p>
           <p class="text-xs text-[var(--studio-faint)] mt-1 leading-relaxed">Un identifiant de ressource suffit</p>
         </div>
       </button>
-    </div>
-
-    <!-- data.gouv.fr — saisie de l'identifiant de ressource -->
-    <div v-if="modelValue === 'datagouv'" class="flex flex-col gap-3 border-t border-[var(--studio-line)] pt-4">
-      <div>
-        <label class="block text-xs font-semibold uppercase tracking-wider text-[var(--studio-faint)] mb-1.5">
-          Identifiant de la ressource <span class="text-red-400">*</span>
-        </label>
-        <input
-          :value="datagouvInput"
-          type="text"
-          class="w-full rounded-xl border border-[var(--studio-line-strong)] px-4 py-2.5 text-sm text-[var(--studio-ink)] font-mono focus:outline-none focus:ring-2 focus:ring-orange-400/20 focus:border-orange-400 transition-all"
-          placeholder="336c34b5-a527-4c35-b84d-18462daa7c51"
-          @input="emit('update:datagouvInput', ($event.target as HTMLInputElement).value)"
-        />
-        <p class="text-[11px] text-[var(--studio-faint)] mt-1">
-          L'identifiant figure sur la fiche de la ressource sur data.gouv.fr — vous pouvez aussi coller
-          l'URL complète de l'API tabulaire
-          (<span class="font-mono">https://tabular-api.data.gouv.fr/api/resources/&lt;id&gt;/data/</span>).
-          La pagination et l'enveloppe des données sont configurées automatiquement.
-        </p>
-        <p v-if="datagouvInput && datagouvResourceId.length >= 16" class="text-[11px] text-emerald-600 mt-1 font-mono break-all">
-          → https://tabular-api.data.gouv.fr/api/resources/{{ datagouvResourceId }}/data/
-        </p>
-      </div>
-
-      <div>
-        <label class="block text-xs font-semibold uppercase tracking-wider text-[var(--studio-faint)] mb-1.5">
-          Nom de la source <span class="font-normal normal-case text-[var(--studio-faint)]">(optionnel)</span>
-        </label>
-        <input
-          :value="datagouvName"
-          type="text"
-          class="w-full rounded-xl border border-[var(--studio-line-strong)] px-4 py-2.5 text-sm text-[var(--studio-ink)] focus:outline-none focus:ring-2 focus:ring-orange-400/20 focus:border-orange-400 transition-all"
-          placeholder="ex : Prix des carburants"
-          @input="emit('update:datagouvName', ($event.target as HTMLInputElement).value)"
-        />
-      </div>
     </div>
 
     <!-- Public catalog browsing -->

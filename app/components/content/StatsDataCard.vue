@@ -12,7 +12,7 @@ import ContentCardFavButton from '@/components/content/ContentCardFavButton.vue'
 import ContentCardOwner from '@/components/content/ContentCardOwner.vue'
 import ContentCardActions from '@/components/content/ContentCardActions.vue'
 import CatalogSubBrandTag from '@/components/listing/CatalogSubBrandTag.vue'
-import StatsDataSyntheticViz from '@/components/content/StatsDataSyntheticViz.vue'
+import StatsDataCardChart from '@/components/content/StatsDataCardChart.vue'
 import AppSparkline from '@/components/ui/AppSparkline.vue'
 
 const props = withDefaults(
@@ -270,7 +270,7 @@ const fPubMeta = computed(
     </NuxtLink>
     <p v-if="item.description" class="mt-2.5 text-[13px] leading-[1.55] text-slate-600">{{ item.description }}</p>
 
-    <StatsDataSyntheticViz v-if="showViz" :item="item" />
+    <StatsDataCardChart v-if="showViz" :item="item" />
     <div v-else class="my-4 rounded-[14px] bg-[#faf9fd] p-3.5">
       <AppSparkline :points="sparklinePoints" :color="visual.color" :height="44" />
     </div>

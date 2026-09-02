@@ -2,8 +2,6 @@
 
 export type ContentType = 'statsdata' | 'article' | 'survey'
 
-export type ContentVisibility = 'public' | 'protege' | 'private'
-
 export interface StudioContent {
   id: string
   type: ContentType
@@ -11,6 +9,12 @@ export interface StudioContent {
   slug?: string
   status?: 'draft' | 'published'
   categories?: string[]
+  /** Numéro de la version en ligne (v1, v2…). Null tant que non publié. */
+  published_version?: number | null
+  /** ISO — 1re publication. Présent ⇒ l'auteur (profil/chaîne) est verrouillé. */
+  first_published_at?: string | null
+  published_as?: 'user' | 'channel' | null
+  channel_id?: number | null
 }
 
 // ─── Blocks ───────────────────────────────────────────────────────────────────
@@ -229,6 +233,22 @@ export interface ChartMarkRule {
   color: string
 }
 
+/**
+ * Une « partie » de l'affichage d'un résultat de recherche : une colonne (réf
+ * qualifiée `nom` / `nom@sourceId`, ou colonne calculée `calc:<id>`) éventuellement
+ * encadrée de texte statique. Le titre concatène ses parties (séparateur
+ * `config.resultTitleSeparator`) ; la description en fait une liste `label : valeur`.
+ */
+export interface ResultPart {
+  ref: string
+  /** Description : libellé affiché devant la valeur. Défaut = nom de la colonne. */
+  label?: string
+  /** Titre : texte statique avant la valeur. */
+  prefix?: string
+  /** Titre : texte statique après la valeur. */
+  suffix?: string
+}
+
 export interface FieldMapping {
   xAxis?: string
   yAxis?: string
@@ -237,7 +257,11 @@ export interface FieldMapping {
   value?: string
   series?: string
   columns?: string[]
-  /** Custom display label per column name — used by the table block */
+  /**
+   * Libellé d'affichage personnalisé par référence de colonne (`{ ref: libellé }`).
+   * Consulté par `columnRefLabel` partout : en-têtes de tableau, légendes bar/line,
+   * titres d'axes, chips de l'inspecteur. Vide = nom de colonne brut.
+   */
   columnLabels?: Record<string, string>
   /** Table: format + alignment per column. */
   columnFormats?: Record<string, TableColumnFormat>
@@ -267,15 +291,40 @@ export interface FieldMapping {
   paramColumn?: string
   /** Param block: name of the page parameter written on change (default = paramColumn). */
   paramName?: string
-  searchColumn?: string    // legacy – kept for backward compat
+  /** @deprecated Bloc recherche : legacy mono-colonne. Migré vers `sources`/`searchColumns`. */
+  searchColumn?: string
+  /** @deprecated Bloc recherche : migré vers `block.sources` + `block.joins` (`normalizeBlockSources`). */
   searchSources?: SearchSource[]
+  /** @deprecated Bloc recherche : migré vers `block.joins`. */
   searchJoins?: SearchJoin[]
+  /** @deprecated Bloc recherche : la cible fan-out est toujours la page du bloc. */
   targetPageId?: string
+  /** @deprecated Bloc recherche : le paramètre point-barre est auto-géré (`syncSearchPageParam`). */
   urlParams?: string[]
+  /** @deprecated Bloc recherche. */
   urlParamMapping?: Record<string, string>
+  /** @deprecated Bloc recherche : remplacé par `resultTitleParts`. */
   resultTitleColumn?: string
+  /** @deprecated Bloc recherche : remplacé par `resultDescParts`. */
   resultDescColumns?: string[]
+  /** @deprecated Bloc recherche : remplacé par `resultDescParts[].label`. */
   resultDescColumnLabels?: Record<string, string>
+  /**
+   * Bloc recherche : colonnes recherchées (réfs qualifiées). Alimente la
+   * recherche multi-mots ET le paramètre point-barre auto-géré (segment =
+   * valeurs slugifiées jointes par `-`).
+   */
+  searchColumns?: string[]
+  /**
+   * Bloc recherche : colonnes de recherche secondaires (« OU »). Un résultat
+   * matche aussi si toute la requête est retrouvée dans ce groupe (indépendamment
+   * de `searchColumns`). Exclues de l'URL point-barre et de l'affichage auto.
+   */
+  searchAltColumns?: string[]
+  /** Bloc recherche : titre d'un résultat, concaténation ordonnée de parties. */
+  resultTitleParts?: ResultPart[]
+  /** Bloc recherche : lignes de description d'un résultat (`label : valeur`). */
+  resultDescParts?: ResultPart[]
 }
 
 export interface BlockConfig {
@@ -403,8 +452,10 @@ export interface BlockConfig {
   /** Publish one indexable page per value (`/statsdata/{slug}/{valeur}`) — sets the param's `fanOut`. */
   paramFanOut?: boolean
   // Search block config
-  /** Search block: results also declare a page parameter (like a Param block, but search-driven). */
+  /** @deprecated Bloc recherche : le paramètre point-barre est toujours auto-déclaré. */
   searchAsParam?: boolean
+  /** Bloc recherche : séparateur entre les parties du titre d'un résultat. Défaut `' '`. */
+  resultTitleSeparator?: string
   // If block config
   /** @deprecated Remplacé par `ifConditions` — lu en repli par `readIfConditions`. */
   ifParam?: string
@@ -735,6 +786,20 @@ export interface PageParam {
   fanOut?: boolean
   /** Phase 2 : colonne utilisée pour construire le segment d'URL. Défaut = `column`. */
   slugColumn?: string
+  /**
+   * Segment d'URL composite : les colonnes dont les valeurs slugifiées sont
+   * jointes par `-` pour former le segment fan-out (ex. `['prenom','nom']` →
+   * `/statsdata/{slug}/jean-dupond`). Prioritaire sur `slugColumn`/`column`.
+   * Alimenté automatiquement par un bloc recherche (voir `searchBlockId`).
+   */
+  columns?: string[]
+  /**
+   * Paramètre géré automatiquement par un bloc recherche : invisible dans le
+   * sélecteur de variables et l'UI, synchronisé par `studio.syncSearchPageParam`.
+   */
+  hidden?: boolean
+  /** Id du bloc recherche propriétaire — présent ⇔ `hidden`. */
+  searchBlockId?: string
 }
 
 /** Référence à un élément de premier niveau du flux d'une page : une section racine ou un bloc de page. */

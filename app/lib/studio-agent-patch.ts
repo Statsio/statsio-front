@@ -90,38 +90,30 @@ function applyAddPage(op: AgentPatchOp, studio: StudioStore, refs: Map<string, s
   }
 
   // Ancien op « page template » (isTemplate + paramName) : traduit dans le nouveau
-  // modèle — un `PageParam` déclaré + une barre de recherche NORMALE qui filtre la page.
+  // modèle — une barre de recherche qui déclare automatiquement un paramètre
+  // point-barre (fan-out) sur sa page.
   const paramName = op.paramName ? String(op.paramName) : ''
-  if ((op.isTemplate || paramName) && paramName) {
-    // Colonne identifiante = celle du paramètre (code commune/postal…) → slug d'URL sans ambiguïté.
-    const idColumn = op.paramColumn ? String(op.paramColumn) : paramName
-    studio.addPageParam(page.id, {
-      name: paramName,
-      column: idColumn,
-      datasetId: op.searchDatasetId != null ? String(op.searchDatasetId) : undefined,
-      fanOut: true,
-      slugColumn: idColumn,
-    })
-
+  if (op.isTemplate || paramName) {
     const section = studio.addSection(0)
     const block = studio.addBlock('search', `${section.id}-0`, 0)
 
-    const fieldMapping: Record<string, unknown> = { targetPageId: page.id }
-    if (op.searchDatasetId != null) {
-      const columns = Array.isArray(op.searchColumns) ? op.searchColumns.map(String) : []
-      fieldMapping.searchSources = [{ datasetId: String(op.searchDatasetId), columns }]
-      if (op.resultTitleColumn) fieldMapping.resultTitleColumn = String(op.resultTitleColumn)
-      if (Array.isArray(op.resultDescColumns) && op.resultDescColumns.length) {
-        fieldMapping.resultDescColumns = op.resultDescColumns.map(String)
-      }
-      if (op.paramColumn) fieldMapping.urlParams = [String(op.paramColumn)]
-    }
-    studio.updateBlockFieldMapping(block.id, fieldMapping as Partial<FieldMapping>)
+    if (op.searchDatasetId != null) studio.updateBlockDataset(block.id, String(op.searchDatasetId))
 
-    const config: Record<string, unknown> = {}
-    if (op.searchTitle) config.title = String(op.searchTitle)
-    if (op.searchPlaceholder) config.searchPlaceholder = String(op.searchPlaceholder)
-    if (Object.keys(config).length) studio.updateBlockConfig(block.id, config as Partial<BlockConfig>)
+    const columns = Array.isArray(op.searchColumns) ? op.searchColumns.map(String) : []
+    const fieldMapping: Record<string, unknown> = {}
+    if (columns.length) fieldMapping.searchColumns = columns
+    if (op.resultTitleColumn) fieldMapping.resultTitleParts = [{ ref: String(op.resultTitleColumn) }]
+    if (Array.isArray(op.resultDescColumns) && op.resultDescColumns.length) {
+      fieldMapping.resultDescParts = op.resultDescColumns.map((c) => ({ ref: String(c) }))
+    }
+    if (Object.keys(fieldMapping).length) {
+      studio.updateBlockFieldMapping(block.id, fieldMapping as Partial<FieldMapping>)
+    }
+
+    // Le bloc recherche n'a pas de titre/description propres — seul le placeholder.
+    if (op.searchPlaceholder) {
+      studio.updateBlockConfig(block.id, { searchPlaceholder: String(op.searchPlaceholder) } as Partial<BlockConfig>)
+    }
   }
 }
 
@@ -173,9 +165,7 @@ function applyUpdateBlock(op: AgentPatchOp, studio: StudioStore, resolve: (r: un
   if (!target) throw new Error(`bloc ${id} introuvable`)
   // Un bloc verrouillé (barre de recherche d'une page template) reste configurable.
 
-  // updateBlockDataset réinitialise le fieldMapping — à éviter sur un bloc `search`
-  // (qui garde sa source dans fieldMapping.searchSources, pas dans datasetId).
-  if (op.datasetId != null && target.type !== 'search') {
+  if (op.datasetId != null) {
     studio.updateBlockDataset(id, String(op.datasetId))
   }
   if (isRecord(op.fieldMapping)) {
@@ -195,13 +185,5 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 
 /** Le modèle renvoie parfois les datasetId en nombre — le store les veut en chaîne. */
 function normalizeFieldMapping(fm: Record<string, unknown>): Partial<FieldMapping> {
-  const out = { ...fm }
-  for (const key of ['searchSources', 'searchJoins'] as const) {
-    if (Array.isArray(out[key])) {
-      out[key] = (out[key] as Record<string, unknown>[]).map((s) =>
-        s && s.datasetId != null ? { ...s, datasetId: String(s.datasetId) } : s,
-      )
-    }
-  }
-  return out as Partial<FieldMapping>
+  return { ...fm } as Partial<FieldMapping>
 }

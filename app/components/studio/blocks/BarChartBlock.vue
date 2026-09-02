@@ -171,6 +171,17 @@ const isHorizontal = computed(() => props.block.config.orientation === 'horizont
 // `undefined` there was blanking out the x-axis labels (falls back to a numeric index axis).
 const useLogScale = computed(() => Boolean(props.block.config.logScale))
 
+// Titre d'axe : uniquement si un libellé personnalisé est défini sur la colonne.
+const labels = computed(() => props.block.fieldMapping.columnLabels ?? {})
+const xTitle = computed(() => (props.block.fieldMapping.xAxis ? labels.value[props.block.fieldMapping.xAxis] : '') || '')
+const yTitle = computed(() => {
+  const cols = yColumns.value
+  return cols.length === 1 && cols[0] ? (labels.value[cols[0]] || '') : ''
+})
+const axisTitle = (text: string) => (text
+  ? { display: true, text, font: { family: "'JetBrains Mono', monospace", size: 11, weight: 600 as const }, color: 'rgba(24,24,31,0.55)' }
+  : { display: false })
+
 const { scheduleResize } = useChart(canvasRef, 'bar', () => chartData.value, () => ({
   indexAxis: isHorizontal.value ? 'y' : 'x',
   layout: {
@@ -184,6 +195,7 @@ const { scheduleResize } = useChart(canvasRef, 'bar', () => chartData.value, () 
       grid: { display: isHorizontal.value, color: 'rgba(24,24,31,0.06)' },
       border: { display: false },
       ticks: { font: { family: "'JetBrains Mono', monospace", size: 11 }, color: 'rgba(24,24,31,0.45)' },
+      title: axisTitle(isHorizontal.value ? yTitle.value : xTitle.value),
     },
     y: {
       ...(!isHorizontal.value && useLogScale.value ? { type: 'logarithmic' as const } : {}),
@@ -191,6 +203,7 @@ const { scheduleResize } = useChart(canvasRef, 'bar', () => chartData.value, () 
       grid: { display: false },
       border: { display: false },
       ticks: { font: { family: "'JetBrains Mono', monospace", size: 11 }, color: 'rgba(24,24,31,0.45)' },
+      title: axisTitle(isHorizontal.value ? xTitle.value : yTitle.value),
     },
   },
   plugins: {
