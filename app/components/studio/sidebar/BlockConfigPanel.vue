@@ -13,6 +13,8 @@ import SdEmbedBlockInspector from '@/components/studio/inspector/SdEmbedBlockIns
 import LoopBlockInspector from '@/components/studio/inspector/LoopBlockInspector.vue'
 import IfBlockInspector from '@/components/studio/inspector/IfBlockInspector.vue'
 import LayoutBlockInspector from '@/components/studio/inspector/LayoutBlockInspector.vue'
+import FilterDrillInPanel from '@/components/studio/filters/FilterDrillInPanel.vue'
+import ColumnDrillInPanel from '@/components/studio/filters/ColumnDrillInPanel.vue'
 import { BLOCK_META, type BlockType } from '@/types/studio'
 
 const studio = useStudioStore()
@@ -129,7 +131,13 @@ const compFilters = computed<import('@/types/studio').BlockFilter[]>(() => block
     </div>
 
     <!-- Scrollable content -->
-    <div class="flex-1 overflow-y-auto min-h-0">
+    <div class="relative flex-1 min-h-0">
+
+      <!-- Drill-in (recouvre le corps de l'inspecteur) -->
+      <FilterDrillInPanel />
+      <ColumnDrillInPanel />
+
+      <div class="h-full overflow-y-auto">
 
       <!-- ══════════════ SEARCH BLOCK ══════════════ -->
       <SearchBlockInspector v-if="isSearch && block && activeTab === 'config'" :block="block" />
@@ -165,6 +173,7 @@ const compFilters = computed<import('@/types/studio').BlockFilter[]>(() => block
       <!-- ══════════════ TEXT BLOCKS ══════════════ -->
       <RichBlockInspector v-if="isText && block && activeTab === 'style'" :block="block" />
 
+      </div>
     </div>
 
     <!-- Footer: duplicate / delete -->

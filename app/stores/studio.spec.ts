@@ -485,6 +485,63 @@ describe('useStudioStore', () => {
     })
   })
 
+  describe('moveSectionInFlow', () => {
+    it('swaps a root section with its neighbour in the page flow', () => {
+      const store = useStudioStore()
+      store.sections.splice(0, store.sections.length)
+      const a = store.addSectionInFlow()
+      const b = store.addSectionInFlow()
+      const c = store.addSectionInFlow()
+
+      store.moveSectionInFlow(b.id, -1)
+      expect(store.currentPageCanvasItems.map((i) => i.ref.id)).toEqual([b.id, a.id, c.id])
+
+      store.moveSectionInFlow(b.id, 1)
+      expect(store.currentPageCanvasItems.map((i) => i.ref.id)).toEqual([a.id, b.id, c.id])
+    })
+
+    it('is a no-op at the flow edges and for locked sections', () => {
+      const store = useStudioStore()
+      store.sections.splice(0, store.sections.length)
+      const a = store.addSectionInFlow()
+      const b = store.addSectionInFlow()
+
+      store.moveSectionInFlow(a.id, -1)
+      expect(store.currentPageCanvasItems.map((i) => i.ref.id)).toEqual([a.id, b.id])
+
+      const locked = store.addSection(undefined, true)
+      store.moveSectionInFlow(locked.id, -1)
+      expect(store.currentPageCanvasItems.map((i) => i.ref.id).slice(0, 2)).toEqual([a.id, b.id])
+    })
+  })
+
+  describe('duplicateSection', () => {
+    it('clones the section and its blocks right after the original', () => {
+      const store = useStudioStore()
+      store.sections.splice(0, store.sections.length)
+      const a = store.addSectionInFlow()
+      store.updateSection(a.id, { title: 'Ma section' })
+      store.addBlock('kpi', `${a.id}-0`)
+      store.addBlock('kpi', `${a.id}-0`)
+      const b = store.addSectionInFlow()
+
+      const clone = store.duplicateSection(a.id)!
+      expect(clone.id).not.toBe(a.id)
+      expect(clone.title).toBe('Ma section')
+      expect(store.currentPageCanvasItems.map((i) => i.ref.id)).toEqual([a.id, clone.id, b.id])
+      expect(store.blocks.filter((bl) => bl.zoneId === `${clone.id}-0`)).toHaveLength(2)
+      expect(store.selectedSectionId).toBe(clone.id)
+    })
+
+    it('is a no-op for a locked section', () => {
+      const store = useStudioStore()
+      const locked = store.addSection(undefined, true)
+      const before = store.sections.length
+      expect(store.duplicateSection(locked.id)).toBeNull()
+      expect(store.sections).toHaveLength(before)
+    })
+  })
+
   describe('undo / redo', () => {
     it('undo reverts pages/sections/blocks to the previous snapshot', () => {
       const store = useStudioStore()

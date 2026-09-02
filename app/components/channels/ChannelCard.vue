@@ -125,8 +125,7 @@ async function onToggleFollow() {
 
       <div class="-mt-[26px] px-5">
         <div
-          class="relative z-10 mb-3 flex h-[52px] w-[52px] items-center justify-center overflow-hidden rounded-[14px] border-[3px] border-white bg-white text-base font-extrabold text-white"
-          :style="profile?.logo_url ? undefined : bannerStyle"
+          class="relative z-10 mb-3 flex h-[52px] w-[52px] items-center justify-center overflow-hidden rounded-[14px] border-[3px] border-white bg-white text-base font-extrabold text-[#18181f]"
         >
           <img
             v-if="profile?.logo_url"

@@ -11,7 +11,7 @@ import {
 import { fetchScalarAggregate, fetchPublicScalarAggregate } from '@/api/studio'
 import { blockSourceParams } from '@/composables/useBlockData'
 import { makeColumnRef, parseColumnRef } from '@/lib/studio-columns'
-import type { StudioBlock, BlockSource, BlockJoin } from '@/types/studio'
+import type { StudioBlock, BlockSource, BlockJoin, BlockFilter } from '@/types/studio'
 
 interface Options {
   /** Texte brut (peut contenir des `{{ }}`). */
@@ -25,6 +25,8 @@ interface Options {
   /** Vue publiée → passe par les endpoints publics. */
   readonly?: () => boolean
   docSlug?: () => string | undefined
+  /** Filtres du bloc à cumuler avec ceux de l'expression (déjà résolus : jetons interpolés). */
+  extraFilters?: () => BlockFilter[]
 }
 
 // Cache de session : les agrégats bougent peu, un rechargement de page suffit à vider.
@@ -35,15 +37,16 @@ export function clearAggregateCache(): void {
   aggCache.clear()
 }
 
-/** Clé de dépendance : dataset + sources + jointures du bloc appelant (pour les `watch`). */
-function blockCtxKey(opts: { block?: () => StudioBlock | null; datasetId?: () => string | undefined }): string {
+/** Clé de dépendance : dataset + sources + jointures + filtres du bloc appelant (pour les `watch`). */
+function blockCtxKey(opts: { block?: () => StudioBlock | null; datasetId?: () => string | undefined; extraFilters?: () => BlockFilter[] }): string {
   const b = opts.block?.()
-  return b
+  const base = b
     ? `${b.datasetId ?? ''}|${JSON.stringify(b.sources ?? [])}|${b.primarySourceId ?? ''}|${JSON.stringify(b.joins ?? [])}`
     : (opts.datasetId?.() ?? '')
+  return opts.extraFilters ? `${base}|${JSON.stringify(opts.extraFilters())}` : base
 }
 
-type AggregateContext = Pick<Options, 'block' | 'datasetId' | 'readonly' | 'docSlug'>
+type AggregateContext = Pick<Options, 'block' | 'datasetId' | 'readonly' | 'docSlug' | 'extraFilters'>
 
 /**
  * Résout l'agrégat `ref` (issu de `{{ AVG(col@X) }}`) contre :
@@ -64,7 +67,7 @@ function resolveAggregate(ref: AggregateRef, opts: AggregateContext): Promise<nu
   let column = ref.column === '*' ? (ref.filters[0]?.column ?? '') : ref.column
   let multi: { sources: BlockSource[]; primarySourceId: string; joins: BlockJoin[] } | undefined
 
-  const filters = ref.filters.filter((f) => f.value !== '')
+  const filters = [...(opts.extraFilters?.() ?? []), ...ref.filters].filter((f) => f.value !== '')
 
   if (blockSource && sp) {
     // `@X` = une source du bloc. Colonne qualifiée si source non primaire.
@@ -88,11 +91,13 @@ function resolveAggregate(ref: AggregateRef, opts: AggregateContext): Promise<nu
 
   const readonly = opts.readonly?.() ?? false
   const docSlug = opts.docSlug?.()
-  const cacheKey = `${readonly ? `pub:${docSlug}` : 'priv'}|${urlDatasetId}|${JSON.stringify(multi ?? null)}|${ref.key}`
+  // Colonne calculée (`calc:<id>`) : transmettre les définitions du bloc.
+  const calcColumns = column.startsWith('calc:') ? (block?.fieldMapping.calcColumns ?? []) : undefined
+  const cacheKey = `${readonly ? `pub:${docSlug}` : 'priv'}|${urlDatasetId}|${JSON.stringify(multi ?? null)}|${ref.key}|${JSON.stringify(opts.extraFilters?.() ?? [])}|${JSON.stringify(calcColumns ?? null)}`
 
   let hit = aggCache.get(cacheKey)
   if (!hit) {
-    const params = { fn: ref.fn, column, filters, ...multi }
+    const params = { fn: ref.fn, column, filters, ...multi, calcColumns }
     hit = (readonly && docSlug
       ? fetchPublicScalarAggregate(docSlug, urlDatasetId, params)
       : fetchScalarAggregate(urlDatasetId, params)

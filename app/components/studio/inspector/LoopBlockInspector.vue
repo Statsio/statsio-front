@@ -9,7 +9,7 @@ import FieldPicker from '@/components/studio/fields/FieldPicker.vue'
 import FieldNote from '@/components/studio/fields/FieldNote.vue'
 import DataSourceWizard from '@/components/studio/ui/DataSourceWizard.vue'
 import ColumnPickerModal from '@/components/studio/ui/ColumnPickerModal.vue'
-import FiltersModal from '@/components/studio/ui/FiltersModal.vue'
+import BlockFiltersField from '@/components/studio/fields/BlockFiltersField.vue'
 
 const props = defineProps<{ block: StudioBlock; activeTab: string }>()
 const studio = useStudioStore()
@@ -66,7 +66,6 @@ watch(
 // ─── Sub-modals ──────────────────────────────────────────────────────────────
 const showDataSourceModal = ref(false)
 const showColumnModal = ref(false)
-const showFiltersModal = ref(false)
 
 function onVarInput(e: Event) {
   const raw = (e.target as HTMLInputElement).value
@@ -153,13 +152,12 @@ const LAYOUTS = [
       <div class="flex flex-col gap-[11px] px-4 pb-1 pt-3">
         <FieldNote v-if="!block.datasetId">Connectez d'abord une source dans l'onglet Boucle.</FieldNote>
         <template v-else>
-          <FieldPicker
+          <BlockFiltersField
+            :block="block"
+            mode="primary"
             label="Filtres sur les valeurs"
-            :value="filters.length ? `${filters.length} filtre${filters.length > 1 ? 's' : ''}` : 'Aucun filtre'"
-            :action="filters.length ? 'Modifier' : 'Ajouter'"
-            @open="showFiltersModal = true"
+            empty-label="Aucun filtre : toutes les valeurs de la colonne sont parcourues."
           />
-          <FiltersModal :show="showFiltersModal" :block="block" mode="primary" @close="showFiltersModal = false" />
           <FieldNote>Restreint les valeurs parcourues (ex. limiter à une région).</FieldNote>
         </template>
       </div>

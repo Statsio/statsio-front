@@ -62,7 +62,7 @@ const pubMeta = computed(() => formatCatalogItemMeta(props.item.views_count, pro
       <span class="block text-[1.7rem] font-extrabold leading-[1.14] tracking-[-0.025em] text-pretty lg:text-[31px]">{{ item.title }}</span>
       <span v-if="item.description" class="mt-3.5 block max-w-[52ch] text-[15px] leading-[1.62] text-slate-500">{{ item.description }}</span>
       <span class="mt-6 flex items-center gap-2.5">
-        <span class="flex h-[38px] w-[38px] shrink-0 items-center justify-center overflow-hidden rounded-[11px] bg-[linear-gradient(135deg,#8b5cf6,#3b82f6)] text-xs font-extrabold text-white">
+        <span class="flex h-[38px] w-[38px] shrink-0 items-center justify-center overflow-hidden rounded-[11px] border border-slate-200 bg-white text-xs font-extrabold text-slate-900">
           <img v-if="item.publisher.logo_url" :src="item.publisher.logo_url" :alt="item.publisher.name" class="h-full w-full object-cover" />
           <span v-else>{{ item.publisher.initials }}</span>
         </span>

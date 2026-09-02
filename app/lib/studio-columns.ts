@@ -1,8 +1,26 @@
-import type { DatasetColumn, StudioBlock } from '@/types/studio'
+import type { CalcColumn, DatasetColumn, StudioBlock } from '@/types/studio'
+import { CALC_REF_PREFIX } from '@/types/studio'
 
 export interface ColumnItem {
   name: string
   type?: DatasetColumn['type']
+  /** Libellé d'affichage (colonnes calculées : `name` = `calc:<id>` non lisible). */
+  label?: string
+}
+
+/** Réf `calc:<id>` ? */
+export function isCalcRef(ref: string): boolean {
+  return ref.startsWith(CALC_REF_PREFIX)
+}
+
+/** Les colonnes calculées d'un bloc, sous forme de groupe pour les sélecteurs. */
+export function calcColumnGroup(block: StudioBlock): StudioColumnGroup | null {
+  const calc = block.fieldMapping?.calcColumns ?? []
+  if (!calc.length) return null
+  return {
+    label: 'Calculées',
+    columns: calc.map((c: CalcColumn) => ({ name: CALC_REF_PREFIX + c.id, label: c.label || 'Calcul', type: 'float' })),
+  }
 }
 
 export interface StudioColumnGroup {
@@ -45,8 +63,12 @@ export function makeColumnRef(name: string, sourceId: string | null | undefined,
   return `${name}@${sourceId}`
 }
 
-/** Libellé lisible d'une référence : `prix` ou `prix · Régions`. */
+/** Libellé lisible d'une référence : `prix`, `prix · Régions`, ou le libellé d'une colonne calculée. */
 export function columnRefLabel(ref: string, block: StudioBlock, datasets: DatasetsLike): string {
+  if (isCalcRef(ref)) {
+    const id = ref.slice(CALC_REF_PREFIX.length)
+    return block.fieldMapping?.calcColumns?.find((c) => c.id === id)?.label || 'Colonne calculée'
+  }
   const { name, sourceId } = parseColumnRef(ref)
   const primary = primarySourceId(block)
   if (!sourceId || sourceId === primary) return name
@@ -62,6 +84,9 @@ export function columnRefLabel(ref: string, block: StudioBlock, datasets: Datase
 export function blockColumnGroups(block: StudioBlock, datasets: DatasetsLike): StudioColumnGroup[] {
   const groups: StudioColumnGroup[] = []
   const primary = primarySourceId(block)
+
+  const calc = calcColumnGroup(block)
+  if (calc) groups.push(calc)
 
   // Sources normalisées (ou fallback legacy datasetId).
   const sources = block.sources?.length

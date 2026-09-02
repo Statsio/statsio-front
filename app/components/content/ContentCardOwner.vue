@@ -2,7 +2,6 @@
 import { computed } from 'vue'
 import type { CatalogPublisher } from '@/types/catalog'
 import type { ContentCardTone } from '@/types/content-card'
-import { resolveChannelColors, channelBannerStyle } from '@/lib/channel-brand'
 
 const props = withDefaults(
   defineProps<{
@@ -15,14 +14,6 @@ const props = withDefaults(
   { meta: '', tone: 'light' },
 )
 
-const colors = computed(() =>
-  resolveChannelColors(props.publisher.handle ?? props.publisher.name, null, null),
-)
-const avatarStyle = computed(() =>
-  props.publisher.is_channel
-    ? channelBannerStyle(colors.value.primary, colors.value.secondary)
-    : { background: 'linear-gradient(135deg,#3b82f6,#059669)' },
-)
 const dark = computed(() => props.tone === 'dark')
 </script>
 
@@ -32,9 +23,8 @@ const dark = computed(() => props.tone === 'dark')
     :class="dark ? 'border-white/15' : 'border-slate-200/80'"
   >
     <span
-      class="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden text-[10.5px] font-extrabold text-white"
+      class="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden border border-slate-200 bg-white text-[10.5px] font-extrabold text-slate-900"
       :class="publisher.is_channel ? 'rounded-[9px]' : 'rounded-full'"
-      :style="publisher.logo_url ? undefined : avatarStyle"
     >
       <img v-if="publisher.logo_url" :src="publisher.logo_url" :alt="publisher.name" class="h-full w-full object-cover" />
       <span v-else>{{ publisher.initials }}</span>
