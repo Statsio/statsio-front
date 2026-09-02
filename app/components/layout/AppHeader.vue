@@ -167,7 +167,7 @@ onBeforeUnmount(() => {
 <template>
   <header class="fixed inset-x-0 top-14 z-40 border-b border-slate-200 bg-white"
     @mouseleave="activeMenu = null">
-    <div class="container flex h-14 items-center gap-2">
+    <div class="mx-auto flex h-14 w-full max-w-[1800px] items-center gap-2 px-4 sm:px-6 lg:px-10">
       <div ref="brandMenuRef" class="relative flex shrink-0 items-center gap-2">
         <RouterLink :to="currentBrand.to"
           class="flex items-center gap-2 rounded-lg transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35">
@@ -422,7 +422,7 @@ onBeforeUnmount(() => {
       </component>
     </nav>
 
-    <div v-if="logoutError" class="container pt-3">
+    <div v-if="logoutError" class="mx-auto w-full max-w-[1800px] px-4 pt-3 sm:px-6 lg:px-10">
       <div class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
         {{ logoutError }}
       </div>

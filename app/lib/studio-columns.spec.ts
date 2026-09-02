@@ -64,6 +64,20 @@ describe('blockColumnGroups', () => {
     expect(groups).toHaveLength(1)
     expect(groups[0]).toMatchObject({ sourceId: '1', isPrimary: true })
   })
+  it('prepends a « Calculées » group for fieldMapping.calcColumns', () => {
+    const b = block({ fieldMapping: { calcColumns: [{ id: 'x', label: 'Total', operands: [{ column: 'a' }] }] } })
+    const groups = blockColumnGroups(b, datasets)
+    expect(groups[0]!.label).toBe('Calculées')
+    expect(groups[0]!.sourceId).toBeUndefined()
+    expect(groups[0]!.columns[0]).toMatchObject({ name: 'calc:x', label: 'Total' })
+  })
+})
+
+describe('columnRefLabel — colonne calculée', () => {
+  it('renvoie le libellé de la CalcColumn', () => {
+    const b = block({ fieldMapping: { calcColumns: [{ id: 'x', label: 'Taux', operands: [] }] } })
+    expect(columnRefLabel('calc:x', b, datasets)).toBe('Taux')
+  })
 })
 
 describe('primarySourceId', () => {

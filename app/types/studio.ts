@@ -157,6 +157,57 @@ export interface TableComputedColumn {
   expression: string
 }
 
+export type ArithOp = '+' | '-' | '*' | '/'
+
+/** Un opérande d'une {@link CalcColumn} : une colonne OU un nombre, relié au précédent par `op`. */
+export interface CalcOperand {
+  /** Opérateur reliant cet opérande au précédent (absent pour le 1er). */
+  op?: ArithOp
+  /** Réf colonne (nue | `col@sourceId`) — exclusif de `value`. */
+  column?: string
+  /** Littéral numérique — exclusif de `column`. */
+  value?: number
+}
+
+/**
+ * Colonne calculée d'un bloc : combinaison arithmétique de colonnes, calculée par ligne
+ * (côté SQL, avant agrégation). Référencée partout comme une colonne via la chaîne `calc:<id>`.
+ * Distinct des `computedColumns` du tableau (expression texte + agrégats, calcul post-requête).
+ */
+export interface CalcColumn {
+  id: string
+  label: string
+  operands: CalcOperand[]
+}
+
+/** Préfixe d'une référence de colonne calculée. */
+export const CALC_REF_PREFIX = 'calc:'
+
+/**
+ * Un terme d'une valeur d'agrégat combinée : `FN(colonne)`, relié au terme précédent
+ * par `op`. Ex. `[{fn:'max',column:'prix'}, {op:'-',fn:'min',column:'prix'}]` = `MAX(prix) - MIN(prix)`.
+ * `column` accepte une réf `calc:<id>`.
+ */
+export interface AggTerm {
+  op?: ArithOp
+  fn: AggregateFunction
+  column: string
+}
+
+/**
+ * Fonction d'une part de camembert : un agrégat classique, ou `remainder`
+ * (= `SUM(colonne)` moins la somme des autres parts — ex. « Non admis »).
+ */
+export type PieSegmentFn = AggregateFunction | 'remainder'
+
+/** Part d'un camembert en mode « segments calculés » : fonction + colonne (comme une série bar/line). */
+export interface PieSegment {
+  fn: PieSegmentFn
+  column: string
+  /** Libellé affiché ; défaut = nom de la colonne (ou « Reste »). */
+  label?: string
+}
+
 /** Règle de mise en forme conditionnelle d'une cellule. */
 export interface TableCellRule {
   column: string
@@ -194,6 +245,12 @@ export interface FieldMapping {
   computedColumns?: TableComputedColumn[]
   /** Table: conditional cell formatting rules. */
   cellRules?: TableCellRule[]
+  /** Camembert en mode « segments calculés » (`config.pieMode === 'segments'`). */
+  pieSegments?: PieSegment[]
+  /** Colonnes calculées du bloc (combinaisons arithmétiques), référencées `calc:<id>`. */
+  calcColumns?: CalcColumn[]
+  /** KPI : valeur = combinaison d'agrégats (`MAX(x) - MIN(x)`…). Prioritaire sur `valueColumn` / `config.valueExpression`. */
+  kpiValue?: AggTerm[]
   /** Record block: column used as the fiche title (default = first column). */
   recordTitleColumn?: string
   valueColumn?: string
@@ -244,10 +301,14 @@ export interface BlockConfig {
   showValueLabels?: boolean
   /** Bar block rendering mode — 'chart' (default, Chart.js canvas) or 'progress' (thin labeled progress-bar list) */
   barStyle?: 'chart' | 'progress'
+  /** Camembert : 'column' (défaut, étiquettes + valeur) ou 'segments' (parts calculées via `fieldMapping.pieSegments`) */
+  pieMode?: 'column' | 'segments'
   /** Bar/line value axis on a logarithmic scale — keeps small values visible when the dataset spans several orders of magnitude */
   logScale?: boolean
   // KPI comparison
   comparisonFormat?: 'percent' | 'number' | 'currency'
+  /** KPI : libellé affiché après l'écart (ex. « vs 2020 »). Accepte les jetons `{{colonne}}`. */
+  comparisonLabel?: string
   /** KPI : expression calculée servant de valeur (ex. `AVG(prix@7) * 50`) — remplace la colonne. */
   valueExpression?: string
   // ── Grille de champs (field-grid) ──
@@ -374,9 +435,17 @@ export interface BlockConfig {
 
 export type FilterOperator = '=' | '!=' | '>' | '>=' | '<' | '<=' | 'contains' | 'not_contains'
 
+/**
+ * Opérateurs d'un filtre de bloc. Surensemble de {@link FilterOperator} : ajoute
+ * `in` / `not_in` (sélection multi-valeurs). La valeur d'un filtre `in`/`not_in`
+ * est un tableau JSON de chaînes (`'["2024","2025"]'`). Le bloc « Condition »
+ * (`IfCondition`) n'utilise que {@link FILTER_OPERATORS} — pas ces deux-là.
+ */
+export type BlockFilterOperator = FilterOperator | 'in' | 'not_in'
+
 export interface BlockFilter {
   column: string
-  operator: FilterOperator
+  operator: BlockFilterOperator
   value: string
 }
 
@@ -413,6 +482,36 @@ export const FILTER_OPERATORS: { value: FilterOperator; label: string; short: st
   { value: 'contains', label: 'contient', short: '⊃' },
   { value: 'not_contains', label: 'ne contient pas', short: '⊄' },
 ]
+
+/**
+ * Opérateurs proposés dans le panneau de filtres d'un bloc — {@link FILTER_OPERATORS}
+ * plus `in` / `not_in` pour la sélection multi-valeurs à facettes.
+ */
+export const BLOCK_FILTER_OPERATORS: { value: BlockFilterOperator; label: string; short: string }[] = [
+  ...FILTER_OPERATORS,
+  { value: 'in', label: 'est parmi', short: '∈' },
+  { value: 'not_in', label: "n'est pas parmi", short: '∉' },
+]
+
+/** Une valeur distincte d'une colonne + son nombre d'occurrences (`null` si source en direct). */
+export interface ColumnFacet {
+  value: string
+  count: number | null
+}
+
+/** Réponse du panneau à facettes d'une colonne (endpoint `?facet=1`). */
+export interface ColumnFacetResult {
+  column: string
+  values: ColumnFacet[]
+  /** Nombre total de valeurs distinctes (pour la pagination « Voir plus »). */
+  total: number
+  offset: number
+  limit: number
+  /** `false` en mode live : les décomptes ne sont pas disponibles. */
+  hasCounts: boolean
+  /** `true` si la liste est incomplète (source en direct ou scan plafonné). */
+  partial: boolean
+}
 
 /** Une source d'un bloc data. `id` = id local stable (= datasetId si unique dans le bloc). */
 export interface BlockSource {

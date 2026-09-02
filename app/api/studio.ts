@@ -59,6 +59,7 @@ type BlockQueryParams = {
   aggregateColumns?: string[]
   aggregates?: import('@/types/studio').BlockAggregate[]
   groupBy?: string[]
+  calcColumns?: import('@/types/studio').CalcColumn[]
 }
 
 function buildParamsSerializer(p: BlockQueryParams): string {
@@ -106,6 +107,15 @@ function buildParamsSerializer(p: BlockQueryParams): string {
     })
     p.groupBy?.forEach((c) => parts.push(`group_by[]=${encodeURIComponent(c)}`))
   }
+  // Colonnes calculées du bloc (combinaisons arithmétiques) — le backend les injecte.
+  p.calcColumns?.forEach((c, i) => {
+    parts.push(`calc[${i}][id]=${encodeURIComponent(c.id)}`)
+    c.operands.forEach((o, j) => {
+      if (o.op) parts.push(`calc[${i}][operands][${j}][op]=${encodeURIComponent(o.op)}`)
+      if (o.column !== undefined) parts.push(`calc[${i}][operands][${j}][column]=${encodeURIComponent(o.column)}`)
+      if (o.value !== undefined) parts.push(`calc[${i}][operands][${j}][value]=${o.value}`)
+    })
+  })
   return parts.join('&')
 }
 
@@ -269,6 +279,89 @@ export async function fetchPublicDistinctValues(
   return pluckDistinct(data.data?.rows ?? [], column)
 }
 
+// ─── Facettes d'une colonne (panneau de filtres du Studio) ───────────────────
+
+interface FacetQueryOpts {
+  search?: string
+  offset?: number
+  limit?: number
+  filters?: import('@/types/studio').BlockFilter[]
+  ctx?: DistinctSourceCtx
+}
+
+function facetParamsSerializer(column: string, opts: FacetQueryOpts): () => string {
+  const { search = '', offset = 0, limit = 50, filters = [], ctx = {} } = opts
+  return () => {
+    let qs = `columns[]=${encodeURIComponent(column)}&facet=true&facet_offset=${offset}&facet_limit=${limit}`
+    if (search) qs += `&search=${encodeURIComponent(search)}`
+    filters.forEach((f, i) => {
+      if (!f.column || f.value === '') return
+      qs += `&filters[${i}][column]=${encodeURIComponent(f.column)}`
+      qs += `&filters[${i}][operator]=${encodeURIComponent(f.operator)}`
+      qs += `&filters[${i}][value]=${encodeURIComponent(f.value)}`
+    })
+    if (ctx.sources && ctx.sources.length > 1) {
+      ctx.sources.forEach((s, i) => {
+        qs += `&sources[${i}][id]=${encodeURIComponent(s.id)}`
+        qs += `&sources[${i}][dataset_id]=${encodeURIComponent(s.datasetId)}`
+        if (s.id === ctx.primarySourceId) qs += `&sources[${i}][primary]=1`
+      })
+      ;(ctx.joins ?? []).forEach((j, i) => {
+        qs += `&joins[${i}][left_source]=${encodeURIComponent(j.leftSourceId)}`
+        qs += `&joins[${i}][left_column]=${encodeURIComponent(j.leftColumn)}`
+        qs += `&joins[${i}][right_source]=${encodeURIComponent(j.rightSourceId)}`
+        qs += `&joins[${i}][right_column]=${encodeURIComponent(j.rightColumn)}`
+        qs += `&joins[${i}][type]=${j.type}`
+      })
+    }
+    return qs
+  }
+}
+
+function unwrapFacetResult(payload: unknown, column: string): import('@/types/studio').ColumnFacetResult {
+  const p = (payload ?? {}) as { data?: Record<string, unknown>; meta?: Record<string, unknown> }
+  const data = p.data ?? {}
+  const meta = p.meta ?? {}
+  const rawValues = Array.isArray(data.values) ? (data.values as Record<string, unknown>[]) : []
+  return {
+    column: typeof data.column === 'string' ? data.column : column,
+    values: rawValues.map((v) => ({
+      value: String(v.value ?? ''),
+      count: v.count === null || v.count === undefined ? null : Number(v.count),
+    })),
+    total: Number(data.total ?? rawValues.length),
+    offset: Number(data.offset ?? 0),
+    limit: Number(data.limit ?? 50),
+    hasCounts: meta.has_counts !== false,
+    partial: meta.partial === true,
+  }
+}
+
+export async function fetchColumnFacets(
+  datasetId: string,
+  column: string,
+  opts: FacetQueryOpts = {},
+): Promise<import('@/types/studio').ColumnFacetResult> {
+  const { data } = await apiHttp.get(STATSIO_API.datasets.query(datasetId), {
+    params: {},
+    paramsSerializer: facetParamsSerializer(column, opts),
+  })
+  return unwrapFacetResult(data, column)
+}
+
+export async function fetchPublicColumnFacets(
+  docSlug: string,
+  datasetId: string,
+  column: string,
+  opts: FacetQueryOpts = {},
+): Promise<import('@/types/studio').ColumnFacetResult> {
+  const { data } = await publicHttp.get(
+    STATSIO_API.studioContent.publicDatasetQuery(docSlug, datasetId),
+    { params: {}, paramsSerializer: facetParamsSerializer(column, opts) },
+  )
+  return unwrapFacetResult(data, column)
+}
+
 // ─── Scalar aggregate ────────────────────────────────────────────────────────
 // Une seule valeur agrégée (MIN/MAX/AVG/COUNT/SUM) sur un dataset filtré —
 // socle du moteur d'expressions `{{ AVG(prix | carburant=gazole) }}` (Brique 3
@@ -277,13 +370,15 @@ export async function fetchPublicDistinctValues(
 
 export interface ScalarAggregateParams {
   fn: import('@/types/studio').AggregateFunction
-  /** Référence de colonne : nue (source primaire) ou `col@<sourceId>`. */
+  /** Référence de colonne : nue (source primaire), `col@<sourceId>`, ou `calc:<id>`. */
   column: string
   filters?: import('@/types/studio').BlockFilter[]
   /** Contexte multi-sources du bloc appelant (nécessaire quand la ref/les filtres visent une source jointe). */
   sources?: import('@/types/studio').BlockSource[]
   primarySourceId?: string
   joins?: import('@/types/studio').BlockJoin[]
+  /** Colonnes calculées du bloc (si `column` est une réf `calc:<id>`). */
+  calcColumns?: import('@/types/studio').CalcColumn[]
 }
 
 function scalarAggregateQuery(p: ScalarAggregateParams): BlockQueryParams {
@@ -294,6 +389,7 @@ function scalarAggregateQuery(p: ScalarAggregateParams): BlockQueryParams {
     sources: p.sources,
     primarySourceId: p.primarySourceId,
     joins: p.joins,
+    calcColumns: p.calcColumns,
     aggregates: [{ column: p.column, fn: p.fn }],
     groupBy: [],
   }

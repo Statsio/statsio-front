@@ -6,6 +6,8 @@ import {
   fetchBlockData,
   fetchPublicBlockData,
   fetchDistinctValues,
+  fetchColumnFacets,
+  fetchPublicColumnFacets,
   fetchScalarAggregate,
   fetchPublicScalarAggregate,
   fetchPublicCatalog,
@@ -131,6 +133,34 @@ describe('app/api/studio', () => {
       expect(capturedQuery).toContain('aggregates[0][column]=pop%407')
       expect(capturedQuery).toContain('aggregates[0][fn]=sum')
     })
+
+    it('serializes calc columns (id + operands op/column/value)', async () => {
+      let capturedQuery = ''
+      apiMock.onGet(STATSIO_API.datasets.query('42')).reply((config) => {
+        const s = config.paramsSerializer as { serialize: (p: unknown) => string }
+        capturedQuery = s.serialize(config.params)
+        return [200, { data: { columns: [], rows: [], total_rows: 0 } }]
+      })
+
+      await fetchBlockData('42', {
+        columns: ['calc:t'],
+        calcColumns: [{
+          id: 't',
+          label: 'Total',
+          operands: [{ column: 'Admis' }, { op: '/', column: 'Presents' }, { op: '*', value: 100 }],
+        }],
+        aggregates: [{ column: 'calc:t', fn: 'avg' }],
+        groupBy: ['annee'],
+      })
+
+      expect(capturedQuery).toContain('calc[0][id]=t')
+      expect(capturedQuery).toContain('calc[0][operands][0][column]=Admis')
+      expect(capturedQuery).toContain('calc[0][operands][1][op]=%2F')
+      expect(capturedQuery).toContain('calc[0][operands][1][column]=Presents')
+      expect(capturedQuery).toContain('calc[0][operands][2][op]=*')
+      expect(capturedQuery).toContain('calc[0][operands][2][value]=100')
+      expect(capturedQuery).toContain('aggregates[0][column]=calc%3At')
+    })
   })
 
   describe('fetchDistinctValues', () => {
@@ -142,6 +172,82 @@ describe('app/api/studio', () => {
       const values = await fetchDistinctValues('42', 'city', '')
 
       expect(values).toEqual(['Paris', 'Lyon'])
+    })
+  })
+
+  describe('fetchColumnFacets / fetchPublicColumnFacets', () => {
+    it('serializes facet params (facet, offset, limit, search, filters, sources) and unwraps the result', async () => {
+      let capturedQuery = ''
+      apiMock.onGet(STATSIO_API.datasets.query('42')).reply((config) => {
+        const s = config.paramsSerializer as unknown as (() => string) | { serialize: () => string }
+        capturedQuery = typeof s === 'function' ? s() : s.serialize()
+        return [
+          200,
+          {
+            data: {
+              column: 'annee',
+              values: [{ value: '2025', count: 2346 }, { value: '2024', count: 1988 }],
+              total: 5,
+              offset: 0,
+              limit: 50,
+            },
+            meta: { has_counts: true, partial: false },
+          },
+        ]
+      })
+
+      const res = await fetchColumnFacets('42', 'annee', {
+        search: 'x',
+        offset: 50,
+        limit: 25,
+        filters: [{ column: 'region', operator: '=', value: 'Bretagne' }],
+        ctx: {
+          sources: [
+            { id: '42', datasetId: '42' },
+            { id: '7', datasetId: '7' },
+          ],
+          primarySourceId: '42',
+          joins: [{ leftSourceId: '42', leftColumn: 'a', rightSourceId: '7', rightColumn: 'b', type: 'inner' }],
+        },
+      })
+
+      expect(capturedQuery).toContain('facet=true')
+      expect(capturedQuery).toContain('facet_offset=50')
+      expect(capturedQuery).toContain('facet_limit=25')
+      expect(capturedQuery).toContain('search=x')
+      expect(capturedQuery).toContain('filters[0][column]=region')
+      expect(capturedQuery).toContain('sources[1][dataset_id]=7')
+      expect(capturedQuery).toContain('joins[0][type]=inner')
+
+      expect(res.values).toEqual([{ value: '2025', count: 2346 }, { value: '2024', count: 1988 }])
+      expect(res.total).toBe(5)
+      expect(res.hasCounts).toBe(true)
+      expect(res.partial).toBe(false)
+    })
+
+    it('maps has_counts:false / partial:true and null counts (live source)', async () => {
+      apiMock.onGet(STATSIO_API.datasets.query('42')).reply(200, {
+        data: { column: 'dep', values: [{ value: '75', count: null }], total: 1, offset: 0, limit: 50 },
+        meta: { has_counts: false, partial: true },
+      })
+
+      const res = await fetchColumnFacets('42', 'dep')
+
+      expect(res.hasCounts).toBe(false)
+      expect(res.partial).toBe(true)
+      expect(res.values[0]!.count).toBeNull()
+    })
+
+    it('fetchPublicColumnFacets hits the public query URL', async () => {
+      let hit = false
+      publicMock.onGet(STATSIO_API.studioContent.publicDatasetQuery('doc', '42')).reply(() => {
+        hit = true
+        return [200, { data: { column: 'annee', values: [], total: 0, offset: 0, limit: 50 }, meta: { has_counts: true, partial: false } }]
+      })
+
+      await fetchPublicColumnFacets('doc', '42', 'annee')
+
+      expect(hit).toBe(true)
     })
   })
 

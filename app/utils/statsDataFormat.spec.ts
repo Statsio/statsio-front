@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { formatDisplayValue, formatRowCount, formatStatsDataDate, relativeUpdate } from './statsDataFormat'
+import {
+  formatDisplayValue,
+  formatRowCount,
+  formatStatsDataDate,
+  parseNumericValue,
+  relativeUpdate,
+  toNumericOrNull,
+} from './statsDataFormat'
 
 describe('formatStatsDataDate', () => {
   it('returns the em dash fallback when no ISO string is given', () => {
@@ -38,6 +45,50 @@ describe('formatDisplayValue', () => {
 
   it('passes through non-date strings unchanged', () => {
     expect(formatDisplayValue('Hello world')).toBe('Hello world')
+  })
+})
+
+describe('toNumericOrNull', () => {
+  it('passes through finite numbers and rejects NaN/Infinity', () => {
+    expect(toNumericOrNull(42)).toBe(42)
+    expect(toNumericOrNull(-3.5)).toBe(-3.5)
+    expect(toNumericOrNull(NaN)).toBeNull()
+    expect(toNumericOrNull(Infinity)).toBeNull()
+  })
+
+  it('returns null for empty / non-numeric values', () => {
+    expect(toNumericOrNull(null)).toBeNull()
+    expect(toNumericOrNull(undefined)).toBeNull()
+    expect(toNumericOrNull('')).toBeNull()
+    expect(toNumericOrNull(true)).toBeNull()
+    expect(toNumericOrNull('N/A')).toBeNull()
+    expect(toNumericOrNull('2020-01-01')).toBeNull()
+  })
+
+  it('strips units, symbols and thousands separators', () => {
+    expect(toNumericOrNull('90%')).toBe(90)
+    expect(toNumericOrNull('  47,8 % ')).toBe(47.8)
+    expect(toNumericOrNull('1 234')).toBe(1234)
+    expect(toNumericOrNull('1,234')).toBe(1234)
+    expect(toNumericOrNull('500,000,000+')).toBe(500000000)
+    expect(toNumericOrNull('1 234,56 €')).toBe(1234.56)
+    expect(toNumericOrNull('1,234.56')).toBe(1234.56)
+  })
+
+  it('disambiguates a decimal comma from a thousands comma', () => {
+    expect(toNumericOrNull('12,5')).toBe(12.5)
+    expect(toNumericOrNull('1,234')).toBe(1234)
+  })
+})
+
+describe('parseNumericValue', () => {
+  it('falls back to 0 when nothing numeric can be read', () => {
+    expect(parseNumericValue('N/A')).toBe(0)
+    expect(parseNumericValue(null)).toBe(0)
+  })
+
+  it('reads decorated numbers', () => {
+    expect(parseNumericValue('90%')).toBe(90)
   })
 })
 

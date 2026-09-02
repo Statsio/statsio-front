@@ -65,6 +65,8 @@ export const useStudioStore = defineStore('studio', () => {
 
   const selectedBlockId = ref<string | null>(null)
   const saveStatus = ref<SaveStatus>('idle')
+  /** Statut HTTP de la dernière sauvegarde en échec définitif (404 supprimé, 403 accès révoqué) ; null sinon. */
+  const saveErrorStatus = ref<number | null>(null)
   const activeLeftTab = ref<SidebarLeftTab>('blocks')
   const isPanelOpen = ref(false)
   const isSidebarRightOpen = ref(false)
@@ -412,6 +414,7 @@ export const useStudioStore = defineStore('studio', () => {
     selectedBlockId.value = null
     selectedSectionId.value = null
     saveStatus.value = 'idle'
+    saveErrorStatus.value = null
     isDirty.value = false
     dirtyVersion.value = 0
     past.value = []
@@ -602,6 +605,69 @@ export const useStudioStore = defineStore('studio', () => {
       }
     }
     markDirty()
+  }
+
+  /** Réordonne une section racine dans le flux de la page (flèches ↑/↓ de la barre d'outils de section). */
+  function moveSectionInFlow(sectionId: string, dir: -1 | 1) {
+    const section = sections.value.find((s: Section) => s.id === sectionId)
+    if (!section || section.locked || section.zoneId) return
+    const items = currentPageCanvasItems.value
+    const pos = items.findIndex((i) => i.ref.kind === 'section' && i.ref.id === sectionId)
+    if (pos === -1) return
+    const target = items[pos + dir]
+    if (!target || (target.section?.locked ?? false)) return
+    const refs = items.map((i) => i.ref)
+    ;[refs[pos], refs[pos + dir]] = [refs[pos + dir]!, refs[pos]!]
+    reorderPageCanvas(refs)
+  }
+
+  /** Duplique une section (en-tête + tous ses blocs, scripts imbriqués compris) juste après l'originale. */
+  function duplicateSection(sectionId: string): Section | null {
+    const section = sections.value.find((s: Section) => s.id === sectionId)
+    if (!section || section.locked) return null
+
+    snapshot()
+    const clone: Section = { ...deepClone(section), id: uid(), locked: undefined }
+
+    // Blocs directs de la section (`${sectionId}-N`) + descendants de leurs blocs de script.
+    const ids = new Set<string>()
+    for (const b of blocks.value) {
+      if (!b.zoneId?.startsWith(`${sectionId}-`)) continue
+      ids.add(b.id)
+      if (isContainerBlock(b.type)) loopChildIds(b.id).forEach((id) => ids.add(id))
+    }
+    const toClone = blocks.value.filter((b: StudioBlock) => ids.has(b.id))
+    const idMap = new Map<string, string>()
+    for (const b of toClone) idMap.set(b.id, uid())
+
+    const clones: StudioBlock[] = toClone.map((b) => {
+      let zoneId = b.zoneId
+      if (zoneId.startsWith(`${sectionId}-`)) {
+        zoneId = `${clone.id}-${zoneId.slice(sectionId.length + 1)}`
+      } else {
+        const parentOldId = scriptIdFromZone(zoneId)
+        if (parentOldId && idMap.has(parentOldId)) {
+          zoneId = scriptZoneId(idMap.get(parentOldId)!, scriptZoneBranch(b.zoneId))
+        }
+      }
+      return { ...deepClone(b), id: idMap.get(b.id)!, locked: undefined, zoneId }
+    })
+
+    const origIdx = sections.value.findIndex((s: Section) => s.id === sectionId)
+    sections.value.splice(origIdx + 1, 0, clone)
+    blocks.value.push(...clones)
+
+    if (!section.zoneId) {
+      const items = currentPageCanvasItems.value
+      const pos = items.findIndex((i) => i.ref.kind === 'section' && i.ref.id === sectionId)
+      insertCanvasRef({ kind: 'section', id: clone.id }, pos === -1 ? undefined : pos + 1)
+    }
+
+    selectedSectionId.value = clone.id
+    selectedBlockId.value = null
+    isSidebarRightOpen.value = true
+    markDirty()
+    return clone
   }
 
   function reorderSections(newOrder: Section[]) {
@@ -1306,6 +1372,13 @@ export const useStudioStore = defineStore('studio', () => {
   function setSaveStatus(status: SaveStatus) {
     saveStatus.value = status
     if (status === 'saved') isDirty.value = false
+    if (status === 'saved' || status === 'saving') saveErrorStatus.value = null
+  }
+
+  /** L'autosave a échoué définitivement (document supprimé / accès révoqué) — plus de retry. */
+  function setSaveError(status: number) {
+    saveStatus.value = 'error'
+    saveErrorStatus.value = status
   }
 
   function markDirty() {
@@ -1370,6 +1443,7 @@ export const useStudioStore = defineStore('studio', () => {
     loopAncestors,
     canPlaceInZone,
     saveStatus,
+    saveErrorStatus,
     isDirty,
     dirtyVersion,
     isPreview,
@@ -1385,6 +1459,8 @@ export const useStudioStore = defineStore('studio', () => {
     addSectionInFlow,
     addPageBlock,
     removeSection,
+    moveSectionInFlow,
+    duplicateSection,
     reorderSections,
     reorderSectionZone,
     moveSectionToZone,
@@ -1426,6 +1502,7 @@ export const useStudioStore = defineStore('studio', () => {
     updateBlockComparisonFilters,
     updateBlockJoins,
     setSaveStatus,
+    setSaveError,
     markDirty,
     beginBatch,
     endBatch,

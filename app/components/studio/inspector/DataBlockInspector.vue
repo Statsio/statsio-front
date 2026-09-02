@@ -3,15 +3,16 @@ import { computed, ref, watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import { useActiveEditor } from '@/composables/useActiveEditor'
-import type { BlockFilter, ChartMarkRule, DatasetMeta, StudioBlock } from '@/types/studio'
+import type { ChartMarkRule, DatasetMeta, StudioBlock } from '@/types/studio'
 import FieldPicker from '@/components/studio/fields/FieldPicker.vue'
 import FieldNote from '@/components/studio/fields/FieldNote.vue'
 import FieldColumns from '@/components/studio/fields/FieldColumns.vue'
-import { blockColumnGroups, columnRefLabel, primarySourceId } from '@/lib/studio-columns'
+import { blockColumnGroups, primarySourceId } from '@/lib/studio-columns'
 import { blockDatasetIds } from '@/lib/studio-block-sources'
 import DataSourceWizard from '@/components/studio/ui/DataSourceWizard.vue'
-import FiltersModal from '@/components/studio/ui/FiltersModal.vue'
-import ColumnsMappingModal from '@/components/studio/ui/ColumnsMappingModal.vue'
+import BlockFiltersField from '@/components/studio/fields/BlockFiltersField.vue'
+import ChartMappingField from '@/components/studio/fields/ChartMappingField.vue'
+import TableColumnsModal from '@/components/studio/ui/TableColumnsModal.vue'
 
 const props = defineProps<{ block: StudioBlock; activeTab: string }>()
 const studio = useStudioStore()
@@ -57,7 +58,6 @@ const hasSource = computed(() => Boolean(primaryId.value))
 
 /** Colonnes disponibles groupées par source. */
 const columnGroups = computed(() => blockColumnGroups(props.block, datasets))
-const refLabel = (ref: string) => columnRefLabel(ref, props.block, datasets)
 
 watch(
   () => [props.block.id, JSON.stringify(props.block.sources ?? []), props.block.datasetId].join('|'),
@@ -65,27 +65,13 @@ watch(
   { immediate: true },
 )
 
-const needsXY = computed(() => props.block.type === 'bar' || props.block.type === 'line')
-const needsLabelVal = computed(() => props.block.type === 'pie')
-const needsValue = computed(() => props.block.type === 'kpi')
 const isTable = computed(() => props.block.type === 'table')
-
-const yAxes = computed<string[]>(() => {
-  const axes = props.block.fieldMapping.yAxes
-  if (axes?.length) return axes
-  const single = props.block.fieldMapping.yAxis
-  return single ? [single] : []
-})
 
 const CHART_COLORS = ['#8b5cf6','#3b82f6','#10b981','#f59e0b','#ef4444','#06b6d4','#ec4899','#f97316']
 
-const filters = computed<BlockFilter[]>(() => props.block.filters ?? [])
-const compFilters = computed<BlockFilter[]>(() => props.block.comparisonFilters ?? [])
 
 // ─── Sub-modals ──────────────────────────────────────────────────────────────
 const showDataSourceModal = ref(false)
-const showFiltersModal = ref(false)
-const showCompFiltersModal = ref(false)
 const showColumnsMappingModal = ref(false)
 
 // ─── FieldPicker summaries ───────────────────────────────────────────────────
@@ -100,28 +86,9 @@ const sourceSummary = computed(() => {
   return primaryName.value + (extra > 0 ? ` + ${extra} source${extra > 1 ? 's' : ''}` : '')
 })
 const columnsSummary = computed(() => {
-  const fm = props.block.fieldMapping ?? {}
-  if (needsXY.value) {
-    const parts: string[] = []
-    if (fm.xAxis) parts.push(`X : ${refLabel(fm.xAxis)}`)
-    if (yAxes.value.length) parts.push(`Y : ${yAxes.value.slice(0, 2).map(refLabel).join(', ')}${yAxes.value.length > 2 ? '…' : ''}`)
-    return parts.join(' · ') || 'Configurer les axes'
-  }
-  if (needsLabelVal.value) return (fm.label || fm.value) ? `${fm.label ? refLabel(fm.label) : '?'} / ${fm.value ? refLabel(fm.value) : '?'}` : 'Configurer étiquettes et valeurs'
-  if (needsValue.value) {
-    if (!fm.valueColumn) return 'Configurer la valeur'
-    const fn = fm.aggregates?.find((a) => a.column === fm.valueColumn)?.fn ?? fm.aggregate
-    return `${(fn ?? '').toUpperCase()} (${refLabel(fm.valueColumn)})`.trim()
-  }
-  if (isTable.value) return fm.columns?.length ? `${fm.columns.length} colonne${fm.columns.length > 1 ? 's' : ''} affichée${fm.columns.length > 1 ? 's' : ''}` : 'Toutes les colonnes affichées'
-  return 'Toutes les colonnes affichées'
+  const cols = props.block.fieldMapping?.columns
+  return cols?.length ? `${cols.length} colonne${cols.length > 1 ? 's' : ''} affichée${cols.length > 1 ? 's' : ''}` : 'Toutes les colonnes affichées'
 })
-const filtersSummary = computed(() =>
-  filters.value.length ? `${filters.value.length} filtre${filters.value.length > 1 ? 's' : ''} appliqué${filters.value.length > 1 ? 's' : ''}` : 'Aucun filtre',
-)
-const compFiltersSummary = computed(() =>
-  compFilters.value.length ? `${compFilters.value.length} règle${compFilters.value.length > 1 ? 's' : ''} de comparaison` : 'Aucune règle de comparaison',
-)
 </script>
 <template>
   <div>
@@ -139,13 +106,16 @@ const compFiltersSummary = computed(() =>
             <DataSourceWizard :show="showDataSourceModal" :block="block" @close="showDataSourceModal = false" />
 
             <template v-if="hasSource">
-              <FieldPicker
-                label="Colonnes"
-                :value="columnsSummary"
-                action="Configurer"
-                @open="showColumnsMappingModal = true"
-              />
-              <ColumnsMappingModal :show="showColumnsMappingModal" :block="block" @close="showColumnsMappingModal = false" />
+              <ChartMappingField v-if="!isTable" :block="block" />
+              <template v-else>
+                <FieldPicker
+                  label="Colonnes"
+                  :value="columnsSummary"
+                  action="Configurer"
+                  @open="showColumnsMappingModal = true"
+                />
+                <TableColumnsModal :show="showColumnsMappingModal" :block="block" @close="showColumnsMappingModal = false" />
+              </template>
             </template>
           </div>
 
@@ -157,13 +127,7 @@ const compFiltersSummary = computed(() =>
           <div class="flex flex-col gap-[11px] px-4 pb-1 pt-3">
             <FieldNote v-if="!block.datasetId">Connectez d'abord une source dans l'onglet Données.</FieldNote>
             <template v-else>
-              <FieldPicker
-                label="Filtres"
-                :value="filtersSummary"
-                :action="filters.length ? 'Modifier' : 'Ajouter'"
-                @open="showFiltersModal = true"
-              />
-              <FiltersModal :show="showFiltersModal" :block="block" mode="primary" @close="showFiltersModal = false" />
+              <BlockFiltersField :block="block" mode="primary" />
               <FieldNote>Les filtres s'appliquent avant l'agrégation et se cumulent avec ceux de la source.</FieldNote>
             </template>
           </div>
@@ -231,8 +195,8 @@ const compFiltersSummary = computed(() =>
             </div>
           </div>
 
-          <!-- ── Ordre d'affichage ── -->
-          <div class="accordion-item">
+          <!-- ── Ordre d'affichage (tableau — les graphiques l'ont dans « Données ») ── -->
+          <div v-if="isTable" class="accordion-item">
             <button class="accordion-header" @click="toggle('sort')">
               <span>Ordre d'affichage</span>
               <div class="flex items-center gap-2">
@@ -315,15 +279,29 @@ const compFiltersSummary = computed(() =>
               </div>
             </div>
 
-            <!-- Filtres de comparaison → modal -->
+            <!-- Filtres de comparaison -->
             <div class="px-4 pb-1 pt-1">
-              <FieldPicker
+              <BlockFiltersField
+                :block="block"
+                mode="comparison"
                 label="Filtres de comparaison"
-                :value="compFiltersSummary"
-                :action="compFilters.length ? 'Modifier' : 'Configurer'"
-                @open="showCompFiltersModal = true"
+                empty-label="Aucune règle : la comparaison porte sur les mêmes lignes que la valeur."
+                add-label="+ Ajouter une règle de comparaison"
               />
-              <FiltersModal :show="showCompFiltersModal" :block="block" mode="comparison" @close="showCompFiltersModal = false" />
+            </div>
+
+            <!-- Libellé de la comparaison -->
+            <div class="flex flex-col gap-1.5 px-4 pb-1 pt-2">
+              <label class="text-xs font-semibold text-[var(--studio-muted)]">Libellé de la comparaison</label>
+              <input
+                :value="block.config.comparisonLabel ?? ''"
+                type="text"
+                class="cfg-input !text-[12.5px]"
+                placeholder="ex. vs 2020"
+                @focus="setActiveInput($event.target as HTMLInputElement)"
+                @input="updateConfig('comparisonLabel', inputVal($event) || undefined)"
+              />
+              <p class="text-[11px] text-[var(--studio-faint)] leading-relaxed">Affiché après l'écart. Accepte les jetons <code class="font-mono">{{ '{' + '{colonne}' + '}' }}</code>.</p>
             </div>
 
             <!-- Format d'écart -->
@@ -379,29 +357,6 @@ const compFiltersSummary = computed(() =>
             </div>
           </div>
 
-          <!-- Orientation (bar) -->
-          <div v-if="block.type === 'bar'" class="accordion-item">
-            <button class="accordion-header" @click="toggle('orientation')">
-              <span>Orientation</span>
-              <svg class="chevron" :class="open('orientation') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-              </svg>
-            </button>
-            <div v-show="open('orientation')" class="accordion-body">
-              <div class="grid grid-cols-2 gap-2">
-                <button v-for="o in [
-                  { v: 'vertical',   l: 'Vertical',   icon: 'M3 13.5V21h4.5v-7.5H3zm6.75-9V21H14.25V4.5H9.75zm6.75 4.5V21H21v-12h-4.5z' },
-                  { v: 'horizontal', l: 'Horizontal',  icon: 'M4.5 3v4.5H21V3H4.5zm0 6.75v4.5H15v-4.5H4.5zm0 6.75V21H10.5v-4.5H4.5z' },
-                ]" :key="o.v"
-                  class="py-3 rounded-xl border flex flex-col items-center gap-1.5 transition-colors"
-                  :class="(block.config.orientation ?? 'vertical') === o.v ? 'cfg-active' : 'cfg-inactive'"
-                  @click="updateConfig('orientation', o.v)">
-                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" :d="o.icon" /></svg>
-                  <span class="text-[11px] font-semibold">{{ o.l }}</span>
-                </button>
-              </div>
-            </div>
-          </div>
 
           <!-- Options barre (bar) -->
           <div v-if="block.type === 'bar'" class="accordion-item">
