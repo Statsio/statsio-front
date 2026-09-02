@@ -23,26 +23,24 @@ describe('contentManageMeta', () => {
       type: 'statsdata',
       slug: 'live',
       status: 'published',
-      visibility: 'public',
     }
     const meta = contentManageMeta(doc, ctx)
     expect(meta.statusLabel).toBe('Publié')
     expect(meta.publicPath).toBe('/statsdata/live')
   })
 
-  it('keeps a private published content live but flags it', () => {
+  it('marks a non-published content as a draft with no public path', () => {
     const doc: StatsDataDocument = {
       id: 'd',
       title: 'T',
       type: 'survey',
-      slug: 'priv',
-      status: 'published',
-      visibility: 'private',
+      slug: 'wip',
+      status: 'draft',
     }
     const meta = contentManageMeta(doc, ctx)
-    expect(meta.statusLabel).toBe('Privé')
-    expect(meta.live).toBe(true)
-    expect(meta.publicPath).toBe('/sondages/priv')
+    expect(meta.statusLabel).toBe('Brouillon')
+    expect(meta.live).toBe(false)
+    expect(meta.publicPath).toBeNull()
   })
 
   it('carries the resolved owner label', () => {

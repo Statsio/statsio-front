@@ -24,9 +24,18 @@ describe('useAddSourceWizard', () => {
       expect(wizard.canGoNext.value).toBe(false)
     })
 
-    it('for "datagouv" requires a parseable resource id', () => {
+    it('for "datagouv" only requires the type to be picked (resource id is checked on the next step)', () => {
       const wizard = useAddSourceWizard()
       wizard.currentStepId.value = 'type'
+      wizard.sourceType.value = 'datagouv'
+      expect(wizard.canGoNext.value).toBe(true)
+    })
+  })
+
+  describe('canGoNext — datagouv step', () => {
+    it('requires a parseable resource id', () => {
+      const wizard = useAddSourceWizard()
+      wizard.currentStepId.value = 'datagouv'
       wizard.sourceType.value = 'datagouv'
       expect(wizard.canGoNext.value).toBe(false)
 

@@ -63,8 +63,17 @@ export function makeColumnRef(name: string, sourceId: string | null | undefined,
   return `${name}@${sourceId}`
 }
 
-/** Libellé lisible d'une référence : `prix`, `prix · Régions`, ou le libellé d'une colonne calculée. */
+/**
+ * Libellé lisible d'une référence :
+ * 1. le libellé personnalisé du bloc (`fieldMapping.columnLabels[ref]`) — affiché
+ *    partout où on montrerait le nom de colonne brut (légende, en-tête, inspecteur) ;
+ * 2. sinon le libellé d'une colonne calculée ;
+ * 3. sinon `prix` / `prix · Régions`.
+ */
 export function columnRefLabel(ref: string, block: StudioBlock, datasets: DatasetsLike): string {
+  const custom = block.fieldMapping?.columnLabels?.[ref]
+  if (custom) return custom
+
   if (isCalcRef(ref)) {
     const id = ref.slice(CALC_REF_PREFIX.length)
     return block.fieldMapping?.calcColumns?.find((c) => c.id === id)?.label || 'Colonne calculée'
@@ -107,30 +116,6 @@ export function blockColumnGroups(block: StudioBlock, datasets: DatasetsLike): S
     })
   }
 
-  return groups
-}
-
-/** Idem pour un bloc Recherche (searchSources + searchJoins). */
-export function searchColumnGroups(block: StudioBlock, datasets: DatasetsLike): StudioColumnGroup[] {
-  const groups: StudioColumnGroup[] = []
-  const seen = new Set<string>()
-
-  for (const src of block.fieldMapping.searchSources ?? []) {
-    if (!src.datasetId || seen.has(src.datasetId)) continue
-    seen.add(src.datasetId)
-    const schema = datasets.getSchema(src.datasetId)
-    if (!schema) continue
-    const name = datasets.readyDatasets.find((d) => d.id === src.datasetId)?.name ?? 'Source'
-    groups.push({ label: name, columns: schema.columns.map((c) => ({ name: c.name, type: c.type })) })
-  }
-  for (const join of block.fieldMapping.searchJoins ?? []) {
-    if (!join.datasetId || seen.has(join.datasetId)) continue
-    seen.add(join.datasetId)
-    const schema = datasets.getSchema(join.datasetId)
-    if (!schema) continue
-    const name = datasets.readyDatasets.find((d) => d.id === join.datasetId)?.name ?? 'jointure'
-    groups.push({ label: `Jointure — ${name}`, columns: schema.columns.map((c) => ({ name: c.name, type: c.type })) })
-  }
   return groups
 }
 

@@ -13,17 +13,11 @@ export interface ContentStatusMeta {
   live: boolean
 }
 
-export function getStatusMeta(status?: string | null, visibility?: string | null): ContentStatusMeta {
-  if (status !== 'published') {
-    return { label: 'Brouillon', bg: 'rgba(24,24,31,0.08)', color: 'rgba(24,24,31,0.55)', live: false }
+export function getStatusMeta(status?: string | null): ContentStatusMeta {
+  if (status === 'published') {
+    return { label: 'Publié', bg: 'rgba(16,185,129,0.14)', color: '#10b981', live: true }
   }
-  if (visibility === 'private') {
-    return { label: 'Privé', bg: 'rgba(225,29,72,0.12)', color: '#be123c', live: true }
-  }
-  if (visibility === 'protege') {
-    return { label: 'Protégé', bg: 'rgba(245,158,11,0.16)', color: '#b45309', live: true }
-  }
-  return { label: 'Publié', bg: 'rgba(16,185,129,0.14)', color: '#10b981', live: true }
+  return { label: 'Brouillon', bg: 'rgba(24,24,31,0.08)', color: 'rgba(24,24,31,0.55)', live: false }
 }
 
 export function publicContentPath(type: ContentType, slug: string, basePath = ''): string {

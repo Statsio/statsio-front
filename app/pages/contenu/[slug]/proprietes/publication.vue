@@ -11,18 +11,15 @@ import { computed, onMounted, ref, watch } from 'vue'
 import ContentDashboardHeader from '@/components/contents/dashboard/ContentDashboardHeader.vue'
 import ContentComingSoonCard from '@/components/contents/dashboard/ContentComingSoonCard.vue'
 import StatsDataSettingsCard from '@/components/statsdata/settings/StatsDataSettingsCard.vue'
-import StatsDataSettingsVisibilityCard from '@/components/statsdata/settings/StatsDataSettingsVisibilityCard.vue'
 import AppSelect from '@/components/ui/AppSelect.vue'
 import { useContentDashboard } from '@/composables/useContentDashboard'
 import { useMyChannels } from '@/composables/useMyChannels'
-import type { ContentVisibility } from '@/types/studio'
 
 const { content, patch } = useContentDashboard()
 const { channels, loading: channelsLoading, fetch: fetchChannels } = useMyChannels()
 
 const publishedAs = ref<'user' | 'channel'>('user')
 const channelId = ref<number | null>(null)
-const visibility = ref<ContentVisibility>('private')
 const saving = ref(false)
 
 watch(
@@ -31,7 +28,6 @@ watch(
     if (!doc) return
     publishedAs.value = doc.published_as === 'channel' ? 'channel' : 'user'
     channelId.value = doc.channel_id ?? null
-    visibility.value = doc.visibility ?? 'private'
   },
   { immediate: true },
 )
@@ -64,7 +60,6 @@ async function save() {
     await patch({
       published_as: publishedAs.value,
       channel_id: publishedAs.value === 'channel' ? channelId.value : null,
-      visibility: visibility.value,
     })
   } finally {
     saving.value = false
@@ -163,8 +158,6 @@ async function save() {
           </div>
         </div>
       </StatsDataSettingsCard>
-
-      <StatsDataSettingsVisibilityCard v-model="visibility" />
 
       <ContentComingSoonCard
         title="Options de publication"

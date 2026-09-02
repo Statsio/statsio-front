@@ -27,6 +27,21 @@ const isKpi = computed(() => props.block.type === 'kpi')
 
 const refLabel = (ref?: string | null) => (ref ? columnRefLabel(ref, props.block, datasets) : '')
 
+/** Nom de colonne brut (sans le libellé personnalisé) — pour l'édition dans l'inspecteur. */
+const rawName = (ref?: string | null) => {
+  if (!ref) return ''
+  if (ref.startsWith('calc:')) return refLabel(ref)
+  const at = ref.lastIndexOf('@')
+  return at > 0 ? ref.slice(0, at) : ref
+}
+const colLabel = (ref?: string | null) => (ref ? (fm.value.columnLabels?.[ref] ?? '') : '')
+function setColLabel(ref: string, value: string) {
+  const cur = { ...fm.value.columnLabels }
+  if (value.trim()) cur[ref] = value
+  else delete cur[ref]
+  setMapping({ columnLabels: Object.keys(cur).length ? cur : undefined })
+}
+
 function setMapping(patch: Record<string, unknown>) {
   studio.updateBlockFieldMapping(props.block.id, patch)
 }
@@ -192,6 +207,16 @@ function moveSegment(i: number, dir: -1 | 1) {
             @open="pickColumn('Colonne de l’axe X', fm.xAxis ?? null, setXAxis)"
             @clear="setXAxis('')"
           />
+          <div v-if="fm.xAxis" class="flex items-center gap-2">
+            <span class="w-[78px] shrink-0 text-[12px] font-semibold text-[var(--studio-muted)]">Libellé</span>
+            <input
+              :value="colLabel(fm.xAxis)"
+              type="text"
+              class="studio-input min-w-0 flex-1 !py-2 !text-[12px]"
+              :placeholder="rawName(fm.xAxis)"
+              @input="setColLabel(fm.xAxis!, ($event.target as HTMLInputElement).value)"
+            />
+          </div>
           <div class="flex items-center gap-2">
             <AxisFieldRow
               label="Tri"
@@ -269,6 +294,16 @@ function moveSegment(i: number, dir: -1 | 1) {
               :value="refLabel(yAxes[activeSeries])"
               @open="pickColumn('Colonne de la série', yAxes[activeSeries] ?? null, (r) => replaceSeries(activeSeries, r))"
             />
+            <div v-if="yAxes[activeSeries]" class="flex items-center gap-2">
+              <span class="w-[78px] shrink-0 text-[12px] font-semibold text-[var(--studio-muted)]">Libellé</span>
+              <input
+                :value="colLabel(yAxes[activeSeries])"
+                type="text"
+                class="studio-input min-w-0 flex-1 !py-2 !text-[12px]"
+                :placeholder="rawName(yAxes[activeSeries])"
+                @input="setColLabel(yAxes[activeSeries]!, ($event.target as HTMLInputElement).value)"
+              />
+            </div>
           </template>
           <p v-else class="text-[11.5px] text-[var(--studio-faint)]">Ajoutez une série avec « + ».</p>
         </div>
