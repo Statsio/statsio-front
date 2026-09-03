@@ -34,7 +34,6 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   favorite: []
-  'select-tag': [string]
   edit: []
   remove: [string]
 }>()
@@ -69,7 +68,6 @@ const target = computed(() => {
     :base-path="basePath"
     :show-synthetic-viz="showSyntheticViz"
     @favorite="emit('favorite')"
-    @select-tag="emit('select-tag', $event)"
     @edit="emit('edit')"
     @remove="emit('remove', $event)"
   >

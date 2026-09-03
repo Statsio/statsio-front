@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
-import { blockColumnGroups } from '@/lib/studio-columns'
+import { blockColumnGroups, primarySourceId } from '@/lib/studio-columns'
 import type { DatasetMeta, StudioBlock } from '@/types/studio'
+import { useSourceDrillIn } from '@/composables/useSourceDrillIn'
 import FieldPicker from '@/components/studio/fields/FieldPicker.vue'
 import FieldNote from '@/components/studio/fields/FieldNote.vue'
 import FieldColumns from '@/components/studio/fields/FieldColumns.vue'
-import DataSourceWizard from '@/components/studio/ui/DataSourceWizard.vue'
 import BlockFiltersField from '@/components/studio/fields/BlockFiltersField.vue'
 
 const props = defineProps<{ block: StudioBlock; activeTab: string }>()
@@ -23,7 +23,25 @@ function updateMapping(key: string, value: unknown) { studio.updateBlockFieldMap
 watch(() => props.block.datasetId, (id) => { if (id) datasets.loadSchema(id) }, { immediate: true })
 
 const columnGroups = computed(() => blockColumnGroups(props.block, datasets))
-const cols = computed<string[]>(() => props.block.fieldMapping.columns ?? [])
+const primaryId = computed(() => primarySourceId(props.block))
+
+/** Toutes les réfs disponibles — nue pour la source primaire, `col@<sourceId>` sinon. */
+const allRefs = computed<string[]>(() =>
+  columnGroups.value.flatMap((g) =>
+    g.columns.map((c) => (g.isPrimary || !g.sourceId ? c.name : `${c.name}@${g.sourceId}`)),
+  ),
+)
+
+/**
+ * En mode « fiche », une config vide = toutes les colonnes (le rendu retombe sur
+ * `Object.keys(row)`) : on reflète ce repli dans le picker. Le mode « related »
+ * exige au contraire des colonnes explicites ([0] = libellé, [1] = valeur).
+ */
+const cols = computed<string[]>(() => {
+  const c = props.block.fieldMapping.columns
+  if (c?.length) return c
+  return isRelated.value ? [] : allRefs.value
+})
 const datasetName = computed(() =>
   props.block.datasetId
     ? (datasets.readyDatasets.find((d: DatasetMeta) => d.id === props.block.datasetId)?.name ?? 'Source sélectionnée')
@@ -32,24 +50,34 @@ const datasetName = computed(() =>
 
 function toggleColumn(col: string) {
   const cur = cols.value
-  updateMapping('columns', cur.includes(col) ? cur.filter((c) => c !== col) : [...cur, col])
+  if (cur.includes(col)) {
+    if (!isRelated.value && cur.length <= 1) return
+    updateMapping('columns', cur.filter((c) => c !== col))
+  } else {
+    updateMapping('columns', [...cur, col])
+  }
 }
 
-const showSourceModal = ref(false)
+const sourceDrill = useSourceDrillIn()
 </script>
 
 <template>
   <div>
     <template v-if="activeTab === 'data'">
       <div class="flex flex-col gap-[11px] px-4 pb-1 pt-3">
-        <FieldPicker label="Source" :value="datasetName" action="Changer" @open="showSourceModal = true" />
-        <DataSourceWizard :show="showSourceModal" :block="block" @close="showSourceModal = false" />
+        <FieldPicker
+          label="Source"
+          :value="datasetName"
+          :action="block.datasetId ? 'Changer' : 'Choisir'"
+          @open="sourceDrill.open({ block, singleSource: true })"
+        />
 
         <template v-if="block.datasetId">
           <FieldColumns
             :label="isRelated ? 'Colonnes (1re = libellé, 2e = valeur)' : 'Colonnes affichées'"
             hint="cliquez pour ajouter / retirer"
             :groups="columnGroups"
+            :primary-source-id="primaryId"
             :selected="cols"
             @pick="toggleColumn"
           />
@@ -57,6 +85,7 @@ const showSourceModal = ref(false)
             <label class="text-xs font-semibold text-[var(--studio-muted)]">Colonne de titre</label>
             <FieldColumns
               :groups="columnGroups"
+              :primary-source-id="primaryId"
               :selected="block.fieldMapping.recordTitleColumn ?? null"
               none-label="Première colonne"
               @pick="updateMapping('recordTitleColumn', $event)"
@@ -84,6 +113,7 @@ const showSourceModal = ref(false)
             <label class="text-xs font-semibold text-[var(--studio-muted)]">{{ isRelated ? 'Trier par' : 'Trier par (choix de la ligne)' }}</label>
             <FieldColumns
               :groups="columnGroups"
+              :primary-source-id="primaryId"
               :selected="block.config.sortColumn ?? null"
               none-label="Ordre naturel"
               @pick="updateConfig('sortColumn', $event)"

@@ -66,7 +66,6 @@ const ownerInitials = computed(() => props.item.publisher.initials || getNameIni
         :alt="item.title"
         class="absolute inset-0 h-full w-full object-cover"
       />
-      <span v-else-if="item.emoji" class="text-2xl">{{ item.emoji }}</span>
       <span v-else><span class="opacity-70">aperçu&nbsp;</span>{{ typeMeta.label }}</span>
 
       <span

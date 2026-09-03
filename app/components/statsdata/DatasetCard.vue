@@ -16,7 +16,7 @@ const props = withDefaults(
   { featured: false },
 )
 
-const visual = computed(() => getStatsDataVisual(props.document.categories, props.document.emoji))
+const visual = computed(() => getStatsDataVisual(props.document.categories))
 
 const rowCount = computed(() => props.document.datasets?.[0]?.row_count)
 

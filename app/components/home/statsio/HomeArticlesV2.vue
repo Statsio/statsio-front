@@ -3,7 +3,7 @@ import HomeCarousel from '@/components/home/statsio/HomeCarousel.vue'
 import ArticleCard from '@/components/content/ArticleCard.vue'
 import { useHomeCatalogSection } from '@/composables/useHomeCatalogSection'
 
-const { items, isFavorited, toggleItemFavorite, selectTag } = useHomeCatalogSection({
+const { items, isFavorited, toggleItemFavorite } = useHomeCatalogSection({
   type: 'article',
   key: 'home-v2-articles',
 })
@@ -30,7 +30,6 @@ const { items, isFavorited, toggleItemFavorite, selectTag } = useHomeCatalogSect
         format="card"
         :favorited="isFavorited(item)"
         @favorite="toggleItemFavorite(item)"
-        @select-tag="selectTag"
       />
     </div>
   </HomeCarousel>

@@ -27,6 +27,16 @@ describe('freshnessLabel', () => {
     expect(label).toEqual({ text: 'Mis à jour il y a 1 j', detail: 'rafraîchi chaque jour', tone: 'fresh' })
   })
 
+  it('describes an hourly cadence', () => {
+    const label = freshnessLabel({ last_refreshed_at: '2026-08-29T11:20:00Z', refresh_frequency: 'hourly' }, NOW)
+    expect(label).toEqual({ text: 'Mis à jour il y a 40 min', detail: 'rafraîchi chaque heure', tone: 'fresh' })
+  })
+
+  it('marks an hourly dataset stale when more than two hours late', () => {
+    const label = freshnessLabel({ last_refreshed_at: '2026-08-29T08:00:00Z', refresh_frequency: 'hourly' }, NOW)
+    expect(label?.tone).toBe('stale')
+  })
+
   it('marks a dataset stale when overdue by more than twice its cadence', () => {
     const label = freshnessLabel({ last_refreshed_at: '2026-08-20T12:00:00Z', refresh_frequency: 'daily' }, NOW)
     expect(label?.tone).toBe('stale')

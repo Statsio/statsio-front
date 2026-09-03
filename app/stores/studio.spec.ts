@@ -991,6 +991,88 @@ describe('useStudioStore', () => {
     })
   })
 
+  describe('param block — auto-managed page param', () => {
+    function seedParamBlock() {
+      const store = useStudioStore()
+      const zone = `${store.sections[0]!.id}-0`
+      const block = store.addBlock('param', zone)
+      store.updateBlockDataset(block.id, '7')
+      return { store, id: block.id, pageId: store.currentPageId }
+    }
+
+    it('declares no param until a pilot column is chosen', () => {
+      const { store, pageId } = seedParamBlock()
+      expect(store.pages.find((p) => p.id === pageId)!.params ?? []).toHaveLength(0)
+    })
+
+    it('declares exactly one visible fan-out param owned by the block', () => {
+      const { store, id, pageId } = seedParamBlock()
+      store.updateBlockFieldMapping(id, { paramColumn: 'carburant' })
+      const params = store.pages.find((p) => p.id === pageId)!.params!
+      expect(params).toHaveLength(1)
+      expect(params[0]).toMatchObject({
+        name: 'carburant', column: 'carburant', datasetId: '7', fanOut: true, slugColumn: 'carburant', paramBlockId: id,
+      })
+      expect(params[0]!.hidden).toBeFalsy()
+    })
+
+    it('follows a rename of paramName', () => {
+      const { store, id, pageId } = seedParamBlock()
+      store.updateBlockFieldMapping(id, { paramColumn: 'carburant' })
+      store.updateBlockFieldMapping(id, { paramName: 'energie' })
+      const params = store.pages.find((p) => p.id === pageId)!.params!
+      expect(params).toHaveLength(1)
+      expect(params[0]).toMatchObject({ name: 'energie', column: 'carburant', paramBlockId: id })
+    })
+
+    it('drops the param when the pilot column is cleared or the block removed', () => {
+      const { store, id, pageId } = seedParamBlock()
+      store.updateBlockFieldMapping(id, { paramColumn: 'carburant' })
+      store.updateBlockFieldMapping(id, { paramColumn: '' })
+      expect(store.pages.find((p) => p.id === pageId)!.params ?? []).toHaveLength(0)
+
+      store.updateBlockFieldMapping(id, { paramColumn: 'carburant' })
+      store.removeBlock(id)
+      expect(store.pages.find((p) => p.id === pageId)!.params ?? []).toHaveLength(0)
+    })
+
+    it('yields fan-out to a search block on the same page, and reclaims it when the search is removed', () => {
+      const { store, id, pageId } = seedParamBlock()
+      store.updateBlockFieldMapping(id, { paramColumn: 'carburant' })
+
+      const search = store.addBlock('search', `${store.sections[0]!.id}-0`)
+      store.updateBlockDataset(search.id, '7')
+      store.updateBlockFieldMapping(search.id, { searchColumns: ['nom'] })
+
+      const paramDecl = () => store.pages.find((p) => p.id === pageId)!.params!.find((p) => p.paramBlockId === id)!
+      expect(paramDecl().fanOut).toBeFalsy()
+      expect(paramDecl().slugColumn).toBeUndefined()
+
+      store.removeBlock(search.id)
+      expect(paramDecl().fanOut).toBe(true)
+    })
+
+    it('drops the legacy config.paramFanOut flag on initPage', () => {
+      const store = useStudioStore()
+      const legacyBlocks = [
+        {
+          id: 'param1', type: 'param', zoneId: 's1-0', datasetId: '7',
+          fieldMapping: { paramColumn: 'carburant' },
+          config: { paramFanOut: true },
+        },
+      ] as unknown as Parameters<typeof store.initPage>[2]
+      store.initPage(
+        { id: 'c1', type: 'statsdata', title: 'Doc' },
+        [{ id: 's1', layout: '1-col', pageId: 'p1' }],
+        legacyBlocks,
+        [{ id: 'p1', title: 'Principale' }],
+      )
+      const block = store.blocks.find((b) => b.id === 'param1')!
+      expect('paramFanOut' in block.config).toBe(false)
+      expect(store.pages[0]!.params?.[0]).toMatchObject({ name: 'carburant', fanOut: true, paramBlockId: 'param1' })
+    })
+  })
+
   describe('multi-sources', () => {
     function seedBarBlock() {
       const store = useStudioStore()

@@ -84,6 +84,7 @@ export interface ApiFormShape {
 export const ADD_SOURCE_WIZARD_STEPS: ModalStep[] = [
   { id: 'type', title: 'Type de source', description: 'Choisissez la provenance de vos données' },
   { id: 'datagouv', title: 'Jeu de données', description: 'Choisissez la ressource data.gouv.fr à importer' },
+  { id: 'synchronisation', title: 'Synchronisation', description: 'À quelle fréquence resynchroniser les données ?' },
   { id: 'detect', title: 'Détection', description: "Connectez votre API pour pré-remplir la configuration" },
   { id: 'configure', title: 'Configuration', description: 'Importez votre fichier ou connectez une API' },
   { id: 'provenance', title: 'Provenance', description: "D'où proviennent vos données ?" },
@@ -196,7 +197,7 @@ export function useAddSourceWizard() {
     apiKeyValue: '',
     bearerToken: '',
     dataPath: '',
-    refreshFrequency: 'none' as RefreshFrequency,
+    refreshFrequency: 'weekly' as RefreshFrequency,
     pagination: defaultPagination(),
     materialization: 'snapshot' as Materialization,
   })
@@ -225,7 +226,9 @@ export function useAddSourceWizard() {
       bearerToken: '',
       dataPath: 'data',
       materialization: 'snapshot',
-      refreshFrequency: 'none',
+      // Préservé : l'étape « Synchronisation » du wizard écrit ici, et applyDatagouvPreset()
+      // est rappelé à la soumission — il ne doit pas réinitialiser le choix de l'utilisateur.
+      refreshFrequency: apiForm.value.refreshFrequency,
       pagination: {
         ...defaultPagination(),
         style: 'next_link',

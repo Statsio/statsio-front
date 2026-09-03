@@ -2,7 +2,7 @@ import { apiHttp } from '@/lib/http'
 import { STATSIO_API } from './statsio-endpoints'
 import type { AuthType, HttpMethod } from '@/composables/useAddSourceWizard'
 
-export type RefreshFrequency = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly'
+export type RefreshFrequency = 'none' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly'
 export type PaginationStyle = 'none' | 'offset' | 'page' | 'cursor' | 'next_link'
 export type Materialization = 'snapshot' | 'live'
 

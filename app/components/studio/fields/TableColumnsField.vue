@@ -5,11 +5,12 @@ import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import { blockColumnGroups, columnRefLabel, primarySourceId } from '@/lib/studio-columns'
 import { blockDatasetIds } from '@/lib/studio-block-sources'
 import type { StudioBlock, TableColumnFormat, TableCellRule } from '@/types/studio'
-import StudioSubModal from './StudioSubModal.vue'
 import FieldColumns from '@/components/studio/fields/FieldColumns.vue'
 
-const props = defineProps<{ show: boolean; block: StudioBlock }>()
-const emit = defineEmits<{ (e: 'close'): void }>()
+const props = withDefaults(
+  defineProps<{ block: StudioBlock; section?: 'columns' | 'rules' }>(),
+  { section: 'columns' },
+)
 
 const studio = useStudioStore()
 const datasets = useStudioDatasetsStore()
@@ -20,13 +21,13 @@ const hasSource = computed(() => Boolean(primaryId.value))
 const groups = computed(() => blockColumnGroups(props.block, datasets))
 /** Toutes les références de colonnes disponibles (union de toutes les sources). */
 const allRefs = computed<string[]>(() =>
-  groups.value.flatMap((g) => g.columns.map((c) => (g.isPrimary ? c.name : `${c.name}@${g.sourceId}`))),
+  groups.value.flatMap((g) => g.columns.map((c) => (g.isPrimary || !g.sourceId ? c.name : `${c.name}@${g.sourceId}`))),
 )
 const refLabel = (ref: string) => columnRefLabel(ref, props.block, datasets)
 
 watch(
-  () => props.show,
-  (open) => { if (open) blockDatasetIds(props.block).forEach((id) => datasets.loadSchema(id)) },
+  () => blockDatasetIds(props.block).join('|'),
+  () => blockDatasetIds(props.block).forEach((id) => datasets.loadSchema(id)),
   { immediate: true },
 )
 
@@ -129,18 +130,13 @@ function removeRule(i: number) { setRules(cellRules.value.filter((_, idx) => idx
 </script>
 
 <template>
-  <StudioSubModal
-    v-if="show"
-    title="Colonnes du tableau"
-    subtitle="Choisissez les colonnes affichées, leur ordre, leur libellé et leur format. Une colonne issue d'une jointure est ajoutée automatiquement."
-    :width="600"
-    @close="emit('close')"
-  >
-    <p v-if="!hasSource" class="py-10 text-center text-[13px] text-[var(--studio-faint)]">
-      Connectez d'abord une source dans l'onglet « Données ».
-    </p>
+  <p v-if="!hasSource" class="py-4 text-center text-[12.5px] text-[var(--studio-faint)]">
+    Connectez d'abord une source dans l'onglet « Données ».
+  </p>
 
-    <template v-else>
+  <div v-else class="flex flex-col gap-4">
+    <!-- ══ COLONNES AFFICHÉES + ORDRE + FORMAT ══ -->
+    <template v-if="section === 'columns'">
       <div>
         <div class="mb-2.5 flex items-baseline justify-between gap-3">
           <span class="text-[11px] font-extrabold uppercase tracking-[0.07em] text-[var(--studio-faint)]">Colonnes affichées &amp; ordre</span>
@@ -152,7 +148,7 @@ function removeRule(i: number) { setRules(cellRules.value.filter((_, idx) => idx
               <button type="button" class="flex h-[14px] w-[22px] items-center justify-center rounded-[5px] bg-[var(--studio-wash)] text-[9px] text-[var(--studio-muted)] disabled:opacity-30" :disabled="i === 0" @click="moveColumn(col, -1)">▲</button>
               <button type="button" class="flex h-[14px] w-[22px] items-center justify-center rounded-[5px] bg-[var(--studio-wash)] text-[9px] text-[var(--studio-muted)] disabled:opacity-30" :disabled="i === tableColumns.length - 1" @click="moveColumn(col, 1)">▼</button>
             </span>
-            <span class="w-[92px] shrink-0 truncate rounded-md bg-[var(--studio-tag)] px-2 py-1.5 font-mono text-[10.5px] font-semibold text-[var(--studio-tag-ink)]" :title="refLabel(col)">{{ refLabel(col) }}</span>
+            <span class="w-[80px] shrink-0 truncate rounded-md bg-[var(--studio-tag)] px-2 py-1.5 font-mono text-[10.5px] font-semibold text-[var(--studio-tag-ink)]" :title="refLabel(col)">{{ refLabel(col) }}</span>
             <input
               :value="columnLabels[col] ?? ''"
               type="text"
@@ -161,7 +157,7 @@ function removeRule(i: number) { setRules(cellRules.value.filter((_, idx) => idx
               @change="setColumnLabel(col, ($event.target as HTMLInputElement).value)"
             />
             <select
-              class="studio-input shrink-0 !w-[58px] !py-2 !text-[11px]"
+              class="studio-input shrink-0 !w-[56px] !py-2 !text-[11px]"
               :value="colFmt(col).format ?? ''"
               @change="setColFmt(col, { format: (($event.target as HTMLSelectElement).value || undefined) as TableColumnFormat['format'] })"
             >
@@ -177,6 +173,7 @@ function removeRule(i: number) { setRules(cellRules.value.filter((_, idx) => idx
           </div>
         </div>
       </div>
+
       <FieldColumns
         label="Ajouter / retirer une colonne"
         :groups="groups"
@@ -192,14 +189,14 @@ function removeRule(i: number) { setRules(cellRules.value.filter((_, idx) => idx
           <button type="button" class="text-[11px] font-bold text-[var(--color-primary)]" @click="addComputed">+ Ajouter</button>
         </div>
         <p v-if="!computedCols.length" class="text-[11.5px] text-[var(--studio-faint)]">
-          Ex. <code class="font-mono">{prix} - AVG(prix)</code> — <code class="font-mono">{col}</code> = valeur de ligne, agrégats <code class="font-mono">FN(colonne)</code> (ajoutez <code class="font-mono">@source</code> pour une source jointe).
+          Ex. <code class="font-mono">{prix} - AVG(prix)</code> — <code class="font-mono">{col}</code> = valeur de ligne, agrégats <code class="font-mono">FN(colonne)</code>.
         </p>
         <div v-for="(c, i) in computedCols" :key="i" class="mb-2 flex items-center gap-2">
           <input
             :value="c.name"
             type="text"
             placeholder="Nom"
-            class="studio-input !w-[110px] shrink-0 !py-2 !text-[12px]"
+            class="studio-input !w-[100px] shrink-0 !py-2 !text-[12px]"
             @change="updateComputed(i, { name: ($event.target as HTMLInputElement).value })"
           />
           <input
@@ -212,24 +209,29 @@ function removeRule(i: number) { setRules(cellRules.value.filter((_, idx) => idx
           <button type="button" class="shrink-0 text-[12px] text-[var(--studio-faint)] hover:text-[var(--color-error)]" @click="removeComputed(i)">✕</button>
         </div>
       </div>
+    </template>
 
-      <!-- Mise en forme conditionnelle -->
+    <!-- ══ MISE EN FORME CONDITIONNELLE ══ -->
+    <template v-else>
       <div>
         <div class="mb-2 flex items-baseline justify-between gap-3">
-          <span class="text-[11px] font-extrabold uppercase tracking-[0.07em] text-[var(--studio-faint)]">Mise en forme conditionnelle</span>
+          <span class="text-[11px] font-extrabold uppercase tracking-[0.07em] text-[var(--studio-faint)]">Règles</span>
           <button type="button" class="text-[11px] font-bold text-[var(--color-primary)]" :disabled="!allTableColumns.length" @click="addRule">+ Ajouter</button>
         </div>
+        <p v-if="!cellRules.length" class="text-[11.5px] text-[var(--studio-faint)]">
+          Colore une cellule selon sa valeur (positif / négatif, seuil, min / max de colonne).
+        </p>
         <div v-for="(r, i) in cellRules" :key="i" class="mb-2 flex flex-wrap items-center gap-1.5">
-          <select class="studio-input !w-[120px] !py-2 !text-[11px]" :value="r.column" @change="updateRule(i, { column: ($event.target as HTMLSelectElement).value })">
+          <select class="studio-input !w-[112px] !py-2 !text-[11px]" :value="r.column" @change="updateRule(i, { column: ($event.target as HTMLSelectElement).value })">
             <option v-for="c in allTableColumns" :key="c" :value="c">{{ refLabel(c) }}</option>
           </select>
-          <select class="studio-input !w-[128px] !py-2 !text-[11px]" :value="r.when" @change="updateRule(i, { when: ($event.target as HTMLSelectElement).value as TableCellRule['when'] })">
+          <select class="studio-input !w-[120px] !py-2 !text-[11px]" :value="r.when" @change="updateRule(i, { when: ($event.target as HTMLSelectElement).value as TableCellRule['when'] })">
             <option v-for="w in RULE_WHENS" :key="w.v" :value="w.v">{{ w.l }}</option>
           </select>
           <input
             v-if="r.when === 'gt' || r.when === 'lt'"
             type="number"
-            class="studio-input !w-[64px] !py-2 !text-[11px]"
+            class="studio-input !w-[60px] !py-2 !text-[11px]"
             :value="r.value ?? ''"
             @change="updateRule(i, { value: Number(($event.target as HTMLInputElement).value) })"
           />
@@ -249,5 +251,5 @@ function removeRule(i: number) { setRules(cellRules.value.filter((_, idx) => idx
         </div>
       </div>
     </template>
-  </StudioSubModal>
+  </div>
 </template>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
+import { useMediaLibrary } from '@/composables/useMediaLibrary'
 import type { SidebarLeftTab } from '@/types/studio'
 import SidebarBlocks from './sidebar/SidebarBlocks.vue'
 import SidebarScript from './sidebar/SidebarScript.vue'
@@ -9,6 +10,10 @@ import SidebarDataSources from './sidebar/SidebarDataSources.vue'
 import StudioAssistantPanel from './assistant/StudioAssistantPanel.vue'
 
 const studio = useStudioStore()
+const mediaLibrary = useMediaLibrary()
+
+const MEDIA_ICON =
+  'm2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z'
 
 const assistantEnabled = computed(() => {
   // runtimeConfig type = boolean, mais un override runtime (NUXT_PUBLIC_…) peut injecter la chaîne "true".
@@ -111,6 +116,19 @@ watch(tabs, (newTabs) => {
         class="text-[9.5px] font-bold"
         :class="studio.isPanelOpen && studio.activeLeftTab === tab.id ? 'text-[var(--color-primary)]' : 'text-[var(--studio-muted)]'"
       >{{ tab.label }}</span>
+    </button>
+
+    <!-- Médias : ouvre la bibliothèque partagée (pas un panneau) -->
+    <button
+      type="button"
+      class="flex w-[52px] flex-col items-center gap-1.5 rounded-[11px] py-[9px] transition-colors hover:bg-[var(--studio-wash)]"
+      title="Médias"
+      @click="mediaLibrary.open({ mode: 'browse' })"
+    >
+      <svg class="h-[19px] w-[19px] text-[var(--studio-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7">
+        <path stroke-linecap="round" stroke-linejoin="round" :d="MEDIA_ICON" />
+      </svg>
+      <span class="text-[9.5px] font-bold text-[var(--studio-muted)]">Médias</span>
     </button>
   </nav>
 

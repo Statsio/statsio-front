@@ -136,13 +136,16 @@ onBeforeUnmount(() => {
   <div
     ref="rootEl"
     data-canvas-zone
-    class="relative flex min-w-0 flex-col rounded-xl transition-all"
+    class="relative flex min-w-0 flex-col transition-all"
     :class="[
+      nested ? '' : 'rounded-xl',
       isEmpty && !studio.isPreview
-        ? 'min-h-[104px] border-2 border-dashed border-[var(--studio-line-strong)] bg-[color-mix(in_srgb,var(--studio-ink)_3%,transparent)]'
+        ? (nested
+            ? 'min-h-[72px] rounded-lg border border-dashed border-[var(--studio-line)] bg-transparent'
+            : 'min-h-[104px] rounded-xl border-2 border-dashed border-[var(--studio-line-strong)] bg-[color-mix(in_srgb,var(--studio-ink)_3%,transparent)]')
         : 'bg-transparent',
       isDragOver
-        ? 'border-2 border-dashed border-[var(--color-primary)] bg-[var(--studio-accent-wash)]'
+        ? 'rounded-xl border-2 border-dashed border-[var(--color-primary)] bg-[var(--studio-accent-wash)]'
         : '',
     ]"
     @dragover="onDragOver"
