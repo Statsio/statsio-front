@@ -51,10 +51,21 @@ describe('useCreateContentWizard', () => {
     w.surveyKind.value = 'long'
     w.requiresIdentityVerification.value = true
     w.coverage.value = 'mondiale'
+    w.domain.value = 'tvstats'
     w.reset()
     expect(w.surveyKind.value).toBe('single_question')
     expect(w.requiresIdentityVerification.value).toBe(false)
     expect(w.coverage.value).toBeNull()
+    expect(w.domain.value).toBe('statsio')
     expect(w.currentStepId.value).toBe('info')
+  })
+
+  it('buildPayload carries the chosen domain as sub_brand, defaulting to statsio', () => {
+    const w = useCreateContentWizard('statsdata')
+    w.title.value = 'Un jeu de données'
+    expect(w.buildPayload('statsdata').sub_brand).toBe('statsio')
+
+    w.domain.value = 'medistats'
+    expect(w.buildPayload('statsdata').sub_brand).toBe('medistats')
   })
 })

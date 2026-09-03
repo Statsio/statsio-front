@@ -3,6 +3,7 @@ export type HeaderNavIcon =
   | 'stats'
   | 'polls'
   | 'channels'
+  | 'dossiers'
   | 'remote'
   | 'disease'
   | 'medicine'

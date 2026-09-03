@@ -20,6 +20,7 @@ import SurveyCard from '@/components/content/SurveyCard.vue'
 
 const props = defineProps<{
   categories?: string[]
+  subBrand?: import('@/types/sub-brand').SubBrand
   title?: string
 }>()
 
@@ -45,7 +46,8 @@ const {
 } = usePublicCatalog({
   type: 'survey',
   brandCategories: props.categories,
-  key: `surveys-catalog-${(props.categories ?? []).join(',')}`,
+  brandSubBrand: props.subBrand,
+  key: `surveys-catalog-${props.subBrand ?? ''}-${(props.categories ?? []).join(',')}`,
 })
 
 const sortOptions: { value: 'trend' | 'recent' | 'votes'; label: string }[] = [

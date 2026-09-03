@@ -3,13 +3,14 @@ import { computed, ref } from 'vue'
 import AppAvatar from '@/components/ui/AppAvatar.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useAppNotifications } from '@/composables/useAppNotifications'
-import { uploadAvatar, deleteAvatar } from '@/api/statsio-account'
+import { useMediaLibrary } from '@/composables/useMediaLibrary'
+import { updateAvatarFromMedia, deleteAvatar } from '@/api/statsio-account'
 import { getUserInitials } from '@/lib/format'
 
 const authStore = useAuthStore()
 const notifications = useAppNotifications()
+const mediaLibrary = useMediaLibrary()
 
-const fileInput = ref<HTMLInputElement | null>(null)
 const busy = ref(false)
 
 const initials = computed(() =>
@@ -21,23 +22,26 @@ const initials = computed(() =>
 )
 const hasAvatar = computed(() => Boolean(authStore.user?.profile?.avatar))
 
-async function onFileChange(event: Event) {
-  const file = (event.target as HTMLInputElement).files?.[0]
-  if (!file) return
-  if (file.size > 4 * 1024 * 1024) {
-    notifications.error('Image trop lourde (4 Mo maximum).')
-    return
-  }
+function pickAvatar() {
+  mediaLibrary.open({
+    mode: 'pick',
+    directory: 'avatars',
+    onSelect: (media) => {
+      void applyAvatar(media.id)
+    },
+  })
+}
+
+async function applyAvatar(mediaId: number) {
   busy.value = true
   try {
-    const { user } = await uploadAvatar(file)
+    const { user } = await updateAvatarFromMedia(mediaId)
     if (authStore.user) Object.assign(authStore.user, user)
     notifications.success('Photo de profil mise à jour.')
   } catch {
-    notifications.error("L'upload a échoué. Réessayez.")
+    notifications.error("La mise à jour a échoué. Réessayez.")
   } finally {
     busy.value = false
-    if (fileInput.value) fileInput.value.value = ''
   }
 }
 
@@ -71,7 +75,7 @@ async function remove() {
           type="button"
           :disabled="busy"
           class="rounded-full bg-primary/10 px-3.5 py-1.5 text-[12px] font-bold text-primary transition hover:bg-primary/15 disabled:opacity-50"
-          @click="fileInput?.click()"
+          @click="pickAvatar"
         >
           {{ hasAvatar ? 'Changer' : 'Ajouter une photo' }}
         </button>
@@ -86,6 +90,5 @@ async function remove() {
         </button>
       </div>
     </div>
-    <input ref="fileInput" type="file" accept="image/png,image/jpeg,image/webp" class="hidden" @change="onFileChange" />
   </div>
 </template>

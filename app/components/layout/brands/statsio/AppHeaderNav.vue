@@ -2,7 +2,13 @@
 import { computed } from 'vue'
 import AppHeaderNavBar from '@/components/layout/brands/AppHeaderNavBar.vue'
 import type { HeaderNavItem } from '@/components/layout/brands/header-nav.types'
-import { loadArticleMenu, loadStatsDataMenu, loadSurveyMenu, loadChannelsMenu } from '@/composables/useHeaderMegaMenuData'
+import {
+  loadArticleMenu,
+  loadStatsDataMenu,
+  loadSurveyMenu,
+  loadDossiersMenu,
+  loadChannelsMenu,
+} from '@/composables/useHeaderMegaMenuData'
 
 defineProps<{
   modelValue: HeaderNavItem | null
@@ -19,12 +25,13 @@ const { data } = useAsyncData('statsio-header-nav', () =>
     loadArticleMenu(undefined, categoryPalette, ''),
     loadStatsDataMenu(undefined, categoryPalette, ''),
     loadSurveyMenu(undefined, categoryPalette, ''),
+    loadDossiersMenu(categoryPalette),
     loadChannelsMenu(categoryPalette),
   ]),
 )
 
 const items = computed<HeaderNavItem[]>(() => {
-  const [articles, statsdata, sondages, chaines] = data.value ?? []
+  const [articles, statsdata, sondages, dossiers, chaines] = data.value ?? []
 
   return [
     {
@@ -59,6 +66,17 @@ const items = computed<HeaderNavItem[]>(() => {
       links: sondages?.links ?? [],
       categories: sondages?.categories ?? [],
       menu: sondages?.menu ?? { variant: 'pie', cards: [] },
+    },
+    {
+      label: 'Dossiers',
+      href: '/dossiers',
+      icon: 'dossiers',
+      eyebrow: 'Sujets suivis',
+      menuHeading: 'Dossiers récents',
+      categoryHeading: 'Catégories',
+      links: dossiers?.links ?? [],
+      categories: dossiers?.categories ?? [],
+      menu: dossiers?.menu ?? { variant: 'plane', cards: [] },
     },
     {
       label: 'Chaînes',

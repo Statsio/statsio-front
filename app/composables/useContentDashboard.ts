@@ -69,13 +69,13 @@ export function useContentDashboard() {
    */
   async function patch(
     payload: SaveStatsDataDocumentPayload,
-    thumbnail?: File | null,
+    thumbnailMediaId?: number | null,
     removeThumbnail?: boolean,
   ): Promise<boolean> {
     const id = content.value?.slug || content.value?.id
     if (!id) return false
     try {
-      const updated = await saveStatsDataDocument(id, payload, thumbnail, removeThumbnail)
+      const updated = await saveStatsDataDocument(id, payload, thumbnailMediaId, removeThumbnail)
       content.value = updated
       if (updated.slug && updated.slug !== loadedSlug.value) loadedSlug.value = updated.slug
       notifications.success('Modifications enregistrées.')

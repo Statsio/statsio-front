@@ -18,6 +18,7 @@ import StatsDataCard from '@/components/content/StatsDataCard.vue'
 
 const props = defineProps<{
   categories?: string[]
+  subBrand?: import('@/types/sub-brand').SubBrand
   title?: string
 }>()
 
@@ -43,7 +44,8 @@ const {
 } = usePublicCatalog({
   type: 'statsdata',
   brandCategories: props.categories,
-  key: `statsdata-catalog-${(props.categories ?? []).join(',')}`,
+  brandSubBrand: props.subBrand,
+  key: `statsdata-catalog-${props.subBrand ?? ''}-${(props.categories ?? []).join(',')}`,
 })
 
 watch(sortMode, (v) => {
@@ -90,7 +92,10 @@ const sortedData = computed(() => {
     }
   }
   if (sortMode.value === 'rows') {
-    arr.sort((a, b) => rowCountOf(b) - rowCountOf(a))
+    // Les contenus « à la une » restent épinglés en tête même sur un tri client.
+    arr.sort(
+      (a, b) => Number(Boolean(b.is_featured)) - Number(Boolean(a.is_featured)) || rowCountOf(b) - rowCountOf(a),
+    )
   }
   return arr
 })

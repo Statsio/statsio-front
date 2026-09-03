@@ -2,7 +2,13 @@
 import { computed } from 'vue'
 import AppHeaderNavBar from '@/components/layout/brands/AppHeaderNavBar.vue'
 import type { HeaderNavItem } from '@/components/layout/brands/header-nav.types'
-import { loadMaladiesMenu, loadMedicamentsMenu, loadSoinsMenu, loadChannelsMenu } from '@/composables/useHeaderMegaMenuData'
+import {
+  loadMaladiesMenu,
+  loadMedicamentsMenu,
+  loadSoinsMenu,
+  loadDossiersMenu,
+  loadChannelsMenu,
+} from '@/composables/useHeaderMegaMenuData'
 
 defineProps<{
   modelValue: HeaderNavItem | null
@@ -19,12 +25,13 @@ const { data } = useAsyncData('medistats-header-nav', () =>
     loadMaladiesMenu(categoryPalette),
     loadMedicamentsMenu(categoryPalette),
     loadSoinsMenu(categoryPalette),
+    loadDossiersMenu(categoryPalette),
     loadChannelsMenu(categoryPalette),
   ]),
 )
 
 const items = computed<HeaderNavItem[]>(() => {
-  const [maladies, medicaments, soins, chaines] = data.value ?? []
+  const [maladies, medicaments, soins, dossiers, chaines] = data.value ?? []
 
   return [
     {
@@ -59,6 +66,17 @@ const items = computed<HeaderNavItem[]>(() => {
       links: soins?.links ?? [],
       categories: soins?.categories ?? [],
       menu: soins?.menu ?? { variant: 'bar', cards: [] },
+    },
+    {
+      label: 'Dossiers',
+      href: '/dossiers',
+      icon: 'dossiers',
+      eyebrow: 'Sujets suivis',
+      menuHeading: 'Dossiers récents',
+      categoryHeading: 'Catégories',
+      links: dossiers?.links ?? [],
+      categories: dossiers?.categories ?? [],
+      menu: dossiers?.menu ?? { variant: 'plane', cards: [] },
     },
     {
       label: 'Chaînes',

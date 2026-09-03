@@ -1,5 +1,7 @@
 import { fetchPublicCatalog } from '@/api/studio'
 import { fetchChannelCatalog, channelCategoryLabels } from '@/api/channels'
+import { fetchDossierCatalog } from '@/api/dossiers'
+import type { DossierCatalogItem } from '@/types/dossier'
 import { fetchTvAudiences } from '@/api/tv-audiences'
 import { CHANNEL_CHART_COLORS } from '@/composables/useTvAudiences'
 import { TNT_CHANNELS } from '@/data/tnt-channels'
@@ -253,6 +255,42 @@ export async function loadChannelsMenu(palette: string[]): Promise<HeaderMenuDat
         href: `/channels/${encodeURIComponent(channel.handle)}`,
       }
     })
+    return withLinks(categories, { variant: 'plane', cards })
+  } catch {
+    return emptyMenu('plane')
+  }
+}
+
+export async function loadDossiersMenu(palette: string[]): Promise<HeaderMenuData> {
+  try {
+    const res = await fetchDossierCatalog({ sort: 'maj', per_page: 3 })
+    const categories: MegaMenuCategory[] = res.facets.categories
+      .filter((facet) => facet.value)
+      .slice(0, 6)
+      .map((facet, index) => ({
+        name: facet.label,
+        color: paletteColor(palette, index),
+        count: facet.count,
+        href: `/dossiers?cat=${encodeURIComponent(facet.value)}`,
+      }))
+    const pool = [res.featured, ...res.data].filter((d): d is DossierCatalogItem => !!d)
+    const seen = new Set<string>()
+    const cards: MegaMenuChannelCard[] = []
+    for (const dossier of pool) {
+      if (seen.has(dossier.slug)) continue
+      seen.add(dossier.slug)
+      const style = catalogThemeStyle(dossier.category?.slug)
+      cards.push({
+        name: dossier.name,
+        initials: dossier.icon || '📁',
+        meta: `${dossier.content_count} contenu${dossier.content_count > 1 ? 's' : ''}`,
+        logoUrl: dossier.image_url ?? null,
+        avatarPrimary: style.dot,
+        avatarSecondary: style.fg,
+        href: `/dossiers/${dossier.slug}`,
+      })
+      if (cards.length >= 3) break
+    }
     return withLinks(categories, { variant: 'plane', cards })
   } catch {
     return emptyMenu('plane')
