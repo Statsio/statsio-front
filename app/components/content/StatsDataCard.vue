@@ -8,10 +8,12 @@ import { publicContentPath } from '@/lib/content-display'
 import { useContentBasePath } from '@/composables/useContentBasePath'
 import { channelPatternStyle } from '@/lib/channel-brand'
 import { seededSparklinePoints, getStatsDataVisual } from '@/utils/statsDataVisuals'
+import { freshnessLabel, type FreshnessTone } from '@/lib/statsdata-freshness'
 import ContentCardFavButton from '@/components/content/ContentCardFavButton.vue'
 import ContentCardOwner from '@/components/content/ContentCardOwner.vue'
 import ContentCardActions from '@/components/content/ContentCardActions.vue'
 import CatalogSubBrandTag from '@/components/listing/CatalogSubBrandTag.vue'
+import ContentCardDossierTag from '@/components/content/ContentCardDossierTag.vue'
 import StatsDataCardChart from '@/components/content/StatsDataCardChart.vue'
 import AppSparkline from '@/components/ui/AppSparkline.vue'
 
@@ -34,7 +36,6 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   favorite: []
-  'select-tag': [string]
   edit: []
   remove: [string]
 }>()
@@ -50,9 +51,6 @@ const pubMeta = computed(() => formatCatalogItemMeta(props.item.views_count, pro
 const visual = computed(() => getStatsDataVisual(props.item.categories))
 const sparklinePoints = computed(() => seededSparklinePoints(props.item.id, 7))
 
-const FREQ_LABELS = ['LIVE · 10 MIN', 'QUOTIDIEN', 'HEBDO', 'MENSUEL'] as const
-const FREQ_DOTS = ['#059669', '#3b82f6', '#8b5cf6', 'rgba(24,24,31,0.25)'] as const
-const FREQ_FG = ['#047857', 'rgba(24,24,31,0.5)', 'rgba(24,24,31,0.5)', 'rgba(24,24,31,0.5)'] as const
 function hash(str: string) {
   let h = 2166136261 >>> 0
   for (let i = 0; i < str.length; i++) {
@@ -61,18 +59,37 @@ function hash(str: string) {
   }
   return h >>> 0
 }
-const seed = computed(() => hash(props.item.id + '|card'))
-const freqIdx = computed(() => seed.value % 4)
-const freqLabel = computed(() => FREQ_LABELS[freqIdx.value])
-const freqDot = computed(() => FREQ_DOTS[freqIdx.value])
-const freqFg = computed(() => FREQ_FG[freqIdx.value])
+
+// ── Fraîcheur réelle de la source principale (null = source figée « jamais » → rien) ──
+const fresh = computed(() => (props.item.freshness ? freshnessLabel(props.item.freshness) : null))
+const FRESH_DOT: Record<FreshnessTone, string> = {
+  live: '#059669',
+  fresh: '#3b82f6',
+  stale: 'rgba(24,24,31,0.3)',
+  unknown: 'rgba(24,24,31,0.3)',
+}
+const FRESH_FG: Record<FreshnessTone, string> = {
+  live: '#047857',
+  fresh: 'rgba(24,24,31,0.5)',
+  stale: 'rgba(24,24,31,0.5)',
+  unknown: 'rgba(24,24,31,0.5)',
+}
+const FRESH_DOT_DARK: Record<FreshnessTone, string> = {
+  live: '#34d399',
+  fresh: '#93c5fd',
+  stale: 'rgba(255,255,255,0.3)',
+  unknown: 'rgba(255,255,255,0.3)',
+}
+const FRESH_FG_DARK: Record<FreshnessTone, string> = {
+  live: '#6ee7b7',
+  fresh: 'rgba(255,255,255,0.7)',
+  stale: 'rgba(255,255,255,0.7)',
+  unknown: 'rgba(255,255,255,0.7)',
+}
 
 // ── Hero « à la une » (format row feature) — logique dédiée ──────────────────
 const fSeed = computed(() => hash(props.item.id + '|feat'))
 const fUp = computed(() => fSeed.value % 2 === 0)
-const fFreqLabel = computed(() => FREQ_LABELS[fSeed.value % 4])
-const fFreqDot = computed(() => (['#34d399', '#3b82f6', '#8b5cf6', 'rgba(255,255,255,0.25)'] as const)[fSeed.value % 4])
-const fFreqFg = computed(() => (['#6ee7b7', 'rgba(255,255,255,0.7)', 'rgba(255,255,255,0.7)', 'rgba(255,255,255,0.7)'] as const)[fSeed.value % 4])
 const fKpiLabel = computed(() => {
   if (!props.item.category) return 'INDICATEUR CLÉ'
   const map: Record<string, string> = {
@@ -153,9 +170,9 @@ const fPubMeta = computed(
     <span class="min-w-0 block">
       <span class="mb-[14px] flex items-center gap-[9px]">
         <span class="rounded-[5px] px-2 py-1 font-mono text-[9.5px] font-semibold tracking-[0.1em] text-slate-950" style="background:#c4b5fd">À LA UNE</span>
-        <span class="flex items-center gap-1.5 font-mono text-[10px] font-semibold tracking-[0.08em]" :style="{ color: fFreqFg }">
-          <span class="h-[6px] w-[6px] shrink-0 rounded-full" :style="{ background: fFreqDot }" />
-          {{ fFreqLabel }}
+        <span v-if="fresh" class="flex items-center gap-1.5 font-mono text-[10px] font-semibold" :style="{ color: FRESH_FG_DARK[fresh.tone] }">
+          <span class="h-[6px] w-[6px] shrink-0 rounded-full" :style="{ background: FRESH_DOT_DARK[fresh.tone] }" />
+          {{ fresh.text }}
         </span>
       </span>
       <span class="block text-[30px] font-extrabold leading-[1.14] tracking-[-0.025em] text-pretty">{{ item.title }}</span>
@@ -248,9 +265,9 @@ const fPubMeta = computed(
       >
         {{ (item.category || 'STATS').toUpperCase() }}
       </span>
-      <span class="flex items-center gap-1.5 font-mono text-[9.5px] font-semibold tracking-[0.07em]" :style="{ color: freqFg }">
-        <span class="h-[5px] w-[5px] shrink-0 rounded-full" :style="{ background: freqDot }" />
-        {{ freqLabel }}
+      <span v-if="fresh" class="flex items-center gap-1.5 font-mono text-[9.5px] font-semibold" :style="{ color: FRESH_FG[fresh.tone] }">
+        <span class="h-[5px] w-[5px] shrink-0 rounded-full" :style="{ background: FRESH_DOT[fresh.tone] }" />
+        {{ fresh.text }}<template v-if="fresh.detail"> · {{ fresh.detail }}</template>
       </span>
       <span class="flex-1" />
       <ContentCardFavButton v-if="!isManage" compact :active="favorited" @toggle="emit('favorite')" />
@@ -262,6 +279,7 @@ const fPubMeta = computed(
     </div>
 
     <CatalogSubBrandTag :categories="item.categories" content-type="statsdata" />
+    <ContentCardDossierTag :dossier="item.dossier" />
     <NuxtLink
       :to="isManage && manage ? manage.studioPath : to"
       class="block text-[17.5px] font-extrabold leading-[1.28] tracking-[-0.015em] text-slate-950 text-pretty hover:text-primary"
@@ -275,17 +293,6 @@ const fPubMeta = computed(
       <AppSparkline :points="sparklinePoints" :color="visual.color" :height="44" />
     </div>
 
-    <div v-if="!isManage && item.tags.length" class="mb-4 flex flex-wrap gap-1.5">
-      <button
-        v-for="tag in item.tags"
-        :key="tag"
-        type="button"
-        class="rounded-[6px] bg-[#f4f3f8] px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-[#f2ecfd] hover:text-primary"
-        @click="emit('select-tag', tag)"
-      >
-        #{{ tag }}
-      </button>
-    </div>
 
     <slot name="cta" />
 

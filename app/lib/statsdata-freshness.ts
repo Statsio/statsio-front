@@ -22,6 +22,7 @@ export interface FreshnessLabel {
 }
 
 const FREQUENCY_LABEL: Record<string, string> = {
+  hourly: 'chaque heure',
   daily: 'chaque jour',
   weekly: 'chaque semaine',
   monthly: 'chaque mois',
@@ -65,6 +66,7 @@ export function freshnessLabel(
   // « Périmé » = plus de deux fois l'intervalle de rafraîchissement écoulé.
   const ageMs = now.getTime() - new Date(iso).getTime()
   const windowMs: Record<string, number> = {
+    hourly: 2 * 36e5,
     daily: 2 * 864e5,
     weekly: 14 * 864e5,
     monthly: 62 * 864e5,

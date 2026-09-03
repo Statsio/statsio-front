@@ -8,7 +8,6 @@ import { readIfBranches, isElseBranch, evaluateCondition, matchingBranchIndex, t
 import FieldNote from '@/components/studio/fields/FieldNote.vue'
 import FieldPicker from '@/components/studio/fields/FieldPicker.vue'
 import VariableButton from '@/components/studio/fields/VariableButton.vue'
-import ParamPickerModal from '@/components/studio/ui/ParamPickerModal.vue'
 
 const props = defineProps<{ block: StudioBlock }>()
 const studio = useStudioStore()
@@ -67,11 +66,36 @@ function insertVar(bi: number, ci: number, token: string) {
   patchCond(bi, ci, { value: cur.trim() ? `${cur} ${token}` : token })
 }
 
-// ─── Sélecteur de paramètre (modale, une clause à la fois) ───────────────────
-const openParamFor = ref<{ b: number; c: number } | null>(null)
-const openParamValue = computed(() =>
-  openParamFor.value ? branches.value[openParamFor.value.b]?.conditions[openParamFor.value.c]?.param || null : null,
-)
+// ─── Sélecteur de paramètre (menu inline, une clause à la fois) ──────────────
+const openParamMenu = ref<string | null>(null)
+const clauseKey = (bi: number, ci: number) => `${bi}-${ci}`
+
+interface ParamOption { name: string; label?: string; column?: string }
+const paramOptionGroups = computed<{ key: string; title: string; hint: string; rows: ParamOption[] }[]>(() => {
+  const defs = studio.currentPageParamDefs.filter((p) => p.name && !p.hidden)
+  const declaredNames = new Set(defs.map((p) => p.name))
+  const declared: ParamOption[] = defs
+    .map((p) => ({ name: p.name, label: p.label, column: p.column }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+  const adhoc: ParamOption[] = Object.keys(studio.pageParams)
+    .filter((name) => name && !declaredNames.has(name))
+    .sort((a, b) => a.localeCompare(b))
+    .map((name) => ({ name }))
+  const out: { key: string; title: string; hint: string; rows: ParamOption[] }[] = []
+  if (declared.length) out.push({ key: 'declared', title: 'Paramètres de la page', hint: 'pilotent tous les blocs', rows: declared })
+  if (adhoc.length) out.push({ key: 'adhoc', title: 'Autres valeurs actives', hint: 'issues d’une recherche ou de l’URL', rows: adhoc })
+  return out
+})
+const hasParamOptions = computed(() => paramOptionGroups.value.some((g) => g.rows.length))
+
+function toggleParamMenu(bi: number, ci: number) {
+  const k = clauseKey(bi, ci)
+  openParamMenu.value = openParamMenu.value === k ? null : k
+}
+function chooseParam(bi: number, ci: number, name: string) {
+  patchCond(bi, ci, { param: name })
+  openParamMenu.value = null
+}
 
 // ─── Valeurs distinctes proposées, par paramètre (chargées à la demande) ─────
 const suggestions = ref<Record<string, string[]>>({})
@@ -179,13 +203,49 @@ const MATCH_OPTIONS: { v: IfMatch; l: string }[] = [
             >Retirer</button>
           </div>
 
-          <FieldPicker
-            label="Paramètre"
-            :value="cond.param || 'Choisir un paramètre…'"
-            :action="cond.param ? 'Changer' : 'Choisir'"
-            :chips="cond.param ? [{ text: currentValueOf(cond.param) ? String(currentValueOf(cond.param)) : '∅', muted: !currentValueOf(cond.param) }] : []"
-            @open="openParamFor = { b: bi, c: ci }"
-          />
+          <div>
+            <FieldPicker
+              label="Paramètre"
+              :value="cond.param || 'Choisir un paramètre…'"
+              :action="cond.param ? 'Changer' : 'Choisir'"
+              :chips="cond.param ? [{ text: currentValueOf(cond.param) ? String(currentValueOf(cond.param)) : '∅', muted: !currentValueOf(cond.param) }] : []"
+              @open="toggleParamMenu(bi, ci)"
+            />
+            <div
+              v-if="openParamMenu === clauseKey(bi, ci)"
+              class="mt-1.5 flex flex-col gap-3 rounded-[11px] border-[1.5px] border-[var(--studio-line)] bg-white p-2.5"
+            >
+              <p v-if="!hasParamOptions" class="text-[11.5px] leading-[1.5] text-[var(--studio-muted)]">
+                Ajoutez d'abord un bloc <b>Paramètre</b> ou une barre de recherche sur la page.
+              </p>
+              <div v-for="group in paramOptionGroups" :key="group.key" class="flex flex-col gap-1.5">
+                <span class="text-[10px] font-extrabold uppercase tracking-[0.06em] text-[var(--studio-faint)]">
+                  {{ group.title }} <span class="font-medium normal-case tracking-normal">· {{ group.hint }}</span>
+                </span>
+                <button
+                  v-for="row in group.rows"
+                  :key="row.name"
+                  type="button"
+                  class="flex items-center justify-between gap-3 rounded-[9px] border-[1.5px] px-2.5 py-2 text-left transition-colors"
+                  :class="row.name === cond.param
+                    ? 'border-[var(--color-primary)] bg-[var(--studio-accent-wash)]'
+                    : 'border-[var(--studio-line)] hover:border-[var(--color-primary)]'"
+                  @click="chooseParam(bi, ci, row.name)"
+                >
+                  <span class="flex min-w-0 flex-col">
+                    <span class="font-mono text-[11.5px] font-semibold text-[var(--studio-tag-ink)]">{{ '{' + '{' + row.name + '}' + '}' }}</span>
+                    <span v-if="row.label || row.column" class="truncate text-[10.5px] text-[var(--studio-faint)]">
+                      {{ row.label || ('valeurs de ' + row.column) }}
+                    </span>
+                  </span>
+                  <span
+                    class="shrink-0 whitespace-nowrap rounded-[5px] px-[6px] py-[2px] font-mono text-[9.5px] font-semibold"
+                    :class="currentValueOf(row.name) ? 'bg-amber-50 text-amber-700' : 'bg-[var(--studio-wash)] text-[var(--studio-faint)]'"
+                  >{{ currentValueOf(row.name) ? '= ' + currentValueOf(row.name) : '∅' }}</span>
+                </button>
+              </div>
+            </div>
+          </div>
 
           <template v-if="cond.param">
             <div>
@@ -283,12 +343,5 @@ const MATCH_OPTIONS: { v: IfMatch; l: string }[] = [
     </div>
 
     <FieldNote>En mode édition, les blocs de chaque branche restent visibles pour que vous puissiez les configurer.</FieldNote>
-
-    <ParamPickerModal
-      :show="openParamFor !== null"
-      :model-value="openParamValue"
-      @update:model-value="openParamFor && patchCond(openParamFor.b, openParamFor.c, { param: $event })"
-      @close="openParamFor = null"
-    />
   </div>
 </template>

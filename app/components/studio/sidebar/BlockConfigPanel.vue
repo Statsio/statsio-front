@@ -15,6 +15,7 @@ import IfBlockInspector from '@/components/studio/inspector/IfBlockInspector.vue
 import LayoutBlockInspector from '@/components/studio/inspector/LayoutBlockInspector.vue'
 import FilterDrillInPanel from '@/components/studio/filters/FilterDrillInPanel.vue'
 import ColumnDrillInPanel from '@/components/studio/filters/ColumnDrillInPanel.vue'
+import SourceDrillInPanel from '@/components/studio/filters/SourceDrillInPanel.vue'
 import { BLOCK_META, type BlockType } from '@/types/studio'
 
 const studio = useStudioStore()
@@ -136,6 +137,7 @@ const compFilters = computed<import('@/types/studio').BlockFilter[]>(() => block
       <!-- Drill-in (recouvre le corps de l'inspecteur) -->
       <FilterDrillInPanel />
       <ColumnDrillInPanel />
+      <SourceDrillInPanel />
 
       <div class="h-full overflow-y-auto">
 

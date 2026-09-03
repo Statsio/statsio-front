@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { useAddSourceWizard, parseDatagouvResourceId, datagouvTabularUrl } from './useAddSourceWizard'
+import { useAddSourceWizard, ADD_SOURCE_WIZARD_STEPS, parseDatagouvResourceId, datagouvTabularUrl } from './useAddSourceWizard'
 
 const DATAGOUV_ID = '336c34b5-a527-4c35-b84d-18462daa7c51'
 
@@ -44,6 +44,33 @@ describe('useAddSourceWizard', () => {
 
       wizard.datagouvInput.value = DATAGOUV_ID
       expect(wizard.canGoNext.value).toBe(true)
+    })
+  })
+
+  describe('synchronisation step', () => {
+    it('is part of the wizard step list', () => {
+      expect(ADD_SOURCE_WIZARD_STEPS.map((s) => s.id)).toContain('synchronisation')
+    })
+
+    it('canGoNext is true (a frequency is always selected)', () => {
+      const wizard = useAddSourceWizard()
+      wizard.currentStepId.value = 'synchronisation'
+      expect(wizard.canGoNext.value).toBe(true)
+    })
+
+    it('defaults the frequency to a real cadence, not "none"', () => {
+      const wizard = useAddSourceWizard()
+      expect(wizard.apiForm.value.refreshFrequency).toBe('weekly')
+    })
+
+    it('applyDatagouvPreset preserves a user-chosen frequency (it is re-run on submit)', () => {
+      const wizard = useAddSourceWizard()
+      wizard.datagouvInput.value = DATAGOUV_ID
+      wizard.applyDatagouvPreset()
+      wizard.apiForm.value.refreshFrequency = 'none'
+      wizard.applyDatagouvPreset()
+      expect(wizard.apiForm.value.refreshFrequency).toBe('none')
+      expect(wizard.buildApiPayload().refresh_frequency).toBe('none')
     })
   })
 

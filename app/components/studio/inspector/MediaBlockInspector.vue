@@ -1,15 +1,17 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
-import { apiHttp } from '@/lib/http'
-import { STATSIO_API } from '@/api/statsio-endpoints'
-import type { BlockConfig, StudioBlock } from '@/types/studio'
+import { fetchPublicCatalog } from '@/api/studio'
+import { CONTENT_TYPE_META } from '@/lib/content-display'
+import type { CatalogItem } from '@/types/catalog'
+import type { BlockConfig, ContentType, StudioBlock } from '@/types/studio'
 import InspectorSection from '@/components/studio/fields/InspectorSection.vue'
 import FieldText from '@/components/studio/fields/FieldText.vue'
+import FieldTextarea from '@/components/studio/fields/FieldTextarea.vue'
 import FieldSegmented from '@/components/studio/fields/FieldSegmented.vue'
-import FieldPicker from '@/components/studio/fields/FieldPicker.vue'
+import FieldList from '@/components/studio/fields/FieldList.vue'
 import FieldNote from '@/components/studio/fields/FieldNote.vue'
-import EditorialContentModal from '@/components/studio/ui/EditorialContentModal.vue'
+import FieldImage from '@/components/media/FieldImage.vue'
 
 const props = defineProps<{ block: StudioBlock }>()
 const studio = useStudioStore()
@@ -31,54 +33,22 @@ function updateGridItem(i: number, key: 'label' | 'value', v: string) {
 }
 function removeGridItem(i: number) { saveGrid(gridItems.value.filter((_, idx) => idx !== i)) }
 
-// ─── Image upload ────────────────────────────────────────────────────────────
-
-const fileInput = ref<HTMLInputElement | null>(null)
-const dragOver = ref(false)
-const uploading = ref(false)
-const uploadError = ref('')
-
-async function uploadFile(file: File) {
-  uploadError.value = ''
-  uploading.value = true
-  try {
-    const form = new FormData()
-    form.append('file', file)
-    form.append('directory', 'studio/images')
-    const { data } = await apiHttp.post(STATSIO_API.media.upload, form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
-    set('imageUrl', data.data.url)
-  } catch (e: unknown) {
-    uploadError.value =
-      (e as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-      "Erreur lors de l'upload de l'image"
-  } finally {
-    uploading.value = false
-  }
-}
-
-function onFileChange(event: Event) {
-  const input = event.target as HTMLInputElement
-  if (input.files?.[0]) uploadFile(input.files[0])
-  input.value = ''
-}
-function onDrop(event: DragEvent) {
-  dragOver.value = false
-  const file = event.dataTransfer?.files[0]
-  if (file) uploadFile(file)
-}
-
-// ─── Button / link-card / retenir → sub-modal ────────────────────────────────
-
-const showModal = ref(false)
-
-const editorialPicker = computed(() => {
-  const c = props.block.config
-  if (props.block.type === 'button') return { label: 'Bouton', value: c.buttonLabel || 'Configurer le bouton' }
-  if (props.block.type === 'link-card') return { label: 'Carte de lien', value: c.linkTitle || 'Configurer la carte' }
-  const n = (c.retenirItems ?? []).length
-  return { label: 'À retenir', value: n ? `${n} point${n > 1 ? 's' : ''} clé${n > 1 ? 's' : ''}` : 'Configurer les points clés' }
+// ─── Image (bloc image) — via le sélecteur de médias partagé ─────────────────
+const imageUrl = computed({
+  get: () => props.block.config.imageUrl ?? '',
+  set: (v: string) => set('imageUrl', v || undefined),
+})
+const imageMediaId = computed({
+  get: () => props.block.config.imageMediaId,
+  set: (v: number | undefined) => set('imageMediaId', v),
+})
+const linkImage = computed({
+  get: () => props.block.config.linkImage ?? '',
+  set: (v: string) => set('linkImage', v || undefined),
+})
+const linkImageMediaId = computed({
+  get: () => props.block.config.linkImageMediaId,
+  set: (v: number | undefined) => set('linkImageMediaId', v),
 })
 
 const WIDTHS = [
@@ -92,6 +62,95 @@ const ALIGNS = [
   { label: 'Centre', value: 'center' },
   { label: 'Droite', value: 'right' },
 ]
+
+// ─── Button / link-card / retenir (inline) ──────────────────────────────────
+
+const isStatsdataDoc = computed(() => studio.content?.type === 'statsdata')
+
+const BUTTON_VARIANTS = [
+  { label: 'Primaire', value: 'primary' },
+  { label: 'Sombre', value: 'secondary' },
+  { label: 'Contour', value: 'outline' },
+]
+const BUTTON_SIZES = [
+  { label: 'SM', value: 'sm' },
+  { label: 'MD', value: 'md' },
+  { label: 'LG', value: 'lg' },
+]
+const RETENIR_COLORS = [
+  { v: 'violet', bg: 'bg-[var(--color-primary)]', ring: 'ring-violet-400' },
+  { v: 'emerald', bg: 'bg-emerald-500', ring: 'ring-emerald-400' },
+  { v: 'amber', bg: 'bg-amber-400', ring: 'ring-amber-400' },
+  { v: 'blue', bg: 'bg-blue-500', ring: 'ring-blue-400' },
+]
+
+// Carte de lien : cible (URL externe / contenu publié / page de ce Statsdata).
+const linkMode = computed(() => props.block.config.linkMode ?? 'url')
+const LINK_MODES = computed(() => [
+  { label: 'URL externe', value: 'url' },
+  { label: 'Contenu du site', value: 'content' },
+  ...(isStatsdataDoc.value ? [{ label: 'Page de ce contenu', value: 'page' }] : []),
+])
+
+const CONTENT_TYPES: { label: string; value: ContentType }[] = [
+  { label: 'Article', value: 'article' },
+  { label: 'StatsData', value: 'statsdata' },
+  { label: 'Sondage', value: 'survey' },
+]
+const contentSearchType = ref<ContentType>(props.block.config.linkContentType ?? 'article')
+const contentQuery = ref('')
+const contentResults = ref<CatalogItem[]>([])
+const contentSearching = ref(false)
+
+let contentSearchToken = 0
+watch([contentQuery, contentSearchType], async ([q]) => {
+  const token = ++contentSearchToken
+  if (!q.trim()) { contentResults.value = []; return }
+  contentSearching.value = true
+  try {
+    const res = await fetchPublicCatalog({ type: contentSearchType.value, q: q.trim(), per_page: 8 })
+    if (token === contentSearchToken) contentResults.value = res.data
+  } catch {
+    if (token === contentSearchToken) contentResults.value = []
+  } finally {
+    if (token === contentSearchToken) contentSearching.value = false
+  }
+})
+
+function pickContent(item: CatalogItem) {
+  studio.updateBlockConfig(props.block.id, {
+    linkContentType: contentSearchType.value,
+    linkContentSlug: item.slug,
+    linkTitle: item.title,
+    linkDescription: item.description ?? '',
+    linkImage: item.thumbnail_url ?? '',
+    linkImageMediaId: undefined,
+    linkDomain: undefined,
+  })
+  contentQuery.value = ''
+  contentResults.value = []
+}
+function changeContent() {
+  studio.updateBlockConfig(props.block.id, { linkContentSlug: undefined, linkContentType: undefined })
+}
+const pickedContentLabel = computed(() => {
+  const t = props.block.config.linkContentType
+  return t ? CONTENT_TYPE_META[t].label : ''
+})
+
+const availablePages = computed(() => studio.pages)
+function pickPage(pageId: string) {
+  const page = studio.pages.find((p) => p.id === pageId)
+  studio.updateBlockConfig(props.block.id, {
+    linkPageId: pageId,
+    linkTitle: page?.title ?? '',
+    linkDescription: page?.description ?? '',
+  })
+}
+function changePage() {
+  studio.updateBlockConfig(props.block.id, { linkPageId: undefined })
+}
+const pickedPage = computed(() => studio.pages.find((p) => p.id === props.block.config.linkPageId))
 </script>
 
 <template>
@@ -99,33 +158,7 @@ const ALIGNS = [
     <!-- IMAGE -->
     <template v-if="block.type === 'image'">
       <InspectorSection label="Image">
-        <div
-          class="relative cursor-pointer overflow-hidden rounded-xl border-2 border-dashed transition-colors"
-          :class="dragOver
-            ? 'border-[var(--color-primary)] bg-[var(--studio-accent-wash)]'
-            : block.config.imageUrl ? 'border-[var(--studio-line-strong)]' : 'border-[var(--studio-line-strong)] bg-[var(--studio-note)]'"
-          @click="fileInput?.click()"
-          @dragover.prevent="dragOver = true"
-          @dragleave="dragOver = false"
-          @drop.prevent="onDrop"
-        >
-          <input ref="fileInput" type="file" accept="image/*" class="sr-only" @change="onFileChange" />
-          <img v-if="block.config.imageUrl" :src="block.config.imageUrl" class="h-28 w-full object-cover" alt="" />
-          <div v-else class="pointer-events-none flex flex-col items-center gap-1.5 px-4 py-8 text-center">
-            <p class="text-xs font-medium text-[var(--studio-muted)]">Glisser une image ici</p>
-            <p class="text-[11px] text-[var(--studio-faint)]">ou cliquer pour parcourir</p>
-          </div>
-          <div v-if="uploading" class="absolute inset-0 flex items-center justify-center bg-white/70">
-            <span class="text-xs text-[var(--studio-muted)]">Envoi…</span>
-          </div>
-          <button
-            v-if="block.config.imageUrl && !uploading"
-            type="button"
-            class="absolute right-1.5 top-1.5 rounded-lg bg-white/90 p-1 text-[var(--studio-muted)] shadow-sm hover:text-red-500"
-            @click.stop="set('imageUrl', '')"
-          >✕</button>
-        </div>
-        <p v-if="uploadError" class="text-[11px] text-red-500">{{ uploadError }}</p>
+        <FieldImage v-model="imageUrl" v-model:media-id="imageMediaId" ratio="video" />
         <FieldText
           :model-value="block.config.imageAlt ?? ''"
           label="Texte alternatif"
@@ -205,15 +238,106 @@ const ALIGNS = [
       </InspectorSection>
     </template>
 
-    <!-- BUTTON / LINK-CARD / RETENIR -->
+    <!-- BUTTON -->
+    <template v-else-if="block.type === 'button'">
+      <InspectorSection label="Contenu">
+        <FieldText :model-value="block.config.buttonLabel ?? ''" label="Label du bouton" placeholder="En savoir plus" @update:model-value="set('buttonLabel', $event)" />
+        <FieldText :model-value="block.config.buttonUrl ?? ''" label="URL de destination" placeholder="https://…" @update:model-value="set('buttonUrl', $event)" />
+      </InspectorSection>
+      <InspectorSection label="Style">
+        <FieldSegmented :model-value="block.config.buttonVariant ?? 'primary'" label="Variante" :options="BUTTON_VARIANTS" @update:model-value="set('buttonVariant', $event as BlockConfig['buttonVariant'])" />
+        <FieldSegmented :model-value="block.config.buttonSize ?? 'md'" label="Taille" :options="BUTTON_SIZES" @update:model-value="set('buttonSize', $event as BlockConfig['buttonSize'])" />
+        <FieldSegmented :model-value="block.config.buttonAlign ?? 'center'" label="Alignement" :options="ALIGNS" @update:model-value="set('buttonAlign', $event as BlockConfig['buttonAlign'])" />
+      </InspectorSection>
+    </template>
+
+    <!-- LINK-CARD -->
+    <template v-else-if="block.type === 'link-card'">
+      <InspectorSection label="Destination">
+        <FieldSegmented :model-value="linkMode" label="Type de lien" :options="LINK_MODES" @update:model-value="set('linkMode', $event as BlockConfig['linkMode'])" />
+
+        <template v-if="linkMode === 'url'">
+          <FieldText :model-value="block.config.linkUrl ?? ''" label="URL" placeholder="https://…" @update:model-value="set('linkUrl', $event)" />
+        </template>
+
+        <template v-else-if="linkMode === 'content'">
+          <template v-if="!block.config.linkContentSlug">
+            <FieldSegmented :model-value="contentSearchType" label="Type de contenu" :options="CONTENT_TYPES" @update:model-value="contentSearchType = $event as ContentType" />
+            <input v-model="contentQuery" type="search" class="studio-input" placeholder="Rechercher un contenu publié…" />
+            <p v-if="contentSearching" class="text-[12px] text-[var(--studio-faint)]">Recherche…</p>
+            <div v-else-if="contentResults.length" class="flex flex-col gap-1.5">
+              <button
+                v-for="item in contentResults" :key="item.slug" type="button"
+                class="flex flex-col items-start rounded-[10px] border-[1.5px] border-[var(--studio-line)] bg-white px-3 py-2 text-left transition-colors hover:border-[var(--color-primary)]"
+                @click="pickContent(item)"
+              >
+                <span class="text-[13px] font-bold text-[var(--studio-ink)]">{{ item.title }}</span>
+                <span class="text-[11.5px] text-[var(--studio-faint)]">{{ item.publisher.name }}</span>
+              </button>
+            </div>
+            <p v-else-if="contentQuery.trim()" class="text-[12px] text-[var(--studio-faint)]">Aucun résultat.</p>
+          </template>
+          <div v-else class="flex items-center justify-between gap-2 rounded-[10px] bg-[var(--studio-wash)] px-3 py-2">
+            <span class="min-w-0 truncate text-[13px] font-bold text-[var(--studio-ink)]">
+              {{ pickedContentLabel }} · {{ block.config.linkTitle || block.config.linkContentSlug }}
+            </span>
+            <button type="button" class="shrink-0 text-[12px] font-bold text-[var(--color-primary)]" @click="changeContent">Changer</button>
+          </div>
+        </template>
+
+        <template v-else-if="linkMode === 'page'">
+          <template v-if="!pickedPage">
+            <p v-if="!availablePages.length" class="text-[12px] text-[var(--studio-faint)]">Ce Statsdata n'a pas encore d'autre page.</p>
+            <div v-else class="flex flex-col gap-1.5">
+              <button
+                v-for="p in availablePages" :key="p.id" type="button"
+                class="flex items-center gap-1.5 rounded-[10px] border-[1.5px] border-[var(--studio-line)] bg-white px-3 py-2 text-left transition-colors hover:border-[var(--color-primary)]"
+                @click="pickPage(p.id)"
+              >
+                <span v-if="p.icon">{{ p.icon }}</span>
+                <span class="text-[13px] font-bold text-[var(--studio-ink)]">{{ p.title }}</span>
+              </button>
+            </div>
+          </template>
+          <div v-else class="flex items-center justify-between gap-2 rounded-[10px] bg-[var(--studio-wash)] px-3 py-2">
+            <span class="min-w-0 truncate text-[13px] font-bold text-[var(--studio-ink)]">{{ pickedPage.title }}</span>
+            <button type="button" class="shrink-0 text-[12px] font-bold text-[var(--color-primary)]" @click="changePage">Changer</button>
+          </div>
+        </template>
+      </InspectorSection>
+
+      <InspectorSection label="Présentation">
+        <FieldText :model-value="block.config.linkTitle ?? ''" label="Titre" placeholder="Titre affiché" @update:model-value="set('linkTitle', $event)" />
+        <FieldTextarea :model-value="block.config.linkDescription ?? ''" label="Description" :rows="3" placeholder="Résumé ou accroche…" @update:model-value="set('linkDescription', $event)" />
+        <FieldText v-if="linkMode === 'url'" :model-value="block.config.linkDomain ?? ''" label="Domaine" placeholder="lemonde.fr" @update:model-value="set('linkDomain', $event)" />
+        <FieldImage v-model="linkImage" v-model:media-id="linkImageMediaId" label="Image (optionnel)" ratio="wide" />
+      </InspectorSection>
+    </template>
+
+    <!-- RETENIR -->
     <template v-else>
-      <FieldPicker
-        :label="editorialPicker.label"
-        :value="editorialPicker.value"
-        action="Configurer"
-        @open="showModal = true"
-      />
-      <EditorialContentModal :show="showModal" :block="block" @close="showModal = false" />
+      <InspectorSection label="À retenir">
+        <FieldText :model-value="block.config.retenirTitle ?? ''" label="Titre du bloc" placeholder="À retenir" @update:model-value="set('retenirTitle', $event)" />
+        <FieldList
+          :model-value="block.config.retenirItems ?? []"
+          label="Points clés"
+          add-label="+ Ajouter un point"
+          placeholder="Point important…"
+          reorderable
+          @update:model-value="set('retenirItems', $event.length ? $event : undefined)"
+        />
+        <div>
+          <label class="mb-1.5 block text-xs font-semibold text-[var(--studio-muted)]">Couleur</label>
+          <div class="flex gap-3">
+            <button
+              v-for="c in RETENIR_COLORS" :key="c.v" type="button"
+              class="h-8 w-8 shrink-0 rounded-full border-2 transition-all"
+              :class="[c.bg, (block.config.retenirColor ?? 'violet') === c.v ? `ring-2 ring-offset-2 ${c.ring} scale-110 border-transparent` : 'border-transparent opacity-70 hover:opacity-100 hover:scale-105']"
+              @click="set('retenirColor', c.v as BlockConfig['retenirColor'])"
+            />
+          </div>
+        </div>
+      </InspectorSection>
     </template>
   </div>
 </template>

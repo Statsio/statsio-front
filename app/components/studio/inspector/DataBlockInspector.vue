@@ -9,10 +9,10 @@ import FieldNote from '@/components/studio/fields/FieldNote.vue'
 import FieldColumns from '@/components/studio/fields/FieldColumns.vue'
 import { blockColumnGroups, primarySourceId } from '@/lib/studio-columns'
 import { blockDatasetIds } from '@/lib/studio-block-sources'
-import DataSourceWizard from '@/components/studio/ui/DataSourceWizard.vue'
+import { useSourceDrillIn } from '@/composables/useSourceDrillIn'
 import BlockFiltersField from '@/components/studio/fields/BlockFiltersField.vue'
 import ChartMappingField from '@/components/studio/fields/ChartMappingField.vue'
-import TableColumnsModal from '@/components/studio/ui/TableColumnsModal.vue'
+import TableColumnsField from '@/components/studio/fields/TableColumnsField.vue'
 
 const props = defineProps<{ block: StudioBlock; activeTab: string }>()
 const studio = useStudioStore()
@@ -70,9 +70,7 @@ const isTable = computed(() => props.block.type === 'table')
 const CHART_COLORS = ['#8b5cf6','#3b82f6','#10b981','#f59e0b','#ef4444','#06b6d4','#ec4899','#f97316']
 
 
-// ─── Sub-modals ──────────────────────────────────────────────────────────────
-const showDataSourceModal = ref(false)
-const showColumnsMappingModal = ref(false)
+const sourceDrill = useSourceDrillIn()
 
 // ─── FieldPicker summaries ───────────────────────────────────────────────────
 const sources = computed(() => props.block.sources ?? [])
@@ -85,10 +83,6 @@ const sourceSummary = computed(() => {
   const extra = sources.value.length - 1
   return primaryName.value + (extra > 0 ? ` + ${extra} source${extra > 1 ? 's' : ''}` : '')
 })
-const columnsSummary = computed(() => {
-  const cols = props.block.fieldMapping?.columns
-  return cols?.length ? `${cols.length} colonne${cols.length > 1 ? 's' : ''} affichée${cols.length > 1 ? 's' : ''}` : 'Toutes les colonnes affichées'
-})
 </script>
 <template>
   <div>
@@ -100,22 +94,16 @@ const columnsSummary = computed(() => {
             <FieldPicker
               label="Source"
               :value="sourceSummary"
-              action="Changer"
-              @open="showDataSourceModal = true"
+              :action="hasSource ? 'Changer' : 'Choisir'"
+              @open="sourceDrill.open({ block })"
             />
-            <DataSourceWizard :show="showDataSourceModal" :block="block" @close="showDataSourceModal = false" />
 
             <template v-if="hasSource">
               <ChartMappingField v-if="!isTable" :block="block" />
-              <template v-else>
-                <FieldPicker
-                  label="Colonnes"
-                  :value="columnsSummary"
-                  action="Configurer"
-                  @open="showColumnsMappingModal = true"
-                />
-                <TableColumnsModal :show="showColumnsMappingModal" :block="block" @close="showColumnsMappingModal = false" />
-              </template>
+              <div v-else class="flex flex-col gap-1.5">
+                <label class="text-xs font-semibold text-[var(--studio-muted)]">Colonnes affichées</label>
+                <TableColumnsField :block="block" section="columns" />
+              </div>
             </template>
           </div>
 
@@ -539,6 +527,24 @@ const columnsSummary = computed(() => {
                   @input="updateConfig('pageSize', Number(($event.target as HTMLInputElement).value) || 10)"
                 />
               </div>
+            </div>
+          </div>
+
+          <!-- Mise en forme conditionnelle (table) -->
+          <div v-if="isTable" class="accordion-item">
+            <button class="accordion-header" @click="toggle('table-cond')">
+              <span>Mise en forme conditionnelle</span>
+              <div class="flex items-center gap-2">
+                <span v-if="(block.fieldMapping.cellRules?.length ?? 0) > 0" class="text-xs font-bold text-[var(--color-primary)]">
+                  {{ block.fieldMapping.cellRules!.length }} règle{{ block.fieldMapping.cellRules!.length > 1 ? 's' : '' }}
+                </span>
+                <svg class="chevron" :class="open('table-cond') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                </svg>
+              </div>
+            </button>
+            <div v-show="open('table-cond')" class="accordion-body">
+              <TableColumnsField :block="block" section="rules" />
             </div>
           </div>
 

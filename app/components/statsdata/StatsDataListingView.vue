@@ -116,10 +116,6 @@ const gridItems = computed(() => {
 })
 const canLoadMore = computed(() => catalog.value.meta.has_more || shownCount.value < sortedTotal.value)
 
-function onSelectTag(tag: string) {
-  qInput.value = tag
-}
-
 function resetAll() {
   withCharts.value = false
   withMultiSources.value = false
@@ -202,7 +198,6 @@ function resetAll() {
             format="card"
             :favorited="isFavorited(item)"
             @favorite="toggleItemFavorite(item)"
-            @select-tag="onSelectTag"
           />
         </div>
 

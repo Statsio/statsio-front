@@ -140,16 +140,19 @@ const containerStyle = computed(() => ({
 }))
 
 const containerClass = computed(() => {
-  if (props.block.type === 'quote') return 'border-l-4 border-[var(--color-primary)] pl-4 text-[var(--studio-muted)]'
-  if (props.block.type === 'callout') return 'rounded-lg'
-  return ''
+  // Titre / paragraphe : aucun retrait horizontal — le contenu s'aligne sur les
+  // autres blocs. En édition seulement, un léger `py` élargit la cible de clic.
+  const base = props.readonly ? '' : 'py-1'
+  if (props.block.type === 'quote') return `${base} border-l-4 border-[var(--color-primary)] pl-4 text-[var(--studio-muted)]`
+  if (props.block.type === 'callout') return `${base} rounded-lg px-4 py-3`
+  return base
 })
 
 </script>
 
 <template>
   <div
-    class="w-full min-w-0 overflow-hidden px-3 py-2 cursor-text"
+    class="w-full min-w-0 overflow-hidden cursor-text"
     :class="containerClass"
     :style="containerStyle"
   >

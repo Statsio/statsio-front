@@ -4,11 +4,10 @@ import { getStatsDataVisual } from '@/utils/statsDataVisuals'
 
 const props = defineProps<{
   categories?: string[]
-  emoji?: string | null
   thumbnailUrl?: string | null
 }>()
 
-const visual = computed(() => getStatsDataVisual(props.categories, props.emoji))
+const visual = computed(() => getStatsDataVisual(props.categories))
 
 const backgroundImage = computed(() => {
   const a = `color-mix(in srgb, ${visual.value.color} 10%, white)`

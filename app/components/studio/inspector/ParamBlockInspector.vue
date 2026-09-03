@@ -5,10 +5,11 @@ import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import { fetchDistinctValues } from '@/api/studio'
 import { blockSourceParams } from '@/composables/useBlockData'
 import type { DatasetMeta, StudioBlock } from '@/types/studio'
+import { parseColumnRef } from '@/lib/studio-columns'
+import { useColumnDrillIn } from '@/composables/useColumnDrillIn'
+import { useSourceDrillIn } from '@/composables/useSourceDrillIn'
 import FieldPicker from '@/components/studio/fields/FieldPicker.vue'
 import FieldNote from '@/components/studio/fields/FieldNote.vue'
-import DataSourceWizard from '@/components/studio/ui/DataSourceWizard.vue'
-import ColumnPickerModal from '@/components/studio/ui/ColumnPickerModal.vue'
 
 const props = defineProps<{ block: StudioBlock }>()
 const studio = useStudioStore()
@@ -55,35 +56,20 @@ watch(
   { immediate: true },
 )
 
-// ─── Déclaration du paramètre sur la page ────────────────────────────────────
-// Le contrôle écrit `pageParams[nom]` au runtime ; on déclare aussi le paramètre
-// sur la page pour qu'il soit réamorcé au chargement et listé dans « Paramètres ».
-watch(
-  () => [
-    paramName.value, props.block.datasetId, column.value,
-    props.block.config.paramDefault, props.block.config.paramFanOut,
-  ].join('|'),
-  () => {
-    const name = paramName.value
-    if (!name || !column.value) return
-    const decl = {
-      name,
-      column: column.value,
-      datasetId: props.block.datasetId,
-      defaultValue: props.block.config.paramDefault || undefined,
-      fanOut: props.block.config.paramFanOut === true || undefined,
-      slugColumn: props.block.config.paramFanOut === true ? column.value : undefined,
-    }
-    if (studio.currentPageParamDefs.some((p) => p.name === name)) {
-      studio.updatePageParam(studio.currentPageId, name, decl)
-    } else {
-      studio.addPageParam(studio.currentPageId, decl)
-    }
-  },
-)
+// La déclaration du `PageParam` (fan-out compris) est réconciliée par le store
+// (`studio.syncParamBlockPageParam`) à chaque mutation — rien à faire ici.
 
-const showDataSourceModal = ref(false)
-const showColumnModal = ref(false)
+const sourceDrill = useSourceDrillIn()
+const columnDrill = useColumnDrillIn()
+
+function pickColumn() {
+  columnDrill.open({
+    block: props.block,
+    title: 'Colonne pilote',
+    selected: column.value ? [column.value] : [],
+    onCommit: (refs) => { if (refs[0]) updateMapping('paramColumn', parseColumnRef(refs[0]).name) },
+  })
+}
 
 const CONTROLS = [
   { v: 'segmented', l: 'Pastilles' },
@@ -93,23 +79,19 @@ const CONTROLS = [
 
 <template>
   <div class="flex flex-col gap-[11px] px-4 pb-2 pt-3">
-    <FieldPicker label="Source" :value="datasetName" action="Changer" @open="showDataSourceModal = true" />
-    <DataSourceWizard :show="showDataSourceModal" :block="block" @close="showDataSourceModal = false" />
+    <FieldPicker
+      label="Source"
+      :value="datasetName"
+      :action="block.datasetId ? 'Changer' : 'Choisir'"
+      @open="sourceDrill.open({ block, singleSource: true })"
+    />
 
     <template v-if="block.datasetId">
       <FieldPicker
         label="Colonne pilote"
         :value="column || 'Choisir une colonne'"
         :action="column ? 'Changer' : 'Choisir'"
-        @open="showColumnModal = true"
-      />
-      <ColumnPickerModal
-        :show="showColumnModal"
-        :block="block"
-        mode="single"
-        :model-value="column || null"
-        @update:model-value="updateMapping('paramColumn', $event)"
-        @close="showColumnModal = false"
+        @open="pickColumn"
       />
 
       <div class="flex flex-col gap-1.5">
@@ -173,17 +155,10 @@ const CONTROLS = [
         </span>
       </label>
 
-      <label class="toggle-row" @click="updateConfig('paramFanOut', !block.config.paramFanOut)">
-        <span>
-          <span class="text-sm text-[var(--studio-ink)]">Générer une page par valeur</span>
-          <span class="mt-0.5 block text-[11px] leading-relaxed text-[var(--studio-faint)]">
-            Publie une URL indexable <code class="font-mono">/…/{{ column || 'valeur' }}</code> pour chaque valeur (SEO).
-          </span>
-        </span>
-        <span class="toggle shrink-0" :class="block.config.paramFanOut ? 'toggle-on' : 'toggle-off'">
-          <span class="toggle-knob" :class="block.config.paramFanOut ? 'translate-x-3.5' : 'translate-x-0.5'" />
-        </span>
-      </label>
+      <FieldNote>
+        Une page indexable <code class="font-mono">/…/{{ column || 'valeur' }}</code> est générée
+        automatiquement pour chaque valeur distincte (comme la barre de recherche).
+      </FieldNote>
     </template>
 
     <FieldNote v-else>Choisissez une source de données pour configurer le paramètre.</FieldNote>

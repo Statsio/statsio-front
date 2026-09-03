@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import AppSelect from '@/components/ui/AppSelect.vue'
+import DossierPicker from '@/components/studio/DossierPicker.vue'
 import { useMyChannels } from '@/composables/useMyChannels'
 
 const props = defineProps<{
@@ -8,17 +9,22 @@ const props = defineProps<{
   mode: 'author' | 'confirm'
   nextVersion: number
   publishing: boolean
+  /** slug ou id du contenu — pour charger dossiers & suggestions. */
+  documentId: string
 }>()
 
 const emit = defineEmits<{
   close: []
-  confirm: [{ publishedAs?: 'user' | 'channel'; channelId?: number | null }]
+  confirm: [{ publishedAs?: 'user' | 'channel'; channelId?: number | null; dossierIds: number[] }]
 }>()
 
 const { channels, loading: channelsLoading, fetch: fetchChannels } = useMyChannels()
 
 const publishedAs = ref<'user' | 'channel'>('user')
 const channelId = ref<number | null>(null)
+const dossierIds = ref<number[]>([])
+/** En mode 'author', étape 1 = choix auteur, étape 2 = dossier. */
+const step = ref<1 | 2>(1)
 
 onMounted(() => {
   if (props.mode === 'author') fetchChannels()
@@ -28,18 +34,37 @@ const channelOptions = computed(() =>
   channels.value.map((c) => ({ value: c.id as number, label: c.profile?.name ?? `Chaîne #${c.id}` })),
 )
 
-const invalid = computed(() => props.mode === 'author' && publishedAs.value === 'channel' && !channelId.value)
+const authorInvalid = computed(
+  () => props.mode === 'author' && publishedAs.value === 'channel' && !channelId.value,
+)
+
+const title = computed(() => {
+  if (props.mode === 'confirm') return `Publier la version ${props.nextVersion}`
+  return step.value === 1 ? 'Publier ce contenu' : 'Ranger dans un dossier'
+})
 
 function onChannelChange(v: unknown) {
   const raw = Array.isArray(v) ? v[0] : v
   channelId.value = raw != null ? Number(raw) : null
 }
 
+function next() {
+  if (authorInvalid.value) return
+  step.value = 2
+}
+
 function submit() {
-  if (props.publishing || invalid.value) return
-  emit('confirm', props.mode === 'author'
-    ? { publishedAs: publishedAs.value, channelId: publishedAs.value === 'channel' ? channelId.value : null }
-    : {})
+  if (props.publishing) return
+  if (props.mode === 'author') {
+    if (authorInvalid.value) return
+    emit('confirm', {
+      publishedAs: publishedAs.value,
+      channelId: publishedAs.value === 'channel' ? channelId.value : null,
+      dossierIds: dossierIds.value,
+    })
+  } else {
+    emit('confirm', { dossierIds: dossierIds.value })
+  }
 }
 </script>
 
@@ -51,9 +76,7 @@ function submit() {
     >
       <div class="w-full max-w-[460px] overflow-hidden rounded-[18px] bg-white shadow-[0_30px_70px_rgba(20,16,30,0.35)]">
         <div class="flex items-center justify-between border-b border-[var(--studio-line)] px-6 py-[18px]">
-          <span class="text-[15px] font-extrabold text-[var(--studio-ink)]">
-            {{ mode === 'author' ? 'Publier ce contenu' : `Publier la version ${nextVersion}` }}
-          </span>
+          <span class="text-[15px] font-extrabold text-[var(--studio-ink)]">{{ title }}</span>
           <button
             type="button"
             class="flex h-7 w-7 items-center justify-center rounded-full text-[13px] text-[var(--studio-muted)] hover:bg-[var(--studio-wash)]"
@@ -63,7 +86,8 @@ function submit() {
         </div>
 
         <div class="px-6 py-5">
-          <template v-if="mode === 'author'">
+          <!-- Mode 'author' — étape 1 : choix de l'auteur -->
+          <template v-if="mode === 'author' && step === 1">
             <p class="mb-4 text-[12.5px] leading-relaxed text-[var(--studio-muted)]">
               Au nom de qui ce contenu paraît publiquement ? Ce choix est définitif — il pourra
               ensuite être modifié depuis les propriétés du contenu.
@@ -116,18 +140,49 @@ function submit() {
             </div>
           </template>
 
-          <p v-else class="text-[12.5px] leading-relaxed text-[var(--studio-muted)]">
-            Les visiteurs verront vos dernières modifications enregistrées. La version en ligne
-            actuelle reste consultable dans l'historique du contenu.
-          </p>
+          <!-- Étape dossier (mode 'author' étape 2, ou mode 'confirm') -->
+          <template v-else-if="mode === 'author'">
+            <DossierPicker
+              v-model="dossierIds"
+              :document-id="documentId"
+              :seed-from-current="false"
+            />
+          </template>
+
+          <template v-else>
+            <p class="mb-3 text-[12.5px] leading-relaxed text-[var(--studio-muted)]">
+              Les visiteurs verront vos dernières modifications enregistrées. La version en ligne
+              actuelle reste consultable dans l'historique du contenu.
+            </p>
+            <DossierPicker v-model="dossierIds" :document-id="documentId" />
+          </template>
         </div>
 
         <div class="flex items-center justify-end gap-2.5 border-t border-[var(--studio-line)] px-6 py-4">
-          <button type="button" class="text-[13px] font-bold text-[var(--studio-faint)]" @click="emit('close')">Annuler</button>
           <button
+            v-if="mode === 'author' && step === 2"
+            type="button"
+            class="mr-auto text-[13px] font-bold text-[var(--studio-faint)]"
+            @click="step = 1"
+          >
+            ← Retour
+          </button>
+          <button type="button" class="text-[13px] font-bold text-[var(--studio-faint)]" @click="emit('close')">Annuler</button>
+
+          <button
+            v-if="mode === 'author' && step === 1"
             type="button"
             class="studio-gradient rounded-full px-5 py-2.5 text-[12.5px] font-extrabold tracking-[0.06em] text-white disabled:opacity-40"
-            :disabled="publishing || invalid"
+            :disabled="authorInvalid"
+            @click="next"
+          >
+            CONTINUER
+          </button>
+          <button
+            v-else
+            type="button"
+            class="studio-gradient rounded-full px-5 py-2.5 text-[12.5px] font-extrabold tracking-[0.06em] text-white disabled:opacity-40"
+            :disabled="publishing || authorInvalid"
             @click="submit"
           >
             {{ publishing ? 'PUBLICATION…' : 'PUBLIER' }}

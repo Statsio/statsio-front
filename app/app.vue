@@ -31,4 +31,5 @@ const retry = () => {
     </StagingGate>
   </ComingSoonGate>
   <CookieBanner />
+  <MediaLibraryModal />
 </template>

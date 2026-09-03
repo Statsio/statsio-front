@@ -267,7 +267,7 @@ function stripLegacyKeys(block: StudioBlock): StudioBlock {
 
   const config = { ...block.config }
   delete config.searchAsParam
-  delete config.paramFanOut
+  delete (config as Record<string, unknown>).paramFanOut
   // Le bloc recherche n'affiche pas de titre/description propres (jamais rendus).
   delete config.title
   delete config.description

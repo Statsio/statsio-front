@@ -12,7 +12,7 @@ usePageSeo({ title: 'Propriétés du contenu', robots: 'noindex,nofollow' })
 const route = useRoute()
 const slug = computed(() => String(route.params.slug ?? ''))
 const {
-  content, isLoading, loadError, ensureLoaded,
+  content, isLoading, loadError, ensureLoaded, slugOrId,
   publishModalOpen, publishMode, publishNextVersion, isPublishing, confirmPublish,
 } = useContentDashboard()
 
@@ -53,6 +53,7 @@ watch(slug, (value) => ensureLoaded(value))
       :mode="publishMode"
       :next-version="publishNextVersion"
       :publishing="isPublishing"
+      :document-id="String(slugOrId)"
       @close="publishModalOpen = false"
       @confirm="confirmPublish"
     />

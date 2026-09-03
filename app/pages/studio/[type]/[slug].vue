@@ -26,6 +26,7 @@ const {
   isPublishing,
   mode: publishMode,
   nextVersion: publishNextVersion,
+  documentId: publishDocumentId,
   open: openPublish,
   close: closePublish,
   confirm: confirmPublish,
@@ -80,6 +81,7 @@ onBeforeUnmount(() => {
       :mode="publishMode"
       :next-version="publishNextVersion"
       :publishing="isPublishing"
+      :document-id="publishDocumentId"
       @close="closePublish"
       @confirm="confirmPublish"
     />
