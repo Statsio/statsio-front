@@ -1,26 +1,46 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
 import { fetchContentCategories } from '@/api/content-categories'
 import type { ContentCategory } from '@/types/content-creation'
+import { categoryMatchesDomain, type SubBrand } from '@/types/sub-brand'
 
 const props = defineProps<{
   modelValue: string[]
+  /** Restreint la liste aux catégories de ce domaine (+ « toutes les marques »). */
+  domain?: SubBrand
 }>()
 
 const emit = defineEmits<{
   'update:modelValue': [string[]]
 }>()
 
-const categories = ref<ContentCategory[]>([])
+const allCategories = ref<ContentCategory[]>([])
 const loading = ref(true)
+
+const categories = computed(() =>
+  props.domain
+    ? allCategories.value.filter((c) => categoryMatchesDomain(c.sub_brand, props.domain!))
+    : allCategories.value,
+)
 
 onMounted(async () => {
   try {
-    categories.value = await fetchContentCategories()
+    allCategories.value = await fetchContentCategories()
   } finally {
     loading.value = false
   }
 })
+
+// Quand le domaine change, on retire de la sélection les catégories hors domaine.
+watch(
+  () => props.domain,
+  (domain) => {
+    if (!domain || loading.value) return
+    const allowed = new Set(categories.value.map((c) => c.slug))
+    const pruned = props.modelValue.filter((slug) => allowed.has(slug))
+    if (pruned.length !== props.modelValue.length) emit('update:modelValue', pruned)
+  },
+)
 
 function toggle(slug: string) {
   const current = [...props.modelValue]
@@ -46,6 +66,10 @@ function toggle(slug: string) {
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
       </svg>
     </div>
+
+    <p v-else-if="!categories.length" class="text-sm text-slate-400">
+      Aucune catégorie pour ce domaine pour le moment.
+    </p>
 
     <div v-else class="flex flex-wrap gap-2.5">
       <button

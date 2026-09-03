@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { mount, RouterLinkStub } from '@vue/test-utils'
 import ArticleCard from './ArticleCard.vue'
+import ContentFeaturedBadge from './ContentFeaturedBadge.vue'
 import type { CatalogItem } from '@/types/catalog'
 import type { ContentManageMeta } from '@/types/content-card'
 
@@ -75,5 +76,18 @@ describe('ArticleCard', () => {
     const w = mount(ArticleCard, { props: { item: item(), format: 'row', feature: true }, global })
     expect(w.text()).toContain('À LA UNE')
     expect(w.text()).toContain('LIRE L’ARTICLE')
+  })
+
+  it('is_featured: shows the "À la une" pin badge on the normal card and row', () => {
+    const card = mount(ArticleCard, { props: { item: item({ is_featured: true }), mode: 'public' }, global })
+    expect(card.findComponent(ContentFeaturedBadge).exists()).toBe(true)
+
+    const row = mount(ArticleCard, { props: { item: item({ is_featured: true }), format: 'row' }, global })
+    expect(row.findComponent(ContentFeaturedBadge).exists()).toBe(true)
+  })
+
+  it('is_featured: the big feature card does not double up the pin badge', () => {
+    const w = mount(ArticleCard, { props: { item: item({ is_featured: true }), format: 'row', feature: true }, global })
+    expect(w.findComponent(ContentFeaturedBadge).exists()).toBe(false)
   })
 })

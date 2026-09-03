@@ -51,6 +51,8 @@ export type CatalogItem = {
   thumbnail_url?: string | null
   categories: string[]
   category: string | null
+  /** Sous-marque de publication du contenu (« domaine »). Défaut `statsio`. */
+  sub_brand?: import('@/types/sub-brand').SubBrand
   format: CatalogFormat | null
   reading_minutes: number
   linked_datasets_count: number
@@ -60,6 +62,8 @@ export type CatalogItem = {
   created_at?: string | null
   publisher: CatalogPublisher
   is_favorited: boolean
+  /** Mise en avant éditoriale décidée par l'admin. `true` → badge « À LA UNE » ; le 1er (priorité la plus haute) devient la grande card featured. */
+  is_featured?: boolean
   /**
    * Fraîcheur de la source principale du contenu (StatsData) — `null` si la source
    * est figée (« jamais ») ou sans planification : dans ce cas la carte n'affiche rien.
@@ -122,6 +126,8 @@ export type CatalogQuery = {
   has_data?: boolean
   per_page?: number
   categories?: string[]
+  /** Cadre le listing sur une sous-marque (pages TVStats / Medistats). */
+  sub_brand?: import('@/types/sub-brand').SubBrand
   channel_id?: number
   survey_kind?: SurveyKind
   status?: SurveyStatusFilter

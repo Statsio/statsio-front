@@ -36,7 +36,19 @@ const SUB_BRANDS: Array<ContentSubBrand & { categories: string[] }> = [
 
 export function resolveContentSubBrand(
   categories: string[] | null | undefined,
+  subBrand?: string | null,
 ): ContentSubBrand | null {
+  // 1. Champ explicite (choisi par l'auteur) : prioritaire.
+  if (subBrand === 'statsio') return null
+  if (subBrand === 'tvstats' || subBrand === 'medistats') {
+    const brand = SUB_BRANDS.find((b) => b.id === subBrand)
+    if (brand) {
+      const { categories: _omit, ...rest } = brand
+      return rest
+    }
+  }
+
+  // 2. Repli : déduction historique à partir des catégories.
   if (!categories?.length) return null
   const keys = categories.map(catalogThemeKey)
   for (const brand of SUB_BRANDS) {

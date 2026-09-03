@@ -7,6 +7,8 @@ import {
   fetchDossierSuggestions,
   fetchContentDossiers,
   syncContentDossiers,
+  fetchDossierCatalog,
+  fetchDossierDetail,
 } from './dossiers'
 
 describe('app/api/dossiers', () => {
@@ -30,7 +32,7 @@ describe('app/api/dossiers', () => {
     const list = await fetchDossiers()
 
     expect(list).toEqual([
-      { id: 3, slug: 'guerre-en-ukraine', name: 'Guerre en Ukraine', description: 'x', imageUrl: 'http://img/1.jpg', categorySlugs: ['monde'] },
+      { id: 3, slug: 'guerre-en-ukraine', name: 'Guerre en Ukraine', description: 'x', imageUrl: 'http://img/1.jpg', icon: null, categorySlugs: ['monde'] },
     ])
   })
 
@@ -44,7 +46,7 @@ describe('app/api/dossiers', () => {
 
     const list = await fetchPinnedDossiers()
 
-    expect(list).toEqual([{ id: 5, slug: 'presidentielle-2027', name: 'Présidentielle 2027' }])
+    expect(list).toEqual([{ id: 5, slug: 'presidentielle-2027', name: 'Présidentielle 2027', icon: null }])
   })
 
   it('fetches suggestions for a document', async () => {
@@ -81,5 +83,48 @@ describe('app/api/dossiers', () => {
 
     expect(sentBody).toEqual({ dossier_ids: [2] })
     expect(list.map((d) => d.id)).toEqual([2])
+  })
+
+  it('unwraps the nested catalog envelope and forwards filters', async () => {
+    let sentParams: unknown
+    apiMock.onGet('/dossiers/catalog').reply((config) => {
+      sentParams = config.params
+      return [
+        200,
+        {
+          success: true,
+          data: {
+            data: [{ id: 1, slug: 'a', name: 'A', category: null, content_count: 3 }],
+            featured: { id: 9, slug: 'f', name: 'F', category: null, content_count: 12 },
+            meta: { total: 1, shown: 2, per_page: 12, has_more: false },
+            facets: { categories: [{ value: '', label: 'Toutes', count: 1 }] },
+            stats: { dossiers: 1, contents: 3, categories: 0, last_updated_at: null },
+          },
+        },
+      ]
+    })
+
+    const res = await fetchDossierCatalog({ q: 'ukr', category: 'monde', sort: 'count' })
+
+    expect(sentParams).toEqual({ q: 'ukr', category: 'monde', sort: 'count' })
+    expect(res.data[0]?.slug).toBe('a')
+    expect(res.featured?.slug).toBe('f')
+  })
+
+  it('returns the detail payload for a dossier slug', async () => {
+    apiMock.onGet('/dossiers/public/guerre-en-ukraine').reply(200, {
+      success: true,
+      data: {
+        dossier: { id: 1, slug: 'guerre-en-ukraine', name: 'Guerre en Ukraine', category: null, content_count: 2, contributors_count: 1 },
+        items: [],
+        counts: { all: 2, article: 1, statsdata: 1, survey: 0 },
+        related: [],
+      },
+    })
+
+    const res = await fetchDossierDetail('guerre-en-ukraine')
+
+    expect(res.dossier.name).toBe('Guerre en Ukraine')
+    expect(res.counts.article).toBe(1)
   })
 })

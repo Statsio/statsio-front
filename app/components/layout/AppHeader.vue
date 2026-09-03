@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import AppAccessibilityPanel from '@/components/layout/AppAccessibilityPanel.vue'
 import AppHeaderMegaMenu from '@/components/layout/AppHeaderMegaMenu.vue'
@@ -15,6 +15,9 @@ import { getBrandFromPath, getBrandSwitcherList, type BrandId } from '@/data/bra
 import { getErrorMessage } from '@/lib/http-errors'
 import { useAuthStore } from '@/stores/auth'
 import { useClickOutside } from '@/composables/useClickOutside'
+import { fetchPinnedDossiers } from '@/api/dossiers'
+import { storeToRefs } from 'pinia'
+import { usePrefsStore } from '@/stores/prefs'
 
 interface BrandNavExpose { items: HeaderNavItem[] }
 
@@ -29,6 +32,74 @@ const brandMenuRef = ref<HTMLElement | null>(null)
 const isUserMenuOpen = ref(false)
 const userMenuRef = ref<HTMLElement | null>(null)
 const isSearchOpen = ref(false)
+const { reducedMotion } = storeToRefs(usePrefsStore())
+
+// Dossiers épinglés depuis le back-office (toggle « Épinglé dans le header »).
+// Affichés en badges après les rubriques ; chaque badge pointe vers /dossiers/{slug}.
+const { data: pinnedDossiers } = useAsyncData('header-pinned-dossiers', () => fetchPinnedDossiers(), {
+  default: () => [],
+})
+
+// Refs pour détecter si le contenu dépasse
+const marqueeRef = ref<HTMLElement | null>(null)
+const trackRef = ref<HTMLElement | null>(null)
+
+// Nombre de copies de la liste rendues quand la piste défile (voir trackDossiers).
+const MARQUEE_COPIES = 4
+
+// Vrai uniquement quand la liste des dossiers est plus large que le conteneur.
+// Mesuré au montage puis à chaque redimensionnement / changement de données :
+// tant qu'il y a la place, aucune animation ne tourne.
+const contentOverflows = ref(false)
+
+const measureOverflow = () => {
+  const marquee = marqueeRef.value
+  const track = trackRef.value
+  if (!marquee || !track) return
+
+  // La piste rend plusieurs copies quand elle défile — on ramène la mesure
+  // à la largeur d'une seule passe pour comparer au conteneur.
+  const copies = (reducedMotion.value || !contentOverflows.value) ? 1 : MARQUEE_COPIES
+  const oneCopyWidth = track.scrollWidth / copies
+  // +1px de marge pour éviter un basculement en boucle sur un arrondi subpixel.
+  contentOverflows.value = oneCopyWidth > marquee.clientWidth + 1
+}
+
+// Détecte si le contenu dépasse le conteneur (et respecte prefers-reduced-motion).
+const shouldAnimate = computed(() => contentOverflows.value && !reducedMotion.value)
+
+let resizeObserver: ResizeObserver | null = null
+
+const startOverflowWatch = () => {
+  nextTick(measureOverflow)
+  if (typeof ResizeObserver !== 'undefined' && !resizeObserver) {
+    resizeObserver = new ResizeObserver(() => measureOverflow())
+  }
+  if (resizeObserver) {
+    if (marqueeRef.value) resizeObserver.observe(marqueeRef.value)
+    if (trackRef.value) resizeObserver.observe(trackRef.value)
+  }
+}
+
+watch(pinnedDossiers, () => nextTick(startOverflowWatch))
+watch(reducedMotion, () => nextTick(measureOverflow))
+
+/**
+ * Piste de défilement pour les dossiers épinglés.
+ * Sans animation on ne rend qu'une passe (scroll manuel) ;
+ * avec animation on répète la liste 4× — la keyframe translate de -50 % (soit 2 passes)
+ * et retombe donc exactement sur un contenu identique → boucle sans saut.
+ */
+const trackDossiers = computed(() => {
+  const list = pinnedDossiers.value ?? []
+  if (!list.length) return []
+  const copies = (reducedMotion.value || !shouldAnimate.value) ? 1 : MARQUEE_COPIES
+  const out: { dossier: typeof list[0]; key: string; clone: boolean }[] = []
+  for (let copy = 0; copy < copies; copy++) {
+    list.forEach((dossier, index) => out.push({ dossier, key: `${copy}-${index}`, clone: copy > 0 }))
+  }
+  return out
+})
 
 const route = useRoute()
 const router = useRouter()
@@ -100,6 +171,7 @@ const handleSearchShortcut = (event: KeyboardEvent) => {
 
 onMounted(() => {
   document.addEventListener('keydown', handleSearchShortcut)
+  startOverflowWatch()
 })
 
 const openAccessibilityPanel = () => {
@@ -161,6 +233,8 @@ useClickOutside(userMenuRef, closeUserMenu)
 onBeforeUnmount(() => {
   document.body.style.overflow = ''
   document.removeEventListener('keydown', handleSearchShortcut)
+  resizeObserver?.disconnect()
+  resizeObserver = null
 })
 </script>
 
@@ -268,9 +342,48 @@ onBeforeUnmount(() => {
 
       <component :is="currentBrandNavComponent" ref="brandNavRef" v-model="activeMenu" />
 
-      <div class="flex-1"></div>
+      <div
+        v-if="pinnedDossiers && pinnedDossiers.length"
+        class="hidden min-w-0 flex-1 items-center lg:flex"
+      >
+        <span class="mx-1.5 h-4 w-px shrink-0 bg-slate-200" aria-hidden="true"></span>
+        <div
+          ref="marqueeRef"
+          class="dossier-marquee relative min-w-0 flex-1 mr-1.5"
+          :class="reducedMotion ? 'dossier-scroll overflow-x-auto' : 'overflow-hidden'"
+        >
+          <div
+            ref="trackRef"
+            class="dossier-track flex w-max items-center"
+            :class="{ 'dossier-track--run': shouldAnimate }"
+          >
+            <RouterLink
+              v-for="entry in trackDossiers"
+              :key="entry.key"
+              :to="`/dossiers/${entry.dossier.slug}`"
+              :aria-hidden="entry.clone ? 'true' : undefined"
+              :tabindex="entry.clone ? -1 : undefined"
+              class="dossier-item group inline-flex shrink-0 items-center gap-1.5 rounded-full border border-primary/20 bg-primary/[0.06] px-2.5 py-1 text-[12px] font-bold text-primary transition hover:border-primary/40 hover:bg-primary/10"
+            >
+              <!-- Affiche l'emoji si présent -->
+              <span
+                v-if="entry.dossier.icon"
+                class="text-sm"
+              >
+                {{ entry.dossier.icon }}
+              </span>
+              <svg v-else viewBox="0 0 24 24" class="h-3 w-3 shrink-0" fill="currentColor" aria-hidden="true">
+                <path
+                  d="M9 2a1 1 0 0 0 0 2h.72l.53 5.32-2.9 2.05A1 1 0 0 0 7 12v2a1 1 0 0 0 1 1h3v6a1 1 0 0 0 2 0v-6h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-.35-.63l-2.9-2.05L15.28 4H16a1 1 1 0 1 0 0-2H9Z"
+                />
+              </svg>
+              <span>{{ entry.dossier.name }}</span>
+            </RouterLink>
+          </div>
+        </div>
+      </div>
 
-      <div class="flex items-center gap-2 sm:gap-2.5">
+      <div class="ml-auto flex items-center gap-2 sm:gap-2.5">
         <AppHeaderSearch @open="openSearch" />
 
         <AppAccessibilityPanel ref="accessibilityPanelRef" />
@@ -581,5 +694,42 @@ onBeforeUnmount(() => {
 .mobile-slider {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+.dossier-scroll {
+  scrollbar-width: none;
+}
+.dossier-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* Espacement porté par l'item (et non un `gap` flex) pour que translateX(-50%) tombe
+   pile sur une frontière de copie → boucle sans saccade. */
+.dossier-item {
+  margin-inline-end: 1rem;
+}
+
+.dossier-track--run {
+  animation: dossier-marquee 90s linear infinite;
+}
+
+.dossier-marquee:hover .dossier-track--run,
+.dossier-marquee:focus-within .dossier-track--run {
+  animation-play-state: paused;
+}
+
+@keyframes dossier-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dossier-track--run {
+    animation: none;
+  }
 }
 </style>

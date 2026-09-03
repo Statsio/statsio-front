@@ -12,6 +12,7 @@ import ContentCardOwner from '@/components/content/ContentCardOwner.vue'
 import ContentCardActions from '@/components/content/ContentCardActions.vue'
 import CatalogSubBrandTag from '@/components/listing/CatalogSubBrandTag.vue'
 import ContentCardDossierTag from '@/components/content/ContentCardDossierTag.vue'
+import ContentFeaturedBadge from '@/components/content/ContentFeaturedBadge.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -41,6 +42,8 @@ const formatMeta = computed(() => (props.item.format ? CATALOG_FORMAT_STYLE[prop
 const coverStyle = computed(() => channelPatternStyle(theme.value.dot))
 const isManage = computed(() => props.mode === 'manage' && !!props.manage)
 const pubMeta = computed(() => formatCatalogItemMeta(props.item.views_count, props.item.updated_at))
+/** Contenu « à la une » (admin) hors grande card featured → pastille « À LA UNE ». */
+const pinned = computed(() => Boolean(props.item.is_featured) && !props.feature)
 </script>
 
 <template>
@@ -102,6 +105,7 @@ const pubMeta = computed(() => formatCatalogItemMeta(props.item.views_count, pro
         <img v-if="item.thumbnail_url" :src="item.thumbnail_url" :alt="item.title" class="h-full w-full rounded-[7px] object-cover" />
       </span>
       <span class="min-w-0">
+        <ContentFeaturedBadge v-if="pinned" compact class="mb-1" />
         <NuxtLink :to="isManage && manage ? manage.studioPath : to" class="block truncate text-sm font-bold text-slate-950 hover:text-primary">{{ item.title }}</NuxtLink>
         <span class="mt-0.5 block truncate font-mono text-[10px] text-slate-400">{{ formatCatalogViews(item.views_count) }}</span>
       </span>
@@ -128,12 +132,15 @@ const pubMeta = computed(() => formatCatalogItemMeta(props.item.views_count, pro
   >
     <div class="relative h-[150px]" :style="item.thumbnail_url ? undefined : coverStyle">
       <img v-if="item.thumbnail_url" :src="item.thumbnail_url" :alt="item.title" class="h-full w-full object-cover" />
-      <span
-        v-if="item.category"
-        class="absolute left-3 top-3 rounded-[5px] bg-white px-2 py-1 font-mono text-[9.5px] font-semibold tracking-[0.08em]"
-        :style="{ color: theme.fg }"
-      >
-        {{ item.category.toUpperCase() }}
+      <span v-if="pinned || item.category" class="absolute left-3 top-3 flex flex-col items-start gap-1.5">
+        <ContentFeaturedBadge v-if="pinned" />
+        <span
+          v-if="item.category"
+          class="rounded-[5px] bg-white px-2 py-1 font-mono text-[9.5px] font-semibold tracking-[0.08em]"
+          :style="{ color: theme.fg }"
+        >
+          {{ item.category.toUpperCase() }}
+        </span>
       </span>
       <ContentCardFavButton v-if="!isManage" class="absolute right-2.5 top-2.5" :active="favorited" @toggle="emit('favorite')" />
       <span
@@ -161,7 +168,7 @@ const pubMeta = computed(() => formatCatalogItemMeta(props.item.views_count, pro
         </span>
       </div>
 
-      <CatalogSubBrandTag :categories="item.categories" content-type="article" />
+      <CatalogSubBrandTag :categories="item.categories" :sub-brand="item.sub_brand" content-type="article" />
       <ContentCardDossierTag :dossier="item.dossier" />
       <NuxtLink
         :to="isManage && manage ? manage.studioPath : to"

@@ -1,18 +1,24 @@
 <script setup lang="ts">
 import StatsDataSettingsCard from './StatsDataSettingsCard.vue'
+import { useMediaLibrary } from '@/composables/useMediaLibrary'
 
 defineProps<{
   previewUrl: string | null
 }>()
 
 const emit = defineEmits<{
-  select: [file: File]
+  select: [media: { id: number; url: string }]
   remove: []
 }>()
 
-function onFileChange(event: Event) {
-  const file = (event.target as HTMLInputElement).files?.[0]
-  if (file) emit('select', file)
+const mediaLibrary = useMediaLibrary()
+
+function choose() {
+  mediaLibrary.open({
+    mode: 'pick',
+    directory: 'studio-content-thumbnails',
+    onSelect: (media) => emit('select', { id: media.id, url: media.url }),
+  })
 }
 </script>
 
@@ -29,10 +35,13 @@ function onFileChange(event: Event) {
           Format recommandé : 1280 × 720, JPG ou PNG, 5 Mo max.
         </p>
         <div class="flex gap-2.5">
-          <label class="inline-block cursor-pointer rounded-[9px] border border-[#18181f]/[0.14] bg-white px-[18px] py-2.5 text-[13px] font-bold text-[#18181f]">
-            Choisir un fichier
-            <input type="file" accept="image/*" class="hidden" @change="onFileChange" />
-          </label>
+          <button
+            type="button"
+            class="rounded-[9px] border border-[#18181f]/[0.14] bg-white px-[18px] py-2.5 text-[13px] font-bold text-[#18181f]"
+            @click="choose"
+          >
+            {{ previewUrl ? 'Changer l’image' : 'Choisir une image' }}
+          </button>
           <button
             v-if="previewUrl"
             type="button"
