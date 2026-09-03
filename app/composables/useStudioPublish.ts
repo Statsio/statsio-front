@@ -19,6 +19,8 @@ export function useStudioPublish(saveNow: () => Promise<void> | void) {
   /** 'author' = 1re publication (choix du profil), 'confirm' = re-publication. */
   const mode = computed<'author' | 'confirm'>(() => (alreadyPublishedOnce.value ? 'confirm' : 'author'))
   const nextVersion = computed(() => (studio.content?.published_version ?? 0) + 1)
+  /** slug (ou id en repli) transmis à la modale pour charger dossiers & suggestions. */
+  const documentId = computed(() => studio.content?.slug ?? String(studio.content?.id ?? ''))
 
   async function open() {
     if (!studio.content?.id || studio.content.id === 'demo') return
@@ -35,7 +37,9 @@ export function useStudioPublish(saveNow: () => Promise<void> | void) {
     isOpen.value = false
   }
 
-  async function confirm(opts: { publishedAs?: 'user' | 'channel'; channelId?: number | null } = {}) {
+  async function confirm(
+    opts: { publishedAs?: 'user' | 'channel'; channelId?: number | null; dossierIds?: number[] } = {},
+  ) {
     const id = studio.content?.id
     if (!id || id === 'demo') return
     isPublishing.value = true
@@ -54,5 +58,5 @@ export function useStudioPublish(saveNow: () => Promise<void> | void) {
     }
   }
 
-  return { isOpen, isPublishing, mode, nextVersion, open, close, confirm }
+  return { isOpen, isPublishing, mode, nextVersion, documentId, open, close, confirm }
 }

@@ -11,7 +11,6 @@ function item(overrides: Partial<CatalogItem>): CatalogItem {
     categories: [],
     category: null,
     format: null,
-    tags: [],
     reading_minutes: 1,
     linked_datasets_count: 0,
     charts_count: 0,

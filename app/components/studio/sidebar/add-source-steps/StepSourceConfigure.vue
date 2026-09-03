@@ -4,8 +4,9 @@ import { apiHttp } from '@/lib/http'
 import { STATSIO_API } from '@/api/statsio-endpoints'
 import type { SourceType, AuthType, HttpMethod, ApiFormPagination, ApiFormShape } from '@/composables/useAddSourceWizard'
 import { apiFormAuthHeaders, useApiStructureDetection } from '@/composables/useAddSourceWizard'
-import type { Materialization, RefreshFrequency, SpreadsheetPreview, QueryMapping } from '@/api/data-sources'
+import type { Materialization, SpreadsheetPreview, QueryMapping } from '@/api/data-sources'
 import { previewSpreadsheet } from '@/api/data-sources'
+import { REFRESH_FREQUENCY_OPTIONS } from '@/lib/refresh-frequency'
 import ApiDetectionResults from './ApiDetectionResults.vue'
 
 const PAGINATION_STYLE_OPTIONS: { v: ApiFormPagination['style']; l: string }[] = [
@@ -30,6 +31,8 @@ const props = defineProps<{
   existingFileLabel?: string
   /** Mode édition d'une source API : active le bouton "Actualiser maintenant" et l'affichage des dates. */
   isEditingApi?: boolean
+  /** Masque le sélecteur de fréquence + le bloc "Actualiser maintenant" quand une étape dédiée (Synchronisation) les porte. */
+  hideRefreshFrequency?: boolean
   lastRefreshedAt?: string | null
   nextRefreshAt?: string | null
   refreshing?: boolean
@@ -68,14 +71,6 @@ function updateApiForm(patch: Partial<ApiFormShape>) {
 function updatePagination(patch: Partial<ApiFormPagination>) {
   updateApiForm({ pagination: { ...props.apiForm.pagination, ...patch } })
 }
-
-const REFRESH_FREQUENCY_OPTIONS: { v: RefreshFrequency; l: string }[] = [
-  { v: 'none', l: 'Manuelle' },
-  { v: 'daily', l: 'Quotidienne' },
-  { v: 'weekly', l: 'Hebdomadaire' },
-  { v: 'monthly', l: 'Mensuelle' },
-  { v: 'yearly', l: 'Annuelle' },
-]
 
 function formatDate(iso?: string | null): string {
   if (!iso) return '—'
@@ -686,7 +681,7 @@ function addSortableColumn() {
       </div>
     </div>
 
-    <div v-if="apiForm.materialization !== 'live'">
+    <div v-if="apiForm.materialization !== 'live' && !hideRefreshFrequency">
       <label class="block text-xs font-semibold uppercase tracking-wider text-[var(--studio-faint)] mb-1.5">
         Actualisation automatique
       </label>
@@ -718,7 +713,7 @@ function addSortableColumn() {
       Source en direct — toujours à jour, aucune actualisation nécessaire.
     </p>
 
-    <div v-if="isEditingApi && apiForm.materialization !== 'live'" class="flex items-center gap-3 rounded-xl bg-[var(--studio-note)] p-3">
+    <div v-if="isEditingApi && apiForm.materialization !== 'live' && !hideRefreshFrequency" class="flex items-center gap-3 rounded-xl bg-[var(--studio-note)] p-3">
       <button
         type="button"
         class="shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all"

@@ -22,10 +22,9 @@ const CATEGORY_PALETTES: { match: RegExp; colors: string[] }[] = [
 ]
 const DEFAULT_PALETTE = ['#8b5cf6', '#a78bfa', '#ddd6fe', '#f5f3ff']
 
-export function getStatsDataVisual(categories?: string[], emoji?: string | null): StatsDataVisual {
+export function getStatsDataVisual(categories?: string[]): StatsDataVisual {
   const label = categories?.[0] ?? ''
-  const visual = CATEGORY_VISUALS.find((v) => v.match.test(label)) ?? DEFAULT_VISUAL
-  return emoji ? { ...visual, emoji } : visual
+  return CATEGORY_VISUALS.find((v) => v.match.test(label)) ?? DEFAULT_VISUAL
 }
 
 export function getStatsDataPalette(categories?: string[]): string[] {

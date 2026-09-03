@@ -5,10 +5,11 @@ import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import { fetchDistinctValues } from '@/api/studio'
 import { blockSourceParams } from '@/composables/useBlockData'
 import type { BlockFilter, DatasetMeta, StudioBlock } from '@/types/studio'
+import { parseColumnRef } from '@/lib/studio-columns'
+import { useColumnDrillIn } from '@/composables/useColumnDrillIn'
+import { useSourceDrillIn } from '@/composables/useSourceDrillIn'
 import FieldPicker from '@/components/studio/fields/FieldPicker.vue'
 import FieldNote from '@/components/studio/fields/FieldNote.vue'
-import DataSourceWizard from '@/components/studio/ui/DataSourceWizard.vue'
-import ColumnPickerModal from '@/components/studio/ui/ColumnPickerModal.vue'
 import BlockFiltersField from '@/components/studio/fields/BlockFiltersField.vue'
 
 const props = defineProps<{ block: StudioBlock; activeTab: string }>()
@@ -63,9 +64,18 @@ watch(
   { immediate: true },
 )
 
-// ─── Sub-modals ──────────────────────────────────────────────────────────────
-const showDataSourceModal = ref(false)
-const showColumnModal = ref(false)
+// ─── Pickers ─────────────────────────────────────────────────────────────────
+const sourceDrill = useSourceDrillIn()
+const columnDrill = useColumnDrillIn()
+
+function pickLoopColumn() {
+  columnDrill.open({
+    block: props.block,
+    title: 'Colonne à parcourir',
+    selected: loopColumn.value ? [loopColumn.value] : [],
+    onCommit: (refs) => { if (refs[0]) updateMapping('loopColumn', parseColumnRef(refs[0]).name) },
+  })
+}
 
 function onVarInput(e: Event) {
   const raw = (e.target as HTMLInputElement).value
@@ -88,25 +98,16 @@ const LAYOUTS = [
         <FieldPicker
           label="Source"
           :value="datasetName"
-          action="Changer"
-          @open="showDataSourceModal = true"
+          :action="block.datasetId ? 'Changer' : 'Choisir'"
+          @open="sourceDrill.open({ block, singleSource: true })"
         />
-        <DataSourceWizard :show="showDataSourceModal" :block="block" @close="showDataSourceModal = false" />
 
         <template v-if="block.datasetId">
           <FieldPicker
             label="Colonne à parcourir"
             :value="loopColumn || 'Choisir une colonne'"
             :action="loopColumn ? 'Changer' : 'Choisir'"
-            @open="showColumnModal = true"
-          />
-          <ColumnPickerModal
-            :show="showColumnModal"
-            :block="block"
-            mode="single"
-            :model-value="loopColumn || null"
-            @update:model-value="updateMapping('loopColumn', $event)"
-            @close="showColumnModal = false"
+            @open="pickLoopColumn"
           />
 
           <div class="flex flex-col gap-1.5">

@@ -105,7 +105,6 @@ function isActive(item: NavItem) {
           </span>
         </div>
         <div class="mt-2.5 flex items-start gap-2">
-          <span v-if="content?.emoji" class="text-[15px] leading-none">{{ content.emoji }}</span>
           <p class="text-[13.5px] font-extrabold leading-snug text-slate-950 text-pretty">
             {{ content?.title }}
           </p>

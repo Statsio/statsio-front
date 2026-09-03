@@ -105,7 +105,9 @@ export function useContentDashboard() {
     publishModalOpen.value = true
   }
 
-  async function confirmPublish(opts: { publishedAs?: 'user' | 'channel'; channelId?: number | null } = {}) {
+  async function confirmPublish(
+    opts: { publishedAs?: 'user' | 'channel'; channelId?: number | null; dossierIds?: number[] } = {},
+  ) {
     const id = content.value?.slug || content.value?.id
     if (!id) return
     isPublishing.value = true
@@ -146,6 +148,7 @@ export function useContentDashboard() {
     contentType,
     typeLabel,
     statusMeta,
+    slugOrId,
     studioPath,
     publicPath,
     propertiesBase,

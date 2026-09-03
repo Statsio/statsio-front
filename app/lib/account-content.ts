@@ -18,7 +18,6 @@ export interface DisplayAccountContent {
   ownerBg: string
   ownerShape: 'circle' | 'square'
   thumbnailUrl: string | null
-  emoji: string | null
 }
 
 /** Transforme un résumé de contenu API en propriétés d'affichage (couleurs, chemin, avatar). */
@@ -63,6 +62,5 @@ export function toDisplayAccountContent(c: AccountContentSummary): DisplayAccoun
     ownerBg,
     ownerShape,
     thumbnailUrl: c.thumbnail_url,
-    emoji: c.emoji,
   }
 }

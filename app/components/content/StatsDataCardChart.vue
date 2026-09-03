@@ -53,7 +53,6 @@ const { stop } = useIntersectionObserver(
       class="my-4"
       :preview="preview"
       :categories="item.categories"
-      :label="(item.category || 'Indicateur').toUpperCase()"
     />
     <StatsDataSyntheticViz v-else :item="item" />
   </div>

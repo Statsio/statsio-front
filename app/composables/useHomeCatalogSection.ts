@@ -6,8 +6,8 @@ import { publicContentListPath } from '@/lib/content-display'
 import type { CatalogContentType, CatalogItem } from '@/types/catalog'
 
 /**
- * Alimente un carrousel de la page d'accueil : liste courte du catalogue public,
- * gestion optimiste des favoris et navigation vers la liste filtrée par tag.
+ * Alimente un carrousel de la page d'accueil : liste courte du catalogue public
+ * et gestion optimiste des favoris.
  */
 export function useHomeCatalogSection(options: {
   type: CatalogContentType
@@ -51,9 +51,5 @@ export function useHomeCatalogSection(options: {
     publicContentListPath(options.type === 'survey' ? 'survey' : options.type, ''),
   )
 
-  async function selectTag(tag: string) {
-    await navigateTo({ path: listPath.value, query: { q: tag } })
-  }
-
-  return { items, pending, isFavorited, toggleItemFavorite, selectTag, listPath }
+  return { items, pending, isFavorited, toggleItemFavorite, listPath }
 }

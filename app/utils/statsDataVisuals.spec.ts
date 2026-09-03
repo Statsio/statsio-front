@@ -26,12 +26,4 @@ describe('getStatsDataVisual', () => {
   it('falls back to the default visual for an unrecognized category', () => {
     expect(getStatsDataVisual(['Inconnu'])).toMatchObject({ emoji: '📊' })
   })
-
-  it('overrides the emoji when one is explicitly provided', () => {
-    expect(getStatsDataVisual(['Santé'], '🚑')).toMatchObject({ emoji: '🚑', bg: 'bg-rose-50', color: '#e11d48' })
-  })
-
-  it('ignores a null/falsy emoji override', () => {
-    expect(getStatsDataVisual(['Santé'], null)).toMatchObject({ emoji: '🏥' })
-  })
 })

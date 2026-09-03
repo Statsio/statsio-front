@@ -7,6 +7,7 @@ import { defaultPagination } from '@/composables/useAddSourceWizard'
 
 export const EDIT_SOURCE_WIZARD_STEPS: ModalStep[] = [
   { id: 'configure', title: 'Configuration', description: 'Nom, fichier ou connexion' },
+  { id: 'synchronisation', title: 'Synchronisation', description: 'Fréquence de resynchronisation' },
   { id: 'provenance', title: 'Provenance', description: "D'où proviennent vos données ?" },
   { id: 'visibility', title: 'Visibilité', description: 'Privée ou accessible à tous' },
 ]
