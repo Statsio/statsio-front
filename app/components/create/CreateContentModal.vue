@@ -8,6 +8,7 @@ import { createStudioContent } from '@/api/studio'
 import type { StatsDataDocument } from '@/api/studio'
 import { fetchContentCategories } from '@/api/content-categories'
 import { CONTENT_COVERAGE_OPTIONS, type ContentCategory, type ContentType } from '@/types/content-creation'
+import { SUB_BRAND_OPTIONS, categoryMatchesDomain } from '@/types/sub-brand'
 
 const TYPE_META: Record<ContentType, { label: string; kicker: string; icon: string; iconBg: string; iconFg: string; placeholder: string; successTitle: string }> = {
   statsdata: {
@@ -51,11 +52,26 @@ const categoriesCatalog = ref<ContentCategory[]>([])
 const categoriesLoading = ref(false)
 
 const {
-  title, categories, coverage,
+  title, domain, categories, coverage,
   surveyKind, requiresIdentityVerification,
   steps, currentStepId, currentStepIndex, canGoNext,
   reset, buildPayload,
 } = useCreateContentWizard(props.type)
+
+/** Catégories proposées pour le domaine choisi (+ celles « toutes les marques »). */
+const visibleCategories = computed(() =>
+  categoriesCatalog.value.filter((c) => categoryMatchesDomain(c.sub_brand, domain.value)),
+)
+
+// Changer de domaine retire les catégories déjà cochées qui n'y appartiennent plus.
+watch(domain, () => {
+  const allowed = new Set(visibleCategories.value.map((c) => c.slug))
+  categories.value = categories.value.filter((slug) => allowed.has(slug))
+})
+
+const domainLabel = computed(
+  () => SUB_BRAND_OPTIONS.find((o) => o.value === domain.value)?.label ?? '—',
+)
 
 const stepCount = computed(() => steps.value.length)
 const stepNumber = computed(() => currentStepIndex.value + 1)
@@ -76,6 +92,7 @@ const categoryLabels = computed(() =>
 const reviewRows = computed(() => {
   const rows: { label: string; value: string }[] = [
     { label: 'Titre', value: title.value.trim() || '—' },
+    { label: 'Domaine', value: domainLabel.value },
     { label: 'Catégories', value: categoryLabels.value || 'Aucune' },
     { label: 'Couverture géographique', value: coverage.value ? coverageLabel.value : 'Non précisée' },
   ]
@@ -224,11 +241,30 @@ const studioPath = () =>
               </div>
 
               <div>
+                <div class="mb-2 text-[12.5px] font-bold text-[#18181f]">Domaine</div>
+                <div class="flex flex-wrap gap-1.5">
+                  <button
+                    v-for="opt in SUB_BRAND_OPTIONS"
+                    :key="opt.value"
+                    type="button"
+                    class="rounded-full border-[1.5px] px-[13px] py-[7px] text-[12.5px] font-bold transition-colors"
+                    :class="domain === opt.value
+                      ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white'
+                      : 'border-[#14141e]/[0.12] bg-white text-[#18181f]/70 hover:border-[var(--color-primary)]/40'"
+                    @click="domain = opt.value"
+                  >{{ opt.label }}</button>
+                </div>
+              </div>
+
+              <div>
                 <div class="mb-2 text-[12.5px] font-bold text-[#18181f]">Catégories</div>
                 <p v-if="categoriesLoading" class="text-[12px] text-[#18181f]/45">Chargement…</p>
+                <p v-else-if="!visibleCategories.length" class="text-[12px] text-[#18181f]/45">
+                  Aucune catégorie pour ce domaine pour le moment.
+                </p>
                 <div v-else class="flex flex-wrap gap-1.5">
                   <button
-                    v-for="cat in categoriesCatalog"
+                    v-for="cat in visibleCategories"
                     :key="cat.slug"
                     type="button"
                     class="rounded-full border-[1.5px] px-[13px] py-[7px] text-[12.5px] font-bold transition-colors"

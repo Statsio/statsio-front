@@ -1,7 +1,11 @@
+import type { CategorySubBrand, SubBrand } from '@/types/sub-brand'
+
 export type ContentCategory = {
   id: number
   slug: string
   name: string
+  /** Sous-marque de rattachement (`all` = disponible partout). */
+  sub_brand?: CategorySubBrand
 }
 
 /**
@@ -61,6 +65,7 @@ export type CreateContentPayload = {
   title: string
   type: ContentType
   categories: string[]
+  sub_brand: SubBrand
   coverage?: ContentCoverage
   survey_kind?: SurveyKind
   requires_identity_verification?: boolean

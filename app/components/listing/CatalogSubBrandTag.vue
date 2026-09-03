@@ -5,11 +5,13 @@ import type { ContentType } from '@/types/content-creation'
 
 const props = defineProps<{
   categories: string[] | null | undefined
+  /** Domaine explicite du contenu — prioritaire sur la déduction par catégories. */
+  subBrand?: string | null
   /** Type de contenu de la carte, pour cibler la bonne liste côté sous-marque. */
   contentType: ContentType
 }>()
 
-const brand = computed(() => resolveContentSubBrand(props.categories))
+const brand = computed(() => resolveContentSubBrand(props.categories, props.subBrand))
 const to = computed(() => (brand.value ? subBrandContentPath(brand.value, props.contentType) : ''))
 </script>
 

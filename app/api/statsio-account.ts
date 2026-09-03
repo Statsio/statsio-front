@@ -20,6 +20,12 @@ export async function uploadAvatar(file: File): Promise<{ avatar: string; user: 
   return unwrapStatsioResponseData<{ avatar: string; user: AuthUser }>(res)
 }
 
+/** `POST /me/avatar` — met à jour la photo de profil à partir d'une image de la bibliothèque de médias. */
+export async function updateAvatarFromMedia(mediaId: number): Promise<{ avatar: string; user: AuthUser }> {
+  const res = await apiHttp.post(STATSIO_API.account.avatar, { media_id: mediaId })
+  return unwrapStatsioResponseData<{ avatar: string; user: AuthUser }>(res)
+}
+
 /** `DELETE /me/avatar` — retire la photo de profil. */
 export async function deleteAvatar(): Promise<{ user: AuthUser }> {
   const res = await apiHttp.delete(STATSIO_API.account.avatar)

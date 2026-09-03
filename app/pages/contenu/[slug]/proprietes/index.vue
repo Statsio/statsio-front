@@ -7,7 +7,7 @@ definePageMeta({
   robots: 'noindex,nofollow',
 })
 
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import ContentDashboardHeader from '@/components/contents/dashboard/ContentDashboardHeader.vue'
 import StatsDataSettingsGeneralCard from '@/components/statsdata/settings/StatsDataSettingsGeneralCard.vue'
 import StatsDataSettingsCategoriesCard from '@/components/statsdata/settings/StatsDataSettingsCategoriesCard.vue'
@@ -19,6 +19,7 @@ import StatsDataSettingsIdentityCard from '@/components/statsdata/settings/Stats
 import StatsDataSettingsCard from '@/components/statsdata/settings/StatsDataSettingsCard.vue'
 import DossierPicker from '@/components/studio/DossierPicker.vue'
 import type { SurveyKind } from '@/types/content-creation'
+import { normalizeSubBrand, type SubBrand } from '@/types/sub-brand'
 import { publicContentPath } from '@/lib/content-display'
 import { useContentDashboard } from '@/composables/useContentDashboard'
 import { syncContentDossiers } from '@/api/dossiers'
@@ -37,6 +38,7 @@ const name = ref('')
 const description = ref('')
 const slug = ref('')
 const categories = ref<string[]>([])
+const domain = ref<SubBrand>('statsio')
 const dossierIds = ref<number[]>([])
 const cardBlockId = ref<string | null>(null)
 const responseDeadline = ref<string | null>(null)
@@ -44,7 +46,7 @@ const surveyKind = ref<SurveyKind>('single_question')
 const requiresIdentity = ref(false)
 
 const persistedThumbnailUrl = ref<string | null>(null)
-const pendingThumbnailFile = ref<File | null>(null)
+const pendingThumbnailMediaId = ref<number | null>(null)
 const removeThumbnail = ref(false)
 const pendingPreviewUrl = ref<string | null>(null)
 
@@ -58,6 +60,7 @@ watch(
     description.value = doc.description ?? ''
     slug.value = doc.slug ?? ''
     categories.value = [...(doc.categories ?? [])]
+    domain.value = normalizeSubBrand(doc.sub_brand)
     dossierIds.value = (doc.dossiers ?? []).map((d) => d.id)
     cardBlockId.value = doc.card_block_id ?? null
     responseDeadline.value = doc.response_deadline ? doc.response_deadline.slice(0, 10) : null
@@ -78,23 +81,17 @@ const slugError = computed(() =>
     : '',
 )
 
-function onThumbnailSelect(file: File) {
-  if (pendingPreviewUrl.value) URL.revokeObjectURL(pendingPreviewUrl.value)
-  pendingThumbnailFile.value = file
+function onThumbnailSelect(media: { id: number; url: string }) {
+  pendingThumbnailMediaId.value = media.id
   removeThumbnail.value = false
-  pendingPreviewUrl.value = URL.createObjectURL(file)
+  pendingPreviewUrl.value = media.url
 }
 
 function onThumbnailRemove() {
-  if (pendingPreviewUrl.value) URL.revokeObjectURL(pendingPreviewUrl.value)
-  pendingThumbnailFile.value = null
+  pendingThumbnailMediaId.value = null
   pendingPreviewUrl.value = null
   removeThumbnail.value = true
 }
-
-onBeforeUnmount(() => {
-  if (pendingPreviewUrl.value) URL.revokeObjectURL(pendingPreviewUrl.value)
-})
 
 async function save() {
   if (slugError.value) return
@@ -109,6 +106,7 @@ async function save() {
         description: description.value || null,
         slug: slug.value || undefined,
         categories: categories.value,
+        sub_brand: domain.value,
         ...(contentType.value === 'statsdata' ? { card_block_id: cardBlockId.value } : {}),
         ...(contentType.value === 'survey'
           ? {
@@ -118,12 +116,11 @@ async function save() {
             }
           : {}),
       },
-      pendingThumbnailFile.value,
+      pendingThumbnailMediaId.value,
       removeThumbnail.value,
     )
     if (ok) {
-      if (pendingPreviewUrl.value) URL.revokeObjectURL(pendingPreviewUrl.value)
-      pendingThumbnailFile.value = null
+      pendingThumbnailMediaId.value = null
       pendingPreviewUrl.value = null
       removeThumbnail.value = false
     }
@@ -193,7 +190,7 @@ async function save() {
         @remove="onThumbnailRemove"
       />
 
-      <StatsDataSettingsCategoriesCard v-model="categories" />
+      <StatsDataSettingsCategoriesCard v-model:categories="categories" v-model:domain="domain" />
 
       <StatsDataSettingsCard
         title="Dossiers"

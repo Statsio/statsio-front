@@ -18,6 +18,7 @@ import ArticleCard from '@/components/content/ArticleCard.vue'
 
 const props = defineProps<{
   categories?: string[]
+  subBrand?: import('@/types/sub-brand').SubBrand
   title?: string
 }>()
 
@@ -41,7 +42,8 @@ const {
 } = usePublicCatalog({
   type: 'article',
   brandCategories: props.categories,
-  key: `articles-catalog-${(props.categories ?? []).join(',')}`,
+  brandSubBrand: props.subBrand,
+  key: `articles-catalog-${props.subBrand ?? ''}-${(props.categories ?? []).join(',')}`,
 })
 
 const sortOptions: { value: 'trend' | 'recent' | 'views'; label: string }[] = [

@@ -4,6 +4,7 @@ import {
   loadStatsDataMenu,
   loadSurveyMenu,
   loadChannelsMenu,
+  loadDossiersMenu,
   loadPromoTicker,
   loadMaladiesMenu,
   loadMedicamentsMenu,
@@ -11,6 +12,7 @@ import {
 } from './useHeaderMegaMenuData'
 import { fetchPublicCatalog } from '@/api/studio'
 import { fetchChannelCatalog } from '@/api/channels'
+import { fetchDossierCatalog } from '@/api/dossiers'
 import { fetchMaladiesPopulaires } from '@/api/maladies'
 import { fetchMedicamentsSearch } from '@/api/medicaments'
 import { fetchSoinsList } from '@/api/soins'
@@ -27,6 +29,8 @@ vi.mock('@/api/channels', async (importOriginal) => {
     fetchChannelCatalog: vi.fn<typeof fetchChannelCatalog>(),
   }
 })
+
+vi.mock('@/api/dossiers', () => ({ fetchDossierCatalog: vi.fn<typeof fetchDossierCatalog>() }))
 
 vi.mock('@/api/maladies', () => ({ fetchMaladiesPopulaires: vi.fn<typeof fetchMaladiesPopulaires>() }))
 vi.mock('@/api/medicaments', () => ({ fetchMedicamentsSearch: vi.fn<typeof fetchMedicamentsSearch>() }))
@@ -186,6 +190,37 @@ describe('useHeaderMegaMenuData', () => {
     it('falls back to an empty "plane" menu when the catalog fails', async () => {
       vi.mocked(fetchChannelCatalog).mockRejectedValue(new Error('fail'))
       const result = await loadChannelsMenu(PALETTE)
+      expect(result.menu).toEqual({ variant: 'plane', cards: [] })
+    })
+  })
+
+  describe('loadDossiersMenu', () => {
+    it('builds dossier cards (icon avatar + content count) + counted categories', async () => {
+      vi.mocked(fetchDossierCatalog).mockResolvedValue({
+        data: [
+          { id: 2, slug: 'crise-climatique', name: 'Crise climatique', description: null, image_url: null, icon: '🔥', category: { slug: 'sciences', label: 'Sciences' }, content_count: 5, updated_at: null },
+        ],
+        featured: { id: 1, slug: 'guerre-en-ukraine', name: 'Guerre en Ukraine', description: null, image_url: null, icon: null, category: { slug: 'monde', label: 'Monde' }, content_count: 12, updated_at: null },
+        meta: { total: 2, shown: 2, per_page: 3, has_more: false },
+        facets: { categories: [{ value: '', label: 'Toutes', count: 2 }, { value: 'monde', label: 'Monde', count: 1 }] },
+        stats: { dossiers: 2, contents: 17, categories: 2, last_updated_at: null },
+      })
+
+      const result = await loadDossiersMenu(PALETTE)
+      const cards = result.menu.cards as { name: string; initials: string; meta: string; href: string }[]
+
+      expect(result.menu.variant).toBe('plane')
+      expect(cards.map((c) => c.name)).toEqual(['Guerre en Ukraine', 'Crise climatique'])
+      expect(cards[0]).toMatchObject({ initials: '📁', meta: '12 contenus', href: '/dossiers/guerre-en-ukraine' })
+      expect(cards[1]).toMatchObject({ initials: '🔥', meta: '5 contenus' })
+      expect(result.categories).toEqual([
+        { name: 'Monde', color: '#111111', count: 1, href: '/dossiers?cat=monde' },
+      ])
+    })
+
+    it('falls back to an empty "plane" menu when the catalog fails', async () => {
+      vi.mocked(fetchDossierCatalog).mockRejectedValue(new Error('fail'))
+      const result = await loadDossiersMenu(PALETTE)
       expect(result.menu).toEqual({ variant: 'plane', cards: [] })
     })
   })

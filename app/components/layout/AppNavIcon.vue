@@ -1,7 +1,16 @@
 <script setup lang="ts">
 withDefaults(
   defineProps<{
-    kind: 'articles' | 'stats' | 'polls' | 'channels' | 'remote' | 'disease' | 'medicine' | 'medical-service'
+    kind:
+      | 'articles'
+      | 'stats'
+      | 'polls'
+      | 'channels'
+      | 'dossiers'
+      | 'remote'
+      | 'disease'
+      | 'medicine'
+      | 'medical-service'
     class?: string
   }>(),
   {
@@ -56,6 +65,25 @@ withDefaults(
     <path d="M12 12L12 4C7.58 4 4 7.58 4 12H12Z" class="fill-primary" />
     <path d="M12 12L4 12C4 16.42 7.58 20 12 20V12Z" class="fill-secondary" />
     <path d="M12 12L17.66 6.34C16.21 4.89 14.21 4 12 4V12Z" class="fill-accent" />
+  </svg>
+
+  <!-- Dossiers — chemise avec onglet et deux lignes de contenu -->
+  <svg
+    v-else-if="kind === 'dossiers'"
+    viewBox="0 0 24 24"
+    :class="$props.class"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M3.5 7C3.5 6.17 4.17 5.5 5 5.5H9.1C9.6 5.5 10.06 5.75 10.33 6.16L11.3 7.6H19C19.83 7.6 20.5 8.27 20.5 9.1V10.5H3.5V7Z"
+      class="fill-primary"
+    />
+    <path
+      d="M3.5 9.5C3.5 8.67 4.17 8 5 8H19C19.83 8 20.5 8.67 20.5 9.5V17C20.5 17.83 19.83 18.5 19 18.5H5C4.17 18.5 3.5 17.83 3.5 17V9.5Z"
+      class="fill-secondary"
+    />
+    <path d="M7.75 12.25H14.5M7.75 15H11.5" class="stroke-accent" stroke-width="1.7" stroke-linecap="round" />
   </svg>
 
   <svg
