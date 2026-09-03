@@ -4,13 +4,12 @@ import { useIntersectionObserver } from '@vueuse/core'
 import type { CardPreview, CatalogItem } from '@/types/catalog'
 import { fetchStatsDataCardPreview } from '@/api/studio'
 import CardPreviewMini from '@/components/content/CardPreviewMini.vue'
-import StatsDataSyntheticViz from '@/components/content/StatsDataSyntheticViz.vue'
 
 /**
  * Mini-graphe RÉEL d'une carte Statsdata : charge en lazy (au scroll) l'aperçu
  * calculé par le backend depuis le premier bloc graphique du document (ou celui
- * choisi par le créateur). Retombe sur `StatsDataSyntheticViz` tant que rien
- * n'est chargé, ou si le document n'a pas de graphique exploitable.
+ * choisi par le créateur). Tant que rien n'est chargé, ou si le document n'a pas
+ * de graphique exploitable, on n'affiche RIEN (pas de graphe factice).
  */
 const props = defineProps<{ item: CatalogItem }>()
 
@@ -54,6 +53,5 @@ const { stop } = useIntersectionObserver(
       :preview="preview"
       :categories="item.categories"
     />
-    <StatsDataSyntheticViz v-else :item="item" />
   </div>
 </template>

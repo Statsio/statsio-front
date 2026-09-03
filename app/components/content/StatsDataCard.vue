@@ -14,6 +14,7 @@ import ContentCardOwner from '@/components/content/ContentCardOwner.vue'
 import ContentCardActions from '@/components/content/ContentCardActions.vue'
 import CatalogSubBrandTag from '@/components/listing/CatalogSubBrandTag.vue'
 import ContentCardDossierTag from '@/components/content/ContentCardDossierTag.vue'
+import ContentFeaturedBadge from '@/components/content/ContentFeaturedBadge.vue'
 import StatsDataCardChart from '@/components/content/StatsDataCardChart.vue'
 import AppSparkline from '@/components/ui/AppSparkline.vue'
 
@@ -48,6 +49,19 @@ const isManage = computed(() => props.mode === 'manage' && !!props.manage)
 const showViz = computed(() => props.showSyntheticViz ?? (props.mode === 'public' && props.format === 'card' && !props.feature))
 const pubMeta = computed(() => formatCatalogItemMeta(props.item.views_count, props.item.updated_at))
 
+/**
+ * Image de couverture facultative (réglages du contenu, comme les articles).
+ * Quand elle existe, elle devient le visuel principal de la carte : on remplace
+ * le mini-graphe par un bandeau image + un sparkline discret (signature « data »).
+ */
+const hasImage = computed(() => Boolean(props.item.thumbnail_url))
+
+/** Le contenu porte au moins un bloc graphique → on peut afficher un mini-graphe réel. Sinon : rien (pas de viz factice). */
+const hasChart = computed(() => (props.item.charts_count ?? 0) > 0)
+
+/** Contenu « à la une » (admin) affiché en carte normale → pastille « À LA UNE ». La grande card featured (`feature`) a déjà la sienne. */
+const pinned = computed(() => Boolean(props.item.is_featured) && !props.feature)
+
 const visual = computed(() => getStatsDataVisual(props.item.categories))
 const sparklinePoints = computed(() => seededSparklinePoints(props.item.id, 7))
 
@@ -74,86 +88,14 @@ const FRESH_FG: Record<FreshnessTone, string> = {
   stale: 'rgba(24,24,31,0.5)',
   unknown: 'rgba(24,24,31,0.5)',
 }
-const FRESH_DOT_DARK: Record<FreshnessTone, string> = {
-  live: '#34d399',
-  fresh: '#93c5fd',
-  stale: 'rgba(255,255,255,0.3)',
-  unknown: 'rgba(255,255,255,0.3)',
-}
-const FRESH_FG_DARK: Record<FreshnessTone, string> = {
-  live: '#6ee7b7',
-  fresh: 'rgba(255,255,255,0.7)',
-  stale: 'rgba(255,255,255,0.7)',
-  unknown: 'rgba(255,255,255,0.7)',
-}
 
 // ── Hero « à la une » (format row feature) — logique dédiée ──────────────────
 const fSeed = computed(() => hash(props.item.id + '|feat'))
-const fUp = computed(() => fSeed.value % 2 === 0)
-const fKpiLabel = computed(() => {
-  if (!props.item.category) return 'INDICATEUR CLÉ'
-  const map: Record<string, string> = {
-    sante: 'Passage urgences médian',
-    economie: 'Budget suivi',
-    societe: 'Loyer médian',
-    medias: 'PDA leader',
-    climat: 'Bassins en alerte',
-    energie: 'Prix moyen national',
-  }
-  return map[props.item.category] || props.item.category.toUpperCase()
-})
-const fKpiValue = computed(() => {
-  const b = (props.item.charts_count || 1) * 137.42 + (props.item.linked_datasets_count || 0) * 12.8
-  if (props.item.category === 'sante') return (b * 0.02).toFixed(0) + ' h ' + Math.round((b * 1.2) % 60)
-  if (props.item.category === 'economie') return formatCatalogCount(Math.round(b * 3.5)) + ' €'
-  if (props.item.category === 'societe') return (b * 0.1).toFixed(1) + ' €/m²'
-  if (props.item.category === 'medias') return (b * 0.07).toFixed(1) + ' %'
-  if (props.item.category === 'climat') return String(Math.round(b * 0.4)) + ' / 96'
-  if (props.item.category === 'energie') return (b * 0.007).toFixed(3) + ' €'
-  return formatCatalogCount(Math.round(b * 10))
-})
-const fDelta = computed(() => {
-  const d = ((fSeed.value % 35) + 2) / 10
-  return (fUp.value ? '+' : '−') + d.toFixed(1) + ' %'
-})
-const fDeltaFg = computed(() => (fUp.value ? '#fda4af' : '#6ee7b7'))
 const fStats = computed(() => [
   { label: 'Consultations', value: formatCatalogCount(props.item.views_count) },
   { label: 'Sources', value: String(props.item.linked_datasets_count || (fSeed.value % 4) + 1) },
   { label: 'Graphiques', value: String(props.item.charts_count || (fSeed.value % 6) + 2) },
 ])
-const fPts = computed(() => seededSparklinePoints(props.item.id, 16, fSeed.value))
-function fPairs(points: number[]): [number, number][] {
-  if (!points.length) return []
-  const vals = points.map((v) => (v % 100) / 100)
-  const mn = Math.min(...vals)
-  const mx = Math.max(...vals)
-  const lastIdx = vals.length - 1
-  return vals.map((v, i) => {
-    const norm = mx - mn === 0 ? 0.5 : (v - mn) / (mx - mn)
-    const scaled = 0.28 + norm * 0.5 + (lastIdx === 0 ? 0 : i / lastIdx) * 0.28
-    return [lastIdx === 0 ? 0 : i / lastIdx, Math.min(1, scaled)] as [number, number]
-  })
-}
-function fArea(points: number[]) {
-  const pairs = fPairs(points)
-  if (pairs.length < 2) return ''
-  const h = 110
-  const w = 300
-  return `0,${h} ` + pairs.map((p) => `${(p[0] * w).toFixed(1)},${(h - 4 - p[1] * (h - 12)).toFixed(1)}`).join(' ') + ` ${w},${h}`
-}
-function fStroke(points: number[]) {
-  const w = 300
-  const h = 110
-  return fPairs(points).map((p) => `${(p[0] * w).toFixed(1)},${(h - 4 - p[1] * (h - 12)).toFixed(1)}`).join(' ')
-}
-const fAxisFrom = computed(() =>
-  props.item.category === 'climat' || props.item.category === 'energie'
-    ? '2019'
-    : props.item.category === 'economie'
-      ? 'J-14'
-      : '2024',
-)
 const fPubRadius = computed(() => (props.item.publisher.is_channel ? '11px' : '50%'))
 const fPubMeta = computed(
   () => `${props.item.publisher.is_channel ? 'Chaîne' : 'Auteur'} · ${formatRelativePublished(props.item.updated_at)}`,
@@ -164,28 +106,28 @@ const fPubMeta = computed(
   <NuxtLink
     v-if="feature"
     :to="to"
-    class="grid gap-[34px] items-center overflow-hidden rounded-[22px] p-[30px] text-white shadow-[0_1px_3px_rgba(20,20,30,0.06)] transition hover:-translate-y-0.5"
-    style="background:linear-gradient(135deg,#18181f,#2c2440);grid-template-columns:minmax(0,1.15fr) minmax(0,1fr)"
+    class="grid items-stretch overflow-hidden rounded-[22px] border-[1.5px] border-slate-200/80 bg-white text-slate-950 shadow-[0_1px_3px_rgba(20,20,30,0.06)] transition hover:border-[#c4b5fd]"
+    :class="{ 'lg:grid-cols-2': hasImage || hasChart }"
   >
-    <span class="min-w-0 block">
+    <span class="flex min-w-0 flex-col p-[30px] lg:p-8">
       <span class="mb-[14px] flex items-center gap-[9px]">
-        <span class="rounded-[5px] px-2 py-1 font-mono text-[9.5px] font-semibold tracking-[0.1em] text-slate-950" style="background:#c4b5fd">À LA UNE</span>
-        <span v-if="fresh" class="flex items-center gap-1.5 font-mono text-[10px] font-semibold" :style="{ color: FRESH_FG_DARK[fresh.tone] }">
-          <span class="h-[6px] w-[6px] shrink-0 rounded-full" :style="{ background: FRESH_DOT_DARK[fresh.tone] }" />
+        <span class="rounded-[5px] bg-slate-950 px-2 py-1 font-mono text-[9.5px] font-semibold tracking-[0.1em] text-white">À LA UNE</span>
+        <span v-if="fresh" class="flex items-center gap-1.5 font-mono text-[10px] font-semibold" :style="{ color: FRESH_FG[fresh.tone] }">
+          <span class="h-[6px] w-[6px] shrink-0 rounded-full" :style="{ background: FRESH_DOT[fresh.tone] }" />
           {{ fresh.text }}
         </span>
       </span>
-      <span class="block text-[30px] font-extrabold leading-[1.14] tracking-[-0.025em] text-pretty">{{ item.title }}</span>
-      <span v-if="item.description" class="mt-3 block max-w-[54ch] text-[14.5px] leading-[1.6] text-white/68">{{ item.description }}</span>
-      <span class="mt-[22px] flex flex-wrap gap-[26px]">
+      <span class="block text-[27px] font-extrabold leading-[1.14] tracking-[-0.025em] text-pretty lg:text-[30px]">{{ item.title }}</span>
+      <span v-if="item.description" class="mt-3 block max-w-[54ch] text-[14.5px] leading-[1.6] text-slate-500">{{ item.description }}</span>
+      <span class="mt-[22px] flex flex-wrap gap-[26px] border-t border-slate-950/[0.08] pt-[18px]">
         <span v-for="s in fStats" :key="s.label" class="block">
-          <span class="block text-[9px] font-extrabold tracking-[0.08em] uppercase text-white/50">{{ s.label }}</span>
+          <span class="block text-[9px] font-extrabold tracking-[0.08em] uppercase text-slate-400">{{ s.label }}</span>
           <span class="mt-[5px] block font-mono text-[15px] font-semibold">{{ s.value }}</span>
         </span>
       </span>
       <span class="mt-[22px] flex items-center gap-2.5">
         <span
-          class="flex h-[38px] w-[38px] shrink-0 items-center justify-center overflow-hidden bg-white text-xs font-extrabold text-slate-900"
+          class="flex h-[38px] w-[38px] shrink-0 items-center justify-center overflow-hidden border border-slate-200 bg-white text-xs font-extrabold text-slate-900"
           :style="{ borderRadius: fPubRadius }"
         >
           <img v-if="item.publisher.logo_url" :src="item.publisher.logo_url" :alt="item.publisher.name" class="h-full w-full object-cover" />
@@ -196,27 +138,31 @@ const fPubMeta = computed(
             {{ item.publisher.name }}
             <span v-if="item.publisher.verified" class="text-[10px] text-accent">✔</span>
           </span>
-          <span class="mt-0.5 block font-mono text-[10.5px] text-white/50">{{ fPubMeta }}</span>
+          <span class="mt-0.5 block font-mono text-[10.5px] text-slate-400">{{ fPubMeta }}</span>
         </span>
       </span>
-      <span class="mt-6 inline-flex items-center gap-2 rounded-full px-[22px] py-3 text-[13px] font-extrabold tracking-[0.03em] text-white" style="background:linear-gradient(135deg,#8b5cf6,#3b82f6)">
+      <span class="mt-6 inline-flex items-center gap-2 self-start rounded-full bg-[linear-gradient(135deg,var(--color-primary),var(--color-accent))] px-[22px] py-3 text-[13px] font-extrabold tracking-[0.03em] text-white">
         OUVRIR LE STATSDATA →
       </span>
     </span>
 
-    <span class="block min-w-0 rounded-[16px] border border-white/14 p-5 box-border" style="background:rgba(255,255,255,0.06)">
-      <span class="flex items-baseline justify-between gap-3">
-        <span class="text-[10px] font-extrabold tracking-[0.09em] uppercase text-white/55">{{ fKpiLabel }}</span>
-        <span class="font-mono text-[11.5px] font-semibold" :style="{ color: fDeltaFg }">{{ fDelta }}</span>
-      </span>
-      <span class="mt-2 mb-4 block font-mono text-[34px] font-semibold tracking-[-0.02em]">{{ fKpiValue }}</span>
-      <svg viewBox="0 0 300 110" preserveAspectRatio="none" class="block h-[118px] w-full">
-        <polyline :points="fArea(fPts)" fill="rgba(196,181,253,0.22)" stroke="none" />
-        <polyline :points="fStroke(fPts)" fill="none" stroke="#c4b5fd" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />
-      </svg>
-      <span class="mt-[10px] flex justify-between font-mono text-[10px] text-white/55">
-        <span>{{ fAxisFrom }}</span><span>2026</span>
-      </span>
+    <span
+      v-if="hasImage"
+      class="relative flex min-h-[240px] min-w-0 items-center overflow-hidden border-t border-slate-200/80 p-5 lg:min-h-0 lg:border-l lg:border-t-0 lg:p-6"
+    >
+      <img :src="item.thumbnail_url ?? undefined" :alt="item.title" class="absolute inset-0 h-full w-full object-cover" />
+      <template v-if="hasChart">
+        <span class="absolute inset-0 bg-slate-950/15" />
+        <span class="relative w-full rounded-[16px] border border-white/50 bg-white/80 p-3 shadow-[0_10px_34px_rgba(20,20,30,0.22)] backdrop-blur-md">
+          <StatsDataCardChart :item="item" class="w-full" />
+        </span>
+      </template>
+    </span>
+    <span
+      v-else-if="hasChart"
+      class="flex min-w-0 items-center border-t border-slate-200/80 bg-[#faf9fd] px-6 py-4 lg:border-l lg:border-t-0 lg:px-7 lg:py-6"
+    >
+      <StatsDataCardChart :item="item" class="w-full" />
     </span>
   </NuxtLink>
 
@@ -229,6 +175,7 @@ const fPubMeta = computed(
         <img v-if="item.thumbnail_url" :src="item.thumbnail_url" :alt="item.title" class="h-full w-full rounded-[7px] object-cover" />
       </span>
       <span class="min-w-0">
+        <ContentFeaturedBadge v-if="pinned" compact class="mb-1" />
         <NuxtLink :to="isManage && manage ? manage.studioPath : to" class="block truncate text-sm font-bold text-slate-950 hover:text-primary">{{ item.title }}</NuxtLink>
         <span class="mt-0.5 block truncate font-mono text-[10px] text-slate-400">{{ formatCatalogViews(item.views_count) }}</span>
       </span>
@@ -256,47 +203,85 @@ const fPubMeta = computed(
 
   <article
     v-else
-    class="flex flex-col rounded-[18px] border-[1.5px] border-slate-200/80 bg-white p-5 shadow-[0_1px_3px_rgba(20,20,30,0.06)] transition hover:-translate-y-0.5 hover:border-[#c4b5fd]"
+    class="flex flex-col overflow-hidden rounded-[18px] border-[1.5px] border-slate-200/80 bg-white shadow-[0_1px_3px_rgba(20,20,30,0.06)] transition hover:-translate-y-0.5 hover:border-[#c4b5fd]"
   >
-    <div class="mb-3.5 flex items-center gap-2">
-      <span
-        class="rounded-[5px] px-2 py-1 font-mono text-[9.5px] font-semibold tracking-[0.08em]"
-        :style="{ color: theme.fg, background: theme.bg }"
-      >
-        {{ (item.category || 'STATS').toUpperCase() }}
+    <div v-if="hasImage" class="relative h-[140px]">
+      <img :src="item.thumbnail_url ?? undefined" :alt="item.title" class="h-full w-full object-cover" />
+      <span class="absolute left-3 top-3 flex flex-col items-start gap-1.5">
+        <ContentFeaturedBadge v-if="pinned" />
+        <span
+          class="rounded-[5px] bg-white px-2 py-1 font-mono text-[9.5px] font-semibold tracking-[0.08em]"
+          :style="{ color: theme.fg }"
+        >
+          {{ (item.category || 'STATS').toUpperCase() }}
+        </span>
       </span>
-      <span v-if="fresh" class="flex items-center gap-1.5 font-mono text-[9.5px] font-semibold" :style="{ color: FRESH_FG[fresh.tone] }">
-        <span class="h-[5px] w-[5px] shrink-0 rounded-full" :style="{ background: FRESH_DOT[fresh.tone] }" />
-        {{ fresh.text }}<template v-if="fresh.detail"> · {{ fresh.detail }}</template>
-      </span>
-      <span class="flex-1" />
-      <ContentCardFavButton v-if="!isManage" compact :active="favorited" @toggle="emit('favorite')" />
+      <ContentCardFavButton v-if="!isManage" class="absolute right-2.5 top-2.5" :active="favorited" @toggle="emit('favorite')" />
       <span
         v-else-if="manage"
-        class="rounded-full px-2.5 py-1 text-[10.5px] font-bold"
+        class="absolute right-2.5 top-2.5 rounded-full px-2.5 py-1 text-[10.5px] font-bold"
         :style="{ background: manage.statusBg, color: manage.statusColor }"
       >{{ manage.statusLabel }}</span>
+      <span
+        v-if="fresh"
+        class="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-md bg-white/95 px-2 py-1 font-mono text-[9.5px] font-semibold"
+        :style="{ color: FRESH_FG[fresh.tone] }"
+      >
+        <span class="h-[5px] w-[5px] shrink-0 rounded-full" :style="{ background: FRESH_DOT[fresh.tone] }" />
+        {{ fresh.text }}
+      </span>
     </div>
 
-    <CatalogSubBrandTag :categories="item.categories" content-type="statsdata" />
-    <ContentCardDossierTag :dossier="item.dossier" />
-    <NuxtLink
-      :to="isManage && manage ? manage.studioPath : to"
-      class="block text-[17.5px] font-extrabold leading-[1.28] tracking-[-0.015em] text-slate-950 text-pretty hover:text-primary"
-    >
-      {{ item.title }}
-    </NuxtLink>
-    <p v-if="item.description" class="mt-2.5 text-[13px] leading-[1.55] text-slate-600">{{ item.description }}</p>
+    <div class="flex flex-1 flex-col" :class="hasImage ? 'px-5 pb-5 pt-[18px]' : 'p-5'">
+      <div v-if="!hasImage" class="mb-3.5 flex items-center gap-2">
+        <ContentFeaturedBadge v-if="pinned" />
+        <span
+          class="rounded-[5px] px-2 py-1 font-mono text-[9.5px] font-semibold tracking-[0.08em]"
+          :style="{ color: theme.fg, background: theme.bg }"
+        >
+          {{ (item.category || 'STATS').toUpperCase() }}
+        </span>
+        <span v-if="fresh" class="flex items-center gap-1.5 font-mono text-[9.5px] font-semibold" :style="{ color: FRESH_FG[fresh.tone] }">
+          <span class="h-[5px] w-[5px] shrink-0 rounded-full" :style="{ background: FRESH_DOT[fresh.tone] }" />
+          {{ fresh.text }}<template v-if="fresh.detail"> · {{ fresh.detail }}</template>
+        </span>
+        <span class="flex-1" />
+        <ContentCardFavButton v-if="!isManage" compact :active="favorited" @toggle="emit('favorite')" />
+        <span
+          v-else-if="manage"
+          class="rounded-full px-2.5 py-1 text-[10.5px] font-bold"
+          :style="{ background: manage.statusBg, color: manage.statusColor }"
+        >{{ manage.statusLabel }}</span>
+      </div>
 
-    <StatsDataCardChart v-if="showViz" :item="item" />
-    <div v-else class="my-4 rounded-[14px] bg-[#faf9fd] p-3.5">
-      <AppSparkline :points="sparklinePoints" :color="visual.color" :height="44" />
+      <CatalogSubBrandTag :categories="item.categories" :sub-brand="item.sub_brand" content-type="statsdata" />
+      <ContentCardDossierTag :dossier="item.dossier" />
+      <NuxtLink
+        :to="isManage && manage ? manage.studioPath : to"
+        class="block text-[17.5px] font-extrabold leading-[1.28] tracking-[-0.015em] text-slate-950 text-pretty hover:text-primary"
+      >
+        {{ item.title }}
+      </NuxtLink>
+      <p v-if="item.description" class="mt-2.5 text-[13px] leading-[1.55] text-slate-600">{{ item.description }}</p>
+
+      <!-- Aucun bloc graphique → on n'affiche aucune viz (pas de graphe factice). -->
+      <template v-if="hasChart">
+        <!-- Image posée : sparkline discret en signature « data ». Sinon : mini-graphe réel. -->
+        <div v-if="hasImage" class="mt-3.5">
+          <AppSparkline v-if="!isManage" :points="sparklinePoints" :color="visual.color" :height="26" />
+        </div>
+        <template v-else>
+          <StatsDataCardChart v-if="showViz" :item="item" />
+          <div v-else class="my-4 rounded-[14px] bg-[#faf9fd] p-3.5">
+            <AppSparkline :points="sparklinePoints" :color="visual.color" :height="44" />
+          </div>
+        </template>
+      </template>
+
+      <slot name="cta" />
+
+      <ContentCardActions v-if="isManage && manage" class="mt-auto" :manage="manage" />
+      <ContentCardOwner v-else class="mt-auto" :publisher="item.publisher" :meta="pubMeta" :to="to" />
     </div>
-
-
-    <slot name="cta" />
-
-    <ContentCardActions v-if="isManage && manage" class="mt-auto" :manage="manage" />
-    <ContentCardOwner v-else class="mt-auto" :publisher="item.publisher" :meta="pubMeta" :to="to" />
   </article>
 </template>

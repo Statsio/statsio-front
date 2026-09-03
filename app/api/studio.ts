@@ -428,6 +428,8 @@ export interface StatsDataDocument {
   blocks?: StudioBlock[]
   categories?: string[]
   coverage?: ContentCoverage | null
+  /** Sous-marque de publication (« domaine »). Défaut `statsio`. */
+  sub_brand?: import('@/types/sub-brand').SubBrand
   /** Bloc graphique choisi pour le mini-graphe de la carte de catalogue. Null = automatique. */
   card_block_id?: string | null
   /** Only meaningful for `type === 'survey'`. Null/undefined = ouvert indéfiniment. */
@@ -457,6 +459,7 @@ export interface CreateStudioContentPayload {
   title: string
   type: ContentType
   categories?: string[]
+  sub_brand?: import('@/types/sub-brand').SubBrand
   coverage?: ContentCoverage
   survey_kind?: import('@/types/content-creation').SurveyKind
   requires_identity_verification?: boolean
@@ -499,6 +502,7 @@ export async function fetchPublicCatalog(query: import('@/types/catalog').Catalo
       ...(query.has_data ? { has_data: 1 } : {}),
       ...(query.per_page ? { per_page: query.per_page } : {}),
       ...(query.categories?.length ? { categories: query.categories } : {}),
+      ...(query.sub_brand ? { sub_brand: query.sub_brand } : {}),
       ...(query.channel_id ? { channel_id: query.channel_id } : {}),
       ...(query.survey_kind ? { survey_kind: query.survey_kind } : {}),
       ...(query.status ? { status: query.status } : {}),
@@ -637,6 +641,8 @@ export interface SaveStatsDataDocumentPayload {
   description?: string | null
   categories?: string[]
   coverage?: ContentCoverage | null
+  /** Sous-marque de publication (« domaine »). */
+  sub_brand?: import('@/types/sub-brand').SubBrand
   /** Bloc graphique du mini-graphe de la carte. Null = automatique (premier graphique). */
   card_block_id?: string | null
   response_deadline?: string | null
@@ -651,42 +657,22 @@ export interface SaveStatsDataDocumentPayload {
   blocks?: StudioBlock[]
 }
 
-/** PATCH via multipart quand `thumbnail`/`removeThumbnail` est fourni — Laravel lit `_method` pour router un POST vers `update()`. */
+/**
+ * PATCH JSON du document. La miniature est une image de la bibliothèque de médias
+ * (`thumbnailMediaId`) — plus d'upload de fichier ici.
+ */
 export async function saveStatsDataDocument(
   documentId: string,
   payload: SaveStatsDataDocumentPayload,
-  thumbnail?: File | null,
+  thumbnailMediaId?: number | null,
   removeThumbnail?: boolean,
 ): Promise<StatsDataDocument> {
-  if (thumbnail || removeThumbnail) {
-    const form = new FormData()
-    form.append('_method', 'PATCH')
-    if (thumbnail) form.append('thumbnail', thumbnail)
-    if (removeThumbnail) form.append('remove_thumbnail', '1')
-    appendSavePayload(form, payload)
+  const body: Record<string, unknown> = { ...payload }
+  if (thumbnailMediaId != null) body.thumbnail_media_id = thumbnailMediaId
+  if (removeThumbnail) body.remove_thumbnail = true
 
-    const { data } = await apiHttp.post(STATSIO_API.studioContent.one(documentId), form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
-    return data.data
-  }
-
-  const { data } = await apiHttp.patch(STATSIO_API.studioContent.one(documentId), payload)
+  const { data } = await apiHttp.patch(STATSIO_API.studioContent.one(documentId), body)
   return data.data
-}
-
-function appendSavePayload(form: FormData, payload: SaveStatsDataDocumentPayload): void {
-  if (payload.title !== undefined) form.append('title', payload.title)
-  if (payload.slug !== undefined) form.append('slug', payload.slug)
-  if (payload.description !== undefined) form.append('description', payload.description ?? '')
-  if (payload.categories !== undefined) payload.categories.forEach((c) => form.append('categories[]', c))
-  if (payload.coverage !== undefined) form.append('coverage', payload.coverage ?? '')
-  if (payload.response_deadline !== undefined) form.append('response_deadline', payload.response_deadline ?? '')
-  if (payload.survey_kind !== undefined) form.append('survey_kind', payload.survey_kind)
-  if (payload.requires_identity_verification !== undefined)
-    form.append('requires_identity_verification', payload.requires_identity_verification ? '1' : '0')
-  if (payload.published_as !== undefined) form.append('published_as', payload.published_as ?? '')
-  if (payload.channel_id !== undefined && payload.channel_id != null) form.append('channel_id', String(payload.channel_id))
 }
 
 export async function deleteStatsDataDocument(documentId: string): Promise<void> {

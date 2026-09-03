@@ -5,6 +5,7 @@ import StepChannelLegal from '@/components/channels/steps/StepChannelLegal.vue'
 import { createChannel, type Channel } from '@/api/channels'
 import { deriveAvailableHandle } from '@/lib/channel-handle'
 import { getErrorMessage } from '@/lib/http-errors'
+import { SUB_BRAND_OPTIONS, type SubBrand } from '@/types/sub-brand'
 
 const props = defineProps<{ open: boolean; name: string; color: string }>()
 const emit = defineEmits<{
@@ -14,6 +15,7 @@ const emit = defineEmits<{
 }>()
 
 const agreements = ref({ rgpd: false, publicVisibility: false, termsOfService: false })
+const domain = ref<SubBrand>('statsio')
 const submitting = ref(false)
 const submitError = ref('')
 
@@ -23,6 +25,7 @@ watch(() => props.open, (isOpen) => {
   if (!isOpen) {
     setTimeout(() => {
       agreements.value = { rgpd: false, publicVisibility: false, termsOfService: false }
+      domain.value = 'statsio'
       submitError.value = ''
     }, 300)
   }
@@ -39,7 +42,7 @@ async function handleSubmit() {
   submitError.value = ''
   try {
     const handle = await deriveAvailableHandle(props.name)
-    const channel = await createChannel({ name: props.name, handle, custom_color_primary: props.color })
+    const channel = await createChannel({ name: props.name, handle, custom_color_primary: props.color, sub_brand: domain.value })
     emit('created', channel)
   } catch (error) {
     submitError.value = getErrorMessage(error, 'Impossible de créer la chaîne pour le moment.')
@@ -54,6 +57,17 @@ async function handleSubmit() {
     <p class="mb-4 text-sm text-slate-500">
       Avant de créer <strong class="text-slate-800">{{ name }}</strong>, confirmez les conditions suivantes.
     </p>
+
+    <label class="mb-4 flex flex-col gap-2">
+      <span class="text-sm font-semibold text-slate-700">Domaine</span>
+      <select
+        v-model="domain"
+        class="rounded-[1.25rem] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 transition focus:border-primary/30 focus:outline-none focus:ring-2 focus:ring-primary/20"
+      >
+        <option v-for="opt in SUB_BRAND_OPTIONS" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+      </select>
+      <span class="text-xs text-slate-400">Le site sur lequel votre chaîne sera publiée. Modifiable ensuite dans les paramètres.</span>
+    </label>
 
     <StepChannelLegal v-model="agreements" />
 

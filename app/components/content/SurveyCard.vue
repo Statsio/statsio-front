@@ -12,6 +12,7 @@ import ContentCardOwner from '@/components/content/ContentCardOwner.vue'
 import ContentCardActions from '@/components/content/ContentCardActions.vue'
 import CatalogSubBrandTag from '@/components/listing/CatalogSubBrandTag.vue'
 import ContentCardDossierTag from '@/components/content/ContentCardDossierTag.vue'
+import ContentFeaturedBadge from '@/components/content/ContentFeaturedBadge.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -41,6 +42,8 @@ const meta = computed(() => surveyCardMeta(props.item))
 const previewPreview = computed(() => props.item.question_previews?.[0] ?? null)
 const isManage = computed(() => props.mode === 'manage' && !!props.manage)
 const dark = computed(() => props.tone === 'dark')
+/** Contenu « à la une » (admin) hors grande card featured → pastille « À LA UNE ». */
+const pinned = computed(() => Boolean(props.item.is_featured) && !props.feature)
 
 const leadLine = computed(() => {
   const it = props.item
@@ -148,6 +151,7 @@ const featuredStats = computed(() => {
         :style="{ background: meta.kind.bg, color: meta.kind.fg }"
       >{{ meta.kind.icon }}</span>
       <span class="min-w-0">
+        <ContentFeaturedBadge v-if="pinned" compact class="mb-1" />
         <NuxtLink :to="isManage && manage ? manage.studioPath : to" class="block truncate text-sm font-bold text-slate-950 hover:text-primary">{{ item.title }}</NuxtLink>
         <span class="mt-0.5 block truncate font-mono text-[10px] text-slate-400">{{ leadLine }}</span>
       </span>
@@ -173,7 +177,8 @@ const featuredStats = computed(() => {
     class="flex flex-col rounded-[18px] border-[1.5px] border-slate-200/70 bg-white p-5 shadow-[0_1px_3px_rgba(20,20,30,0.06)] transition hover:-translate-y-0.5 hover:border-[#c4b5fd]"
     :style="{ borderTop: `4px solid ${meta.kind.accent}` }"
   >
-    <div class="mb-3 flex items-center gap-2">
+    <div class="mb-3 flex flex-wrap items-center gap-2">
+      <ContentFeaturedBadge v-if="pinned" />
       <span
         class="flex items-center gap-1.5 rounded-[5px] px-2 py-1 font-mono text-[9.5px] font-semibold tracking-[0.08em]"
         :style="{ color: meta.kind.fg, background: meta.kind.bg }"
@@ -200,7 +205,7 @@ const featuredStats = computed(() => {
     <div v-if="item.category" class="mb-2 font-mono text-[9.5px] font-semibold tracking-[0.07em]" :style="{ color: theme.fg }">
       {{ item.category.toUpperCase() }}
     </div>
-    <CatalogSubBrandTag :categories="item.categories" content-type="survey" />
+    <CatalogSubBrandTag :categories="item.categories" :sub-brand="item.sub_brand" content-type="survey" />
     <ContentCardDossierTag :dossier="item.dossier" />
     <NuxtLink
       :to="isManage && manage ? manage.studioPath : to"

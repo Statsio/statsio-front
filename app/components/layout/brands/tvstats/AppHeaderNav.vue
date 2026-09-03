@@ -2,7 +2,12 @@
 import { computed } from 'vue'
 import AppHeaderNavBar from '@/components/layout/brands/AppHeaderNavBar.vue'
 import type { HeaderNavItem } from '@/components/layout/brands/header-nav.types'
-import { loadAudiencesMenu, loadProgrammeTvMenu, loadChannelsMenu } from '@/composables/useHeaderMegaMenuData'
+import {
+  loadAudiencesMenu,
+  loadProgrammeTvMenu,
+  loadDossiersMenu,
+  loadChannelsMenu,
+} from '@/composables/useHeaderMegaMenuData'
 
 defineProps<{
   modelValue: HeaderNavItem | null
@@ -18,12 +23,13 @@ const { data } = useAsyncData('tvstats-header-nav', () =>
   Promise.all([
     loadAudiencesMenu(categoryPalette),
     loadProgrammeTvMenu(categoryPalette),
+    loadDossiersMenu(categoryPalette),
     loadChannelsMenu(categoryPalette),
   ]),
 )
 
 const items = computed<HeaderNavItem[]>(() => {
-  const [audiences, programmeTv, chaines] = data.value ?? []
+  const [audiences, programmeTv, dossiers, chaines] = data.value ?? []
 
   return [
     {
@@ -47,6 +53,17 @@ const items = computed<HeaderNavItem[]>(() => {
       links: programmeTv?.links ?? [],
       categories: programmeTv?.categories ?? [],
       menu: programmeTv?.menu ?? { variant: 'doc', cards: [] },
+    },
+    {
+      label: 'Dossiers',
+      href: '/dossiers',
+      icon: 'dossiers',
+      eyebrow: 'Sujets suivis',
+      menuHeading: 'Dossiers récents',
+      categoryHeading: 'Catégories',
+      links: dossiers?.links ?? [],
+      categories: dossiers?.categories ?? [],
+      menu: dossiers?.menu ?? { variant: 'plane', cards: [] },
     },
     {
       label: 'Chaînes',

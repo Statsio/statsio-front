@@ -76,6 +76,8 @@ export const STATSIO_API = {
   dossiers: {
     collection: '/dossiers',
     pinned: '/dossiers/pinned',
+    catalog: '/dossiers/catalog',
+    publicBySlug: (slug: string) => `/dossiers/public/${encodeURIComponent(slug)}`,
   },
   studioContent: {
     collection: '/studio/content',

@@ -35,6 +35,7 @@ function makeChannel(overrides: Partial<Channel> = {}): Channel {
       categories: [],
       tags: [],
       country: null,
+      sub_brand: 'statsio',
       is_featured: false,
       subscriber_count: 0,
       view_count: 0,

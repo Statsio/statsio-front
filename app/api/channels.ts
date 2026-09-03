@@ -1,6 +1,7 @@
 import { apiHttp } from '@/lib/http'
 import { STATSIO_API } from './statsio-endpoints'
 import type { ChannelCatalogQuery, ChannelCatalogResponse } from '@/types/channel-catalog'
+import type { CategorySubBrand, SubBrand } from '@/types/sub-brand'
 
 export type ChannelKind = 'redaction' | 'institution' | 'independant'
 
@@ -21,6 +22,7 @@ export type CreateChannelPayload = {
   handle: string
   description?: string
   categories?: ChannelCategory[]
+  sub_brand?: SubBrand
   logo?: File
   banner?: File
   custom_color_primary?: string
@@ -42,6 +44,8 @@ export type ChannelProfile = {
   categories: ChannelCategory[]
   tags: string[]
   country: string | null
+  /** Sous-marque de rattachement de la chaîne (« domaine »). Défaut `statsio`. */
+  sub_brand: CategorySubBrand
   is_featured: boolean
   subscriber_count: number
   view_count: number
@@ -111,6 +115,10 @@ export async function createChannel(payload: CreateChannelPayload): Promise<Chan
     formData.append('custom_color_secondary', payload.custom_color_secondary)
   }
 
+  if (payload.sub_brand) {
+    formData.append('sub_brand', payload.sub_brand)
+  }
+
   const response = await apiHttp.post<{ success: boolean; data: Channel; message: string }>(
     '/channels',
     formData,
@@ -128,10 +136,14 @@ export type ChannelCategoryItem = {
   id: number
   slug: string
   label: string
+  /** Sous-marque de rattachement (`all` = disponible partout). */
+  sub_brand?: CategorySubBrand
 }
 
-export async function getChannelCategories(): Promise<ChannelCategoryItem[]> {
-  const response = await apiHttp.get<{ success: boolean; data: ChannelCategoryItem[] }>('/channels/categories')
+export async function getChannelCategories(subBrand?: SubBrand): Promise<ChannelCategoryItem[]> {
+  const response = await apiHttp.get<{ success: boolean; data: ChannelCategoryItem[] }>('/channels/categories', {
+    params: subBrand ? { sub_brand: subBrand } : {},
+  })
   return response.data.data
 }
 
@@ -453,6 +465,7 @@ export type UpdateChannelPayload = {
   description?: string
   is_private?: boolean
   categories?: ChannelCategory[]
+  sub_brand?: SubBrand
   logo?: File
   banner?: File
   custom_color_primary?: string
@@ -472,6 +485,7 @@ export async function updateChannelProfile(id: number, payload: UpdateChannelPay
   if (payload.name !== undefined) formData.append('name', payload.name)
   if (payload.handle !== undefined) formData.append('handle', payload.handle)
   if (payload.kind !== undefined) formData.append('kind', payload.kind)
+  if (payload.sub_brand !== undefined) formData.append('sub_brand', payload.sub_brand)
   if (payload.description !== undefined) formData.append('description', payload.description)
   if (payload.is_private !== undefined) formData.append('is_private', payload.is_private ? '1' : '0')
   if (payload.categories?.length) {
@@ -494,16 +508,15 @@ export async function updateChannelProfile(id: number, payload: UpdateChannelPay
   return response.data.data
 }
 
-export async function updateChannelMedia(id: number, payload: { logo?: File; banner?: File }): Promise<Channel> {
-  const formData = new FormData()
-  if (payload.logo) formData.append('logo', payload.logo)
-  if (payload.banner) formData.append('banner', payload.banner)
+export async function updateChannelMedia(
+  id: number,
+  payload: { logoMediaId?: number | null; bannerMediaId?: number | null },
+): Promise<Channel> {
+  const body: Record<string, number> = {}
+  if (payload.logoMediaId != null) body.logo_media_id = payload.logoMediaId
+  if (payload.bannerMediaId != null) body.banner_media_id = payload.bannerMediaId
 
-  const response = await apiHttp.post<{ success: boolean; data: Channel }>(
-    `/channels/${id}/media`,
-    formData,
-    { headers: { 'Content-Type': 'multipart/form-data' } },
-  )
+  const response = await apiHttp.post<{ success: boolean; data: Channel }>(`/channels/${id}/media`, body)
   return response.data.data
 }
 

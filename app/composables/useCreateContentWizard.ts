@@ -5,6 +5,7 @@ import type {
   ContentType,
   SurveyKind,
 } from '@/types/content-creation'
+import type { SubBrand } from '@/types/sub-brand'
 import type { ModalStep } from '@/components/ui/AppStepModal.vue'
 
 const INFO_STEP: ModalStep = { id: 'info', title: 'Contenu', description: 'Titre, catégories et couverture' }
@@ -21,6 +22,7 @@ export const CONTENT_WIZARD_STEPS: ModalStep[] = wizardStepsFor('statsdata')
 
 export function useCreateContentWizard(type: ContentType = 'statsdata') {
   const title = ref('')
+  const domain = ref<SubBrand>('statsio')
   const categories = ref<string[]>([])
   const coverage = ref<ContentCoverage | null>(null)
   const surveyKind = ref<SurveyKind>('single_question')
@@ -41,6 +43,7 @@ export function useCreateContentWizard(type: ContentType = 'statsdata') {
 
   function reset() {
     title.value = ''
+    domain.value = 'statsio'
     categories.value = []
     coverage.value = null
     surveyKind.value = 'single_question'
@@ -53,6 +56,7 @@ export function useCreateContentWizard(type: ContentType = 'statsdata') {
       title: title.value.trim(),
       type: payloadType,
       categories: categories.value,
+      sub_brand: domain.value,
       ...(coverage.value ? { coverage: coverage.value } : {}),
       ...(payloadType === 'survey'
         ? {
@@ -65,6 +69,7 @@ export function useCreateContentWizard(type: ContentType = 'statsdata') {
 
   return {
     title,
+    domain,
     categories,
     coverage,
     surveyKind,

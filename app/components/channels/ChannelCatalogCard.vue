@@ -41,7 +41,15 @@ const stats = computed(() => [
   <article
     class="flex flex-col overflow-hidden rounded-[18px] border-[1.5px] border-slate-200/80 bg-white shadow-[0_1px_3px_rgba(20,20,30,0.06)] transition hover:-translate-y-0.5 hover:border-[#c4b5fd]"
   >
-    <div class="h-16" :style="bannerStyle" />
+    <div class="h-28 overflow-hidden">
+      <img
+        v-if="item.banner_url"
+        :src="item.banner_url"
+        :alt="`Bannière ${item.name}`"
+        class="h-full w-full object-cover"
+      />
+      <div v-else class="h-full w-full" :style="bannerStyle" />
+    </div>
 
     <div class="flex flex-1 flex-col px-5 pb-5">
       <div class="-mt-[26px] flex items-end justify-between gap-3">

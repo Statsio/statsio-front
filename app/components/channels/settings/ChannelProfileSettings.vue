@@ -3,7 +3,9 @@ import { ref, watch } from 'vue'
 import AppButton from '@/components/ui/AppButton.vue'
 import StepChannelCategories from '@/components/channels/steps/StepChannelCategories.vue'
 import { updateChannelProfile, updateChannelMedia, type Channel, type ChannelCategory, type ChannelKind } from '@/api/channels'
+import { useMediaLibrary } from '@/composables/useMediaLibrary'
 import { getErrorMessage } from '@/lib/http-errors'
+import { SUB_BRAND_OPTIONS, normalizeSubBrand, type SubBrand } from '@/types/sub-brand'
 
 const KIND_OPTIONS: { value: ChannelKind; label: string }[] = [
   { value: 'redaction', label: 'Rédaction' },
@@ -21,6 +23,7 @@ const profileForm = ref({
   name: '',
   handle: '',
   kind: 'independant' as ChannelKind,
+  sub_brand: 'statsio' as SubBrand,
   description: '',
   categories: [] as ChannelCategory[],
 })
@@ -28,9 +31,10 @@ const profileSaving = ref(false)
 const profileSuccess = ref(false)
 const profileError = ref('')
 
-const logoFile = ref<File | null>(null)
+const mediaLibrary = useMediaLibrary()
+const logoMediaId = ref<number | null>(null)
 const logoPreview = ref<string | null>(null)
-const bannerFile = ref<File | null>(null)
+const bannerMediaId = ref<number | null>(null)
 const bannerPreview = ref<string | null>(null)
 const mediaSaving = ref(false)
 const mediaSuccess = ref(false)
@@ -46,6 +50,7 @@ const initForm = () => {
     name: props.channel.profile.name,
     handle: props.channel.profile.handle,
     kind: props.channel.profile.kind ?? 'independant',
+    sub_brand: normalizeSubBrand(props.channel.profile.sub_brand),
     description: props.channel.profile.description ?? '',
     categories: [...(props.channel.profile.categories ?? [])],
   }
@@ -65,6 +70,7 @@ const saveProfile = async () => {
       name: profileForm.value.name,
       handle: profileForm.value.handle,
       kind: profileForm.value.kind,
+      sub_brand: profileForm.value.sub_brand,
       description: profileForm.value.description,
       categories: profileForm.value.categories,
     })
@@ -78,32 +84,40 @@ const saveProfile = async () => {
   }
 }
 
-const onLogoChange = (e: Event) => {
-  const f = (e.target as HTMLInputElement).files?.[0]
-  if (!f) return
-  logoFile.value = f
-  logoPreview.value = URL.createObjectURL(f)
+const pickLogo = () => {
+  mediaLibrary.open({
+    mode: 'pick',
+    directory: 'channels/logos',
+    onSelect: (media) => {
+      logoMediaId.value = media.id
+      logoPreview.value = media.url
+    },
+  })
 }
 
-const onBannerChange = (e: Event) => {
-  const f = (e.target as HTMLInputElement).files?.[0]
-  if (!f) return
-  bannerFile.value = f
-  bannerPreview.value = URL.createObjectURL(f)
+const pickBanner = () => {
+  mediaLibrary.open({
+    mode: 'pick',
+    directory: 'channels/banners',
+    onSelect: (media) => {
+      bannerMediaId.value = media.id
+      bannerPreview.value = media.url
+    },
+  })
 }
 
 const saveMedia = async () => {
-  if (!logoFile.value && !bannerFile.value) return
+  if (logoMediaId.value == null && bannerMediaId.value == null) return
   mediaSaving.value = true
   mediaSuccess.value = false
   try {
     await updateChannelMedia(props.channelId, {
-      ...(logoFile.value ? { logo: logoFile.value } : {}),
-      ...(bannerFile.value ? { banner: bannerFile.value } : {}),
+      logoMediaId: logoMediaId.value,
+      bannerMediaId: bannerMediaId.value,
     })
     emit('reload')
-    logoFile.value = null
-    bannerFile.value = null
+    logoMediaId.value = null
+    bannerMediaId.value = null
     mediaSuccess.value = true
     setTimeout(() => mediaSuccess.value = false, 3000)
   } catch {}
@@ -150,9 +164,16 @@ const saveColors = async () => {
           <span class="text-sm font-semibold text-slate-700">Description</span>
           <textarea v-model="profileForm.description" rows="3" :class="inputClass + ' resize-none'" placeholder="Décrivez votre chaîne..." />
         </label>
+        <label class="flex flex-col gap-2">
+          <span class="text-sm font-semibold text-slate-700">Domaine</span>
+          <select v-model="profileForm.sub_brand" :class="inputClass">
+            <option v-for="opt in SUB_BRAND_OPTIONS" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+          </select>
+          <span class="text-xs text-slate-400">Détermine sur quel site la chaîne apparaît et les catégories proposées.</span>
+        </label>
         <div class="flex flex-col gap-2">
           <span class="text-sm font-semibold text-slate-700">Catégories</span>
-          <StepChannelCategories v-model="profileForm.categories" />
+          <StepChannelCategories v-model="profileForm.categories" :domain="profileForm.sub_brand" />
         </div>
         <p v-if="profileError" class="text-sm text-rose-600">{{ profileError }}</p>
         <div class="mt-1 flex items-center gap-3">
@@ -168,8 +189,11 @@ const saveColors = async () => {
     <div class="card-xl p-6 sm:p-7">
       <p class="eyebrow text-primary">Visuels</p>
       <div class="mt-5 grid gap-4 sm:grid-cols-2">
-        <label class="group flex cursor-pointer flex-col items-center gap-3 rounded-[1.5rem] border-2 border-dashed border-slate-200 p-6 text-center transition hover:border-primary/40">
-          <input type="file" accept="image/*" class="sr-only" @change="onLogoChange" />
+        <button
+          type="button"
+          class="group flex cursor-pointer flex-col items-center gap-3 rounded-[1.5rem] border-2 border-dashed border-slate-200 p-6 text-center transition hover:border-primary/40"
+          @click="pickLogo"
+        >
           <div class="h-16 w-16 overflow-hidden rounded-2xl bg-slate-100">
             <img v-if="logoPreview || channel.profile.logo_url" :src="logoPreview ?? channel.profile.logo_url ?? ''" alt="" class="h-full w-full object-cover" />
             <div v-else class="flex h-full w-full items-center justify-center text-slate-300">
@@ -178,11 +202,14 @@ const saveColors = async () => {
           </div>
           <div>
             <p class="text-sm font-semibold text-slate-700">Logo</p>
-            <p class="mt-0.5 text-xs text-slate-400">PNG, JPG — max 5 Mo</p>
+            <p class="mt-0.5 text-xs text-slate-400">Choisir depuis la bibliothèque de médias</p>
           </div>
-        </label>
-        <label class="group flex cursor-pointer flex-col items-center gap-3 rounded-[1.5rem] border-2 border-dashed border-slate-200 p-6 text-center transition hover:border-primary/40">
-          <input type="file" accept="image/*" class="sr-only" @change="onBannerChange" />
+        </button>
+        <button
+          type="button"
+          class="group flex cursor-pointer flex-col items-center gap-3 rounded-[1.5rem] border-2 border-dashed border-slate-200 p-6 text-center transition hover:border-primary/40"
+          @click="pickBanner"
+        >
           <div class="h-16 w-full overflow-hidden rounded-xl bg-slate-100">
             <img v-if="bannerPreview || channel.profile.banner_url" :src="bannerPreview ?? channel.profile.banner_url ?? ''" alt="" class="h-full w-full object-cover" />
             <div v-else class="flex h-full w-full items-center justify-center text-slate-300">
@@ -191,13 +218,13 @@ const saveColors = async () => {
           </div>
           <div>
             <p class="text-sm font-semibold text-slate-700">Bannière</p>
-            <p class="mt-0.5 text-xs text-slate-400">PNG, JPG — max 10 Mo</p>
+            <p class="mt-0.5 text-xs text-slate-400">Choisir depuis la bibliothèque de médias</p>
           </div>
-        </label>
+        </button>
       </div>
       <div class="mt-4 flex items-center gap-3">
-        <AppButton variant="primary" size="md" :disabled="mediaSaving || (!logoFile && !bannerFile)" @click="saveMedia">
-          {{ mediaSaving ? 'Upload...' : 'Enregistrer les visuels' }}
+        <AppButton variant="primary" size="md" :disabled="mediaSaving || (logoMediaId == null && bannerMediaId == null)" @click="saveMedia">
+          {{ mediaSaving ? 'Enregistrement...' : 'Enregistrer les visuels' }}
         </AppButton>
         <span v-if="mediaSuccess" class="text-sm font-semibold text-emerald-600">✓ Sauvegardé</span>
       </div>

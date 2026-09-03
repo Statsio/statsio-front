@@ -398,18 +398,26 @@ describe('app/api/studio', () => {
       expect(result.id).toBe('doc-1')
     })
 
-    it('POSTs multipart with _method=PATCH when a thumbnail is provided', async () => {
-      apiMock.onPost(STATSIO_API.studioContent.one('doc-1')).reply((config) => {
-        expect(config.headers?.['Content-Type']).toBe('multipart/form-data')
-        expect(config.data).toBeInstanceOf(FormData)
+    it('PATCHes with thumbnail_media_id when a library media is chosen', async () => {
+      apiMock.onPatch(STATSIO_API.studioContent.one('doc-1')).reply((config) => {
+        expect(JSON.parse(config.data)).toEqual({ title: 'With thumbnail', thumbnail_media_id: 42 })
         return [200, { data: { id: 'doc-1', title: 'With thumbnail' } }]
       })
 
-      const thumbnail = new File(['x'], 'thumb.png')
-      const result = await saveStatsDataDocument('doc-1', { title: 'With thumbnail' }, thumbnail)
+      const result = await saveStatsDataDocument('doc-1', { title: 'With thumbnail' }, 42)
 
       expect(result.title).toBe('With thumbnail')
-      expect(apiMock.history.patch).toHaveLength(0)
+    })
+
+    it('PATCHes with remove_thumbnail when the thumbnail is cleared', async () => {
+      apiMock.onPatch(STATSIO_API.studioContent.one('doc-1')).reply((config) => {
+        expect(JSON.parse(config.data)).toEqual({ title: 'No thumbnail', remove_thumbnail: true })
+        return [200, { data: { id: 'doc-1', title: 'No thumbnail' } }]
+      })
+
+      const result = await saveStatsDataDocument('doc-1', { title: 'No thumbnail' }, null, true)
+
+      expect(result.title).toBe('No thumbnail')
     })
   })
 })

@@ -58,6 +58,7 @@ export function emptyCatalogItem(id: string, type: ContentType): CatalogItem {
     created_at: null,
     publisher: { name: 'Anonyme', initials: '?', is_channel: false, verified: false },
     is_favorited: false,
+    is_featured: false,
   }
 }
 
@@ -77,6 +78,7 @@ export function catalogItemFromDocument(doc: StatsDataDocument, publisher?: Cata
     thumbnail_url: doc.thumbnail_url ?? null,
     categories: doc.categories ?? [],
     category: doc.categories?.[0] ?? null,
+    sub_brand: doc.sub_brand,
     linked_datasets_count: doc.datasets?.length ?? 0,
     views_count: doc.views_count ?? 0,
     // Les cartes affichent « Mis à jour … » — retomber sur created_at si updated_at manque (brouillon).
