@@ -18,7 +18,6 @@ function item(overrides: Partial<CatalogItem> = {}): CatalogItem {
     categories: ['economie'],
     category: 'economie',
     format: null,
-    tags: [],
     reading_minutes: 6,
     linked_datasets_count: 0,
     charts_count: 0,

@@ -27,7 +27,6 @@ function item(overrides: Partial<CatalogItem> = {}): CatalogItem {
     categories: ['economie'],
     category: 'economie',
     format: null,
-    tags: [],
     reading_minutes: 0,
     linked_datasets_count: 3,
     charts_count: 4,
@@ -105,5 +104,31 @@ describe('StatsDataCard', () => {
       global,
     })
     expect(w.text()).toContain('OUVRIR LE STATSDATA')
+  })
+
+  it('shows a real freshness badge when the item carries a scheduled source', () => {
+    const w = mount(StatsDataCard, {
+      props: {
+        item: item({
+          freshness: {
+            is_live: false,
+            last_refreshed_at: new Date(Date.now() - 3 * 86400_000).toISOString(),
+            refresh_frequency: 'daily',
+          },
+        }),
+        mode: 'public',
+      },
+      global,
+    })
+    expect(w.text()).toContain('Mis à jour')
+    expect(w.text()).toContain('rafraîchi chaque jour')
+  })
+
+  it('shows no freshness badge when the source never syncs (freshness null)', () => {
+    const w = mount(StatsDataCard, {
+      props: { item: item({ freshness: null }), mode: 'public' },
+      global,
+    })
+    expect(w.text()).not.toContain('Mis à jour')
   })
 })

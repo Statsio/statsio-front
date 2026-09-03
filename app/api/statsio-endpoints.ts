@@ -23,6 +23,7 @@ export const STATSIO_API = {
   },
   healthcheck: '/healthcheck',
   media: {
+    collection: '/media',
     upload: '/media/upload',
     one: (id: string | number) => `/media/${encodeURIComponent(String(id))}`,
   },
@@ -72,11 +73,17 @@ export const STATSIO_API = {
     page: (datasetId: string, pageIdOrSlug: string) =>
       `/datasets/${encodeURIComponent(datasetId)}/pages/${encodeURIComponent(pageIdOrSlug)}`,
   },
+  dossiers: {
+    collection: '/dossiers',
+    pinned: '/dossiers/pinned',
+  },
   studioContent: {
     collection: '/studio/content',
     one: (id: string) => `/studio/content/${encodeURIComponent(id)}`,
     dataSources: (id: string) => `/studio/content/${encodeURIComponent(id)}/data-sources`,
     publish: (id: string) => `/studio/content/${encodeURIComponent(id)}/publish`,
+    dossiers: (id: string) => `/studio/content/${encodeURIComponent(id)}/dossiers`,
+    dossierSuggestions: (id: string) => `/studio/content/${encodeURIComponent(id)}/dossier-suggestions`,
     unpublish: (id: string) => `/studio/content/${encodeURIComponent(id)}/unpublish`,
     versions: (id: string) => `/studio/content/${encodeURIComponent(id)}/versions`,
     restoreVersion: (id: string, version: number) =>

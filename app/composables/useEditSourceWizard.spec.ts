@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { useEditSourceWizard } from './useEditSourceWizard'
+import { useEditSourceWizard, EDIT_SOURCE_WIZARD_STEPS } from './useEditSourceWizard'
 import type { DataSourceDetail } from '@/api/data-sources'
 
 function makeSource(overrides: Partial<DataSourceDetail> = {}): DataSourceDetail {
@@ -32,6 +32,15 @@ function makeSource(overrides: Partial<DataSourceDetail> = {}): DataSourceDetail
 }
 
 describe('useEditSourceWizard', () => {
+  it('exposes a synchronisation step in the wizard step list', () => {
+    expect(EDIT_SOURCE_WIZARD_STEPS.map((s) => s.id)).toEqual([
+      'configure',
+      'synchronisation',
+      'provenance',
+      'visibility',
+    ])
+  })
+
   describe('canGoNext — configure step', () => {
     it('file source requires a non-blank name', () => {
       const wizard = useEditSourceWizard(makeSource({ sourceKind: 'upload' }))

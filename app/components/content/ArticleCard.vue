@@ -11,6 +11,7 @@ import ContentCardFavButton from '@/components/content/ContentCardFavButton.vue'
 import ContentCardOwner from '@/components/content/ContentCardOwner.vue'
 import ContentCardActions from '@/components/content/ContentCardActions.vue'
 import CatalogSubBrandTag from '@/components/listing/CatalogSubBrandTag.vue'
+import ContentCardDossierTag from '@/components/content/ContentCardDossierTag.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -28,7 +29,6 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   favorite: []
-  'select-tag': [string]
   edit: []
   remove: [string]
 }>()
@@ -162,6 +162,7 @@ const pubMeta = computed(() => formatCatalogItemMeta(props.item.views_count, pro
       </div>
 
       <CatalogSubBrandTag :categories="item.categories" content-type="article" />
+      <ContentCardDossierTag :dossier="item.dossier" />
       <NuxtLink
         :to="isManage && manage ? manage.studioPath : to"
         class="block text-[17.5px] font-extrabold leading-snug tracking-[-0.015em] text-slate-950 text-pretty hover:text-primary"
@@ -169,18 +170,6 @@ const pubMeta = computed(() => formatCatalogItemMeta(props.item.views_count, pro
         {{ item.title }}
       </NuxtLink>
       <p v-if="item.description" class="mt-2 text-[13px] leading-relaxed text-slate-500">{{ item.description }}</p>
-
-      <div v-if="!isManage && item.tags.length" class="mt-3.5 flex flex-wrap gap-1.5">
-        <button
-          v-for="tag in item.tags"
-          :key="tag"
-          type="button"
-          class="rounded-md bg-[#f4f3f8] px-2.5 py-1 text-[11px] font-semibold text-slate-500 transition hover:bg-[#f2ecfd] hover:text-primary"
-          @click="emit('select-tag', tag)"
-        >
-          #{{ tag }}
-        </button>
-      </div>
 
       <slot name="cta" />
 

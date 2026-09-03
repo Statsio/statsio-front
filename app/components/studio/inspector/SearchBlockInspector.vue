@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import type { BlockConfig, DatasetMeta, StudioBlock } from '@/types/studio'
@@ -7,8 +7,8 @@ import { primarySourceId } from '@/lib/studio-columns'
 import InspectorSection from '@/components/studio/fields/InspectorSection.vue'
 import FieldText from '@/components/studio/fields/FieldText.vue'
 import FieldNote from '@/components/studio/fields/FieldNote.vue'
+import { useSourceDrillIn } from '@/composables/useSourceDrillIn'
 import FieldPicker from '@/components/studio/fields/FieldPicker.vue'
-import DataSourceWizard from '@/components/studio/ui/DataSourceWizard.vue'
 import SearchMappingField from '@/components/studio/fields/SearchMappingField.vue'
 
 const props = defineProps<{ block: StudioBlock }>()
@@ -19,7 +19,7 @@ function set<K extends keyof BlockConfig>(key: K, value: BlockConfig[K]) {
   studio.updateBlockConfig(props.block.id, { [key]: value })
 }
 
-const showSource = ref(false)
+const sourceDrill = useSourceDrillIn()
 
 const sources = computed(() => props.block.sources ?? [])
 const hasSource = computed(() => Boolean(primarySourceId(props.block)))
@@ -50,9 +50,8 @@ const sourceSummary = computed(() => {
         label="Source de données"
         :value="sourceSummary"
         :action="hasSource ? 'Changer' : 'Choisir'"
-        @open="showSource = true"
+        @open="sourceDrill.open({ block })"
       />
-      <DataSourceWizard :show="showSource" :block="block" @close="showSource = false" />
 
       <SearchMappingField :block="block" />
 

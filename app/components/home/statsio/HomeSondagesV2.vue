@@ -3,7 +3,7 @@ import HomeCarousel from '@/components/home/statsio/HomeCarousel.vue'
 import SurveyCard from '@/components/content/SurveyCard.vue'
 import { useHomeCatalogSection } from '@/composables/useHomeCatalogSection'
 
-const { items, isFavorited, toggleItemFavorite, selectTag } = useHomeCatalogSection({
+const { items, isFavorited, toggleItemFavorite } = useHomeCatalogSection({
   type: 'survey',
   key: 'home-v2-sondages',
 })
@@ -30,7 +30,6 @@ const { items, isFavorited, toggleItemFavorite, selectTag } = useHomeCatalogSect
         :item="item"
         :favorited="isFavorited(item)"
         @favorite="toggleItemFavorite(item)"
-        @select-tag="selectTag"
       />
     </div>
   </HomeCarousel>

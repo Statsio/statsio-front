@@ -6,7 +6,6 @@ export interface AccountContentSummary {
   slug: string | null
   title: string
   type: ContentType
-  emoji: string | null
   thumbnail_url: string | null
   channel: {
     id: number

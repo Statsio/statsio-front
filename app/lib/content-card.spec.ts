@@ -75,7 +75,6 @@ describe('catalogItemFromAccountSummary', () => {
     slug: null,
     title: 'Fav',
     type: 'article',
-    emoji: '📈',
     thumbnail_url: null,
     channel: null,
     author: { name: 'Léa' },
@@ -87,10 +86,8 @@ describe('catalogItemFromAccountSummary', () => {
       id: 's1',
       slug: '',
       type: 'article',
-      emoji: '📈',
       views_count: 0,
       reading_minutes: 0,
-      tags: [],
       categories: [],
     })
     expect(item.publisher.name).toBe('Léa')
@@ -122,7 +119,6 @@ describe('emptyCatalogItem', () => {
   it('fills every required CatalogItem field', () => {
     const item = emptyCatalogItem('x', 'article')
     expect(item.categories).toEqual([])
-    expect(item.tags).toEqual([])
     expect(item.is_favorited).toBe(false)
     expect(item.publisher).toBeDefined()
   })

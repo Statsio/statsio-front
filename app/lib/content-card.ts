@@ -47,11 +47,9 @@ export function emptyCatalogItem(id: string, type: ContentType): CatalogItem {
     description: null,
     type,
     thumbnail_url: null,
-    emoji: null,
     categories: [],
     category: null,
     format: null,
-    tags: [],
     reading_minutes: 0,
     linked_datasets_count: 0,
     charts_count: 0,
@@ -77,7 +75,6 @@ export function catalogItemFromDocument(doc: StatsDataDocument, publisher?: Cata
     title: doc.title,
     description: doc.description ?? null,
     thumbnail_url: doc.thumbnail_url ?? null,
-    emoji: doc.emoji ?? null,
     categories: doc.categories ?? [],
     category: doc.categories?.[0] ?? null,
     linked_datasets_count: doc.datasets?.length ?? 0,
@@ -98,7 +95,7 @@ export function catalogItemFromDocument(doc: StatsDataDocument, publisher?: Cata
 
 /**
  * `AccountContentSummary` (favoris / historique / recherche du compte) → `CatalogItem`.
- * Forme volontairement légère : la source ne porte ni `views_count`, ni `tags`, ni
+ * Forme volontairement légère : la source ne porte ni `views_count`, ni
  * `categories`, ni `reading_minutes`, ni les champs de sondage (`survey_kind`,
  * `primary_options`, `responses_count`). Les formats de carte utilisés pour ces listes
  * (`card` compact, `row`) n'en lisent aucun ; le reste retombe sur les défauts de
@@ -111,7 +108,6 @@ export function catalogItemFromAccountSummary(s: AccountContentSummary): Catalog
     slug: s.slug ?? '',
     title: s.title,
     thumbnail_url: s.thumbnail_url,
-    emoji: s.emoji,
     publisher: catalogPublisherFromChannelOrAuthor(s.channel, s.author),
   }
 }

@@ -18,7 +18,6 @@ withDefaults(
 
 const emit = defineEmits<{
   favorite: []
-  'select-tag': [string]
   edit: []
   remove: [string]
 }>()
@@ -34,7 +33,6 @@ const emit = defineEmits<{
     :feature="feature"
     :base-path="basePath"
     @favorite="emit('favorite')"
-    @select-tag="emit('select-tag', $event)"
     @edit="emit('edit')"
     @remove="emit('remove', $event)"
   >

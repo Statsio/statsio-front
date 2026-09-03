@@ -11,6 +11,7 @@ import ContentCardFavButton from '@/components/content/ContentCardFavButton.vue'
 import ContentCardOwner from '@/components/content/ContentCardOwner.vue'
 import ContentCardActions from '@/components/content/ContentCardActions.vue'
 import CatalogSubBrandTag from '@/components/listing/CatalogSubBrandTag.vue'
+import ContentCardDossierTag from '@/components/content/ContentCardDossierTag.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -28,7 +29,6 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   favorite: []
-  'select-tag': [string]
   edit: []
   remove: [string]
 }>()
@@ -201,6 +201,7 @@ const featuredStats = computed(() => {
       {{ item.category.toUpperCase() }}
     </div>
     <CatalogSubBrandTag :categories="item.categories" content-type="survey" />
+    <ContentCardDossierTag :dossier="item.dossier" />
     <NuxtLink
       :to="isManage && manage ? manage.studioPath : to"
       class="block text-[17px] font-extrabold leading-tight tracking-[-0.015em] text-pretty text-slate-950 hover:text-primary"

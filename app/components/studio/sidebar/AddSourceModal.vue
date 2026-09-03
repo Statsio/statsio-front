@@ -9,6 +9,7 @@ import { useAddSourceWizard, ADD_SOURCE_WIZARD_STEPS } from '@/composables/useAd
 import { createApiDataSource, type QueryMapping } from '@/api/data-sources'
 import StepSourceType from './add-source-steps/StepSourceType.vue'
 import StepDatagouvDataset from './add-source-steps/StepDatagouvDataset.vue'
+import StepSynchronisation from './add-source-steps/StepSynchronisation.vue'
 import StepApiDetect from './add-source-steps/StepApiDetect.vue'
 import StepSourceConfigure from './add-source-steps/StepSourceConfigure.vue'
 import StepProvenance from './add-source-steps/StepProvenance.vue'
@@ -34,12 +35,16 @@ const activeSteps = computed(() => {
   if (sourceType.value === 'catalog') return ADD_SOURCE_WIZARD_STEPS.slice(0, 1)
   // L'étape "Jeu de données" ne concerne que les sources data.gouv.fr.
   // L'étape "Détection" ne concerne que les sources API (rien à détecter pour un fichier).
-  if (sourceType.value === 'file') return ADD_SOURCE_WIZARD_STEPS.filter((s) => s.id !== 'detect' && s.id !== 'datagouv')
+  // L'étape "Synchronisation" ne concerne que data.gouv.fr (l'API a son sélecteur inline
+  // dans "Configuration", un fichier importé n'a pas d'origine à resynchroniser).
+  if (sourceType.value === 'file') {
+    return ADD_SOURCE_WIZARD_STEPS.filter((s) => !['detect', 'datagouv', 'synchronisation'].includes(s.id))
+  }
   // data.gouv.fr : on choisit la ressource à l'étape dédiée — pas de détection ni de configuration manuelle.
   if (sourceType.value === 'datagouv') {
     return ADD_SOURCE_WIZARD_STEPS.filter((s) => s.id !== 'detect' && s.id !== 'configure')
   }
-  return ADD_SOURCE_WIZARD_STEPS.filter((s) => s.id !== 'datagouv')
+  return ADD_SOURCE_WIZARD_STEPS.filter((s) => s.id !== 'datagouv' && s.id !== 'synchronisation')
 })
 
 const wizardSteps = computed(() =>
@@ -218,6 +223,11 @@ async function handleAttached() {
       :datagouv-name="datagouvName"
       @update:datagouv-input="datagouvInput = $event"
       @update:datagouv-name="datagouvName = $event"
+    />
+    <StepSynchronisation
+      v-else-if="currentStepId === 'synchronisation'"
+      :model-value="apiForm.refreshFrequency"
+      @update:model-value="apiForm = { ...apiForm, refreshFrequency: $event }"
     />
     <StepApiDetect
       v-else-if="currentStepId === 'detect'"

@@ -394,6 +394,8 @@ export interface BlockConfig {
   calloutColor?: string
   // Image block config
   imageUrl?: string
+  /** Id du média lié en bibliothèque (quand l'image vient du sélecteur de médias). */
+  imageMediaId?: number
   imageAlt?: string
   imageCaption?: string
   imageAlign?: 'left' | 'center' | 'right'
@@ -414,6 +416,8 @@ export interface BlockConfig {
   linkTitle?: string
   linkDescription?: string
   linkImage?: string
+  /** Id du média lié en bibliothèque pour `linkImage`. */
+  linkImageMediaId?: number
   linkDomain?: string
   /** mode `content` — type + slug d'un contenu publié (article / statsdata / sondage). */
   linkContentType?: ContentType
@@ -449,8 +453,6 @@ export interface BlockConfig {
   paramAllowAll?: boolean
   /** Label of the "all values" option (default "Tout"). */
   paramAllLabel?: string
-  /** Publish one indexable page per value (`/statsdata/{slug}/{valeur}`) — sets the param's `fanOut`. */
-  paramFanOut?: boolean
   // Search block config
   /** @deprecated Bloc recherche : le paramètre point-barre est toujours auto-déclaré. */
   searchAsParam?: boolean
@@ -700,7 +702,7 @@ export interface DatasetMeta {
   sourceKind?: 'api'
   /** Uniquement renseigné pour une source "api" — une source "live" n'a de row_count fiable que si un count_path a été détecté (voir query_mapping). */
   materialization?: 'snapshot' | 'live'
-  refreshFrequency?: 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly'
+  refreshFrequency?: 'none' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly'
   lastRefreshedAt?: string | null
   nextRefreshAt?: string | null
 }
@@ -800,6 +802,12 @@ export interface PageParam {
   hidden?: boolean
   /** Id du bloc recherche propriétaire — présent ⇔ `hidden`. */
   searchBlockId?: string
+  /**
+   * Id du bloc `param` propriétaire — le paramètre est piloté par un contrôle
+   * visible (pastilles / liste) et reste listé comme variable (contrairement à
+   * `searchBlockId`). Synchronisé par `studio.syncParamBlockPageParam`.
+   */
+  paramBlockId?: string
 }
 
 /** Référence à un élément de premier niveau du flux d'une page : une section racine ou un bloc de page. */

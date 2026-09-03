@@ -418,6 +418,8 @@ export interface StatsDataDocument {
   /** Only present when published_as === 'channel' — the channel's name + custom brand colors. */
   channel?: ContentChannel | null
   author?: { name: string }
+  /** Dossiers éditoriaux dans lesquels ce contenu est rangé (placement vivant). */
+  dossiers?: { id: number; slug: string; name: string; image_url?: string | null }[]
   datasets?: ContentDataset[]
   created_at?: string
   updated_at?: string
@@ -426,7 +428,6 @@ export interface StatsDataDocument {
   blocks?: StudioBlock[]
   categories?: string[]
   coverage?: ContentCoverage | null
-  emoji?: string | null
   /** Bloc graphique choisi pour le mini-graphe de la carte de catalogue. Null = automatique. */
   card_block_id?: string | null
   /** Only meaningful for `type === 'survey'`. Null/undefined = ouvert indéfiniment. */
@@ -636,7 +637,6 @@ export interface SaveStatsDataDocumentPayload {
   description?: string | null
   categories?: string[]
   coverage?: ContentCoverage | null
-  emoji?: string | null
   /** Bloc graphique du mini-graphe de la carte. Null = automatique (premier graphique). */
   card_block_id?: string | null
   response_deadline?: string | null
@@ -681,7 +681,6 @@ function appendSavePayload(form: FormData, payload: SaveStatsDataDocumentPayload
   if (payload.description !== undefined) form.append('description', payload.description ?? '')
   if (payload.categories !== undefined) payload.categories.forEach((c) => form.append('categories[]', c))
   if (payload.coverage !== undefined) form.append('coverage', payload.coverage ?? '')
-  if (payload.emoji !== undefined) form.append('emoji', payload.emoji ?? '')
   if (payload.response_deadline !== undefined) form.append('response_deadline', payload.response_deadline ?? '')
   if (payload.survey_kind !== undefined) form.append('survey_kind', payload.survey_kind)
   if (payload.requires_identity_verification !== undefined)
@@ -700,11 +699,17 @@ export async function deleteStatsDataDocument(documentId: string): Promise<void>
  */
 export async function publishStudioContent(
   documentId: string,
-  opts: { publishedAs?: 'user' | 'channel'; channelId?: number | null } = {},
+  opts: {
+    publishedAs?: 'user' | 'channel'
+    channelId?: number | null
+    /** Ranger le contenu dans ces dossiers éditoriaux (omis = placement inchangé). */
+    dossierIds?: number[]
+  } = {},
 ): Promise<StatsDataDocument> {
   const { data } = await apiHttp.post(STATSIO_API.studioContent.publish(documentId), {
     ...(opts.publishedAs ? { published_as: opts.publishedAs } : {}),
     ...(opts.channelId != null ? { channel_id: opts.channelId } : {}),
+    ...(opts.dossierIds ? { dossier_ids: opts.dossierIds } : {}),
   })
   return data.data
 }

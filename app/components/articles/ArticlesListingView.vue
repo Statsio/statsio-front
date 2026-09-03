@@ -85,9 +85,6 @@ const gridItems = computed(() => {
   return items.filter((item) => item.id !== catalog.value.featured?.id)
 })
 
-function onSelectTag(tag: string) {
-  qInput.value = tag
-}
 </script>
 
 <template>
@@ -179,7 +176,6 @@ function onSelectTag(tag: string) {
             format="card"
             :favorited="isFavorited(item)"
             @favorite="toggleItemFavorite(item)"
-            @select-tag="onSelectTag"
           />
         </div>
 

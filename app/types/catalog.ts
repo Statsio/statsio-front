@@ -24,6 +24,8 @@ export type CardPreviewSeries = { name: string; values: number[] }
 export type CardPreview = {
   block_id?: string
   kind?: CardPreviewKind
+  /** Titre réel du bloc graphique du Studio (`config.title`), vide si non défini. */
+  title?: string
   labels?: string[]
   series?: CardPreviewSeries[]
   unit?: string
@@ -47,12 +49,9 @@ export type CatalogItem = {
   description?: string | null
   type?: CatalogContentType
   thumbnail_url?: string | null
-  /** Emoji de repli pour la vignette quand il n'y a pas d'image. */
-  emoji?: string | null
   categories: string[]
   category: string | null
   format: CatalogFormat | null
-  tags: string[]
   reading_minutes: number
   linked_datasets_count: number
   charts_count: number
@@ -61,6 +60,13 @@ export type CatalogItem = {
   created_at?: string | null
   publisher: CatalogPublisher
   is_favorited: boolean
+  /**
+   * Fraîcheur de la source principale du contenu (StatsData) — `null` si la source
+   * est figée (« jamais ») ou sans planification : dans ce cas la carte n'affiche rien.
+   */
+  freshness?: import('@/lib/statsdata-freshness').DatasetFreshness | null
+  /** Dossier éditorial principal (1er par position) auquel ce contenu est rattaché. `null` si aucun. */
+  dossier?: { slug: string; name: string } | null
   // ── Sondages (type === 'survey') ──────────────────────────────────────────
   survey_kind?: SurveyKind
   requires_identity_verification?: boolean
