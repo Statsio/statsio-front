@@ -20,9 +20,9 @@ export function wizardStepsFor(type: ContentType): ModalStep[] {
 /** Kept for backwards-compat with existing imports/tests. */
 export const CONTENT_WIZARD_STEPS: ModalStep[] = wizardStepsFor('statsdata')
 
-export function useCreateContentWizard(type: ContentType = 'statsdata') {
+export function useCreateContentWizard(type: ContentType = 'statsdata', initialDomain: SubBrand = 'statsio') {
   const title = ref('')
-  const domain = ref<SubBrand>('statsio')
+  const domain = ref<SubBrand>(initialDomain)
   const categories = ref<string[]>([])
   const coverage = ref<ContentCoverage | null>(null)
   const surveyKind = ref<SurveyKind>('single_question')
@@ -43,7 +43,7 @@ export function useCreateContentWizard(type: ContentType = 'statsdata') {
 
   function reset() {
     title.value = ''
-    domain.value = 'statsio'
+    domain.value = initialDomain
     categories.value = []
     coverage.value = null
     surveyKind.value = 'single_question'

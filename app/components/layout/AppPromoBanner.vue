@@ -6,17 +6,23 @@ import { usePrefsStore } from '@/stores/prefs'
 import { getBrandFromPath } from '@/data/brands'
 import { loadPromoTicker } from '@/composables/useHeaderMegaMenuData'
 import type { PromoTickerItem } from '@/components/layout/brands/header-nav.types'
+import type { CardPreview } from '@/types/catalog'
+import { getStatsDataPalette } from '@/utils/statsDataVisuals'
+import StatsDataMiniChart from '@/components/content/StatsDataMiniChart.vue'
 
 const route = useRoute()
 const { reducedMotion } = storeToRefs(usePrefsStore())
 
 const brand = computed(() => getBrandFromPath(route.path))
-// « Voir les tendances » renvoie vers le listing Articles (trié tendance par défaut) de la marque courante.
-const ctaHref = computed(() => `${brand.value.contentBasePath}/articles`)
+// « Voir les tendances » ouvre la page Tendances (classement unifié) sur Statsio ;
+// les sous-marques n'ont pas cette page → repli sur leur listing Articles (trié tendance).
+const ctaHref = computed(() =>
+  brand.value.id === 'statsio' ? '/tendances' : `${brand.value.contentBasePath}/articles`,
+)
 
 const { data } = useAsyncData(
   'promo-ticker',
-  () => loadPromoTicker(brand.value.contentCategories, brand.value.contentBasePath),
+  () => loadPromoTicker(brand.value.id, brand.value.contentBasePath),
   { watch: [() => brand.value.id], default: (): PromoTickerItem[] => [] },
 )
 
@@ -40,6 +46,26 @@ const trackItems = computed(() => {
 })
 
 const sparkMax = (values: number[]) => Math.max(...values, 1)
+
+const paletteFor = (item: PromoTickerItem) => getStatsDataPalette(item.categories)
+
+/** Camembert d'aperçu → dégradé conique compact (même rendu que les cartes de catalogue). */
+const pieGradient = (preview: CardPreview, item: PromoTickerItem) => {
+  const values = preview.series?.[0]?.values ?? []
+  const total = values.reduce((sum, v) => sum + Math.abs(v), 0) || 1
+  const colors = paletteFor(item)
+  let acc = 0
+  const stops = values.map((value, i) => {
+    const from = (acc / total) * 100
+    acc += Math.abs(value)
+    const to = (acc / total) * 100
+    return `${colors[i % colors.length]} ${from.toFixed(2)}% ${to.toFixed(2)}%`
+  })
+  return `conic-gradient(${stops.join(',')})`
+}
+
+const surveyLeadPct = (options: { pct: number; lead: boolean }[]) =>
+  Math.round(options.find((o) => o.lead)?.pct ?? options[0]?.pct ?? 0)
 </script>
 
 <template>
@@ -85,7 +111,23 @@ const sparkMax = (values: number[]) => Math.max(...values, 1)
             </span>
             <span class="whitespace-nowrap text-[12.5px] font-bold">{{ entry.item.title }}</span>
 
-            <template v-if="entry.item.kind === 'statsdata' && entry.item.kpi">
+            <template v-if="entry.item.kind === 'statsdata' && entry.item.preview">
+              <span
+                v-if="entry.item.preview.kind === 'pie'"
+                class="block h-7 w-7 shrink-0 rounded-full"
+                :style="{ background: pieGradient(entry.item.preview, entry.item) }"
+              ></span>
+              <div v-else class="h-7 w-[104px] shrink-0">
+                <StatsDataMiniChart
+                  :preview="entry.item.preview"
+                  :palette="paletteFor(entry.item)"
+                  :height="28"
+                  spark
+                />
+              </div>
+            </template>
+
+            <template v-else-if="entry.item.kind === 'statsdata' && entry.item.kpi">
               <span class="flex shrink-0 items-baseline gap-1">
                 <span class="font-mono text-[12px] font-bold text-slate-900">{{ entry.item.kpi }}</span>
                 <span class="font-mono text-[9px] font-semibold text-emerald-600">{{ entry.item.kpiLabel }}</span>
@@ -101,7 +143,27 @@ const sparkMax = (values: number[]) => Math.max(...values, 1)
               </span>
             </template>
 
-            <template v-if="entry.item.kind === 'survey' && entry.item.percent != null">
+            <template v-if="entry.item.kind === 'survey' && entry.item.surveyOptions">
+              <span class="flex shrink-0 items-center gap-2">
+                <span class="flex flex-col gap-[3px]">
+                  <span
+                    v-for="(o, i) in entry.item.surveyOptions"
+                    :key="i"
+                    class="h-[4px] w-14 overflow-hidden rounded-full bg-slate-200"
+                  >
+                    <span
+                      class="block h-full rounded-full"
+                      :style="{ width: Math.max(6, o.pct) + '%', background: o.color }"
+                    ></span>
+                  </span>
+                </span>
+                <span class="font-mono text-[10.5px] font-bold text-primary"
+                  >{{ surveyLeadPct(entry.item.surveyOptions) }}%</span
+                >
+              </span>
+            </template>
+
+            <template v-else-if="entry.item.kind === 'survey' && entry.item.percent != null">
               <span class="h-[5px] w-16 shrink-0 overflow-hidden rounded-full bg-slate-200">
                 <span
                   class="block h-full rounded-full bg-[linear-gradient(90deg,var(--color-primary),var(--color-accent))]"

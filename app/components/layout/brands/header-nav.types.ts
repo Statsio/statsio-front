@@ -40,6 +40,8 @@ export type MegaMenuDataCard = {
   sparkline: number[]
   /** Champs v2. */
   href?: string
+  /** Logo à afficher à la place de `icon` (ex. logo de chaîne dans le menu Audiences). */
+  logoUrl?: string | null
   theme?: string
   themeColor?: string
   freq?: string
@@ -76,8 +78,14 @@ export type MegaMenuChannelCard = {
   followers?: string
 }
 
+/** Sous-groupes optionnels d'une liste de cartes (ex. « En ce moment » / « Ce soir »). */
+export type MegaMenuCardSection<TCard> = {
+  label: string
+  cards: TCard[]
+}
+
 export type MegaMenuContent =
-  | { variant: 'doc'; cards: MegaMenuArticleCard[] }
+  | { variant: 'doc'; cards: MegaMenuArticleCard[]; sections?: MegaMenuCardSection<MegaMenuArticleCard>[] }
   | { variant: 'bar'; cards: MegaMenuDataCard[] }
   | { variant: 'pie'; cards: MegaMenuPollCard[] }
   | { variant: 'plane'; cards: MegaMenuChannelCard[] }
@@ -88,13 +96,19 @@ export type PromoTickerItem = {
   tagColor: string
   title: string
   href: string
-  /** StatsData : valeur mise en avant + libellé. */
+  /** StatsData : valeur mise en avant + libellé (repli quand aucun graphique réel). */
   kpi?: string
   kpiLabel?: string
-  /** StatsData : mini série décorative dérivée de l'id. */
+  /** StatsData : mini série décorative dérivée de l'id (repli). */
   sparkline?: number[]
-  /** Sondage : pourcentage de l'option en tête. */
+  /** StatsData : mini-graphe réel (même source que les cartes de catalogue). */
+  preview?: import('@/types/catalog').CardPreview
+  /** StatsData : catégories du contenu, pour la palette du mini-graphe. */
+  categories?: string[]
+  /** Sondage : pourcentage de l'option en tête (repli / pétitions). */
   percent?: number
+  /** Sondage : barres d'options condensées (mêmes données que les cartes de catalogue). */
+  surveyOptions?: { pct: number; color: string; lead: boolean }[]
 }
 
 export type HeaderNavItem = {

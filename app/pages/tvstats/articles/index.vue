@@ -7,5 +7,5 @@ definePageMeta({
 </script>
 
 <template>
-  <ArticlesListingView sub-brand="tvstats" title="Actus" />
+  <ArticlesListingView title="Actus" />
 </template>

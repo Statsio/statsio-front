@@ -1,23 +1,32 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { RouterLink } from 'vue-router'
+import type { RouteLocationRaw } from 'vue-router'
+
 /** Pastille d'action de la page StatsData (maquette v2) : favori, suivre, partager, CSV, CTA. */
-withDefaults(
+const props = withDefaults(
   defineProps<{
     variant?: 'neutral' | 'gradient' | 'toggle'
     active?: boolean
     as?: 'button' | 'a'
     href?: string
+    /** Rendu en `RouterLink` (navigation SPA vers une autre page du document). */
+    to?: RouteLocationRaw
     size?: 'sm' | 'md'
   }>(),
   { variant: 'neutral', active: false, as: 'button', size: 'md' },
 )
 defineEmits<{ click: [] }>()
+
+const tag = computed(() => (props.to != null ? RouterLink : props.as))
 </script>
 
 <template>
   <component
-    :is="as"
-    :href="as === 'a' ? href : undefined"
-    :type="as === 'button' ? 'button' : undefined"
+    :is="tag"
+    :to="to != null ? to : undefined"
+    :href="to == null && as === 'a' ? href : undefined"
+    :type="to == null && as === 'button' ? 'button' : undefined"
     class="sd-action inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full font-bold transition-colors"
     :class="[
       size === 'sm' ? 'px-4 py-2.5 text-[12.5px]' : 'px-5 py-3 text-[13px]',

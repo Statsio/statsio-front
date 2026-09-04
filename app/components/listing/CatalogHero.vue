@@ -1,22 +1,35 @@
 <script setup lang="ts">
-defineProps<{
+import { computed } from 'vue'
+import { useContentDomain } from '@/composables/useContentDomain'
+
+const props = defineProps<{
   crumbs: { label: string; to?: string }[]
   badge: string
   badgeClass?: string
   kicker: string
   title?: string
   subtitle: string
+  /** Chemin de l'illustration `…-hero-light.png` ; les variantes de marque
+   *  (`…-hero-tvstats.png`, `…-hero-medistats.png`) sont choisies automatiquement. */
   heroSrc?: string
   heroClass?: string
   stats: { label: string; value: string }[]
 }>()
+
+const domain = useContentDomain()
+
+const resolvedHeroSrc = computed(() => {
+  if (!props.heroSrc) return undefined
+  if (domain.value === 'statsio') return props.heroSrc
+  return props.heroSrc.replace(/-light\.(png|webp|jpe?g)$/i, `-${domain.value}.$1`)
+})
 </script>
 
 <template>
   <section class="relative overflow-hidden border-b border-slate-200/80 bg-white px-4 pb-11 pt-10 sm:px-6 lg:px-8 lg:pb-12 lg:pt-14" :class="heroClass">
     <img
-      v-if="heroSrc"
-      :src="heroSrc"
+      v-if="resolvedHeroSrc"
+      :src="resolvedHeroSrc"
       alt=""
       class="pointer-events-none absolute inset-0 h-full w-full object-cover"
     />
@@ -37,7 +50,7 @@ defineProps<{
 
       <div class="mb-4 flex flex-wrap items-center gap-2.5">
         <slot name="badge">
-          <span class="mono rounded-[5px] border border-[#c7dbfd] bg-[#eaf1fe] px-2 py-1 text-[10px] font-semibold text-[#2563eb]" :class="badgeClass">
+          <span class="mono rounded-[5px] border border-primary/25 bg-primary/10 px-2 py-1 text-[10px] font-semibold text-primary" :class="badgeClass">
             {{ badge }}
           </span>
         </slot>

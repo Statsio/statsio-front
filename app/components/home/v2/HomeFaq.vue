@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import type { HomeFaqItem } from '@/data/brands/statsio/home-v2'
+import type { HomeFaqItem } from '@/data/brands/home-content.types'
 
 defineProps<{
+  eyebrow: string
+  title: string
   faqs: HomeFaqItem[]
 }>()
 
@@ -16,9 +18,9 @@ function toggle(i: number) {
 <template>
   <section class="mx-auto mb-[70px] max-w-[820px]">
     <div class="mb-9 text-center">
-      <span class="font-mono text-[10px] font-semibold tracking-[0.09em] text-primary">QUESTIONS FRÉQUENTES</span>
+      <span class="font-mono text-[10px] font-semibold tracking-[0.09em] text-primary">{{ eyebrow }}</span>
       <h2 class="mt-2.5 text-[28px] font-extrabold tracking-[-0.02em] text-slate-950">
-        Tout ce qu'il faut savoir avant de commencer
+        {{ title }}
       </h2>
     </div>
 

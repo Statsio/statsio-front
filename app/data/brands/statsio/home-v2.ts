@@ -1,39 +1,8 @@
-/**
- * Contenu éditorial de la page d'accueil Statsio v2 (maquette « Accueil v2 »).
- * Les carrousels Articles / StatsData / Sondages / Chaînes sont alimentés par
- * l'API ; ce fichier ne porte que les textes marketing (hero, étapes, FAQ, CTA).
- */
+import type { HomeV2Content } from '@/data/brands/home-content.types'
 
-export type HomeHeroStat = { label: string; value: string }
-
-export type HomeHeadlinePart = { text: string; color?: string }
-
-export type HomeStep = {
-  num: string
-  icon: string
-  iconBg: string
-  iconFg: string
-  title: string
-  desc: string
-}
-
-export type HomeFaqItem = { q: string; a: string }
-
-export type StatsioHomeContent = {
-  heroBadge: string
-  heroFlash: string
-  heroHeadline: HomeHeadlinePart[]
-  heroSubtitle: string
-  heroCtaPrimary: string
-  heroCtaSecondary: string
-  heroStats: HomeHeroStat[]
-  steps: HomeStep[]
-  faqs: HomeFaqItem[]
-}
-
-export const statsioHomeV2: StatsioHomeContent = {
+export const statsioHomeV2: HomeV2Content = {
   heroBadge: 'DONNÉES PUBLIQUES',
-  heroFlash: '1,2 M de réponses ce mois-ci',
+  heroFlash: 'Mis à jour en continu',
   heroHeadline: [
     { text: 'Les données publiques, ' },
     { text: 'racontées', color: '#7c3aed' },
@@ -45,12 +14,22 @@ export const statsioHomeV2: StatsioHomeContent = {
     "Statsio réunit articles, statsdata en direct et sondages sur l'énergie, la santé, le climat et l'économie. Lisez, votez — ou publiez les vôtres, gratuitement.",
   heroCtaPrimary: 'Créer mon compte gratuitement',
   heroCtaSecondary: 'Publier un contenu en 2 minutes',
-  heroStats: [
-    { label: 'Consultations ouvertes', value: '312' },
-    { label: 'Statsdata suivies', value: '640' },
-    { label: 'Chaînes actives', value: '1 284' },
-    { label: 'Comptes créés', value: '84 k' },
-  ],
+  // Plus affiché sur la home Statsio (hero éditorial sans KPI). Conservé pour le contrat de type.
+  heroStats: [],
+
+  carousels: {
+    articles: { eyebrow: 'ARTICLES', title: 'Décryptages et enquêtes du moment', allLabel: 'Tous les articles' },
+    statsdata: { eyebrow: 'STATSDATA', title: 'Des chiffres qui bougent en direct', allLabel: 'Toutes les statsdata' },
+    sondages: { eyebrow: 'SONDAGES', title: 'Votez, ça compte vraiment', allLabel: 'Toutes les consultations' },
+  },
+
+  channelsTitle: 'Rédactions, institutions et analystes à suivre',
+
+  stepsEyebrow: 'POUR TOUT LE MONDE',
+  stepsTitle: 'Créez vos propres contenus, simplement et gratuitement',
+  stepsDesc:
+    "Pas besoin d'être une rédaction : un article, une statsdata ou un sondage se publient en quelques minutes, sans rien payer.",
+  stepsCta: 'Créer un compte et publier →',
   steps: [
     {
       num: '1',
@@ -77,6 +56,9 @@ export const statsioHomeV2: StatsioHomeContent = {
       desc: 'Statistiques de lecture et de participation, exportables à tout moment.',
     },
   ],
+
+  faqEyebrow: 'QUESTIONS FRÉQUENTES',
+  faqTitle: "Tout ce qu'il faut savoir avant de commencer",
   faqs: [
     {
       q: 'Est-ce vraiment gratuit de créer un compte ?',
@@ -99,4 +81,11 @@ export const statsioHomeV2: StatsioHomeContent = {
       a: 'Oui, à tout moment depuis votre espace de gestion. Les statistiques de participation restent visibles sur les copies déjà partagées.',
     },
   ],
+
+  cta: {
+    headline: 'Rejoignez tous ceux qui lisent, votent et publient sur Statsio.',
+    subtitle: 'Gratuit, sans carte bancaire. Vous gardez le contrôle de vos données et de vos publications.',
+    primary: 'Créer un compte gratuit',
+    secondary: 'Explorer sans compte',
+  },
 }

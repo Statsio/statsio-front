@@ -21,7 +21,7 @@ const formEmoji = computed(() => getMedicamentFormEmoji(props.medicament.formePh
 <template>
   <NuxtLink
     :to="`/medistats/medicaments/${medicament.cis}`"
-    class="group flex w-full text-left transition"
+    class="u-hover group flex w-full text-left"
     :class="
       variant === 'row'
         ? 'items-center gap-3.5 border-b border-slate-100 px-5 py-3 last:border-b-0 hover:bg-slate-50'
@@ -44,7 +44,7 @@ const formEmoji = computed(() => getMedicamentFormEmoji(props.medicament.formePh
     </div>
 
     <div class="min-w-0 flex-1">
-      <p class="truncate text-sm font-bold text-slate-900" :class="variant === 'grid' ? 'text-[16.5px]' : ''">
+      <p class="u-card-title truncate text-sm font-bold text-slate-900" :class="variant === 'grid' ? 'text-[16.5px]' : ''">
         {{ medicament.elementPharmaceutique }}
       </p>
       <p class="mt-0.5 truncate text-xs text-slate-500">

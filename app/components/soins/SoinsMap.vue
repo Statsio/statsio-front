@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useSoins } from '@/composables/useSoins'
 import AppSectionTabs from '@/components/ui/AppSectionTabs.vue'
 import AppWorldScatterMap, { type WorldScatterPoint } from '@/components/ui/AppWorldScatterMap.vue'
+import PageHeroV2 from '@/components/home/v2/PageHeroV2.vue'
 import { getMedistatsTabs } from '@/data/medistats-nav-tabs'
 import type { SoinsIndicatorKey } from '@/types/soins'
 
@@ -42,15 +43,18 @@ const mapPoints = computed<WorldScatterPoint[]>(() =>
 </script>
 
 <template>
-  <div class="mx-auto max-w-5xl px-4 pb-24 pt-10 md:px-8 md:pt-12">
-    <h1 class="mb-1.5 text-2xl font-bold text-slate-900 md:text-[26px]">Soins &amp; systèmes de santé</h1>
-    <p class="mb-1.5 max-w-xl text-[14.5px] text-slate-500">
-      Ressources humaines, infrastructures et financement des systèmes de santé, pays par pays.
-    </p>
-    <p class="mb-6 font-mono text-xs text-slate-400">Source : GHO OData API (who.int/data/gho) — Global Health Observatory, OMS</p>
+  <div>
+    <PageHeroV2
+      badge="SYSTÈMES DE SANTÉ"
+      hero-kind="map"
+      title="Soins & systèmes de santé"
+      subtitle="Ressources humaines, infrastructures et financement des systèmes de santé, pays par pays."
+      note="Source : GHO OData API (who.int/data/gho) — Global Health Observatory, OMS"
+    >
+      <AppSectionTabs :tabs="getMedistatsTabs('soins')" />
+    </PageHeroV2>
 
-    <AppSectionTabs :tabs="getMedistatsTabs('soins')" />
-
+    <div class="mx-auto max-w-5xl px-4 pb-24 pt-10 md:px-8 md:pt-12">
     <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
       <p class="text-xs font-bold tracking-[0.04em] text-slate-500 uppercase">Indicateur affiché sur la carte</p>
       <div class="flex flex-wrap gap-1.5">
@@ -131,5 +135,6 @@ const mapPoints = computed<WorldScatterPoint[]>(() =>
         Aucun pays ne correspond à « {{ countryQuery }} ».
       </p>
     </template>
+    </div>
   </div>
 </template>

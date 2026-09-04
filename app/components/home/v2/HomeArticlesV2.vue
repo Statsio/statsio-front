@@ -1,7 +1,18 @@
 <script setup lang="ts">
-import HomeCarousel from '@/components/home/statsio/HomeCarousel.vue'
+import { computed } from 'vue'
+import HomeCarousel from '@/components/home/v2/HomeCarousel.vue'
 import ArticleCard from '@/components/content/ArticleCard.vue'
 import { useHomeCatalogSection } from '@/composables/useHomeCatalogSection'
+import { useContentBasePath } from '@/composables/useContentBasePath'
+
+const props = defineProps<{
+  eyebrow: string
+  title: string
+  allLabel: string
+}>()
+
+const basePath = useContentBasePath()
+const allTo = computed(() => `${basePath.value}/articles`)
 
 const { items, isFavorited, toggleItemFavorite } = useHomeCatalogSection({
   type: 'article',
@@ -12,11 +23,11 @@ const { items, isFavorited, toggleItemFavorite } = useHomeCatalogSection({
 <template>
   <HomeCarousel
     v-if="items.length"
-    eyebrow="ARTICLES"
-    eyebrow-color="#7c3aed"
-    title="Décryptages et enquêtes du moment"
-    all-label="Tous les articles"
-    all-to="/articles"
+    :eyebrow="props.eyebrow"
+    eyebrow-color="var(--color-primary)"
+    :title="props.title"
+    :all-label="props.allLabel"
+    :all-to="allTo"
   >
     <div
       v-for="item in items"

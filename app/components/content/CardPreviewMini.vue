@@ -62,7 +62,8 @@ const pieGradient = computed(
     >
       <span
         v-if="headerLabel"
-        class="mono truncate text-[9px] font-extrabold tracking-[0.08em] uppercase text-slate-400"
+        class="truncate text-[11px] leading-snug font-medium text-slate-400"
+        :title="headerLabel"
       >
         {{ headerLabel }}
       </span>

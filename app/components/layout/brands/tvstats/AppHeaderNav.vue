@@ -23,8 +23,8 @@ const { data } = useAsyncData('tvstats-header-nav', () =>
   Promise.all([
     loadAudiencesMenu(categoryPalette),
     loadProgrammeTvMenu(categoryPalette),
-    loadDossiersMenu(categoryPalette),
-    loadChannelsMenu(categoryPalette),
+    loadDossiersMenu(categoryPalette, 'tvstats'),
+    loadChannelsMenu(categoryPalette, 'tvstats'),
   ]),
 )
 
@@ -48,7 +48,7 @@ const items = computed<HeaderNavItem[]>(() => {
       href: '/tvstats/programme-tv',
       icon: 'remote',
       eyebrow: 'Programmation',
-      menuHeading: 'À la une',
+      menuHeading: 'Ce qui passe',
       categoryHeading: 'Genres',
       links: programmeTv?.links ?? [],
       categories: programmeTv?.categories ?? [],
@@ -56,7 +56,7 @@ const items = computed<HeaderNavItem[]>(() => {
     },
     {
       label: 'Dossiers',
-      href: '/dossiers',
+      href: '/tvstats/dossiers',
       icon: 'dossiers',
       eyebrow: 'Sujets suivis',
       menuHeading: 'Dossiers récents',
@@ -67,7 +67,7 @@ const items = computed<HeaderNavItem[]>(() => {
     },
     {
       label: 'Chaînes',
-      href: '/chaines',
+      href: '/tvstats/chaines',
       icon: 'channels',
       eyebrow: 'Réseau TV',
       menuHeading: 'À la une',

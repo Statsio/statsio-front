@@ -10,14 +10,14 @@ defineProps<{
 <template>
   <RouterLink
     :to="`/tvstats/emission/${programme.broadcastId}`"
-    class="block overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:shadow-sm"
+    class="u-card block overflow-hidden rounded-2xl border border-slate-200 bg-white"
   >
-    <div class="relative h-[100px] bg-slate-100">
+    <div class="relative h-[100px] overflow-hidden bg-slate-100">
       <img
         v-if="programme.imageUrl"
         :src="programme.imageUrl"
         :alt="programme.title"
-        class="h-full w-full object-cover"
+        class="u-card-media h-full w-full object-cover"
         @error="($event.target as HTMLImageElement).style.display='none'"
       />
       <span
@@ -34,7 +34,7 @@ defineProps<{
       >
         {{ programme.category }}
       </span>
-      <p class="mt-2 text-[14.5px] font-bold leading-tight text-slate-900">{{ programme.title }}</p>
+      <p class="u-card-title mt-2 text-[14.5px] font-bold leading-tight text-slate-900">{{ programme.title }}</p>
       <div v-if="programme.rating != null" class="mt-2 flex gap-0.5">
         <span
           v-for="i in 5"

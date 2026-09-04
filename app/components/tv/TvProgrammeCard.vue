@@ -34,15 +34,22 @@ function goToDetail() {
 
 <template>
   <div
-    class="flex flex-1 min-w-0 gap-3.5 py-0.5"
+    class="u-hover flex flex-1 min-w-0 gap-3.5 py-0.5"
     :class="programme.broadcastId != null ? 'cursor-pointer' : ''"
     @click="goToDetail"
   >
-    <!-- Thumbnail placeholder -->
-    <div class="relative h-[66px] w-[88px] shrink-0 overflow-hidden rounded-xl" :style="{ backgroundImage: thumbnailGradient }">
-      <span class="absolute inset-0 flex items-center justify-center px-1 text-center font-mono text-[8px] font-bold uppercase text-slate-400">
-        Image programme
-      </span>
+    <!-- Vignette — uniquement si le programme a une image -->
+    <div
+      v-if="programme.imageUrl"
+      class="relative h-[66px] w-[88px] shrink-0 overflow-hidden rounded-xl"
+      :style="{ backgroundImage: thumbnailGradient }"
+    >
+      <img
+        :src="programme.imageUrl"
+        :alt="programme.title"
+        class="h-full w-full object-cover"
+        @error="($event.target as HTMLImageElement).parentElement!.style.display = 'none'"
+      />
     </div>
 
     <div class="flex min-w-0 flex-1 flex-col gap-1">
@@ -56,7 +63,7 @@ function goToDetail() {
         <span class="font-mono text-[11px] text-slate-400">{{ programme.startTime }}–{{ programme.endTime }}</span>
       </div>
 
-      <p class="truncate text-sm font-bold text-slate-900">{{ programme.title }}</p>
+      <p class="u-card-title truncate text-sm font-bold text-slate-900">{{ programme.title }}</p>
 
       <div class="flex flex-wrap items-center gap-1.5">
         <span v-if="categoryLabel" class="rounded-full px-2 py-0.5 text-[10px] font-bold" :class="categoryBadgeClass(categoryLabel)">

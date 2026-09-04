@@ -8,7 +8,7 @@ const emit = defineEmits<{ remove: [id: string] }>()
 </script>
 
 <template>
-  <div class="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_1px_3px_rgba(20,20,30,0.05)]">
+  <div class="u-card flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_1px_3px_rgba(20,20,30,0.05)]">
     <div class="relative">
       <component
         :is="content.publicPath ? RouterLink : 'div'"
@@ -33,7 +33,7 @@ const emit = defineEmits<{ remove: [id: string] }>()
       <component
         :is="content.publicPath ? RouterLink : 'div'"
         :to="content.publicPath ?? undefined"
-        class="mb-auto mt-1.5 text-[14px] font-bold leading-snug text-pretty text-slate-950 hover:text-primary"
+        class="u-card-title mb-auto mt-1.5 text-[14px] font-bold leading-snug text-pretty text-slate-950 hover:text-primary"
       >
         {{ content.title }}
       </component>

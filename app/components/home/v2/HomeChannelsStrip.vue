@@ -1,37 +1,41 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { getPublicChannels, type Channel } from '@/api/channels'
+import { fetchChannelCatalog } from '@/api/channels'
+import { useContentDomain } from '@/composables/useContentDomain'
+import { useContentBasePath } from '@/composables/useContentBasePath'
 import { formatCompactNumber } from '@/lib/format'
 import { channelBannerStyle, resolveChannelColors } from '@/lib/channel-brand'
+import type { ChannelCatalogItem } from '@/types/channel-catalog'
 
-const channels = ref<Channel[]>([])
+const props = defineProps<{
+  title: string
+}>()
+
+const domain = useContentDomain()
+const basePath = useContentBasePath()
+const items = ref<ChannelCatalogItem[]>([])
 
 onMounted(async () => {
   try {
-    const result = await getPublicChannels({ sort: 'popular', perPage: 8 })
-    channels.value = result.channels
+    const res = await fetchChannelCatalog({ sort: 'trend', per_page: 8, sub_brand: domain.value })
+    items.value = res.data
   } catch {
-    channels.value = []
+    items.value = []
   }
 })
 
 const chips = computed(() =>
-  channels.value.map((c) => {
-    const name = c.profile.name ?? ''
-    const colors = resolveChannelColors(
-      String(c.id),
-      c.profile.custom_color_primary,
-      c.profile.custom_color_secondary,
-    )
+  items.value.map((c) => {
+    const colors = resolveChannelColors(String(c.id), c.custom_color_primary, c.custom_color_secondary)
     return {
       id: c.id,
-      handle: c.profile.handle,
-      name,
-      initials: name.split(' ').filter(Boolean).map((w) => w[0]).join('').slice(0, 2).toUpperCase(),
-      verified: (c.badges ?? []).length > 0,
-      followers: formatCompactNumber(c.profile.subscriber_count ?? 0),
-      logoUrl: c.profile.logo_url,
+      handle: c.handle,
+      name: c.name,
+      initials: c.name.split(' ').filter(Boolean).map((w) => w[0]).join('').slice(0, 2).toUpperCase(),
+      verified: c.verified,
+      followers: formatCompactNumber(c.followers_count ?? 0),
+      logoUrl: c.logo_url,
       avatarStyle: channelBannerStyle(colors.primary, colors.secondary),
     }
   }),
@@ -44,10 +48,10 @@ const chips = computed(() =>
       <div>
         <span class="font-mono text-[10px] font-semibold tracking-[0.09em] text-emerald-600">CHAÎNES</span>
         <h2 class="mt-2 text-2xl font-extrabold tracking-[-0.02em] text-slate-950">
-          Rédactions, institutions et analystes à suivre
+          {{ props.title }}
         </h2>
       </div>
-      <RouterLink to="/chaines" class="text-[13.5px] font-bold text-primary transition hover:opacity-70">
+      <RouterLink :to="`${basePath}/chaines`" class="text-[13.5px] font-bold text-primary transition hover:opacity-70">
         Découvrir les chaînes →
       </RouterLink>
     </div>
@@ -57,7 +61,7 @@ const chips = computed(() =>
         v-for="chip in chips"
         :key="chip.id"
         :to="`/channels/${encodeURIComponent(chip.handle)}`"
-        class="flex items-center gap-3 rounded-[14px] border-[1.5px] border-slate-200/70 bg-white px-4 py-3 shadow-[0_1px_3px_rgba(20,20,30,0.06)] transition hover:border-[#c4b5fd]"
+        class="flex items-center gap-3 rounded-[14px] border-[1.5px] border-slate-200/70 bg-white px-4 py-3 shadow-[0_1px_3px_rgba(20,20,30,0.06)] transition hover:border-primary/40"
       >
         <span
           class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-[11px] text-xs font-extrabold text-white"

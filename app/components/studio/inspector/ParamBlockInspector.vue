@@ -155,6 +155,24 @@ const CONTROLS = [
         </span>
       </label>
 
+      <label class="toggle-row" @click="updateConfig('heroButton', !block.config.heroButton)">
+        <span class="text-sm text-[var(--studio-ink)]">Bouton d'accès rapide dans le hero</span>
+        <span class="toggle" :class="block.config.heroButton ? 'toggle-on' : 'toggle-off'">
+          <span class="toggle-knob" :class="block.config.heroButton ? 'translate-x-3.5' : 'translate-x-0.5'" />
+        </span>
+      </label>
+
+      <div v-if="block.config.heroButton" class="flex flex-col gap-1.5">
+        <label class="text-xs font-semibold text-[var(--studio-muted)]">Label du bouton</label>
+        <input
+          type="text"
+          class="cfg-input"
+          :value="block.config.heroButtonLabel ?? ''"
+          :placeholder="block.config.title || 'Choisir une valeur'"
+          @input="updateConfig('heroButtonLabel', ($event.target as HTMLInputElement).value)"
+        />
+      </div>
+
       <FieldNote>
         Une page indexable <code class="font-mono">/…/{{ column || 'valeur' }}</code> est générée
         automatiquement pour chaque valeur distincte (comme la barre de recherche).

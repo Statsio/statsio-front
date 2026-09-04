@@ -18,9 +18,7 @@ import CatalogLoadMore from '@/components/listing/CatalogLoadMore.vue'
 import CatalogCta from '@/components/listing/CatalogCta.vue'
 import SurveyCard from '@/components/content/SurveyCard.vue'
 
-const props = defineProps<{
-  categories?: string[]
-  subBrand?: import('@/types/sub-brand').SubBrand
+defineProps<{
   title?: string
 }>()
 
@@ -45,9 +43,7 @@ const {
   isFavorited,
 } = usePublicCatalog({
   type: 'survey',
-  brandCategories: props.categories,
-  brandSubBrand: props.subBrand,
-  key: `surveys-catalog-${props.subBrand ?? ''}-${(props.categories ?? []).join(',')}`,
+  key: 'surveys-catalog',
 })
 
 const sortOptions: { value: 'trend' | 'recent' | 'votes'; label: string }[] = [
@@ -110,7 +106,6 @@ const gridItems = computed(() => {
     <CatalogHero
       :crumbs="crumbs"
       badge="CONSULTATIONS"
-      badge-class="!border-[#f8ccd6] !bg-[#fdeef1] !text-[#be123c]"
       kicker="SONDAGES RAPIDES · QUESTIONNAIRES · PÉTITIONS"
       :title="title"
       subtitle="Un vote en un clic, un questionnaire complet ou une pétition à signer — trois formats de consultation, des résultats publics et exportables."

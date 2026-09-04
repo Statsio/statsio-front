@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useChannelsCatalog } from '@/composables/useChannelsCatalog'
+import { useContentBasePath } from '@/composables/useContentBasePath'
 import { formatCatalogCount, formatRelativePublished } from '@/lib/catalog-format'
 import CatalogHero from '@/components/listing/CatalogHero.vue'
 import CatalogToolbar from '@/components/listing/CatalogToolbar.vue'
@@ -16,6 +17,12 @@ import CatalogCta from '@/components/listing/CatalogCta.vue'
 import ChannelCatalogCard from '@/components/channels/ChannelCatalogCard.vue'
 import ChannelCatalogRow from '@/components/channels/ChannelCatalogRow.vue'
 import type { ChannelCatalogSort } from '@/types/channel-catalog'
+
+defineProps<{
+  title?: string
+}>()
+
+const basePath = useContentBasePath()
 
 const {
   qInput,
@@ -45,11 +52,10 @@ const sortOptions: { value: ChannelCatalogSort; label: string }[] = [
   { value: 'followers', label: 'Les plus suivies' },
 ]
 
-const crumbs = [
-  { label: 'Accueil', to: '/' },
-  { label: 'Communauté', to: '/chaines' },
+const crumbs = computed(() => [
+  { label: 'Accueil', to: basePath.value || '/' },
   { label: 'Chaînes' },
-]
+])
 
 const heroStats = computed(() => [
   { label: 'Chaînes actives', value: formatCatalogCount(catalog.value.stats.active) },
@@ -78,15 +84,18 @@ function onSelectTag(tag: string) {
     <CatalogHero
       :crumbs="crumbs"
       badge="CHAÎNES"
-      badge-class="!border-[#dccaf8] !bg-[#f2ecfd] !text-[#7c3aed]"
       kicker="RÉDACTIONS · INSTITUTIONS · ANALYSTES INDÉPENDANTS"
+      :title="title"
       subtitle="Chaque chaîne publie ses Statsdata, ses articles et ses consultations. Abonnez-vous pour recevoir ses parutions dans votre fil."
       hero-src="/brand/listings/chaines-hero-light.png"
       :stats="heroStats"
     >
       <template #title>
-        Suivez celles et ceux qui <span class="text-primary">font parler</span> les
-        <span class="text-accent">données</span>.
+        <template v-if="title">{{ title }}</template>
+        <template v-else>
+          Suivez celles et ceux qui <span class="text-primary">font parler</span> les
+          <span class="text-accent">données</span>.
+        </template>
       </template>
     </CatalogHero>
 

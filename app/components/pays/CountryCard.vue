@@ -12,7 +12,7 @@ defineProps<{
 </script>
 
 <template>
-  <NuxtLink :to="`/medistats/pays/${iso3}`" class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3.5">
+  <NuxtLink :to="`/medistats/pays/${iso3}`" class="u-card flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3.5">
     <div class="flex items-center justify-between gap-2.5">
       <div class="flex min-w-0 items-center gap-2.5">
         <span
@@ -22,7 +22,7 @@ defineProps<{
           {{ isoToFlagEmoji(iso2) }}
         </span>
         <div class="min-w-0">
-          <p class="truncate text-[13.5px] font-bold text-slate-900">{{ name }}</p>
+          <p class="u-card-title truncate text-[13.5px] font-bold text-slate-900">{{ name }}</p>
           <p class="truncate text-[11px] text-slate-400">{{ region }} · {{ formatCompactNumber(population) }} hab.</p>
         </div>
       </div>
