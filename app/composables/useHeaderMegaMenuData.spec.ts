@@ -20,7 +20,7 @@ import type { CatalogItem, CatalogResponse } from '@/types/catalog'
 
 vi.mock('@/api/studio', () => ({
   fetchPublicCatalog: vi.fn<typeof fetchPublicCatalog>(),
-  fetchStatsDataCardPreview: vi.fn(async () => ({ empty: true })),
+  fetchStatsDataCardPreview: vi.fn<typeof fetchStatsDataCardPreview>(async () => ({ empty: true })),
 }))
 
 vi.mock('@/api/channels', async (importOriginal) => {
