@@ -8,10 +8,12 @@ import ArticleBody from '@/components/articles/ArticleBody.vue'
 import ArticleTeaserCard from '@/components/articles/ArticleTeaserCard.vue'
 import StatsDataUsefulBar from '@/components/statsdata/detail/StatsDataUsefulBar.vue'
 import StatsDataEmbedModal from '@/components/statsdata/detail/StatsDataEmbedModal.vue'
+import ContentOwnerBar from '@/components/statsdata/detail/ContentOwnerBar.vue'
 import { fetchPublicArticles, fetchPublicStatsDataDocument, type StatsDataDocument } from '@/api/studio'
 import { useStudioStore } from '@/stores/studio'
 import { useStatsDataChrome } from '@/composables/useStatsDataChrome'
 import { useContentBasePath } from '@/composables/useContentBasePath'
+import { useContentDomain } from '@/composables/useContentDomain'
 import { isFormBlock, isTextBlock } from '@/types/studio'
 import type { StudioBlock } from '@/types/studio'
 import { getHttpErrorStatus } from '@/lib/http-errors'
@@ -19,11 +21,12 @@ import { publicContentListPath } from '@/lib/content-display'
 import { sectionAnchorId } from '@/lib/slug'
 import { stripInlineHtml } from '@/lib/inline-rich-text'
 
-const props = withDefaults(defineProps<{ categories?: string[]; embed?: boolean }>(), { embed: false })
+const props = withDefaults(defineProps<{ embed?: boolean }>(), { embed: false })
 
 const route = useRoute()
 const studio = useStudioStore()
 const basePath = useContentBasePath()
+const domain = useContentDomain()
 
 const slug = computed(() => String(route.params.slug ?? ''))
 
@@ -112,7 +115,7 @@ onMounted(async () => {
   try {
     const [doc, articles] = await Promise.all([
       fetchPublicStatsDataDocument(slug.value),
-      props.embed ? Promise.resolve([] as StatsDataDocument[]) : fetchPublicArticles(props.categories),
+      props.embed ? Promise.resolve([] as StatsDataDocument[]) : fetchPublicArticles({ sub_brand: domain.value }),
     ])
 
     article.value = doc
@@ -165,6 +168,13 @@ onMounted(async () => {
 
       <!-- Page publique complète -->
       <template v-else>
+        <ContentOwnerBar
+          v-if="article.can_edit"
+          type="article"
+          :slug="article.slug ?? slug"
+          :status="article.status"
+        />
+
         <ArticleSubHeader
           :title="article.title"
           :edit-href="editHref"
@@ -191,13 +201,6 @@ onMounted(async () => {
         />
 
         <div class="mx-auto max-w-[1180px] px-4 sm:px-6">
-          <div
-            v-if="article.thumbnail_url"
-            class="mt-8 overflow-hidden rounded-[18px] border border-[var(--studio-line)] bg-white"
-          >
-            <img :src="article.thumbnail_url" :alt="article.title" class="h-[240px] w-full object-cover sm:h-[320px] lg:h-[380px]" />
-          </div>
-
           <div class="grid grid-cols-1 gap-10 pt-8 lg:grid-cols-[212px_minmax(0,1fr)] lg:items-start">
             <div class="lg:sticky lg:top-40">
               <ArticleToc :entries="tocEntries" :linked="linkedStatsData" />

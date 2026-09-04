@@ -16,9 +16,7 @@ import CatalogLoadMore from '@/components/listing/CatalogLoadMore.vue'
 import CatalogCta from '@/components/listing/CatalogCta.vue'
 import ArticleCard from '@/components/content/ArticleCard.vue'
 
-const props = defineProps<{
-  categories?: string[]
-  subBrand?: import('@/types/sub-brand').SubBrand
+defineProps<{
   title?: string
 }>()
 
@@ -41,9 +39,7 @@ const {
   isFavorited,
 } = usePublicCatalog({
   type: 'article',
-  brandCategories: props.categories,
-  brandSubBrand: props.subBrand,
-  key: `articles-catalog-${props.subBrand ?? ''}-${(props.categories ?? []).join(',')}`,
+  key: 'articles-catalog',
 })
 
 const sortOptions: { value: 'trend' | 'recent' | 'views'; label: string }[] = [

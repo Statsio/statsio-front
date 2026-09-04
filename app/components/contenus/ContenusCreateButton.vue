@@ -27,7 +27,7 @@ useClickOutside(rootRef, () => { isOpen.value = false })
   <div ref="rootRef" class="relative">
     <button
       type="button"
-      class="whitespace-nowrap rounded-xl bg-[linear-gradient(135deg,#8b5cf6,#3b82f6)] px-[22px] py-[13px] text-[14.5px] font-bold text-white transition hover:brightness-105"
+      class="whitespace-nowrap rounded-xl bg-[linear-gradient(135deg,var(--color-primary),var(--color-accent))] px-[22px] py-[13px] text-[14.5px] font-bold text-white transition hover:brightness-105"
       aria-haspopup="menu"
       :aria-expanded="isOpen"
       @click="isOpen = !isOpen"

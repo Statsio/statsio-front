@@ -240,6 +240,7 @@ export async function fetchChannelCatalog(query: ChannelCatalogQuery = {}): Prom
         ...(query.category ? { category: query.category } : {}),
         ...(query.pace ? { pace: query.pace } : {}),
         ...(query.sort ? { sort: query.sort } : {}),
+        ...(query.sub_brand ? { sub_brand: query.sub_brand } : {}),
         ...(query.verified ? { verified: 1 } : {}),
         ...(query.followed ? { followed: 1 } : {}),
         ...(query.per_page ? { per_page: query.per_page } : {}),

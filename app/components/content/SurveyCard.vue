@@ -71,7 +71,7 @@ const featuredStats = computed(() => {
   <NuxtLink
     v-if="feature"
     :to="to"
-    class="grid gap-8 overflow-hidden rounded-[22px] px-8 py-8 shadow-[0_1px_3px_rgba(20,20,30,0.06)] lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] lg:items-center"
+    class="u-card grid gap-8 overflow-hidden rounded-[22px] px-8 py-8 shadow-[0_1px_3px_rgba(20,20,30,0.06)] lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] lg:items-center"
     :class="dark ? 'bg-[linear-gradient(135deg,#18181f,#2c2440)] text-white' : 'border-[1.5px] border-slate-200/80 bg-white text-slate-950'"
   >
     <span class="block min-w-0">
@@ -90,7 +90,7 @@ const featuredStats = computed(() => {
           {{ meta.statusLabel }}<template v-if="!meta.status.closed"> · {{ meta.status.label.toUpperCase() }}</template>
         </span>
       </span>
-      <span class="block text-[1.7rem] font-extrabold leading-[1.16] tracking-[-0.025em] text-pretty lg:text-[29px]">{{ item.title }}</span>
+      <span class="u-card-title block text-[1.7rem] font-extrabold leading-[1.16] tracking-[-0.025em] text-pretty lg:text-[29px]">{{ item.title }}</span>
       <span
         v-if="item.description"
         class="mt-3 block max-w-[50ch] text-[14.5px] leading-[1.6]"
@@ -143,7 +143,7 @@ const featuredStats = computed(() => {
 
   <div
     v-else-if="format === 'row'"
-    class="grid grid-cols-[minmax(0,2.5fr)_1.05fr_1fr_0.8fr_0.8fr_46px] items-center gap-3.5 border-b border-slate-100 px-5 py-3.5 last:border-b-0 hover:bg-[#faf8ff]"
+    class="u-hover grid grid-cols-[minmax(0,2.5fr)_1.05fr_1fr_0.8fr_0.8fr_46px] items-center gap-3.5 border-b border-slate-100 px-5 py-3.5 last:border-b-0 hover:bg-[#faf8ff]"
   >
     <div class="flex min-w-0 items-center gap-3">
       <span
@@ -152,7 +152,7 @@ const featuredStats = computed(() => {
       >{{ meta.kind.icon }}</span>
       <span class="min-w-0">
         <ContentFeaturedBadge v-if="pinned" compact class="mb-1" />
-        <NuxtLink :to="isManage && manage ? manage.studioPath : to" class="block truncate text-sm font-bold text-slate-950 hover:text-primary">{{ item.title }}</NuxtLink>
+        <NuxtLink :to="isManage && manage ? manage.studioPath : to" class="u-card-title block truncate text-sm font-bold text-slate-950 hover:text-primary">{{ item.title }}</NuxtLink>
         <span class="mt-0.5 block truncate font-mono text-[10px] text-slate-400">{{ leadLine }}</span>
       </span>
     </div>
@@ -174,7 +174,7 @@ const featuredStats = computed(() => {
 
   <article
     v-else
-    class="flex flex-col rounded-[18px] border-[1.5px] border-slate-200/70 bg-white p-5 shadow-[0_1px_3px_rgba(20,20,30,0.06)] transition hover:-translate-y-0.5 hover:border-[#c4b5fd]"
+    class="u-card flex flex-col rounded-[18px] border-[1.5px] border-slate-200/70 bg-white p-5 shadow-[0_1px_3px_rgba(20,20,30,0.06)] hover:-translate-y-0.5"
     :style="{ borderTop: `4px solid ${meta.kind.accent}` }"
   >
     <div class="mb-3 flex flex-wrap items-center gap-2">
@@ -209,7 +209,7 @@ const featuredStats = computed(() => {
     <ContentCardDossierTag :dossier="item.dossier" />
     <NuxtLink
       :to="isManage && manage ? manage.studioPath : to"
-      class="block text-[17px] font-extrabold leading-tight tracking-[-0.015em] text-pretty text-slate-950 hover:text-primary"
+      class="u-card-title block text-[17px] font-extrabold leading-tight tracking-[-0.015em] text-pretty text-slate-950 hover:text-primary"
     >
       {{ item.title }}
     </NuxtLink>

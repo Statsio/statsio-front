@@ -5,6 +5,7 @@ import type { ContentCardFormat, ContentManageMeta } from '@/types/content-card'
 import { CONTENT_TYPE_META } from '@/lib/content-display'
 import { formatCatalogCount } from '@/lib/catalog-format'
 import { getNameInitials } from '@/lib/format'
+import AppMediaImage from '@/components/ui/AppMediaImage.vue'
 
 /**
  * Carte de contenu du créateur — reprise des maquettes « Dashboard Chaîne v2 »
@@ -33,11 +34,11 @@ const ownerInitials = computed(() => props.item.publisher.initials || getNameIni
   <!-- ── format="row" : ligne de tableau (maquette « Contenus récents ») ──── -->
   <div
     v-if="format === 'row'"
-    class="grid grid-cols-[minmax(0,2.4fr)_0.9fr_0.7fr_0.8fr] items-center border-t border-[rgba(20,20,30,0.06)] text-[12.5px] first:border-t-0"
+    class="u-hover grid grid-cols-[minmax(0,2.4fr)_0.9fr_0.7fr_0.8fr] items-center border-t border-[rgba(20,20,30,0.06)] text-[12.5px] first:border-t-0"
   >
     <NuxtLink
       :to="manage.studioPath"
-      class="truncate px-6 py-3.5 font-semibold text-[#18181f] hover:text-primary"
+      class="u-card-title truncate px-6 py-3.5 font-semibold text-[#18181f] hover:text-primary"
     >
       {{ item.title }}
     </NuxtLink>
@@ -54,19 +55,10 @@ const ownerInitials = computed(() => props.item.publisher.initials || getNameIni
   <!-- ── format="card" : carte verticale (maquette onglet Contenus) ──────── -->
   <article
     v-else
-    class="flex flex-col overflow-hidden rounded-[14px] border border-[rgba(20,20,30,0.08)] bg-white shadow-[0_1px_3px_rgba(20,20,30,0.05)]"
+    class="u-card flex flex-col overflow-hidden rounded-[14px] border border-[rgba(20,20,30,0.08)] bg-white shadow-[0_1px_3px_rgba(20,20,30,0.05)]"
   >
-    <div
-      class="relative flex h-[112px] items-center justify-center font-mono text-[10.5px]"
-      :style="{ background: typeMeta.bg, color: typeMeta.color }"
-    >
-      <img
-        v-if="item.thumbnail_url"
-        :src="item.thumbnail_url"
-        :alt="item.title"
-        class="absolute inset-0 h-full w-full object-cover"
-      />
-      <span v-else><span class="opacity-70">aperçu&nbsp;</span>{{ typeMeta.label }}</span>
+    <div class="relative flex h-[112px] items-center justify-center overflow-hidden font-mono text-[10.5px]">
+      <AppMediaImage :src="item.thumbnail_url" :alt="item.title" class="u-card-media absolute inset-0" />
 
       <span
         class="absolute right-2.5 top-2.5 rounded-full px-2.5 py-1 text-[10px] font-extrabold"
@@ -81,7 +73,7 @@ const ownerInitials = computed(() => props.item.publisher.initials || getNameIni
 
       <NuxtLink
         :to="manage.studioPath"
-        class="my-[7px] mb-auto block text-[14.5px] font-bold leading-[1.35] text-[#18181f] text-pretty hover:text-primary"
+        class="u-card-title my-[7px] mb-auto block text-[14.5px] font-bold leading-[1.35] text-[#18181f] text-pretty hover:text-primary"
       >
         {{ item.title }}
       </NuxtLink>

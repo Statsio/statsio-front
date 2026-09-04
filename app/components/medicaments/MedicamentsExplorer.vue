@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { POPULAR_MEDICAMENTS, useMedicaments } from '@/composables/useMedicaments'
 import MedicamentsCard from '@/components/medicaments/MedicamentsCard.vue'
 import AppRankingList, { type RankingItem } from '@/components/ui/AppRankingList.vue'
+import PageHeroV2 from '@/components/home/v2/PageHeroV2.vue'
 import { fetchMedicamentImage, fetchMedicamentsSearch, fetchMedicamentsTopVentes } from '@/api/medicaments'
 import { extractMedicamentBrandName } from '@/utils/medicaments'
 import { formatCompactNumber } from '@/utils/number'
@@ -71,13 +72,16 @@ const topVentesItems = computed<RankingItem[]>(() =>
 </script>
 
 <template>
-  <div class="mx-auto max-w-5xl px-4 pb-24 pt-10 md:px-8 md:pt-12">
-    <h1 class="mb-1.5 text-2xl font-bold text-slate-900 md:text-[26px]">Médicaments</h1>
-    <p class="mb-7 max-w-xl text-[14.5px] text-slate-500">
-      Consultez la composition, les présentations, le prix et les conditions de prescription des
-      médicaments référencés dans la base publique des médicaments (BDPM).
-    </p>
+  <div>
+    <PageHeroV2
+      badge="BASE PUBLIQUE DES MÉDICAMENTS"
+      hero-kind="search"
+      title="Médicaments"
+      subtitle="Composition, présentations, prix et conditions de prescription des médicaments référencés dans la base publique des médicaments (BDPM)."
+      note="Sources : BDPM (base-donnees-publique.medicaments.gouv.fr) · Open Medic (Assurance Maladie)"
+    />
 
+    <div class="mx-auto max-w-5xl px-4 pb-24 pt-10 md:px-8 md:pt-12">
     <div class="relative mb-9">
       <div class="flex items-center gap-3 rounded-2xl border border-[var(--color-primary)]/20 bg-white px-5 py-4 shadow-[0_1px_3px_rgba(20,20,30,0.05)]">
         <svg width="19" height="19" viewBox="0 0 24 24" class="shrink-0" aria-hidden="true">
@@ -133,6 +137,7 @@ const topVentesItems = computed<RankingItem[]>(() =>
       <p class="mb-4 text-xs text-slate-400">Nombre de boîtes délivrées — source : Open Medic (Assurance Maladie)</p>
       <p v-if="isLoadingTopVentes" class="py-4 text-center text-[13.5px] text-slate-400">Chargement…</p>
       <AppRankingList v-else :items="topVentesItems" />
+    </div>
     </div>
   </div>
 </template>

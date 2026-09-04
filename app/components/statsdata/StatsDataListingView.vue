@@ -16,9 +16,7 @@ import CatalogLoadMore from '@/components/listing/CatalogLoadMore.vue'
 import CatalogCta from '@/components/listing/CatalogCta.vue'
 import StatsDataCard from '@/components/content/StatsDataCard.vue'
 
-const props = defineProps<{
-  categories?: string[]
-  subBrand?: import('@/types/sub-brand').SubBrand
+defineProps<{
   title?: string
 }>()
 
@@ -43,9 +41,7 @@ const {
   isFavorited,
 } = usePublicCatalog({
   type: 'statsdata',
-  brandCategories: props.categories,
-  brandSubBrand: props.subBrand,
-  key: `statsdata-catalog-${props.subBrand ?? ''}-${(props.categories ?? []).join(',')}`,
+  key: 'statsdata-catalog',
 })
 
 watch(sortMode, (v) => {
@@ -135,7 +131,6 @@ function resetAll() {
     <CatalogHero
       :crumbs="crumbs"
       badge="STATSDATA"
-      badge-class="!border-[#ddd6fe] !bg-[#f2ecfd] !text-[#6d28d9]"
       kicker="DATASETS INTERACTIFS · SÉRIES TEMPORELLES · ANALYSES EXPERTES"
       :title="title"
       subtitle="Explorez et comparez des indicateurs clés : chaque Statsdata croise sources vérifiées, graphiques interactifs et pages analytiques personnalisables — créés par des experts Statsio."

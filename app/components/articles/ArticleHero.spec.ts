@@ -4,7 +4,8 @@ import ArticleHero from './ArticleHero.vue'
 import type { StatsDataDocument } from '@/api/studio'
 
 const stubs = {
-  StatsDataPublisherCard: { name: 'StatsDataPublisherCard', props: ['doc', 'isFollowing', 'canFollow'], template: '<aside />' },
+  ContentCoverImage: { name: 'ContentCoverImage', props: ['doc'], template: '<div />' },
+  ContentCreatorByline: { name: 'ContentCreatorByline', props: ['doc', 'isFollowing', 'canFollow'], template: '<div />' },
 }
 
 function makeDoc(overrides: Partial<StatsDataDocument> = {}): StatsDataDocument {

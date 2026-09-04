@@ -3,6 +3,10 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import BlockRenderer from '@/components/studio/blocks/BlockRenderer.vue'
 import StatsDataShareMenu from '@/components/statsdata/detail/StatsDataShareMenu.vue'
+import ContentCoverImage from '@/components/statsdata/detail/ContentCoverImage.vue'
+import ContentCreatorByline from '@/components/statsdata/detail/ContentCreatorByline.vue'
+import ContentDossierBadge from '@/components/statsdata/detail/ContentDossierBadge.vue'
+import ContentOwnerBar from '@/components/statsdata/detail/ContentOwnerBar.vue'
 import { fetchPublicStatsDataDocument, fetchPublicSurveys, type StatsDataDocument } from '@/api/studio'
 import { fetchBlockResponse, submitBlockResponse, type BlockResponseAggregate, type FormAnswerValue } from '@/api/studio-responses'
 import { startIdentityVerification } from '@/api/identity'
@@ -15,21 +19,18 @@ import type { StudioBlock } from '@/types/studio'
 import { getHttpErrorStatus } from '@/lib/http-errors'
 import { publicContentPath, publicContentListPath } from '@/lib/content-display'
 import { useContentBasePath } from '@/composables/useContentBasePath'
+import { useContentDomain } from '@/composables/useContentDomain'
 import { useRespondentToken } from '@/composables/useRespondentToken'
 import { AUTH_REDIRECT_KEY } from '@/lib/auth-storage'
 import { getPollStatus } from '@/lib/poll-status'
 import { getSurveyKindMeta } from '@/lib/poll-visuals'
 import { profileLabel } from '@/lib/profile-labels'
 import { formatCompactNumber } from '@/lib/format'
-import { channelBannerStyle, resolveChannelColors } from '@/lib/channel-brand'
-
-const props = defineProps<{
-  categories?: string[]
-}>()
 
 const route = useRoute()
 const router = useRouter()
 const studio = useStudioStore()
+const domain = useContentDomain()
 const auth = useAuthStore()
 const basePath = useContentBasePath()
 const respondentToken = useRespondentToken()
@@ -66,7 +67,6 @@ const statusTone = computed(() =>
       : { fg: '#047857', dot: '#059669' },
 )
 
-const authorLabel = computed(() => poll.value?.channel?.name ?? poll.value?.author?.name ?? 'Anonyme')
 const requiresIdentity = computed(() => Boolean(poll.value?.requires_identity_verification))
 
 function formatDate(iso?: string | null) {
@@ -95,18 +95,6 @@ const goalPct = computed(() => {
 /* ───────── Chaîne éditrice + suivi ───────── */
 
 const channelName = computed(() => poll.value?.channel?.name ?? null)
-const channelLogoUrl = computed(() => poll.value?.channel?.logo_url ?? null)
-const channelHandle = computed(() => (poll.value?.channel?.handle ? `@${poll.value.channel.handle}` : null))
-const channelAvatarBg = computed(() => {
-  const c = poll.value?.channel
-  if (!c) return '#8b5cf6'
-  const colors = resolveChannelColors(String(c.id), c.custom_color_primary, c.custom_color_secondary)
-  return channelBannerStyle(colors.primary, colors.secondary).background
-})
-const channelInitials = computed(() =>
-  (channelName.value ?? authorLabel.value)
-    .split(' ').filter(Boolean).map((w) => w[0]).join('').slice(0, 2).toUpperCase(),
-)
 
 const channel = ref<Channel | null>(null)
 const isFollowingChannel = ref(false)
@@ -322,7 +310,7 @@ onMounted(async () => {
   try {
     const [doc, surveys] = await Promise.all([
       fetchPublicStatsDataDocument(slug.value),
-      fetchPublicSurveys(props.categories),
+      fetchPublicSurveys({ sub_brand: domain.value }),
     ])
 
     poll.value = doc
@@ -366,8 +354,15 @@ onUnmounted(() => {
     </div>
 
     <template v-else-if="poll">
+      <ContentOwnerBar
+        v-if="poll.can_edit"
+        type="survey"
+        :slug="poll.slug ?? slug"
+        :status="poll.status"
+      />
+
       <!-- Sous-header collant -->
-      <div class="sticky top-44 z-30 flex items-center gap-3.5 border-b border-slate-200/70 bg-white/90 px-4 py-2.5 backdrop-blur-md sm:px-6 lg:top-28">
+      <div class="sticky top-[158px] z-30 flex items-center gap-3.5 border-b border-slate-200/70 bg-white/90 px-4 py-2.5 backdrop-blur-md sm:px-6 lg:top-28">
         <span
           class="shrink-0 rounded-[5px] px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.06em]"
           :style="{ color: kind.fg, background: kind.bg }"
@@ -408,12 +403,13 @@ onUnmounted(() => {
 
       <!-- Hero -->
       <section class="border-b border-slate-200/80 bg-white px-4 py-10 sm:px-6 lg:py-11">
-        <div class="mx-auto grid max-w-[1180px] items-start gap-10 lg:grid-cols-[minmax(0,1fr)_306px]">
+        <div class="mx-auto grid max-w-[1180px] items-stretch gap-10 lg:grid-cols-[minmax(0,1fr)_306px]">
           <div class="min-w-0">
             <RouterLink :to="listPath" class="mb-4 inline-flex items-center gap-1.5 text-[13px] font-medium text-slate-400 transition hover:text-primary">
               ← Retour aux sondages
             </RouterLink>
             <div class="mb-4 flex flex-wrap items-center gap-2.5">
+              <ContentDossierBadge :dossiers="poll.dossiers" />
               <span class="rounded-[5px] px-2 py-1 font-mono text-[9.5px] font-semibold tracking-[0.08em]" :style="{ color: kind.fg, background: kind.bg }">
                 {{ kind.label.toUpperCase() }}
               </span>
@@ -435,6 +431,14 @@ onUnmounted(() => {
               {{ poll.description }}
             </p>
 
+            <ContentCreatorByline
+              class="mt-5"
+              :doc="poll"
+              :is-following="isFollowingChannel"
+              :can-follow="!!channelName"
+              @toggle-follow="onToggleFollow"
+            />
+
             <div class="mt-6 flex flex-wrap gap-6 border-t border-slate-200/80 pt-5">
               <div v-for="m in heroMeta" :key="m.label">
                 <div class="text-[9.5px] font-extrabold uppercase tracking-[0.09em] text-slate-400">{{ m.label }}</div>
@@ -443,46 +447,7 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <aside class="rounded-[18px] border-[1.5px] border-slate-200/80 p-5">
-            <div class="mb-3.5 text-[9.5px] font-extrabold uppercase tracking-[0.09em] text-slate-400">Publié par</div>
-            <div class="flex items-center gap-3">
-              <span
-                class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[9px] text-[15px] font-extrabold text-white"
-                :style="channelLogoUrl ? undefined : { background: channelName ? channelAvatarBg : 'linear-gradient(135deg,#3b82f6,#059669)' }"
-              >
-                <img v-if="channelLogoUrl" :src="channelLogoUrl" :alt="authorLabel" class="h-full w-full object-cover" />
-                <span v-else>{{ channelInitials }}</span>
-              </span>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5">
-                  <span class="truncate text-[15px] font-extrabold text-slate-950">{{ channelName ?? authorLabel }}</span>
-                  <span v-if="channelName" class="shrink-0 text-[11px] text-accent" title="Chaîne">✔</span>
-                </div>
-                <div v-if="channelHandle" class="mt-0.5 font-mono text-[10.5px] text-slate-400">{{ channelHandle }}</div>
-              </div>
-            </div>
-            <div class="mt-4 flex gap-2">
-              <button
-                v-if="channelName"
-                type="button"
-                class="flex-1 rounded-full px-3 py-2.5 text-center text-[12.5px] font-extrabold transition disabled:opacity-60"
-                :class="isFollowingChannel
-                  ? 'border-[1.5px] border-[#c4b5fd] text-primary'
-                  : 'bg-[linear-gradient(135deg,var(--color-primary),var(--color-accent))] text-white'"
-                :disabled="isTogglingFollow"
-                @click="onToggleFollow"
-              >
-                {{ isFollowingChannel ? 'Suivi ✓' : 'Suivre' }}
-              </button>
-              <RouterLink
-                v-if="channel?.profile?.handle"
-                :to="`/chaines/${channel.profile.handle}`"
-                class="rounded-full border-[1.5px] border-slate-200 px-4 py-2.5 text-[12.5px] font-bold text-slate-600 transition hover:border-primary hover:text-primary"
-              >
-                Profil
-              </RouterLink>
-            </div>
-          </aside>
+          <ContentCoverImage :doc="poll" />
         </div>
       </section>
 

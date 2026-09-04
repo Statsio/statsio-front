@@ -4,7 +4,16 @@ import { formatRowCount } from '@/utils/statsDataFormat'
 import { primaryFreshness } from '@/lib/statsdata-freshness'
 import type { ContentDataset, StatsDataDocument } from '@/api/studio'
 import StatsDataActionButton from './StatsDataActionButton.vue'
-import StatsDataPublisherCard from './StatsDataPublisherCard.vue'
+import ContentCoverImage from './ContentCoverImage.vue'
+import ContentCreatorByline from './ContentCreatorByline.vue'
+import ContentDossierBadge from './ContentDossierBadge.vue'
+
+interface HeroAction {
+  id: string
+  label: string
+  otherPage: boolean
+  path: string
+}
 
 const props = defineProps<{
   doc: StatsDataDocument
@@ -12,11 +21,11 @@ const props = defineProps<{
   isFavorite: boolean
   isFollowing: boolean
   canFollow: boolean
-  /** Ancre de la 1re section contenant un bloc recherche, pour le CTA « chercher ma commune ». */
-  searchAnchor?: string | null
+  /** Boutons dérivés des blocs recherche / paramètre de toutes les pages du document. */
+  actions?: HeroAction[]
 }>()
 
-defineEmits<{ 'toggle-favorite': []; 'toggle-follow': [] }>()
+defineEmits<{ 'toggle-favorite': []; 'toggle-follow': []; activate: [action: HeroAction] }>()
 
 const category = computed(() => props.doc.categories?.[0] ?? null)
 
@@ -47,6 +56,7 @@ const meta = computed(() => {
     <div class="mx-auto grid max-w-[1180px] gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[minmax(0,1fr)_306px] lg:gap-[46px] lg:py-11">
       <div class="min-w-0">
         <div class="mb-4 flex flex-wrap items-center gap-2.5">
+          <ContentDossierBadge :dossiers="doc.dossiers" />
           <span v-if="category" class="mono text-[10.5px] font-semibold uppercase tracking-[0.1em] text-[var(--studio-faint)]">{{ category }}</span>
           <span v-if="category && freshness" class="h-[3px] w-[3px] rounded-full bg-[var(--studio-faint)]" />
           <span v-if="freshness" class="mono text-[10.5px] font-semibold uppercase tracking-[0.1em] text-[var(--studio-faint)]">
@@ -60,6 +70,14 @@ const meta = computed(() => {
         <p v-if="doc.description" class="mt-5 max-w-[56ch] text-[16px] leading-[1.6] text-[var(--studio-muted)] [text-wrap:pretty] sm:text-[17.5px]">
           {{ doc.description }}
         </p>
+
+        <ContentCreatorByline
+          class="mt-5"
+          :doc="doc"
+          :is-following="isFollowing"
+          :can-follow="canFollow"
+          @toggle-follow="$emit('toggle-follow')"
+        />
 
         <div v-if="meta.length" class="mt-6 flex flex-wrap gap-x-7 gap-y-4 border-t border-[var(--studio-line)] pt-5">
           <div v-for="m in meta" :key="m.label">
@@ -78,18 +96,18 @@ const meta = computed(() => {
             <span>{{ isFavorite ? '★' : '☆' }}</span>
             <span>{{ isFavorite ? 'En favori' : 'Favori' }}</span>
           </StatsDataActionButton>
-          <StatsDataActionButton v-if="searchAnchor" variant="gradient" as="a" :href="`#${searchAnchor}`">
-            Chercher ma commune
+          <StatsDataActionButton
+            v-for="action in actions"
+            :key="action.id"
+            variant="gradient"
+            @click="$emit('activate', action)"
+          >
+            {{ action.label }}
           </StatsDataActionButton>
         </div>
       </div>
 
-      <StatsDataPublisherCard
-        :doc="doc"
-        :is-following="isFollowing"
-        :can-follow="canFollow"
-        @toggle-follow="$emit('toggle-follow')"
-      />
+      <ContentCoverImage :doc="doc" />
     </div>
   </section>
 </template>

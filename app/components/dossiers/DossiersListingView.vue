@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useDossiersCatalog } from '@/composables/useDossiersCatalog'
 import { useDossierFollows } from '@/composables/useDossierFollows'
+import { useContentBasePath } from '@/composables/useContentBasePath'
 import { catalogThemeStyle } from '@/lib/catalog-theme'
 import { formatCatalogCount, formatRelativePublished } from '@/lib/catalog-format'
 import CatalogHero from '@/components/listing/CatalogHero.vue'
@@ -14,7 +15,14 @@ import CatalogEmpty from '@/components/listing/CatalogEmpty.vue'
 import CatalogLoadMore from '@/components/listing/CatalogLoadMore.vue'
 import CatalogCta from '@/components/listing/CatalogCta.vue'
 import DossierCatalogCard from '@/components/dossiers/DossierCatalogCard.vue'
+import AppMediaImage from '@/components/ui/AppMediaImage.vue'
 import type { DossierCatalogSort } from '@/types/dossier'
+
+defineProps<{
+  title?: string
+}>()
+
+const basePath = useContentBasePath()
 
 const {
   qInput,
@@ -36,10 +44,10 @@ const sortOptions: { value: DossierCatalogSort; label: string }[] = [
   { value: 'az', label: 'Alphabétique' },
 ]
 
-const crumbs = [
-  { label: 'Accueil', to: '/' },
+const crumbs = computed(() => [
+  { label: 'Accueil', to: basePath.value || '/' },
   { label: 'Dossiers' },
-]
+])
 
 const heroStats = computed(() => [
   { label: 'Dossiers suivis', value: formatCatalogCount(catalog.value.stats.dossiers) },
@@ -68,14 +76,17 @@ const featuredStyle = computed(() => catalogThemeStyle(featured.value?.category?
     <CatalogHero
       :crumbs="crumbs"
       badge="DOSSIERS"
-      badge-class="!border-[#dccaf8] !bg-[#f2ecfd] !text-[#7c3aed]"
       kicker="TOUS LES CONTENUS D'UN SUJET, AU MÊME ENDROIT"
+      :title="title"
       subtitle="Chaque dossier regroupe articles, statsdata et sondages publiés sur un même sujet, mis à jour au fil de l'actualité."
-      hero-src="/brand/listings/chaines-hero-light.png"
+      hero-src="/brand/listings/dossiers-hero-light.png"
       :stats="heroStats"
     >
       <template #title>
-        Un sujet, <span class="text-primary">un fil</span>, toutes les <span class="text-accent">preuves</span>.
+        <template v-if="title">{{ title }}</template>
+        <template v-else>
+          Un sujet, <span class="text-primary">un fil</span>, toutes les <span class="text-accent">preuves</span>.
+        </template>
       </template>
     </CatalogHero>
 
@@ -120,16 +131,8 @@ const featuredStyle = computed(() => catalogThemeStyle(featured.value?.category?
           :to="`/dossiers/${featured.slug}`"
           class="group mb-[22px] grid overflow-hidden rounded-[22px] border-[1.5px] border-slate-950/[0.06] bg-white shadow-[0_1px_3px_rgba(20,20,30,0.06)] transition hover:border-[#c4b5fd] md:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]"
         >
-          <span
-            class="relative block min-h-[240px]"
-            :style="{ background: featured.image_url ? undefined : featuredStyle.bg }"
-          >
-            <img
-              v-if="featured.image_url"
-              :src="featured.image_url"
-              alt=""
-              class="absolute inset-0 h-full w-full object-cover"
-            />
+          <span class="relative block min-h-[240px]">
+            <AppMediaImage :src="featured.image_url" :alt="featured.name" class="absolute inset-0" />
             <span
               v-if="featured.category"
               class="absolute left-5 top-5 rounded-md bg-white px-2.5 py-[5px] font-mono text-[10px] font-semibold uppercase tracking-[0.06em]"

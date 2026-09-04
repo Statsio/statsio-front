@@ -6,7 +6,6 @@ import { catalogThemeStyle } from '@/lib/catalog-theme'
 import { formatCatalogCount, formatCatalogItemMeta, formatCatalogViews, formatRelativePublished } from '@/lib/catalog-format'
 import { publicContentPath } from '@/lib/content-display'
 import { useContentBasePath } from '@/composables/useContentBasePath'
-import { channelPatternStyle } from '@/lib/channel-brand'
 import { seededSparklinePoints, getStatsDataVisual } from '@/utils/statsDataVisuals'
 import { freshnessLabel, type FreshnessTone } from '@/lib/statsdata-freshness'
 import ContentCardFavButton from '@/components/content/ContentCardFavButton.vue'
@@ -17,6 +16,7 @@ import ContentCardDossierTag from '@/components/content/ContentCardDossierTag.vu
 import ContentFeaturedBadge from '@/components/content/ContentFeaturedBadge.vue'
 import StatsDataCardChart from '@/components/content/StatsDataCardChart.vue'
 import AppSparkline from '@/components/ui/AppSparkline.vue'
+import AppMediaImage from '@/components/ui/AppMediaImage.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -106,7 +106,7 @@ const fPubMeta = computed(
   <NuxtLink
     v-if="feature"
     :to="to"
-    class="grid items-stretch overflow-hidden rounded-[22px] border-[1.5px] border-slate-200/80 bg-white text-slate-950 shadow-[0_1px_3px_rgba(20,20,30,0.06)] transition hover:border-[#c4b5fd]"
+    class="u-card grid items-stretch overflow-hidden rounded-[22px] border-[1.5px] border-slate-200/80 bg-white text-slate-950 shadow-[0_1px_3px_rgba(20,20,30,0.06)]"
     :class="{ 'lg:grid-cols-2': hasImage || hasChart }"
   >
     <span class="flex min-w-0 flex-col p-[30px] lg:p-8">
@@ -117,7 +117,7 @@ const fPubMeta = computed(
           {{ fresh.text }}
         </span>
       </span>
-      <span class="block text-[27px] font-extrabold leading-[1.14] tracking-[-0.025em] text-pretty lg:text-[30px]">{{ item.title }}</span>
+      <span class="u-card-title block text-[27px] font-extrabold leading-[1.14] tracking-[-0.025em] text-pretty lg:text-[30px]">{{ item.title }}</span>
       <span v-if="item.description" class="mt-3 block max-w-[54ch] text-[14.5px] leading-[1.6] text-slate-500">{{ item.description }}</span>
       <span class="mt-[22px] flex flex-wrap gap-[26px] border-t border-slate-950/[0.08] pt-[18px]">
         <span v-for="s in fStats" :key="s.label" class="block">
@@ -150,7 +150,7 @@ const fPubMeta = computed(
       v-if="hasImage"
       class="relative flex min-h-[240px] min-w-0 items-center overflow-hidden border-t border-slate-200/80 p-5 lg:min-h-0 lg:border-l lg:border-t-0 lg:p-6"
     >
-      <img :src="item.thumbnail_url ?? undefined" :alt="item.title" class="absolute inset-0 h-full w-full object-cover" />
+      <AppMediaImage :src="item.thumbnail_url" :alt="item.title" class="u-card-media absolute inset-0" />
       <template v-if="hasChart">
         <span class="absolute inset-0 bg-slate-950/15" />
         <span class="relative w-full rounded-[16px] border border-white/50 bg-white/80 p-3 shadow-[0_10px_34px_rgba(20,20,30,0.22)] backdrop-blur-md">
@@ -168,15 +168,15 @@ const fPubMeta = computed(
 
   <div
     v-else-if="format === 'row'"
-    class="grid grid-cols-[minmax(0,2.4fr)_1.3fr_1fr_0.8fr_0.7fr_46px] items-center gap-3.5 border-b border-slate-100 px-5 py-3.5 last:border-b-0 hover:bg-[#faf8ff]"
+    class="u-hover grid grid-cols-[minmax(0,2.4fr)_1.3fr_1fr_0.8fr_0.7fr_46px] items-center gap-3.5 border-b border-slate-100 px-5 py-3.5 last:border-b-0 hover:bg-[#faf8ff]"
   >
     <div class="flex min-w-0 items-center gap-3">
-      <span class="h-[34px] w-11 shrink-0 rounded-[7px]" :style="item.thumbnail_url ? undefined : channelPatternStyle(theme.dot)">
-        <img v-if="item.thumbnail_url" :src="item.thumbnail_url" :alt="item.title" class="h-full w-full rounded-[7px] object-cover" />
+      <span class="h-[34px] w-11 shrink-0 overflow-hidden rounded-[7px]">
+        <AppMediaImage :src="item.thumbnail_url" :alt="item.title" class="u-card-media rounded-[7px]" mark-class="min-w-0 w-1/2" />
       </span>
       <span class="min-w-0">
         <ContentFeaturedBadge v-if="pinned" compact class="mb-1" />
-        <NuxtLink :to="isManage && manage ? manage.studioPath : to" class="block truncate text-sm font-bold text-slate-950 hover:text-primary">{{ item.title }}</NuxtLink>
+        <NuxtLink :to="isManage && manage ? manage.studioPath : to" class="u-card-title block truncate text-sm font-bold text-slate-950 hover:text-primary">{{ item.title }}</NuxtLink>
         <span class="mt-0.5 block truncate font-mono text-[10px] text-slate-400">{{ formatCatalogViews(item.views_count) }}</span>
       </span>
     </div>
@@ -203,10 +203,10 @@ const fPubMeta = computed(
 
   <article
     v-else
-    class="flex flex-col overflow-hidden rounded-[18px] border-[1.5px] border-slate-200/80 bg-white shadow-[0_1px_3px_rgba(20,20,30,0.06)] transition hover:-translate-y-0.5 hover:border-[#c4b5fd]"
+    class="u-card flex flex-col overflow-hidden rounded-[18px] border-[1.5px] border-slate-200/80 bg-white shadow-[0_1px_3px_rgba(20,20,30,0.06)] hover:-translate-y-0.5"
   >
-    <div v-if="hasImage" class="relative h-[140px]">
-      <img :src="item.thumbnail_url ?? undefined" :alt="item.title" class="h-full w-full object-cover" />
+    <div v-if="hasImage" class="relative h-[140px] overflow-hidden">
+      <AppMediaImage :src="item.thumbnail_url" :alt="item.title" class="u-card-media absolute inset-0" />
       <span class="absolute left-3 top-3 flex flex-col items-start gap-1.5">
         <ContentFeaturedBadge v-if="pinned" />
         <span
@@ -258,7 +258,7 @@ const fPubMeta = computed(
       <ContentCardDossierTag :dossier="item.dossier" />
       <NuxtLink
         :to="isManage && manage ? manage.studioPath : to"
-        class="block text-[17.5px] font-extrabold leading-[1.28] tracking-[-0.015em] text-slate-950 text-pretty hover:text-primary"
+        class="u-card-title block text-[17.5px] font-extrabold leading-[1.28] tracking-[-0.015em] text-slate-950 text-pretty hover:text-primary"
       >
         {{ item.title }}
       </NuxtLink>
@@ -280,8 +280,9 @@ const fPubMeta = computed(
 
       <slot name="cta" />
 
-      <ContentCardActions v-if="isManage && manage" class="mt-auto" :manage="manage" />
-      <ContentCardOwner v-else class="mt-auto" :publisher="item.publisher" :meta="pubMeta" :to="to" />
+      <div class="flex-1" />
+      <ContentCardActions v-if="isManage && manage" :manage="manage" />
+      <ContentCardOwner v-else :publisher="item.publisher" :meta="pubMeta" :to="to" />
     </div>
   </article>
 </template>

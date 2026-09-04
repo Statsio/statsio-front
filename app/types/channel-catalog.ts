@@ -84,6 +84,8 @@ export type ChannelCatalogQuery = {
   category?: string
   pace?: string
   sort?: ChannelCatalogSort
+  /** Domaine actif (`statsio` / `tvstats` / `medistats`) — cadre le catalogue. */
+  sub_brand?: import('@/types/sub-brand').SubBrand
   verified?: boolean
   followed?: boolean
   per_page?: number

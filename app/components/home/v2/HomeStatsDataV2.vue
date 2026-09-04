@@ -1,7 +1,18 @@
 <script setup lang="ts">
-import HomeCarousel from '@/components/home/statsio/HomeCarousel.vue'
+import { computed } from 'vue'
+import HomeCarousel from '@/components/home/v2/HomeCarousel.vue'
 import StatsDataCard from '@/components/content/StatsDataCard.vue'
 import { useHomeCatalogSection } from '@/composables/useHomeCatalogSection'
+import { useContentBasePath } from '@/composables/useContentBasePath'
+
+const props = defineProps<{
+  eyebrow: string
+  title: string
+  allLabel: string
+}>()
+
+const basePath = useContentBasePath()
+const allTo = computed(() => `${basePath.value}/statsdata`)
 
 const { items, isFavorited, toggleItemFavorite } = useHomeCatalogSection({
   type: 'statsdata',
@@ -12,11 +23,11 @@ const { items, isFavorited, toggleItemFavorite } = useHomeCatalogSection({
 <template>
   <HomeCarousel
     v-if="items.length"
-    eyebrow="STATSDATA"
-    eyebrow-color="#3b82f6"
-    title="Des chiffres qui bougent en direct"
-    all-label="Toutes les statsdata"
-    all-to="/statsdata"
+    :eyebrow="props.eyebrow"
+    eyebrow-color="var(--color-accent)"
+    :title="props.title"
+    :all-label="props.allLabel"
+    :all-to="allTo"
   >
     <div
       v-for="item in items"

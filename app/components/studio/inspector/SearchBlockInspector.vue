@@ -6,6 +6,7 @@ import type { BlockConfig, DatasetMeta, StudioBlock } from '@/types/studio'
 import { primarySourceId } from '@/lib/studio-columns'
 import InspectorSection from '@/components/studio/fields/InspectorSection.vue'
 import FieldText from '@/components/studio/fields/FieldText.vue'
+import FieldToggle from '@/components/studio/fields/FieldToggle.vue'
 import FieldNote from '@/components/studio/fields/FieldNote.vue'
 import { useSourceDrillIn } from '@/composables/useSourceDrillIn'
 import FieldPicker from '@/components/studio/fields/FieldPicker.vue'
@@ -42,6 +43,22 @@ const sourceSummary = computed(() => {
         label="Placeholder de la barre"
         placeholder="Commune, département…"
         @update:model-value="set('searchPlaceholder', $event)"
+      />
+    </InspectorSection>
+
+    <InspectorSection label="Bouton dans le hero">
+      <FieldToggle
+        :model-value="block.config.heroButton ?? false"
+        label="Afficher un bouton d'accès rapide"
+        sub="Un bouton dans l'en-tête de la page amène directement à cette recherche."
+        @update:model-value="set('heroButton', $event)"
+      />
+      <FieldText
+        v-if="block.config.heroButton"
+        :model-value="block.config.heroButtonLabel ?? ''"
+        label="Label du bouton"
+        :placeholder="block.config.searchPlaceholder || 'Chercher ma commune'"
+        @update:model-value="set('heroButtonLabel', $event)"
       />
     </InspectorSection>
 
