@@ -10,6 +10,7 @@ import TvScheduleFilters, { type DisplayMode } from '@/components/tv/TvScheduleF
 import TvScheduleCardView from '@/components/tv/TvScheduleCardView.vue'
 import TvScheduleGrid from '@/components/tv/TvScheduleGrid.vue'
 import TvScheduleEmptyState from '@/components/tv/TvScheduleEmptyState.vue'
+import PageHeroV2 from '@/components/home/v2/PageHeroV2.vue'
 import { useTvSchedule } from '@/composables/useTvSchedule'
 
 const displayMode = ref<DisplayMode>('card')
@@ -35,15 +36,15 @@ const isEmpty = computed(() => schedules.value.every((s) => s.programmes.length 
 
 <template>
   <main class="pb-24">
-    <section class="section pt-4">
-      <div class="container flex flex-col gap-6">
+    <PageHeroV2
+      badge="GRILLE TV"
+      hero-kind="grid"
+      title="Programme TV"
+      subtitle="Tous les programmes, chaîne par chaîne, avec le score d'audience calculé à partir des téléspectateurs de TVStats qui ont déclaré vouloir regarder ou avoir déjà vu chaque programme."
+    />
 
-        <div class="max-w-3xl">
-          <h1 class="text-3xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-4xl">Programme TV</h1>
-          <p class="mt-3 text-base leading-7 text-slate-600">
-            Tous les programmes, chaîne par chaîne, avec le score d'audience calculé à partir des téléspectateurs de TVStats qui ont déclaré vouloir regarder ou avoir déjà vu chaque programme.
-          </p>
-        </div>
+    <section class="section pt-8">
+      <div class="container flex flex-col gap-6">
 
         <TvScheduleFilters
           :selected-preset="selectedPreset"

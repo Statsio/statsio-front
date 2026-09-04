@@ -31,3 +31,44 @@
 .card-xl {
   @apply rounded-[2rem] border border-slate-200 bg-white shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)];
 }
+
+/* ── Carte interactive : survol n'importe où sur la carte ──────────────────────
+   `u-card`   : racine d'une carte surélevée (bordure animée + ombre au survol)
+   `u-hover`  : racine d'une carte « plate » (ligne de liste) — pas d'ombre
+   `u-card-title` : le titre — passe en couleur primaire au survol de la racine
+   `u-card-media` : l'image de couverture (jamais les avatars/logos) — léger zoom
+   L'effet se déclenche quel que soit l'élément survolé dans la carte. */
+.u-card {
+  @apply transition-[transform,border-color,box-shadow] duration-300 ease-out;
+}
+.u-card:hover {
+  border-color: #c4b5fd;
+  box-shadow: 0 18px 44px -26px rgba(15, 23, 42, 0.4);
+}
+.u-card-title {
+  @apply transition-colors duration-200 ease-out;
+}
+.u-card:hover .u-card-title,
+.u-card:focus-within .u-card-title,
+.u-hover:hover .u-card-title,
+.u-hover:focus-within .u-card-title {
+  color: var(--color-primary);
+}
+.u-card-media {
+  @apply transition-transform duration-500 ease-out;
+  will-change: transform;
+}
+.u-card:hover .u-card-media,
+.u-hover:hover .u-card-media {
+  transform: scale(1.045);
+}
+@media (prefers-reduced-motion: reduce) {
+  .u-card,
+  .u-card:hover,
+  .u-card-media,
+  .u-card:hover .u-card-media,
+  .u-hover:hover .u-card-media {
+    transform: none;
+    transition-duration: 0.01ms;
+  }
+}

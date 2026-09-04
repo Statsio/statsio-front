@@ -7,5 +7,5 @@ definePageMeta({
 </script>
 
 <template>
-  <StatsDataListingView sub-brand="tvstats" />
+  <StatsDataListingView />
 </template>

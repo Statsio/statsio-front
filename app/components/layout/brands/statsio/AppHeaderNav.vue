@@ -22,11 +22,11 @@ const categoryPalette = ['#8b5cf6', '#e11d48', '#3b82f6', '#166534', '#d97706']
 
 const { data } = useAsyncData('statsio-header-nav', () =>
   Promise.all([
-    loadArticleMenu(undefined, categoryPalette, ''),
-    loadStatsDataMenu(undefined, categoryPalette, ''),
-    loadSurveyMenu(undefined, categoryPalette, ''),
-    loadDossiersMenu(categoryPalette),
-    loadChannelsMenu(categoryPalette),
+    loadArticleMenu('statsio', categoryPalette, ''),
+    loadStatsDataMenu('statsio', categoryPalette, ''),
+    loadSurveyMenu('statsio', categoryPalette, ''),
+    loadDossiersMenu(categoryPalette, 'statsio'),
+    loadChannelsMenu(categoryPalette, 'statsio'),
   ]),
 )
 

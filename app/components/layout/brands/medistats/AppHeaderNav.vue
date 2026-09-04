@@ -25,8 +25,8 @@ const { data } = useAsyncData('medistats-header-nav', () =>
     loadMaladiesMenu(categoryPalette),
     loadMedicamentsMenu(categoryPalette),
     loadSoinsMenu(categoryPalette),
-    loadDossiersMenu(categoryPalette),
-    loadChannelsMenu(categoryPalette),
+    loadDossiersMenu(categoryPalette, 'medistats'),
+    loadChannelsMenu(categoryPalette, 'medistats'),
   ]),
 )
 
@@ -69,7 +69,7 @@ const items = computed<HeaderNavItem[]>(() => {
     },
     {
       label: 'Dossiers',
-      href: '/dossiers',
+      href: '/medistats/dossiers',
       icon: 'dossiers',
       eyebrow: 'Sujets suivis',
       menuHeading: 'Dossiers récents',
@@ -80,7 +80,7 @@ const items = computed<HeaderNavItem[]>(() => {
     },
     {
       label: 'Chaînes',
-      href: '/chaines',
+      href: '/medistats/chaines',
       icon: 'channels',
       eyebrow: 'Distribution éditoriale',
       menuHeading: 'À la une',

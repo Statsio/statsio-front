@@ -13,12 +13,12 @@ import type { CardPreview } from '@/types/catalog'
  * composant via `:key` quand `preview.kind` change (voir `CardPreviewMini`).
  */
 const props = withDefaults(
-  defineProps<{ preview: CardPreview; palette: string[]; height?: number }>(),
-  { height: 104 },
+  defineProps<{ preview: CardPreview; palette: string[]; height?: number; spark?: boolean }>(),
+  { height: 104, spark: false },
 )
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
-const config = computed(() => cardPreviewToChart(props.preview, props.palette))
+const config = computed(() => cardPreviewToChart(props.preview, props.palette, { spark: props.spark }))
 
 useChart(
   canvasRef,

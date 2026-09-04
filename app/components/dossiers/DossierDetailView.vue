@@ -10,6 +10,7 @@ import { formatShortDate } from '@/lib/format'
 import { publicContentPath } from '@/lib/content-display'
 import ContentCard from '@/components/content/ContentCard.vue'
 import CatalogEmpty from '@/components/listing/CatalogEmpty.vue'
+import AppMediaImage from '@/components/ui/AppMediaImage.vue'
 import type { CatalogItem } from '@/types/catalog'
 import type { ContentType } from '@/types/content-creation'
 
@@ -278,7 +279,7 @@ async function share() {
 
     <div class="mx-auto grid max-w-[1240px] items-start gap-8 px-4 pb-24 pt-9 sm:px-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:px-8">
       <!-- Fil des contenus -->
-      <div class="grid min-w-0 items-start gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div class="grid min-w-0 items-start gap-4 sm:grid-cols-2">
         <ContentCard
           v-for="it in visibleItems"
           :key="it.id"
@@ -288,7 +289,7 @@ async function share() {
         />
         <CatalogEmpty
           v-if="!visibleItems.length"
-          class="sm:col-span-2 xl:col-span-3"
+          class="sm:col-span-2"
           title="Aucun contenu de ce type"
           subtitle="Essayez un autre filtre."
           @reset="typeFilter = 'all'"
@@ -351,12 +352,8 @@ async function share() {
               :to="`/dossiers/${r.slug}`"
               class="group flex items-center gap-3 text-slate-950"
             >
-              <span
-                class="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[10px] text-sm"
-                :style="{ background: r.image_url ? undefined : '#eef0fd' }"
-              >
-                <img v-if="r.image_url" :src="r.image_url" alt="" class="h-full w-full rounded-[10px] object-cover" />
-                <template v-else>{{ r.icon || '📁' }}</template>
+              <span class="h-[42px] w-[42px] shrink-0 overflow-hidden rounded-[10px]">
+                <AppMediaImage :src="r.image_url" :alt="r.name" class="rounded-[10px]" mark-class="min-w-0 w-1/2" />
               </span>
               <span class="min-w-0">
                 <span class="block truncate text-[12.5px] font-bold group-hover:text-primary">{{ r.name }}</span>

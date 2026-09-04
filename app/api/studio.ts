@@ -470,25 +470,33 @@ export async function createStudioContent(payload: CreateStudioContentPayload): 
   return data.data
 }
 
-export async function fetchPublicStatsDataCatalog(categories?: string[], channelId?: number): Promise<StatsDataDocument[]> {
+/** Cadrage d'une collection publique : par domaine (sous-marque) et/ou par chaîne. */
+export interface PublicCollectionScope {
+  sub_brand?: import('@/types/sub-brand').SubBrand
+  channel_id?: number
+}
+
+async function fetchPublicCollection(type: ContentType, scope: PublicCollectionScope): Promise<StatsDataDocument[]> {
   const { data } = await publicHttp.get(STATSIO_API.studioContent.publicCollection, {
-    params: { type: 'statsdata', ...(categories?.length ? { categories } : {}), ...(channelId ? { channel_id: channelId } : {}) },
+    params: {
+      type,
+      ...(scope.sub_brand ? { sub_brand: scope.sub_brand } : {}),
+      ...(scope.channel_id ? { channel_id: scope.channel_id } : {}),
+    },
   })
   return data.data ?? []
 }
 
-export async function fetchPublicSurveys(categories?: string[], channelId?: number): Promise<StatsDataDocument[]> {
-  const { data } = await publicHttp.get(STATSIO_API.studioContent.publicCollection, {
-    params: { type: 'survey', ...(categories?.length ? { categories } : {}), ...(channelId ? { channel_id: channelId } : {}) },
-  })
-  return data.data ?? []
+export function fetchPublicStatsDataCatalog(scope: PublicCollectionScope = {}): Promise<StatsDataDocument[]> {
+  return fetchPublicCollection('statsdata', scope)
 }
 
-export async function fetchPublicArticles(categories?: string[], channelId?: number): Promise<StatsDataDocument[]> {
-  const { data } = await publicHttp.get(STATSIO_API.studioContent.publicCollection, {
-    params: { type: 'article', ...(categories?.length ? { categories } : {}), ...(channelId ? { channel_id: channelId } : {}) },
-  })
-  return data.data ?? []
+export function fetchPublicSurveys(scope: PublicCollectionScope = {}): Promise<StatsDataDocument[]> {
+  return fetchPublicCollection('survey', scope)
+}
+
+export function fetchPublicArticles(scope: PublicCollectionScope = {}): Promise<StatsDataDocument[]> {
+  return fetchPublicCollection('article', scope)
 }
 
 export async function fetchPublicCatalog(query: import('@/types/catalog').CatalogQuery): Promise<import('@/types/catalog').CatalogResponse> {

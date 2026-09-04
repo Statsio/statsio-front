@@ -5,6 +5,7 @@ import { fetchPublicCatalog } from '@/api/studio'
 import { toggleFavorite } from '@/api/statsio-account'
 import { useAuthStore } from '@/stores/auth'
 import { useRespondentToken } from '@/composables/useRespondentToken'
+import { useContentDomain } from '@/composables/useContentDomain'
 import type {
   CatalogContentType,
   CatalogItem,
@@ -26,14 +27,14 @@ const EMPTY: CatalogResponse = {
 
 export function usePublicCatalog(options: {
   type: CatalogContentType
-  brandCategories?: string[]
-  /** Cadre le listing sur une sous-marque (pages TVStats / Medistats). Prioritaire sur `brandCategories`. */
-  brandSubBrand?: import('@/types/sub-brand').SubBrand
   key: string
 }) {
   const route = useRoute()
   const router = useRouter()
   const auth = useAuthStore()
+  // Domaine actif déduit de la route (`statsio` sur la racine, `tvstats`/`medistats`
+  // sous préfixe). C'est ce qui cadre le catalogue — plus les catégories.
+  const domain = useContentDomain()
 
   // Sondages uniquement : jeton anonyme pour le filtre « Pas encore participé ».
   const respondentToken = options.type === 'survey' ? useRespondentToken() : ref('')
@@ -63,10 +64,7 @@ export function usePublicCatalog(options: {
     sort: sort.value,
     has_data: hasData.value || undefined,
     per_page: perPage.value,
-    // Sur une page de sous-marque, on filtre par domaine explicite plutôt que par
-    // liste blanche de catégories.
-    sub_brand: options.brandSubBrand,
-    categories: options.brandSubBrand ? undefined : options.brandCategories,
+    sub_brand: domain.value,
     survey_kind: surveyKind.value || undefined,
     status: surveyStatus.value || undefined,
     not_participated: notParticipated.value || undefined,
@@ -74,7 +72,7 @@ export function usePublicCatalog(options: {
   }))
 
   const { data, pending, error, refresh } = useAsyncData(
-    options.key,
+    `${options.key}-${domain.value}`,
     () => fetchPublicCatalog(queryParams.value),
     { watch: [queryParams] },
   )

@@ -2,6 +2,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { refDebounced } from '@vueuse/core'
 import { fetchDossierCatalog } from '@/api/dossiers'
+import { useContentDomain } from '@/composables/useContentDomain'
 import type { DossierCatalogResponse, DossierCatalogSort } from '@/types/dossier'
 
 const EMPTY: DossierCatalogResponse = {
@@ -24,6 +25,7 @@ function parseSort(raw: unknown): DossierCatalogSort {
 export function useDossiersCatalog() {
   const route = useRoute()
   const router = useRouter()
+  const domain = useContentDomain()
 
   const qInput = ref(String(route.query.q ?? ''))
   const q = refDebounced(qInput, 280)
@@ -39,11 +41,12 @@ export function useDossiersCatalog() {
     q: q.value.trim() || undefined,
     category: category.value || undefined,
     sort: sort.value,
+    sub_brand: domain.value,
     per_page: perPage.value,
   }))
 
   const { data, pending, error, refresh } = useAsyncData(
-    'dossiers-catalog',
+    `dossiers-catalog-${domain.value}`,
     () => fetchDossierCatalog(queryParams.value),
     { watch: [queryParams] },
   )

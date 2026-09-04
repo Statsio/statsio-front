@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
-import type { HomeStep } from '@/data/brands/statsio/home-v2'
+import type { HomeStep } from '@/data/brands/home-content.types'
 
 defineProps<{
+  eyebrow: string
+  title: string
+  desc: string
+  ctaLabel: string
   steps: HomeStep[]
   ctaTo: string
 }>()
@@ -14,13 +18,12 @@ defineProps<{
     class="mb-[70px] scroll-mt-32 rounded-[24px] bg-white p-7 shadow-[0_1px_3px_rgba(20,20,30,0.06)] sm:p-[52px]"
   >
     <div class="mx-auto mb-11 max-w-[56ch] text-center">
-      <span class="font-mono text-[10px] font-semibold tracking-[0.09em] text-primary">POUR TOUT LE MONDE</span>
+      <span class="font-mono text-[10px] font-semibold tracking-[0.09em] text-primary">{{ eyebrow }}</span>
       <h2 class="mt-2.5 text-[32px] font-extrabold tracking-[-0.02em] text-slate-950 text-pretty">
-        Créez vos propres contenus, simplement et gratuitement
+        {{ title }}
       </h2>
       <p class="mt-3.5 text-[15px] leading-relaxed text-slate-500">
-        Pas besoin d'être une rédaction : un article, une statsdata ou un sondage se publient en
-        quelques minutes, sans rien payer.
+        {{ desc }}
       </p>
     </div>
 
@@ -43,9 +46,9 @@ defineProps<{
     <div class="mt-9 flex justify-center">
       <RouterLink
         :to="ctaTo"
-        class="rounded-full bg-[linear-gradient(135deg,#8b5cf6,#3b82f6)] px-7 py-[15px] text-[14px] font-extrabold tracking-[0.02em] text-white transition hover:brightness-105"
+        class="rounded-full bg-[linear-gradient(135deg,var(--color-primary),var(--color-accent))] px-7 py-[15px] text-[14px] font-extrabold tracking-[0.02em] text-white transition hover:brightness-105"
       >
-        Créer un compte et publier →
+        {{ ctaLabel }}
       </RouterLink>
     </div>
   </section>

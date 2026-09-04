@@ -17,9 +17,9 @@ const topOptions = computed(() => props.options.slice(0, 2))
 </script>
 
 <template>
-  <RouterLink :to="to" class="card block px-6 py-6 no-underline transition hover:-translate-y-0.5 hover:shadow-md">
+  <RouterLink :to="to" class="u-card card block px-6 py-6 no-underline hover:-translate-y-0.5">
     <span class="text-[10.5px] font-bold uppercase tracking-[0.08em] text-primary">{{ category }} · {{ questionType }}</span>
-    <p class="mb-4 mt-2.5 text-[17px] font-bold leading-[1.3] text-[#18181f]">{{ question }}</p>
+    <p class="u-card-title mb-4 mt-2.5 text-[17px] font-bold leading-[1.3] text-[#18181f]">{{ question }}</p>
 
     <div v-if="topOptions.length" class="mb-2.5 flex h-2.5 w-full overflow-hidden rounded-md bg-[#18181f]/[0.07]">
       <span

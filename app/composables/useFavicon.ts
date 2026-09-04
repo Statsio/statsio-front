@@ -1,43 +1,28 @@
-import { watch, onMounted } from 'vue'
+import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 
+/**
+ * Favicon par sous-marque, rendu côté serveur (via useHead) pour qu'un accès
+ * direct à /tvstats, /medistats ou /studio serve tout de suite la bonne icône,
+ * sans flash de l'icône Statsio le temps que le JS s'hydrate.
+ */
 export function useFavicon() {
   const route = useRoute()
 
-  const updateFavicon = () => {
-    let faviconPath = '/favicon.ico'
+  const faviconHref = computed(() => {
+    const path = route.path
 
-    if (route.path.startsWith('/studio')) {
-      faviconPath = '/brand/statsio-studio.svg'
-    } else if (route.path.startsWith('/tvstats')) {
-      faviconPath = '/brand/tvstats/tvstats-logo.svg'
-    } else if (route.path.startsWith('/medistats')) {
-      faviconPath = '/brand/medistats/medistats-logo.svg'
-    } else {
-      faviconPath = '/brand/statsio-logo.svg'
-    }
+    if (path.startsWith('/studio')) return '/brand/statsio-studio.svg'
+    if (path.startsWith('/tvstats')) return '/brand/tvstats/tvstats-logo.svg'
+    if (path.startsWith('/medistats')) return '/brand/medistats/medistats-logo.svg'
 
-    const link: HTMLLinkElement | null = document.querySelector("link[rel*='icon']")
-    if (link) {
-      link.href = faviconPath
-      link.type = faviconPath.endsWith('.svg') ? 'image/svg+xml' : 'image/x-icon'
-    } else {
-      const newLink = document.createElement('link')
-      newLink.rel = 'icon'
-      newLink.href = faviconPath
-      newLink.type = faviconPath.endsWith('.svg') ? 'image/svg+xml' : 'image/x-icon'
-      document.head.appendChild(newLink)
-    }
-  }
-
-  onMounted(() => {
-    updateFavicon()
+    return '/brand/statsio-logo.svg'
   })
 
-  watch(
-    () => route.path,
-    () => {
-      updateFavicon()
-    }
-  )
+  useHead({
+    link: [
+      // Même `key` que l'entrée de nuxt.config.ts → celle-ci l'emporte.
+      { key: 'icon-svg', rel: 'icon', type: 'image/svg+xml', href: faviconHref },
+    ],
+  })
 }

@@ -383,6 +383,11 @@ export interface BlockConfig {
   lineFill?: boolean
   // Search block config
   searchPlaceholder?: string
+  // Blocs recherche / paramètre : bouton d'accès rapide dans le hero de la page publique
+  /** Affiche un bouton dans le hero qui amène directement à ce bloc. */
+  heroButton?: boolean
+  /** Label du bouton hero (défaut : placeholder de recherche / titre du paramètre). */
+  heroButtonLabel?: string
   // Text block config
   content?: string
   fontFamily?: string

@@ -16,9 +16,9 @@ export function useChannelPublicContent(channelId: Ref<number | undefined>) {
     loading.value = true
     try {
       const [a, s, p] = await Promise.all([
-        fetchPublicArticles(undefined, channelId.value),
-        fetchPublicStatsDataCatalog(undefined, channelId.value),
-        fetchPublicSurveys(undefined, channelId.value),
+        fetchPublicArticles({ channel_id: channelId.value }),
+        fetchPublicStatsDataCatalog({ channel_id: channelId.value }),
+        fetchPublicSurveys({ channel_id: channelId.value }),
       ])
       articles.value = a
       statsData.value = s

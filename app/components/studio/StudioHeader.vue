@@ -2,7 +2,7 @@
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useStudioStore } from '@/stores/studio'
-import { contentPropertiesPath } from '@/lib/content-display'
+import { contentPropertiesPath, publicContentPath } from '@/lib/content-display'
 import StudioModal from '@/components/studio/ui/StudioModal.vue'
 import VariablePickerModal from '@/components/studio/VariablePickerModal.vue'
 import FieldText from '@/components/studio/fields/FieldText.vue'
@@ -26,6 +26,13 @@ const settingsPath = computed(() => {
   const content = studio.content
   if (!content) return null
   return contentPropertiesPath(content.type ?? 'statsdata', content.slug)
+})
+
+// Lien « voir sur la page publique » — nécessite un slug (contenu déjà enregistré).
+const publicPath = computed(() => {
+  const content = studio.content
+  if (!content?.slug) return null
+  return publicContentPath(content.type ?? 'statsdata', content.slug)
 })
 
 // ─── Page kind badge ─────────────────────────────────────────────────────────
@@ -137,9 +144,15 @@ function handleTitleKeydown(e: KeyboardEvent) {
 // ─── Keyboard shortcuts ───────────────────────────────────────────────────────
 
 function onKeydown(e: KeyboardEvent) {
+  const ctrl = e.ctrlKey || e.metaKey
+  // Ctrl/Cmd+S : enregistrer — actif même en train de saisir dans un bloc.
+  if (ctrl && (e.key === 's' || e.key === 'S')) {
+    e.preventDefault()
+    emit('save')
+    return
+  }
   const target = e.target as HTMLElement
   if (target.isContentEditable || target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
-  const ctrl = e.ctrlKey || e.metaKey
   if (!ctrl) return
   if (e.key === 'z' && !e.shiftKey) {
     e.preventDefault()
@@ -338,15 +351,19 @@ const saveDotClass = computed(() => {
         <span class="text-[13px] text-[var(--studio-muted)]">{{ saveLabel }}</span>
       </div>
 
-      <button
+      <a
+        v-if="publicPath"
+        :href="publicPath"
+        target="_blank"
+        rel="noopener"
         class="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--studio-muted)] transition-colors hover:bg-[var(--studio-wash)]"
-        title="Enregistrer (⌘S)"
-        @click="emit('save')"
+        title="Voir sur la page publique"
       >
         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
         </svg>
-      </button>
+      </a>
 
       <RouterLink
         v-if="settingsPath"

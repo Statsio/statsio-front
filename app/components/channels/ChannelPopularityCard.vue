@@ -23,7 +23,7 @@ const initials = computed(() =>
 <template>
   <RouterLink
     :to="`/channels/${encodeURIComponent(channel.profile.handle)}`"
-    class="flex flex-1 items-center gap-3 rounded-2xl bg-slate-50 p-4 transition hover:bg-slate-100"
+    class="u-hover flex flex-1 items-center gap-3 rounded-2xl bg-slate-50 p-4 transition hover:bg-slate-100"
   >
     <span
       class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-white text-base font-extrabold text-slate-900"
@@ -38,7 +38,7 @@ const initials = computed(() =>
     </span>
     <div class="min-w-0">
       <div class="flex items-center gap-1.5">
-        <p class="truncate text-sm font-bold text-slate-900">{{ channel.profile.name }}</p>
+        <p class="u-card-title truncate text-sm font-bold text-slate-900">{{ channel.profile.name }}</p>
         <ChannelBadgeList :slugs="channel.badges" :organization="channel.organization" size="sm" />
       </div>
       <p class="text-xs text-slate-500">{{ formatCompactNumber(channel.profile.subscriber_count) }} abonnés</p>

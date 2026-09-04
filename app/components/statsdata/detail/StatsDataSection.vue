@@ -74,7 +74,7 @@ function isKpiGrid(blocks: StudioBlock[]): boolean {
         : 'flex flex-col gap-4'"
     >
       <template v-for="block in blocks" :key="block.id">
-        <div data-block-anim class="min-w-0">
+        <div :id="`block-${block.id}`" data-block-anim class="min-w-0 scroll-mt-40">
           <BlockCard :block="block" :dark="dark" :flat="carded" :scope="scope">
             <BlockRenderer :block="block" :readonly="true" :scope="scope" />
           </BlockCard>

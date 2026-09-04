@@ -42,7 +42,7 @@ watch(() => visibleItems.value, async () => {
   <template v-if="visibleItems.length > 0">
     <template v-for="item in visibleItems" :key="item.ref.kind + ':' + item.ref.id">
       <StatsDataSection v-if="item.section" :section="item.section" />
-      <div v-else-if="item.block" data-block-anim class="min-w-0">
+      <div v-else-if="item.block" :id="`block-${item.block.id}`" data-block-anim class="min-w-0 scroll-mt-40">
         <BlockRenderer :block="item.block" :readonly="true" />
       </div>
     </template>

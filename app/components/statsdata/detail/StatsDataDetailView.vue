@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useStatsDataDetail } from '@/composables/useStatsDataDetail'
 import { useStatsDataChrome } from '@/composables/useStatsDataChrome'
 import { publicContentListPath } from '@/lib/content-display'
-import { sectionAnchorId } from '@/lib/slug'
 import { useContentBasePath } from '@/composables/useContentBasePath'
 import StatsDataHero from './StatsDataHero.vue'
 import StatsDataSubHeader from './StatsDataSubHeader.vue'
 import StatsDataToc from './StatsDataToc.vue'
 import StatsDataUsefulBar from './StatsDataUsefulBar.vue'
+import ContentOwnerBar from './ContentOwnerBar.vue'
 import StatsDataEmbedModal from './StatsDataEmbedModal.vue'
 import StatsDataContent from './StatsDataContent.vue'
 
@@ -22,12 +22,12 @@ const {
   error,
   activePage,
   allPages,
-  pageSections,
   canvasItems,
   resolveToken,
 } = useStatsDataDetail()
 
 const route = useRoute()
+const router = useRouter()
 const studio = useStudioStore()
 
 const {
@@ -67,16 +67,62 @@ const pageTitle = computed(() => resolveToken(doc.value?.title ?? ''))
 const basePath = useContentBasePath()
 const listPath = computed(() => publicContentListPath('statsdata', basePath.value))
 
-// Ancre de la 1re section qui contient un bloc recherche → CTA « chercher ma commune ».
-const searchAnchor = computed(() => {
-  for (const section of pageSections.value) {
-    const zones = Object.keys(studio.blocksByZone).filter((z) => z.startsWith(`${section.id}-`))
-    const hasSearch = zones.some((z) => (studio.blocksByZone[z] ?? []).some((b) => b.type === 'search'))
-    const anchor = sectionAnchorId(section)
-    if (hasSearch && anchor) return anchor
+// Boutons du hero : un par bloc « recherche » / « paramètre » (de n'importe quelle
+// page du document) dont la config a activé « Bouton dans le hero ». Label =
+// `heroButtonLabel`, sinon placeholder de recherche / titre du bloc paramètre.
+// Un clic amène au bloc (scroll, avec navigation de page si besoin).
+interface HeroAction {
+  id: string
+  label: string
+  /** `true` si le bloc est sur une autre page → il faut naviguer d'abord. */
+  otherPage: boolean
+  path: string
+}
+
+const heroActions = computed<HeroAction[]>(() => {
+  const out: HeroAction[] = []
+  for (const page of allPages.value) {
+    const blocks = studio.blocks.filter(
+      (b) =>
+        b.config.heroButton === true &&
+        (b.type === 'search' || b.type === 'param') &&
+        studio.pageIdOfBlock(b.id) === page.id,
+    )
+    for (const b of blocks) {
+      const fallback =
+        b.type === 'search'
+          ? b.config.searchPlaceholder?.trim() || 'Rechercher'
+          : b.config.title?.trim() || b.fieldMapping.paramName || b.fieldMapping.paramColumn || 'Choisir un paramètre'
+      out.push({
+        id: b.id,
+        label: b.config.heroButtonLabel?.trim() || fallback,
+        otherPage: page.id !== activePage.value?.id,
+        path: `/statsdata/${docSlug.value}/${page.slug ?? page.id}`,
+      })
+    }
   }
-  return null
+  return out
 })
+
+function scrollToBlock(id: string) {
+  if (typeof window === 'undefined') return
+  let tries = 0
+  const tick = () => {
+    const el = document.getElementById(`block-${id}`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      history.replaceState(null, '', `#block-${id}`)
+      return
+    }
+    if (tries++ < 60) requestAnimationFrame(tick)
+  }
+  tick()
+}
+
+async function goToAction(action: HeroAction) {
+  if (action.otherPage) await router.push(action.path)
+  scrollToBlock(action.id)
+}
 </script>
 
 <template>
@@ -111,6 +157,13 @@ const searchAnchor = computed(() => {
 
       <!-- Page publique complète -->
       <template v-else>
+        <ContentOwnerBar
+          v-if="doc.can_edit"
+          type="statsdata"
+          :slug="docSlug"
+          :status="doc.status"
+        />
+
         <StatsDataSubHeader
           :title="pageTitle"
           :doc-slug="docSlug"
@@ -136,9 +189,10 @@ const searchAnchor = computed(() => {
           :is-favorite="isFavorite"
           :is-following="isFollowing"
           :can-follow="canFollowChannel"
-          :search-anchor="searchAnchor"
+          :actions="heroActions"
           @toggle-favorite="toggleFavoriteAction"
           @toggle-follow="toggleFollowAction"
+          @activate="goToAction"
         />
 
         <div class="mx-auto max-w-[1180px] px-4 sm:px-6">

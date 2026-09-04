@@ -28,7 +28,7 @@ const detailLink = computed(() => statsDataDetailPath(props.document, basePath.v
 </script>
 
 <template>
-  <RouterLink :to="detailLink" class="card group flex flex-col gap-3.5 p-5 transition hover:-translate-y-0.5 hover:shadow-md">
+  <RouterLink :to="detailLink" class="u-card card flex flex-col gap-3.5 p-5 hover:-translate-y-0.5">
     <div class="flex items-start justify-between gap-3">
       <div class="flex h-9 w-9 items-center justify-center rounded-xl text-base" :class="visual.bg">{{ visual.emoji }}</div>
       <span
@@ -41,7 +41,7 @@ const detailLink = computed(() => statsDataDetailPath(props.document, basePath.v
     </div>
 
     <div>
-      <h3 class="line-clamp-2 text-[15px] font-bold leading-snug text-slate-900 transition-colors group-hover:text-[var(--color-primary)]">
+      <h3 class="u-card-title line-clamp-2 text-[15px] font-bold leading-snug text-slate-900">
         {{ document.title }}
       </h3>
       <p v-if="document.author?.name" class="mt-1 text-xs text-slate-500">{{ document.author.name }}</p>

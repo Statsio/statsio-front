@@ -27,7 +27,7 @@ defineEmits<{
 </script>
 
 <template>
-  <div class="sticky top-44 z-30 border-b border-[var(--studio-line)] bg-white/85 backdrop-blur lg:top-28">
+  <div class="sticky top-[158px] z-30 border-b border-[var(--studio-line)] bg-white/85 backdrop-blur lg:top-28">
     <div class="mx-auto flex max-w-[1180px] items-center gap-3.5 px-4 py-2.5 sm:px-6">
       <span class="mono shrink-0 rounded-[5px] bg-[var(--studio-tag)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-[var(--studio-tag-ink)]">
         StatsData

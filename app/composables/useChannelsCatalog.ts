@@ -3,6 +3,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { refDebounced } from '@vueuse/core'
 import { fetchChannelCatalog, toggleChannelSubscription } from '@/api/channels'
 import { useAuthStore } from '@/stores/auth'
+import { useContentDomain } from '@/composables/useContentDomain'
 import type {
   ChannelCatalogItem,
   ChannelCatalogQuery,
@@ -27,6 +28,7 @@ export function useChannelsCatalog() {
   const route = useRoute()
   const router = useRouter()
   const auth = useAuthStore()
+  const domain = useContentDomain()
 
   const qInput = ref(String(route.query.q ?? ''))
   const q = refDebounced(qInput, 280)
@@ -52,13 +54,14 @@ export function useChannelsCatalog() {
     category: theme.value || undefined,
     pace: pace.value || undefined,
     sort: sort.value,
+    sub_brand: domain.value,
     verified: verifiedOnly.value || undefined,
     followed: followedOnly.value || undefined,
     per_page: perPage.value,
   }))
 
   const { data, pending, error, refresh } = useAsyncData(
-    'channels-catalog',
+    `channels-catalog-${domain.value}`,
     () => fetchChannelCatalog(queryParams.value),
     { watch: [queryParams] },
   )
