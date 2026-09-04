@@ -39,14 +39,14 @@ const stats = computed(() => [
 
 <template>
   <article
-    class="flex flex-col overflow-hidden rounded-[18px] border-[1.5px] border-slate-200/80 bg-white shadow-[0_1px_3px_rgba(20,20,30,0.06)] transition hover:-translate-y-0.5 hover:border-[#c4b5fd]"
+    class="u-card flex flex-col overflow-hidden rounded-[18px] border-[1.5px] border-slate-200/80 bg-white shadow-[0_1px_3px_rgba(20,20,30,0.06)] hover:-translate-y-0.5"
   >
     <div class="h-28 overflow-hidden">
       <img
         v-if="item.banner_url"
         :src="item.banner_url"
         :alt="`Bannière ${item.name}`"
-        class="h-full w-full object-cover"
+        class="u-card-media h-full w-full object-cover"
       />
       <div v-else class="h-full w-full" :style="bannerStyle" />
     </div>
@@ -78,7 +78,7 @@ const stats = computed(() => [
       <div class="mt-3 flex items-center gap-1.5">
         <NuxtLink
           :to="to"
-          class="truncate text-[16.5px] font-extrabold tracking-[-0.015em] text-slate-950 hover:text-primary"
+          class="u-card-title truncate text-[16.5px] font-extrabold tracking-[-0.015em] text-slate-950 hover:text-primary"
         >
           {{ item.name }}
         </NuxtLink>

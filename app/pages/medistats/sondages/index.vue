@@ -7,5 +7,5 @@ definePageMeta({
 </script>
 
 <template>
-  <SondagesListingView sub-brand="medistats" />
+  <SondagesListingView />
 </template>

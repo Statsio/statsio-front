@@ -34,8 +34,6 @@ export type BrandConfig = {
   footerNav: FooterNavItem[]
   /** Préfixe des routes de contenu partagé (articles/statsdata/sondages) pour cette marque. */
   contentBasePath: string
-  /** Catégories de contenu affichées pour cette marque. `undefined` = pas de filtre (statsio). */
-  contentCategories?: string[]
   /** URL du compte X (Twitter) de la marque. `#` = pas encore de compte dédié. */
   xUrl: string
   /** Étiquette mono courte du sélecteur « Changer d'univers » (ex. « DONNÉES PUBLIQUES »). */
@@ -131,11 +129,10 @@ const brandConfigs: Record<BrandId, BrandConfig> = {
       { label: 'Programme TV', href: '/tvstats/programme-tv' },
       { label: 'StatsData', href: '/tvstats/statsdata' },
       { label: 'Sondages', href: '/tvstats/sondages' },
-      { label: 'Dossiers', href: '/dossiers' },
-      { label: 'Chaînes', href: '/chaines' },
+      { label: 'Dossiers', href: '/tvstats/dossiers' },
+      { label: 'Chaînes', href: '/tvstats/chaines' },
     ],
     contentBasePath: '/tvstats',
-    contentCategories: ['tv', 'people'],
     xUrl: 'https://x.com/tvstats_statsio',
     switcherTagline: 'AUDIENCES TV',
     switcherBlurb: 'Programmes, grilles et audiences TV en temps réel.',
@@ -180,11 +177,10 @@ const brandConfigs: Record<BrandId, BrandConfig> = {
       { label: 'Articles', href: '/medistats/articles' },
       { label: 'StatsData', href: '/medistats/statsdata' },
       { label: 'Sondages', href: '/medistats/sondages' },
-      { label: 'Dossiers', href: '/dossiers' },
-      { label: 'Chaînes', href: '/chaines' },
+      { label: 'Dossiers', href: '/medistats/dossiers' },
+      { label: 'Chaînes', href: '/medistats/chaines' },
     ],
     contentBasePath: '/medistats',
-    contentCategories: ['sante'],
     xUrl: '#',
     switcherTagline: 'MÉDIAS & PRESSE',
     switcherBlurb: 'Audiences presse, radio et digital consolidées.',

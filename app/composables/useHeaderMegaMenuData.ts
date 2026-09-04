@@ -1,11 +1,13 @@
-import { fetchPublicCatalog } from '@/api/studio'
+import { fetchPublicCatalog, fetchStatsDataCardPreview } from '@/api/studio'
 import { fetchChannelCatalog, channelCategoryLabels } from '@/api/channels'
 import { fetchDossierCatalog } from '@/api/dossiers'
 import type { DossierCatalogItem } from '@/types/dossier'
+import type { SubBrand } from '@/types/sub-brand'
 import { fetchTvAudiences } from '@/api/tv-audiences'
 import { CHANNEL_CHART_COLORS } from '@/composables/useTvAudiences'
 import { TNT_CHANNELS } from '@/data/tnt-channels'
 import { fetchChannelSchedules } from '@/api/tv-schedule'
+import type { TvProgramme } from '@/types/tv-schedule'
 import { fetchMaladiesPopulaires } from '@/api/maladies'
 import { fetchMedicamentsSearch } from '@/api/medicaments'
 import type { Medicament } from '@/types/medicaments'
@@ -16,6 +18,7 @@ import { relativeUpdate } from '@/utils/statsDataFormat'
 import { formatCompactNumber, formatShortDate, getNameInitials } from '@/lib/format'
 import { CATALOG_FORMAT_STYLE, catalogThemeStyle } from '@/lib/catalog-theme'
 import { getSurveyKindMeta } from '@/lib/poll-visuals'
+import { surveyCardMeta } from '@/lib/survey-card'
 import { resolveChannelColors } from '@/lib/channel-brand'
 import { publicContentListPath, publicContentPath } from '@/lib/content-display'
 import type {
@@ -76,7 +79,7 @@ function facetCategories(
 }
 
 export async function loadArticleMenu(
-  categories: string[] | undefined,
+  subBrand: SubBrand | undefined,
   palette: string[],
   basePath = '',
 ): Promise<HeaderMenuData> {
@@ -85,7 +88,7 @@ export async function loadArticleMenu(
       type: 'article',
       sort: 'trend',
       per_page: 6,
-      ...(categories?.length ? { categories } : {}),
+      ...(subBrand ? { sub_brand: subBrand } : {}),
     })
     const cards: MegaMenuArticleCard[] = res.data.slice(0, 3).map((doc) => {
       const formatStyle = doc.format ? CATALOG_FORMAT_STYLE[doc.format] : undefined
@@ -118,7 +121,7 @@ export async function loadArticleMenu(
 }
 
 export async function loadStatsDataMenu(
-  categories: string[] | undefined,
+  subBrand: SubBrand | undefined,
   palette: string[],
   basePath = '',
 ): Promise<HeaderMenuData> {
@@ -127,7 +130,7 @@ export async function loadStatsDataMenu(
       type: 'statsdata',
       sort: 'trend',
       per_page: 6,
-      ...(categories?.length ? { categories } : {}),
+      ...(subBrand ? { sub_brand: subBrand } : {}),
     })
     const cards: MegaMenuDataCard[] = res.data.slice(0, 3).map((doc) => {
       const theme = catalogThemeStyle(doc.category)
@@ -162,7 +165,7 @@ export async function loadStatsDataMenu(
 }
 
 export async function loadSurveyMenu(
-  categories: string[] | undefined,
+  subBrand: SubBrand | undefined,
   palette: string[],
   basePath = '',
 ): Promise<HeaderMenuData> {
@@ -172,7 +175,7 @@ export async function loadSurveyMenu(
       sort: 'trend',
       status: 'ouvert',
       per_page: 6,
-      ...(categories?.length ? { categories } : {}),
+      ...(subBrand ? { sub_brand: subBrand } : {}),
     })
     const cards: MegaMenuPollCard[] = res.data.slice(0, 3).map((doc) => {
       const kindMeta = getSurveyKindMeta(doc.survey_kind)
@@ -223,9 +226,9 @@ export async function loadSurveyMenu(
   }
 }
 
-export async function loadChannelsMenu(palette: string[]): Promise<HeaderMenuData> {
+export async function loadChannelsMenu(palette: string[], subBrand?: SubBrand): Promise<HeaderMenuData> {
   try {
-    const res = await fetchChannelCatalog({ sort: 'trend', per_page: 3 })
+    const res = await fetchChannelCatalog({ sort: 'trend', per_page: 3, ...(subBrand ? { sub_brand: subBrand } : {}) })
     const categories: MegaMenuCategory[] = res.facets.themes.slice(0, 6).map((facet, index) => ({
       name: facet.label,
       color: paletteColor(palette, index),
@@ -261,9 +264,9 @@ export async function loadChannelsMenu(palette: string[]): Promise<HeaderMenuDat
   }
 }
 
-export async function loadDossiersMenu(palette: string[]): Promise<HeaderMenuData> {
+export async function loadDossiersMenu(palette: string[], subBrand?: SubBrand): Promise<HeaderMenuData> {
   try {
-    const res = await fetchDossierCatalog({ sort: 'maj', per_page: 3 })
+    const res = await fetchDossierCatalog({ sort: 'maj', per_page: 3, ...(subBrand ? { sub_brand: subBrand } : {}) })
     const categories: MegaMenuCategory[] = res.facets.categories
       .filter((facet) => facet.value)
       .slice(0, 6)
@@ -313,9 +316,11 @@ export async function loadAudiencesMenu(palette: string[]): Promise<HeaderMenuDa
       )
       return {
         icon: '📺',
+        logoUrl: channel?.logoUrl ?? null,
         title: channel?.displayName ?? entry.channelId,
         meta: `${entry.pda.toFixed(1)}% de PDA${entry.millions ? ` · ${entry.millions}M` : ''} (${latestYear})`,
         sparkline,
+        href: channel ? `/tvstats/chaine/${channel.id}` : undefined,
       }
     })
     const categories: MegaMenuCategory[] = latestEntries.map((entry, index) => {
@@ -323,6 +328,7 @@ export async function loadAudiencesMenu(palette: string[]): Promise<HeaderMenuDa
       return {
         name: channel?.displayName ?? entry.channelId,
         color: CHANNEL_CHART_COLORS[entry.channelId] ?? paletteColor(palette, index),
+        href: channel ? `/tvstats/chaine/${channel.id}` : undefined,
       }
     })
     return withLinks(categories, { variant: 'bar', cards })
@@ -337,23 +343,44 @@ export async function loadProgrammeTvMenu(palette: string[]): Promise<HeaderMenu
     const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
     const schedules = await fetchChannelSchedules(dateStr)
     const nowMinutes = now.getHours() * 60 + now.getMinutes()
+    // Prime time français : première diffusion qui démarre à partir de ~20h45.
+    const PRIME_START = 20 * 60 + 45
 
-    const picks: { channel: string; title: string; startTime: string; endTime: string }[] = []
+    const toCard = (schedule: (typeof schedules)[number], programme: TvProgramme): MegaMenuArticleCard => ({
+      tag: programme.genres[0] ?? 'Programme',
+      title: programme.title,
+      meta: `${programme.startTime} – ${programme.endTime}`,
+      href: `/tvstats/chaine/${schedule.channel.id}`,
+      publisher: schedule.channel.displayName,
+      logoUrl: schedule.logoUrl,
+      initials: getNameInitials(schedule.channel.displayName),
+      isChannel: true,
+    })
+
+    const nowCards: MegaMenuArticleCard[] = []
     for (const schedule of schedules) {
-      const current =
-        schedule.programmes.find((p) => p.startMinutes <= nowMinutes && nowMinutes < p.startMinutes + p.durationMinutes) ??
-        schedule.programmes.find((p) => p.startMinutes >= nowMinutes)
-      if (current) {
-        picks.push({ channel: schedule.channel.displayName, title: current.title, startTime: current.startTime, endTime: current.endTime })
-      }
-      if (picks.length >= 3) break
+      const current = schedule.programmes.find(
+        (p) => p.startMinutes <= nowMinutes && nowMinutes < p.startMinutes + p.durationMinutes,
+      )
+      if (current) nowCards.push(toCard(schedule, current))
+      if (nowCards.length >= 3) break
     }
 
-    const cards: MegaMenuArticleCard[] = picks.map((pick) => ({
-      tag: pick.channel,
-      title: pick.title,
-      meta: `${pick.startTime} – ${pick.endTime}`,
-    }))
+    const tonightCards: MegaMenuArticleCard[] = []
+    for (const schedule of schedules) {
+      const prime = schedule.programmes
+        .filter((p) => p.startMinutes >= PRIME_START)
+        .sort((a, b) => a.startMinutes - b.startMinutes)[0]
+      if (prime) tonightCards.push(toCard(schedule, prime))
+      if (tonightCards.length >= 3) break
+    }
+
+    const sections = [
+      { label: 'En ce moment', cards: nowCards },
+      { label: 'Ce soir', cards: tonightCards },
+    ].filter((section) => section.cards.length > 0)
+
+    const cards = sections.flatMap((section) => section.cards)
 
     const genres = new Set<string>()
     for (const schedule of schedules) {
@@ -365,7 +392,7 @@ export async function loadProgrammeTvMenu(palette: string[]): Promise<HeaderMenu
       .slice(0, 6)
       .map((name, index) => ({ name, color: paletteColor(palette, index) }))
 
-    return withLinks(categories, { variant: 'doc', cards })
+    return withLinks(categories, { variant: 'doc', cards, sections })
   } catch {
     return emptyMenu('doc')
   }
@@ -438,12 +465,12 @@ export async function loadSoinsMenu(palette: string[]): Promise<HeaderMenuData> 
  * (article / statsdata / sondage), reconstruit à chaque chargement depuis le
  * catalogue public trié par tendance.
  */
-export async function loadPromoTicker(categories: string[] | undefined, basePath = ''): Promise<PromoTickerItem[]> {
-  const catFilter = categories?.length ? { categories } : {}
+export async function loadPromoTicker(subBrand: SubBrand | undefined, basePath = ''): Promise<PromoTickerItem[]> {
+  const brandFilter = subBrand ? { sub_brand: subBrand } : {}
   const [articles, datasets, surveys] = await Promise.all([
-    fetchPublicCatalog({ type: 'article', sort: 'trend', per_page: 1, ...catFilter }).then((r) => r.data).catch(() => []),
-    fetchPublicCatalog({ type: 'statsdata', sort: 'trend', per_page: 1, ...catFilter }).then((r) => r.data).catch(() => []),
-    fetchPublicCatalog({ type: 'survey', sort: 'trend', status: 'ouvert', per_page: 1, ...catFilter })
+    fetchPublicCatalog({ type: 'article', sort: 'trend', per_page: 1, ...brandFilter }).then((r) => r.data).catch(() => []),
+    fetchPublicCatalog({ type: 'statsdata', sort: 'trend', per_page: 1, ...brandFilter }).then((r) => r.data).catch(() => []),
+    fetchPublicCatalog({ type: 'survey', sort: 'trend', status: 'ouvert', per_page: 1, ...brandFilter })
       .then((r) => r.data)
       .catch(() => []),
   ])
@@ -463,26 +490,47 @@ export async function loadPromoTicker(categories: string[] | undefined, basePath
 
   const dataset = datasets[0]
   if (dataset) {
+    // Mini-graphe réel du Statsdata (même endpoint que les cartes de catalogue).
+    const preview = await fetchStatsDataCardPreview(dataset.slug).catch(() => null)
+    const hasChart = Boolean(
+      preview &&
+        !preview.empty &&
+        (preview.series?.length ?? 0) > 0 &&
+        (preview.labels?.length ?? 0) > 0,
+    )
     items.push({
       kind: 'statsdata',
       tag: 'STATSDATA',
       tagColor: '#2563eb',
       title: dataset.title,
       href: publicContentPath('statsdata', dataset.slug, basePath),
-      kpi: dataset.views_count ? formatCompactNumber(dataset.views_count) : `${dataset.charts_count}`,
-      kpiLabel: dataset.views_count ? 'vues' : 'graphiques',
-      sparkline: seededSparkline(dataset.id, 8),
+      preview: hasChart ? preview! : undefined,
+      categories: dataset.categories,
+      // Repli chiffré quand le Statsdata n'expose aucun graphique exploitable.
+      kpi: hasChart
+        ? undefined
+        : dataset.views_count
+          ? formatCompactNumber(dataset.views_count)
+          : `${dataset.charts_count}`,
+      kpiLabel: hasChart ? undefined : dataset.views_count ? 'vues' : 'graphiques',
+      sparkline: hasChart ? undefined : seededSparkline(dataset.id, 8),
     })
   }
 
   const survey = surveys[0]
   if (survey) {
+    // Barres d'options condensées, même source que les cartes de catalogue.
+    const options = surveyCardMeta(survey).options
     items.push({
       kind: 'survey',
       tag: 'SONDAGE',
       tagColor: '#7c3aed',
       title: survey.title,
       href: publicContentPath('survey', survey.slug, basePath),
+      surveyOptions:
+        options.length >= 2
+          ? options.map((o) => ({ pct: o.pct, color: o.color, lead: o.lead }))
+          : undefined,
       percent: Math.round(survey.primary_options?.[0]?.pct ?? 0),
     })
   }

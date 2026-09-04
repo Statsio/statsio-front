@@ -102,7 +102,7 @@ async function onToggleFollow() {
 
 <template>
   <div
-    class="group flex flex-col overflow-hidden rounded-2xl border border-[#18181f]/[0.08] bg-white shadow-[0_1px_3px_rgba(20,20,30,0.04)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_40px_-26px_rgba(15,23,42,0.4)]"
+    class="u-card group flex flex-col overflow-hidden rounded-2xl border border-[#18181f]/[0.08] bg-white shadow-[0_1px_3px_rgba(20,20,30,0.04)] hover:-translate-y-0.5"
   >
     <RouterLink :to="detailPath" class="block">
       <div class="relative aspect-[992/230] w-full">
@@ -110,7 +110,7 @@ async function onToggleFollow() {
           v-if="profile?.banner_url"
           :src="profile.banner_url"
           :alt="`Bannière ${profile.name}`"
-          class="h-full w-full object-cover"
+          class="u-card-media h-full w-full object-cover"
         />
         <div v-else class="h-full w-full" :style="bannerStyle" />
 
@@ -137,7 +137,7 @@ async function onToggleFollow() {
         </div>
 
         <div class="mb-1.5 flex flex-wrap items-center gap-1.5">
-          <p class="text-base font-bold text-[#18181f]">{{ profile?.name }}</p>
+          <p class="u-card-title text-base font-bold text-[#18181f]">{{ profile?.name }}</p>
           <ChannelBadgeList :slugs="channel.badges" :organization="channel.organization" size="sm" />
           <span
             v-if="categoryLabel"

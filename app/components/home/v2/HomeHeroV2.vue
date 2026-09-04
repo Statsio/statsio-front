@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { RouterLink } from 'vue-router'
-import type { StatsioHomeContent } from '@/data/brands/statsio/home-v2'
+import type { HomeV2Content } from '@/data/brands/home-content.types'
 
 defineProps<{
-  content: StatsioHomeContent
+  content: HomeV2Content
   primaryCtaTo: string
   secondaryCtaTo: string
 }>()
@@ -43,20 +43,18 @@ onUnmounted(() => ctx?.revert())
     class="relative -mt-40 overflow-hidden border-b border-slate-200/80 bg-white px-6 pb-16 pt-44 lg:-mt-28 lg:pb-16 lg:pt-40"
   >
     <div
-      class="pointer-events-none absolute -right-32 -top-36 h-[460px] w-[460px] rounded-full"
-      style="background: radial-gradient(circle, rgba(139,92,246,0.12), transparent 70%)"
+      class="hero-halo hero-halo--primary pointer-events-none absolute -right-32 -top-36 h-[460px] w-[460px] rounded-full"
       aria-hidden="true"
     />
     <div
-      class="pointer-events-none absolute -bottom-44 -left-28 h-[420px] w-[420px] rounded-full"
-      style="background: radial-gradient(circle, rgba(59,130,246,0.1), transparent 70%)"
+      class="hero-halo hero-halo--accent pointer-events-none absolute -bottom-44 -left-28 h-[420px] w-[420px] rounded-full"
       aria-hidden="true"
     />
 
     <div class="relative mx-auto max-w-[1120px]">
       <div data-anim="badge" class="mb-[22px] flex flex-wrap items-center gap-2.5">
         <span
-          class="rounded-[5px] border border-[#ddd6fe] bg-[#f2ecfd] px-2 py-1 font-mono text-[10px] font-semibold text-[#6d28d9]"
+          class="rounded-[5px] border border-primary/25 bg-primary/10 px-2 py-1 font-mono text-[10px] font-semibold text-primary"
         >
           {{ content.heroBadge }}
         </span>
@@ -84,7 +82,7 @@ onUnmounted(() => ctx?.revert())
       <div data-anim="ctas" class="mt-8 flex flex-wrap gap-3">
         <RouterLink
           :to="primaryCtaTo"
-          class="rounded-full bg-[linear-gradient(135deg,#8b5cf6,#3b82f6)] px-6 py-[15px] text-[14.5px] font-extrabold tracking-[0.02em] text-white transition hover:brightness-105"
+          class="rounded-full bg-[linear-gradient(135deg,var(--color-primary),var(--color-accent))] px-6 py-[15px] text-[14.5px] font-extrabold tracking-[0.02em] text-white transition hover:brightness-105"
         >
           {{ content.heroCtaPrimary }} →
         </RouterLink>
@@ -109,3 +107,16 @@ onUnmounted(() => ctx?.revert())
     </div>
   </section>
 </template>
+
+<style scoped>
+.hero-halo--primary {
+  background: radial-gradient(circle, color-mix(in srgb, var(--color-primary) 14%, transparent), transparent 70%);
+}
+.hero-halo--accent {
+  background: radial-gradient(circle, color-mix(in srgb, var(--color-accent) 12%, transparent), transparent 70%);
+}
+@supports not (color: color-mix(in srgb, red, blue)) {
+  .hero-halo--primary { background: radial-gradient(circle, var(--color-secondary), transparent 70%); opacity: 0.4; }
+  .hero-halo--accent { background: radial-gradient(circle, var(--color-secondary), transparent 70%); opacity: 0.3; }
+}
+</style>

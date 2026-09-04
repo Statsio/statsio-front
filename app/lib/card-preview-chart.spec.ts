@@ -78,4 +78,16 @@ describe('cardPreviewToChart', () => {
     expect(scales.x?.display).toBe(true)
     expect(scales.y?.display).toBe(true)
   })
+
+  it('spark mode hides both axes and disables the tooltip', () => {
+    const { options } = cardPreviewToChart(
+      { kind: 'line', labels: ['a', 'b'], series: [{ name: 'v', values: [1, 2] }] },
+      PALETTE,
+      { spark: true },
+    )
+    const scales = options.scales as Record<string, { display?: boolean }>
+    expect(scales.x?.display).toBe(false)
+    expect(scales.y?.display).toBe(false)
+    expect(options.plugins?.tooltip?.enabled).toBe(false)
+  })
 })

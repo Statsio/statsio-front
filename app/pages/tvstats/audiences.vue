@@ -4,12 +4,13 @@ definePageMeta({
   title: 'Audiences TV',
   description: 'Suivez les audiences TV en temps réel : classements, évolutions et analyses détaillées des chaînes de la TNT françaises avec TVStats.',
 })
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useTvAudiences, CHANNEL_CHART_COLORS } from '@/composables/useTvAudiences'
 import { TNT_CHANNELS } from '@/data/tnt-channels'
 import TvAudiencesEvolutionChart from '@/components/tv/TvAudiencesEvolutionChart.vue'
 import TvAudiencesRankingTable from '@/components/tv/TvAudiencesRankingTable.vue'
 import TvAudiencesTop50Table from '@/components/tv/TvAudiencesTop50Table.vue'
+import PageHeroV2 from '@/components/home/v2/PageHeroV2.vue'
 import type { Top50Category } from '@/types/tv-audiences'
 
 const {
@@ -37,26 +38,28 @@ const TOP50_CATEGORIES: Array<{ id: Top50Category; label: string }> = [
   { id: 'divertissement', label: 'Divertissement' },
   { id: 'film',         label: 'Film' },
 ]
+
+const heroStats = computed(() =>
+  years.value.length
+    ? [
+        { label: 'Chaînes TNT', value: String(TNT_CHANNELS.length) },
+        { label: 'Années couvertes', value: String(years.value.length) },
+        { label: 'Année affichée', value: String(selectedYear.value) },
+      ]
+    : [],
+)
 </script>
 
 <template>
-  <div class="mx-auto max-w-[1400px] space-y-6 px-4 py-8 lg:px-8">
-
-    <!-- Header card -->
-    <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_24px_70px_-54px_rgba(15,23,42,0.35)] lg:p-8">
-      <div class="mb-6">
-        <p class="mb-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-tvstats-primary">
-          Audiences &amp; tendances
-        </p>
-        <h1 class="text-2xl font-extrabold tracking-tight text-slate-900 lg:text-3xl">
-          Audiences TV
-        </h1>
-        <p class="mt-2 text-sm text-slate-500">
-          Évolution des parts d'audience et palmarès des meilleures audiences des chaînes TNT françaises.
-        </p>
-      </div>
-
-      <!-- Year filter -->
+  <div>
+    <PageHeroV2
+      badge="AUDIENCES TV"
+      hero-kind="chart"
+      title="Audiences TV"
+      subtitle="Évolution des parts d'audience et palmarès des meilleures audiences des chaînes de la TNT française."
+      note="Source : CNC / data.gouv.fr — Licence Ouverte"
+      :stats="heroStats"
+    >
       <div v-if="!isLoading && !error">
         <p class="mb-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Année</p>
         <div class="flex flex-wrap gap-2">
@@ -67,7 +70,7 @@ const TOP50_CATEGORIES: Array<{ id: Top50Category; label: string }> = [
             class="rounded-full border px-4 py-2 text-sm font-semibold transition"
             :class="
               selectedYear === year
-                ? 'border-tvstats-primary bg-tvstats-primary text-white'
+                ? 'border-primary bg-primary text-white'
                 : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
             "
             @click="selectedYear = year"
@@ -76,7 +79,9 @@ const TOP50_CATEGORIES: Array<{ id: Top50Category; label: string }> = [
           </button>
         </div>
       </div>
-    </div>
+    </PageHeroV2>
+
+    <div class="mx-auto max-w-[1400px] space-y-6 px-4 py-8 lg:px-8">
 
     <!-- Loading skeleton -->
     <div v-if="isLoading" class="space-y-4 animate-pulse">
@@ -191,5 +196,6 @@ const TOP50_CATEGORIES: Array<{ id: Top50Category; label: string }> = [
         — Licence Ouverte
       </p>
     </template>
+    </div>
   </div>
 </template>

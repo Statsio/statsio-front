@@ -10,7 +10,7 @@ import {
   loadMedicamentsMenu,
   loadSoinsMenu,
 } from './useHeaderMegaMenuData'
-import { fetchPublicCatalog } from '@/api/studio'
+import { fetchPublicCatalog, fetchStatsDataCardPreview } from '@/api/studio'
 import { fetchChannelCatalog } from '@/api/channels'
 import { fetchDossierCatalog } from '@/api/dossiers'
 import { fetchMaladiesPopulaires } from '@/api/maladies'
@@ -20,6 +20,7 @@ import type { CatalogItem, CatalogResponse } from '@/types/catalog'
 
 vi.mock('@/api/studio', () => ({
   fetchPublicCatalog: vi.fn<typeof fetchPublicCatalog>(),
+  fetchStatsDataCardPreview: vi.fn<typeof fetchStatsDataCardPreview>(async () => ({ empty: true })),
 }))
 
 vi.mock('@/api/channels', async (importOriginal) => {
@@ -237,6 +238,66 @@ describe('useHeaderMegaMenuData', () => {
 
       expect(items.map((i) => i.kind)).toEqual(['article', 'statsdata', 'survey'])
       expect(items[2]).toMatchObject({ tag: 'SONDAGE', percent: 61, href: '/sondages/s' })
+    })
+
+    it('attaches the real StatsData chart preview and drops the view-count KPI', async () => {
+      vi.mocked(fetchPublicCatalog).mockImplementation(async (query) => {
+        if (query.type === 'statsdata')
+          return catalogResponse([catalogItem({ slug: 'd', title: 'Dataset', categories: ['sante'] })])
+        return catalogResponse([])
+      })
+      vi.mocked(fetchStatsDataCardPreview).mockResolvedValueOnce({
+        kind: 'line',
+        labels: ['2019', '2020', '2021'],
+        series: [{ name: 'Prix', values: [1.4, 1.6, 1.9] }],
+        empty: false,
+      })
+
+      const items = await loadPromoTicker(undefined)
+      const statsdata = items.find((i) => i.kind === 'statsdata')
+
+      expect(statsdata?.preview?.kind).toBe('line')
+      expect(statsdata?.categories).toEqual(['sante'])
+      expect(statsdata?.kpi).toBeUndefined()
+      expect(statsdata?.sparkline).toBeUndefined()
+    })
+
+    it('condenses the survey option bars when the poll exposes a breakdown', async () => {
+      vi.mocked(fetchPublicCatalog).mockImplementation(async (query) => {
+        if (query.type === 'survey')
+          return catalogResponse([
+            catalogItem({
+              slug: 's',
+              title: 'Sondage',
+              primary_options: [
+                { label: 'Oui', pct: 61 },
+                { label: 'Non', pct: 24 },
+                { label: 'NSP', pct: 15 },
+              ],
+            }),
+          ])
+        return catalogResponse([])
+      })
+
+      const items = await loadPromoTicker(undefined)
+      const survey = items.find((i) => i.kind === 'survey')
+
+      expect(survey?.surveyOptions?.map((o) => o.pct)).toEqual([61, 24, 15])
+      expect(survey?.surveyOptions?.find((o) => o.lead)?.pct).toBe(61)
+    })
+
+    it('falls back to the KPI when the StatsData has no usable chart', async () => {
+      vi.mocked(fetchPublicCatalog).mockImplementation(async (query) => {
+        if (query.type === 'statsdata') return catalogResponse([catalogItem({ slug: 'd', title: 'Dataset' })])
+        return catalogResponse([])
+      })
+      vi.mocked(fetchStatsDataCardPreview).mockResolvedValueOnce({ empty: true })
+
+      const items = await loadPromoTicker(undefined)
+      const statsdata = items.find((i) => i.kind === 'statsdata')
+
+      expect(statsdata?.preview).toBeUndefined()
+      expect(statsdata?.kpi).toBeTruthy()
     })
 
     it('skips a type whose catalog call fails and keeps the others', async () => {

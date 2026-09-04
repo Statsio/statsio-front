@@ -56,7 +56,13 @@ export async function fetchPinnedDossiers(): Promise<PinnedDossier[]> {
 
 /** Catalogue public paginé de la page /dossiers (recherche, facette catégorie, tri, dossier à la une). */
 export async function fetchDossierCatalog(
-  query: { q?: string; category?: string; sort?: DossierCatalogSort; per_page?: number } = {},
+  query: {
+    q?: string
+    category?: string
+    sort?: DossierCatalogSort
+    sub_brand?: import('@/types/sub-brand').SubBrand
+    per_page?: number
+  } = {},
 ): Promise<DossierCatalogResponse> {
   const { data } = await apiHttp.get<{ success: boolean; data: Partial<DossierCatalogResponse> }>(
     STATSIO_API.dossiers.catalog,
@@ -65,6 +71,7 @@ export async function fetchDossierCatalog(
         ...(query.q ? { q: query.q } : {}),
         ...(query.category ? { category: query.category } : {}),
         ...(query.sort ? { sort: query.sort } : {}),
+        ...(query.sub_brand ? { sub_brand: query.sub_brand } : {}),
         ...(query.per_page ? { per_page: query.per_page } : {}),
       },
     },

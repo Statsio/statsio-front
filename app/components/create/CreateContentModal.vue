@@ -4,19 +4,19 @@ import AppModal from '@/components/ui/AppModal.vue'
 import StepSurveyType from '@/components/create/steps/StepSurveyType.vue'
 import StepSuccess from '@/components/create/steps/StepSuccess.vue'
 import { useCreateContentWizard } from '@/composables/useCreateContentWizard'
+import { useContentDomain } from '@/composables/useContentDomain'
 import { createStudioContent } from '@/api/studio'
 import type { StatsDataDocument } from '@/api/studio'
 import { fetchContentCategories } from '@/api/content-categories'
 import { CONTENT_COVERAGE_OPTIONS, type ContentCategory, type ContentType } from '@/types/content-creation'
 import { SUB_BRAND_OPTIONS, categoryMatchesDomain } from '@/types/sub-brand'
+import { brandCssVars, getBrandPalette } from '@/lib/brand-palette'
 
-const TYPE_META: Record<ContentType, { label: string; kicker: string; icon: string; iconBg: string; iconFg: string; placeholder: string; successTitle: string }> = {
+const TYPE_META: Record<ContentType, { label: string; kicker: string; icon: string; placeholder: string; successTitle: string }> = {
   statsdata: {
     label: 'StatsData',
     kicker: 'Nouveau contenu',
     icon: '▥',
-    iconBg: '#eaf1fe',
-    iconFg: '#2563eb',
     placeholder: 'Ex. Le prix des carburants par station',
     successTitle: 'StatsData créé',
   },
@@ -24,8 +24,6 @@ const TYPE_META: Record<ContentType, { label: string; kicker: string; icon: stri
     label: 'Article',
     kicker: 'Nouveau contenu',
     icon: '▤',
-    iconBg: '#fdeef1',
-    iconFg: '#be123c',
     placeholder: 'Ex. Le pouvoir d’achat en 12 graphiques',
     successTitle: 'Article créé',
   },
@@ -33,8 +31,6 @@ const TYPE_META: Record<ContentType, { label: string; kicker: string; icon: stri
     label: 'Sondage',
     kicker: 'Nouveau contenu',
     icon: '◐',
-    iconBg: '#f2ecfd',
-    iconFg: '#7c3aed',
     placeholder: 'Ex. Le télétravail doit-il rester la norme ?',
     successTitle: 'Sondage créé',
   },
@@ -51,12 +47,20 @@ const createdDoc = ref<StatsDataDocument | null>(null)
 const categoriesCatalog = ref<ContentCategory[]>([])
 const categoriesLoading = ref(false)
 
+// Domaine de la page depuis laquelle la modale est ouverte (statsio par défaut).
+const routeDomain = useContentDomain()
+
 const {
   title, domain, categories, coverage,
   surveyKind, requiresIdentityVerification,
   steps, currentStepId, currentStepIndex, canGoNext,
   reset, buildPayload,
-} = useCreateContentWizard(props.type)
+} = useCreateContentWizard(props.type, routeDomain.value)
+
+// La modale est en `Teleport to="body"` → hors du cascading `[data-theme]`.
+// On reteinte donc son arbre selon le domaine choisi dans le wizard.
+const palette = computed(() => getBrandPalette(domain.value))
+const brandStyle = computed(() => brandCssVars(domain.value))
 
 /** Catégories proposées pour le domaine choisi (+ celles « toutes les marques »). */
 const visibleCategories = computed(() =>
@@ -106,6 +110,8 @@ const reviewRows = computed(() => {
 
 watch(() => props.open, (v) => {
   if (v) {
+    // Recadre sur le domaine courant si la route a changé pendant que la modale était fermée.
+    domain.value = routeDomain.value
     void loadCategories()
   } else {
     setTimeout(reset, 300)
@@ -178,7 +184,9 @@ const studioPath = () =>
     @update:open="handleClose"
     @close="handleClose"
   >
-    <StepSuccess :content-type-label="meta.label" :studio-path="studioPath()" @close="handleClose" />
+    <div :style="brandStyle">
+      <StepSuccess :content-type-label="meta.label" :studio-path="studioPath()" @close="handleClose" />
+    </div>
   </AppModal>
 
   <!-- Wizard -->
@@ -194,12 +202,15 @@ const studioPath = () =>
         class="fixed inset-0 z-[120] flex items-center justify-center bg-[rgba(20,16,30,0.55)] p-6"
         @click.self="handleClose"
       >
-        <div class="flex max-h-[88vh] w-full max-w-[560px] flex-col overflow-hidden rounded-[22px] bg-white shadow-[0_30px_70px_rgba(20,16,30,0.35)]">
+        <div
+          class="flex max-h-[88vh] w-full max-w-[560px] flex-col overflow-hidden rounded-[22px] bg-white shadow-[0_30px_70px_rgba(20,16,30,0.35)]"
+          :style="brandStyle"
+        >
           <!-- Header -->
           <div class="flex items-center gap-3 border-b border-[#14141e]/[0.08] px-[26px] py-[22px]">
             <span
               class="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] text-[16px]"
-              :style="{ background: meta.iconBg, color: meta.iconFg }"
+              :style="{ background: palette.soft, color: palette.softFg }"
             >{{ meta.icon }}</span>
             <span class="min-w-0 flex-1">
               <span class="block font-mono text-[10px] font-extrabold uppercase tracking-[0.08em] text-[#18181f]/45">{{ meta.kicker }}</span>
@@ -219,7 +230,7 @@ const studioPath = () =>
               v-for="(s, i) in steps"
               :key="s.id"
               class="h-1 flex-1 rounded-[3px] transition-colors"
-              :class="i <= currentStepIndex ? 'bg-[var(--color-primary)]' : 'bg-[#eeebf6]'"
+              :class="i <= currentStepIndex ? 'bg-[var(--color-primary)]' : 'bg-slate-200/70'"
             />
           </div>
           <div class="px-[26px] pb-1 pt-2 font-mono text-[10.5px] font-semibold uppercase tracking-[0.08em] text-[#18181f]/45">

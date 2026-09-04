@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { catalogThemeStyle } from '@/lib/catalog-theme'
 import { formatRelativePublished } from '@/lib/catalog-format'
 import type { DossierCatalogItem } from '@/types/dossier'
+import AppMediaImage from '@/components/ui/AppMediaImage.vue'
 
 const props = defineProps<{
   item: DossierCatalogItem
@@ -20,19 +21,10 @@ const countLabel = computed(
 <template>
   <NuxtLink
     :to="`/dossiers/${item.slug}`"
-    class="group flex flex-col overflow-hidden rounded-[18px] border-[1.5px] border-slate-950/[0.06] bg-white shadow-[0_1px_3px_rgba(20,20,30,0.06)] transition hover:-translate-y-0.5 hover:border-[#c4b5fd]"
+    class="u-card group flex flex-col overflow-hidden rounded-[18px] border-[1.5px] border-slate-950/[0.06] bg-white shadow-[0_1px_3px_rgba(20,20,30,0.06)] hover:-translate-y-0.5"
   >
-    <div
-      class="relative flex h-[130px] items-center justify-center"
-      :style="{ background: item.image_url ? undefined : style.bg }"
-    >
-      <img
-        v-if="item.image_url"
-        :src="item.image_url"
-        alt=""
-        class="absolute inset-0 h-full w-full object-cover"
-      />
-      <span v-else class="font-mono text-[10px] text-slate-950/40">{{ item.icon || '📁' }}</span>
+    <div class="relative flex h-[130px] items-center justify-center">
+      <AppMediaImage :src="item.image_url" :alt="item.name" class="u-card-media absolute inset-0" />
 
       <span
         v-if="item.category"
@@ -55,7 +47,7 @@ const countLabel = computed(
     </div>
 
     <div class="flex flex-1 flex-col p-[18px]">
-      <p class="text-[16.5px] font-extrabold leading-[1.3] tracking-[-0.01em] text-slate-950 text-pretty">
+      <p class="u-card-title text-[16.5px] font-extrabold leading-[1.3] tracking-[-0.01em] text-slate-950 text-pretty">
         {{ item.name }}
       </p>
       <p v-if="item.description" class="mt-2 line-clamp-3 text-[12.5px] leading-[1.55] text-slate-950/60">

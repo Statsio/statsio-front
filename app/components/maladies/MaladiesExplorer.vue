@@ -3,6 +3,7 @@ import { useMaladies } from '@/composables/useMaladies'
 import MaladiesCard from '@/components/maladies/MaladiesCard.vue'
 import MaladiesRankedList from '@/components/maladies/MaladiesRankedList.vue'
 import AppSectionTabs from '@/components/ui/AppSectionTabs.vue'
+import PageHeroV2 from '@/components/home/v2/PageHeroV2.vue'
 import { getMedistatsTabs } from '@/data/medistats-nav-tabs'
 
 const {
@@ -26,17 +27,18 @@ const evolutionClass = (m: { evolutionPercent: number | null }) =>
 </script>
 
 <template>
-  <div class="mx-auto max-w-5xl px-4 pb-24 pt-10 md:px-8 md:pt-12">
-    <h1 class="mb-1.5 text-2xl font-bold text-slate-900 md:text-[26px]">Maladies &amp; santé mondiale</h1>
-    <p class="mb-1.5 max-w-xl text-[14.5px] text-slate-500">
-      Classifications, définitions et statistiques épidémiologiques mondiales, croisées par maladie et par pays.
-    </p>
-    <p class="mb-6 font-mono text-xs text-slate-400">
-      Sources : ICD-API (icd.who.int) — classification · GHO OData API (who.int/data/gho) — statistiques
-    </p>
+  <div>
+    <PageHeroV2
+      badge="SANTÉ MONDIALE"
+      hero-kind="chart"
+      title="Maladies & santé mondiale"
+      subtitle="Classifications, définitions et statistiques épidémiologiques mondiales, croisées par maladie et par pays."
+      note="Sources : ICD-API (icd.who.int) — classification · GHO OData API (who.int/data/gho) — statistiques"
+    >
+      <AppSectionTabs :tabs="getMedistatsTabs('maladies')" />
+    </PageHeroV2>
 
-    <AppSectionTabs :tabs="getMedistatsTabs('maladies')" />
-
+    <div class="mx-auto max-w-5xl px-4 pb-24 pt-10 md:px-8 md:pt-12">
     <div class="relative mb-9">
       <div class="flex items-center gap-3 rounded-2xl border border-[var(--color-primary)]/20 bg-white px-5 py-4 shadow-[0_1px_3px_rgba(20,20,30,0.05)]">
         <svg width="19" height="19" viewBox="0 0 24 24" class="shrink-0" aria-hidden="true">
@@ -96,6 +98,7 @@ const evolutionClass = (m: { evolutionPercent: number | null }) =>
         :metric="formatEvolution"
         :metric-class="evolutionClass"
       />
+    </div>
     </div>
   </div>
 </template>
