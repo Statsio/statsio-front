@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { useChart, PALETTE } from '@/composables/useChart'
+import { useChart, useChartTheme, PALETTE } from '@/composables/useChart'
 import { useBlockData, rowKey } from '@/composables/useBlockData'
 import { useExpressionNumber } from '@/composables/useResolvedTokens'
 import { markColor } from '@/lib/studio-chart'
@@ -130,6 +130,59 @@ interface ProgressRow {
   color: string
 }
 
+interface ProgressGroup {
+  label: string
+  bars: ProgressRow[]
+}
+
+const fmtNum = new Intl.NumberFormat('fr-FR')
+const progressDisplay = (value: number, isPercent: boolean) =>
+  isPercent ? `${value}%` : fmtNum.format(value)
+
+/** Plusieurs colonnes Y → une barre par colonne, groupée par valeur de l'axe X
+ *  (même logique que le mode graphique « wide format »). */
+const isMultiProgress = computed(
+  () => props.block.config.barStyle === 'progress' && yColumns.value.length >= 2,
+)
+
+const progressSeries = computed(() =>
+  yColumns.value.map((col, i) => ({
+    label: yLabels.value[i] ?? col,
+    color: PALETTE[i % PALETTE.length]!,
+  })),
+)
+
+const progressGroups = computed<ProgressGroup[]>(() => {
+  const rows = data.value?.rows ?? []
+  const xKey = rowKey(data.value, props.block.fieldMapping.xAxis ?? '')
+  const yCols = yColumns.value.map((c) => rowKey(data.value, c))
+  const limit = props.block.config.rowLimit ?? 20
+  const isPercent = props.block.config.format === 'percent'
+  const sliced = (rows as Record<string, unknown>[]).slice(0, limit)
+
+  // Échelle commune à toutes les colonnes Y (comme l'axe partagé du graphique).
+  let max = 0
+  for (const r of sliced) for (const yk of yCols) max = Math.max(max, parseNumericValue(r[yk]))
+
+  return sliced.map((r) => ({
+    label: formatDisplayValue(r[xKey], ''),
+    bars: yCols.map((yk, i) => {
+      const value = parseNumericValue(r[yk])
+      const width = isPercent
+        ? Math.max(0, Math.min(100, value))
+        : max > 0
+          ? (value / max) * 100
+          : 0
+      return {
+        label: progressSeries.value[i]?.label ?? '',
+        width,
+        display: progressDisplay(value, isPercent),
+        color: progressSeries.value[i]?.color ?? PALETTE[0]!,
+      }
+    }),
+  }))
+})
+
 const progressRows = computed<ProgressRow[]>(() => {
   const rows = data.value?.rows ?? []
   const xKey = rowKey(data.value, props.block.fieldMapping.xAxis ?? '')
@@ -150,7 +203,7 @@ const progressRows = computed<ProgressRow[]>(() => {
     return {
       label: formatDisplayValue(r[xKey], ''),
       width,
-      display: isPercent ? `${value}%` : new Intl.NumberFormat('fr-FR').format(value),
+      display: progressDisplay(value, isPercent),
       color: marked[i] ?? color,
     }
   })
@@ -178,8 +231,9 @@ const yTitle = computed(() => {
   const cols = yColumns.value
   return cols.length === 1 && cols[0] ? (labels.value[cols[0]] || '') : ''
 })
+const chartTheme = useChartTheme()
 const axisTitle = (text: string) => (text
-  ? { display: true, text, font: { family: "'JetBrains Mono', monospace", size: 11, weight: 600 as const }, color: 'rgba(24,24,31,0.55)' }
+  ? { display: true, text, font: { family: "'JetBrains Mono', monospace", size: 11, weight: 600 as const }, color: chartTheme.value.title }
   : { display: false })
 
 const { scheduleResize } = useChart(canvasRef, 'bar', () => chartData.value, () => ({
@@ -192,17 +246,16 @@ const { scheduleResize } = useChart(canvasRef, 'bar', () => chartData.value, () 
   scales: {
     x: {
       ...(isHorizontal.value && useLogScale.value ? { type: 'logarithmic' as const } : {}),
-      grid: { display: isHorizontal.value, color: 'rgba(24,24,31,0.06)' },
+      grid: { display: isHorizontal.value, color: chartTheme.value.grid },
       border: { display: false },
-      ticks: { font: { family: "'JetBrains Mono', monospace", size: 11 }, color: 'rgba(24,24,31,0.45)' },
+      ticks: { font: { family: "'JetBrains Mono', monospace", size: 11 }, color: chartTheme.value.tick },
       title: axisTitle(isHorizontal.value ? yTitle.value : xTitle.value),
     },
     y: {
       ...(!isHorizontal.value && useLogScale.value ? { type: 'logarithmic' as const } : {}),
-      display: isHorizontal.value,
       grid: { display: false },
       border: { display: false },
-      ticks: { font: { family: "'JetBrains Mono', monospace", size: 11 }, color: 'rgba(24,24,31,0.45)' },
+      ticks: { font: { family: "'JetBrains Mono', monospace", size: 11 }, color: chartTheme.value.tick },
       title: axisTitle(isHorizontal.value ? xTitle.value : yTitle.value),
     },
   },
@@ -248,10 +301,28 @@ watch(() => [studio.isPanelOpen, studio.selectedBlockId !== null], scheduleResiz
       <canvas v-else ref="canvasRef" class="w-full h-full max-w-full" />
     </div>
 
+    <div v-else-if="isMultiProgress" class="flex flex-col gap-3.5 py-1">
+      <div class="flex flex-wrap gap-x-4 gap-y-1">
+        <span v-for="s in progressSeries" :key="s.label" class="flex items-center gap-1.5 text-[11.5px] text-[color:color-mix(in_srgb,var(--studio-ink)_70%,transparent)]">
+          <span class="h-2.5 w-2.5 shrink-0 rounded-sm" :style="{ backgroundColor: s.color }" />
+          {{ s.label }}
+        </span>
+      </div>
+      <div v-for="group in progressGroups" :key="group.label" class="flex flex-col gap-1.5">
+        <span class="truncate text-[12.5px] font-medium text-[color:color-mix(in_srgb,var(--studio-ink)_85%,transparent)]">{{ group.label }}</span>
+        <div v-for="bar in group.bars" :key="bar.label" class="flex items-center gap-2.5">
+          <div class="h-2.5 flex-1 rounded-full bg-[color:color-mix(in_srgb,var(--color-primary)_14%,var(--studio-surface))]">
+            <div class="h-full rounded-full" :style="{ width: `${bar.width}%`, backgroundColor: bar.color }" />
+          </div>
+          <span class="mono w-12 shrink-0 text-right text-[11.5px] text-[color:color-mix(in_srgb,var(--studio-ink)_80%,transparent)]">{{ bar.display }}</span>
+        </div>
+      </div>
+    </div>
+
     <div v-else class="flex flex-col gap-2.5 py-1">
       <div v-for="row in progressRows" :key="row.label" class="flex items-center gap-2.5">
         <span class="w-[90px] shrink-0 truncate text-[12.5px] text-[color:color-mix(in_srgb,var(--studio-ink)_80%,transparent)]">{{ row.label }}</span>
-        <div class="h-2.5 flex-1 rounded-full bg-[color:color-mix(in_srgb,var(--color-primary)_12%,white)]">
+        <div class="h-2.5 flex-1 rounded-full bg-[color:color-mix(in_srgb,var(--color-primary)_14%,var(--studio-surface))]">
           <div class="h-full rounded-full" :style="{ width: `${row.width}%`, backgroundColor: row.color }" />
         </div>
         <span class="mono w-12 shrink-0 text-right text-[11.5px] text-[color:color-mix(in_srgb,var(--studio-ink)_80%,transparent)]">{{ row.display }}</span>

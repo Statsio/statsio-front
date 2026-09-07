@@ -3,7 +3,7 @@ import { ref, computed, watch, onMounted, onBeforeUnmount, inject } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { fetchBlockData, fetchPublicBlockData } from '@/api/studio'
 import { useStudioStore } from '@/stores/studio'
-import { blockSourceParams } from '@/composables/useBlockData'
+import { blockSourceParams, resolveBlockFilters } from '@/composables/useBlockData'
 import { bareNames } from '@/lib/studio-search'
 import { buildFanOutSegment } from '@/lib/statsdata-fanout'
 import { isCalcRef, parseColumnRef } from '@/lib/studio-columns'
@@ -147,6 +147,7 @@ async function doSearch(q: string) {
   const sp = sourceParams.value
   if (!sp.urlDatasetId) return
   const calcColumns = fm.value.calcColumns?.length ? fm.value.calcColumns : undefined
+  const filters = resolveBlockFilters(props.block.filters ?? [], studio.pageParams)
   const params = {
     sources: sp.sources,
     primarySourceId: sp.primarySourceId,
@@ -155,6 +156,7 @@ async function doSearch(q: string) {
     searchColumns: searchRefs.value,
     searchAltColumns: searchAltRefs.value,
     calcColumns,
+    filters: filters.length ? filters : undefined,
     limit: 30,
   }
   try {

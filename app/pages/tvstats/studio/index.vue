@@ -28,6 +28,7 @@ onMounted(async () => {
         doc.sections,
         doc.blocks,
         doc.pages,
+        { seedEmptySection: true },
       )
     } catch {
       studio.initPage({ id: documentId, type: 'statsdata', title: 'Nouveau dashboard' })

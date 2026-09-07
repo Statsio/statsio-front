@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { fetchDistinctValues, fetchPublicDistinctValues } from '@/api/studio'
-import { blockSourceParams } from '@/composables/useBlockData'
+import { blockSourceParams, resolveBlockFilters } from '@/composables/useBlockData'
 import type { StudioBlock } from '@/types/studio'
 
 /**
@@ -23,6 +23,11 @@ const allowAll = computed(() => props.block.config.paramAllowAll === true)
 const allLabel = computed(() => props.block.config.paramAllLabel || 'Tout')
 const isConfigured = computed(() => Boolean(datasetId.value && column.value && paramName.value))
 
+// Filtres du bloc (jetons `{{param}}` / boucle résolus) — restreignent les valeurs proposées.
+const resolvedFilters = computed(() =>
+  resolveBlockFilters(props.block.filters ?? [], { ...studio.pageParams, ...props.scope }),
+)
+
 const values = ref<string[]>([])
 const isLoading = ref(false)
 const loadError = ref<string | null>(null)
@@ -38,9 +43,10 @@ async function loadValues() {
   try {
     const ctx = { sources: sp.sources, primarySourceId: sp.primarySourceId, joins: sp.joins }
     const docSlug = studio.content?.slug
+    const f = resolvedFilters.value
     values.value = props.readonly && docSlug
-      ? await fetchPublicDistinctValues(docSlug, sp.urlDatasetId, column.value, '', [], ctx)
-      : await fetchDistinctValues(sp.urlDatasetId, column.value, '', [], ctx)
+      ? await fetchPublicDistinctValues(docSlug, sp.urlDatasetId, column.value, '', f, ctx)
+      : await fetchDistinctValues(sp.urlDatasetId, column.value, '', f, ctx)
   } catch {
     loadError.value = 'Valeurs indisponibles'
     values.value = []
@@ -50,7 +56,7 @@ async function loadValues() {
 }
 
 watch(
-  () => [datasetId.value, column.value, JSON.stringify(props.block.sources ?? []), JSON.stringify(props.block.joins ?? [])].join('|'),
+  () => [datasetId.value, column.value, JSON.stringify(props.block.sources ?? []), JSON.stringify(props.block.joins ?? []), JSON.stringify(resolvedFilters.value)].join('|'),
   loadValues,
   { immediate: true },
 )

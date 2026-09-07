@@ -2,8 +2,10 @@
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useStudioStore } from '@/stores/studio'
+import { useAuthStore } from '@/stores/auth'
 import { contentPropertiesPath, publicContentPath } from '@/lib/content-display'
 import StudioModal from '@/components/studio/ui/StudioModal.vue'
+import StudioJsonModal from '@/components/studio/StudioJsonModal.vue'
 import VariablePickerModal from '@/components/studio/VariablePickerModal.vue'
 import FieldText from '@/components/studio/fields/FieldText.vue'
 import { slugify } from '@/lib/slug'
@@ -12,6 +14,10 @@ import studioLogo from '@/assets/brand/statsio-studio.svg'
 
 const emit = defineEmits<{ save: []; publish: [] }>()
 const studio = useStudioStore()
+const auth = useAuthStore()
+
+// Outil « JSON » : réservé aux administrateurs (copie du JSON / prompt IA + import).
+const showJsonModal = ref(false)
 
 const props = defineProps<{ publishing?: boolean }>()
 
@@ -109,7 +115,7 @@ const canCreatePage = computed(() => !!newPageTitle.value.trim())
 
 function confirmAddPage() {
   if (!canCreatePage.value) return
-  const page = studio.addPage(newPageTitle.value.trim())
+  const page = studio.addPage(newPageTitle.value.trim(), { seedSection: true })
   if (newPageSlug.value) studio.updatePage(page.id, { slug: newPageSlug.value })
   showAddModal.value = false
 }
@@ -248,8 +254,8 @@ const saveDotClass = computed(() => {
         </button>
       </div>
 
-      <!-- Page picker -->
-      <div ref="pagesDropdownRef" class="relative ml-1">
+      <!-- Page picker (StatsData uniquement — article/sondage = page unique) -->
+      <div v-if="studio.supportsPages" ref="pagesDropdownRef" class="relative ml-1">
         <button
           class="flex max-w-[300px] items-center gap-[9px] rounded-full border-[1.5px] px-3 py-[7px] transition-colors"
           :class="pagesOpen
@@ -273,9 +279,9 @@ const saveDotClass = computed(() => {
           </div>
           <div class="flex max-h-[290px] flex-col gap-0.5 overflow-auto">
             <div
-              v-for="page in studio.pages"
+              v-for="(page, pageIndex) in studio.pages"
               :key="page.id"
-              class="group grid grid-cols-[34px_1fr_16px] items-center gap-2.5 rounded-[10px] px-2.5 py-[9px] transition-colors"
+              class="group grid grid-cols-[34px_1fr_auto] items-center gap-2.5 rounded-[10px] px-2.5 py-[9px] transition-colors"
               :class="studio.currentPageId === page.id ? 'bg-[var(--studio-accent-wash)]' : 'hover:bg-[var(--studio-wash)]'"
             >
               <span class="rounded-[5px] py-[3px] text-center font-mono text-[9px] font-semibold" :class="pageKind(page).cls">
@@ -307,12 +313,26 @@ const saveDotClass = computed(() => {
                   @click.stop
                 >{ }</button>
               </div>
-              <span class="text-center text-[11px] text-[var(--color-primary)]">
-                <template v-if="studio.currentPageId === page.id && editingPageId !== page.id">✓</template>
-                <span v-else class="hidden items-center gap-0.5 group-hover:flex">
+              <span class="flex items-center justify-end gap-0.5 text-[11px] text-[var(--color-primary)]">
+                <span class="hidden items-center gap-0.5 group-hover:flex">
+                  <button
+                    class="text-[var(--studio-faint)] hover:text-[var(--studio-ink)] disabled:opacity-30 disabled:hover:text-[var(--studio-faint)]"
+                    title="Monter"
+                    :disabled="pageIndex === 0"
+                    @click.stop="studio.movePage(page.id, -1)"
+                  >▲</button>
+                  <button
+                    class="text-[var(--studio-faint)] hover:text-[var(--studio-ink)] disabled:opacity-30 disabled:hover:text-[var(--studio-faint)]"
+                    title="Descendre"
+                    :disabled="pageIndex === studio.pages.length - 1"
+                    @click.stop="studio.movePage(page.id, 1)"
+                  >▼</button>
                   <button class="text-[var(--studio-faint)] hover:text-[var(--studio-ink)]" title="Renommer" @click.stop="startRename(page.id, page.title)">✎</button>
                   <button v-if="canRemovePage" class="text-[var(--studio-faint)] hover:text-[var(--color-error)]" title="Supprimer" @click.stop="removePage(page.id, page.title)">✕</button>
                 </span>
+                <template v-if="studio.currentPageId === page.id && editingPageId !== page.id">
+                  <span class="group-hover:hidden">✓</span>
+                </template>
               </span>
             </div>
           </div>
@@ -350,6 +370,18 @@ const saveDotClass = computed(() => {
         <span class="h-[7px] w-[7px] shrink-0 rounded-full" :class="saveDotClass" />
         <span class="text-[13px] text-[var(--studio-muted)]">{{ saveLabel }}</span>
       </div>
+
+      <button
+        v-if="auth.isAdmin"
+        type="button"
+        class="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--studio-muted)] transition-colors hover:bg-[var(--studio-wash)]"
+        title="JSON du contenu (admin) — copier le JSON / le prompt IA, importer un JSON"
+        @click="showJsonModal = true"
+      >
+        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.25 6.75 22.5 12l-5.25 5.25M6.75 17.25 1.5 12l5.25-5.25m7.5-3-4.5 16.5" />
+        </svg>
+      </button>
 
       <a
         v-if="publicPath"
@@ -446,4 +478,7 @@ const saveDotClass = computed(() => {
     @pick="onPickPageTitleToken"
     @close="closePageTokenModal"
   />
+
+  <!-- Outil JSON (admin) -->
+  <StudioJsonModal v-if="showJsonModal" @close="showJsonModal = false" />
 </template>
