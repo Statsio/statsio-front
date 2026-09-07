@@ -61,7 +61,7 @@
     "@vue/eslint-config-typescript": "^14.9.0",
     "@vue/test-utils": "^2.4.11",
     "axios-mock-adapter": "^2.1.0",
-    "eslint": "^10.0.2",
+    "eslint": "^10.9.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-oxlint": "~1.78.0",
     "eslint-plugin-vue": "~10.10.0",
