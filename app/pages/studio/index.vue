@@ -31,6 +31,7 @@ onMounted(async () => {
         doc.sections,
         doc.blocks,
         doc.pages,
+        { seedEmptySection: true },
       )
     } catch (e) {
       fail(getHttpErrorStatus(e, 404))

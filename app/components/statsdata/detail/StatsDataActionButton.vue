@@ -45,7 +45,7 @@ const tag = computed(() => (props.to != null ? RouterLink : props.as))
 <style scoped>
 .sd-action--ghost {
   border: 1.5px solid var(--studio-line-strong);
-  background: #fff;
+  background: var(--studio-surface, #fff);
   color: var(--studio-muted);
 }
 .sd-action--ghost:hover {

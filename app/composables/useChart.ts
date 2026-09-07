@@ -1,4 +1,5 @@
-import { onMounted, onBeforeUnmount, nextTick, watch, type Ref } from 'vue'
+import { onMounted, onBeforeUnmount, nextTick, watch, computed, type Ref } from 'vue'
+import { usePrefsStore } from '@/stores/prefs'
 import {
   Chart,
   BarController,
@@ -18,6 +19,45 @@ import {
   type ChartOptions,
   type Plugin,
 } from 'chart.js'
+
+/**
+ * Palette d'encre des graphiques (ticks, grille, titres d'axe, ligne de référence,
+ * étiquettes de valeur). Chart.js dessine sur un canvas et n'évalue pas les
+ * variables CSS ; on résout donc des couleurs concrètes selon le thème clair/sombre.
+ *
+ * `pluginInk` est une copie au niveau module que lisent les plugins canvas
+ * (`valueLabelsPlugin`, `referenceLinePlugin`), qui ne peuvent pas recevoir de ref
+ * réactive. Elle est rafraîchie à chaque évaluation de `useChartTheme()`, et les
+ * blocs graphiques référencent `theme.value` dans leur `optionsGetter`, ce qui
+ * force une reconstruction du graphe au changement de thème.
+ */
+const LIGHT_INK = {
+  tick: 'rgba(24,24,31,0.45)',
+  grid: 'rgba(24,24,31,0.06)',
+  title: 'rgba(24,24,31,0.55)',
+  label: 'rgba(24,24,31,0.65)',
+  ref: 'rgba(24,24,31,0.45)',
+  refLabel: 'rgba(24,24,31,0.55)',
+}
+const DARK_INK = {
+  tick: 'rgba(226,232,240,0.6)',
+  grid: 'rgba(148,163,184,0.18)',
+  title: 'rgba(226,232,240,0.75)',
+  label: 'rgba(226,232,240,0.8)',
+  ref: 'rgba(226,232,240,0.5)',
+  refLabel: 'rgba(226,232,240,0.68)',
+}
+
+let pluginInk = LIGHT_INK
+
+export function useChartTheme() {
+  const prefs = usePrefsStore()
+  return computed(() => {
+    const ink = prefs.colorScheme === 'dark' ? DARK_INK : LIGHT_INK
+    pluginInk = ink
+    return ink
+  })
+}
 
 function formatValueLabel(value: number, format?: 'number' | 'percent' | 'currency') {
   if (format === 'percent') return `${value.toFixed(1)} %`
@@ -42,7 +82,7 @@ const valueLabelsPlugin: Plugin<'bar'> = {
     const horizontal = chart.options.indexAxis === 'y'
     ctx.save()
     ctx.font = "600 11px 'JetBrains Mono', monospace"
-    ctx.fillStyle = 'rgba(24,24,31,0.65)'
+    ctx.fillStyle = pluginInk.label
 
     chart.data.datasets.forEach((dataset, datasetIndex) => {
       const meta = chart.getDatasetMeta(datasetIndex)
@@ -92,7 +132,7 @@ const referenceLinePlugin: Plugin<'bar' | 'line'> = {
     ctx.beginPath()
     ctx.setLineDash([5, 4])
     ctx.lineWidth = 1.5
-    ctx.strokeStyle = 'rgba(24,24,31,0.45)'
+    ctx.strokeStyle = pluginInk.ref
     if (horizontal) {
       ctx.moveTo(px, area.top)
       ctx.lineTo(px, area.bottom)
@@ -104,7 +144,7 @@ const referenceLinePlugin: Plugin<'bar' | 'line'> = {
     if (opts.label) {
       ctx.setLineDash([])
       ctx.font = "600 10px 'JetBrains Mono', monospace"
-      ctx.fillStyle = 'rgba(24,24,31,0.55)'
+      ctx.fillStyle = pluginInk.refLabel
       ctx.textAlign = horizontal ? 'center' : 'right'
       ctx.textBaseline = 'bottom'
       if (horizontal) ctx.fillText(opts.label, px, area.top + 10)

@@ -1,16 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useChannelProfile } from '@/composables/useChannelProfile'
-import { resolveChannelColors } from '@/lib/channel-brand'
-import ChannelBreadcrumb from './ChannelBreadcrumb.vue'
-import ChannelBanner from './ChannelBanner.vue'
-import ChannelProfileHeader from './ChannelProfileHeader.vue'
-import ChannelStatsStrip from './ChannelStatsStrip.vue'
-import ChannelDetailTabs from './ChannelDetailTabs.vue'
-import ChannelFeaturedTab from './ChannelFeaturedTab.vue'
-import ChannelFeedList from './ChannelFeedList.vue'
-import ChannelDatasetList from './ChannelDatasetList.vue'
-import ChannelPollsTab from './ChannelPollsTab.vue'
+import type { CatalogSort } from '@/types/catalog'
+import ArticleCard from '@/components/content/ArticleCard.vue'
+import StatsDataCard from '@/components/content/StatsDataCard.vue'
+import SurveyCard from '@/components/content/SurveyCard.vue'
+import ChannelHeroV2 from './ChannelHeroV2.vue'
+import ChannelTabNav from './ChannelTabNav.vue'
+import ChannelContentTab from './ChannelContentTab.vue'
+import ChannelPreviewSection from './ChannelPreviewSection.vue'
 import ChannelAboutTab from './ChannelAboutTab.vue'
 import ChannelSimilarSlider from './ChannelSimilarSlider.vue'
 
@@ -19,6 +17,7 @@ const {
   loading,
   isFollowing,
   isOwner,
+  isVerified,
   toggleFollow,
   tabs,
   activeTab,
@@ -26,102 +25,185 @@ const {
   createdAtLabel,
   articles,
   statsData,
-  enrichedPolls,
+  surveys,
+  counts,
+  contentLoading,
+  sortArticles,
+  sortStatsData,
+  sortSurveys,
+  toggleItemFavorite,
+  isFavorited,
 } = useChannelProfile()
 
 usePageSeo({
   title: computed(() => channel.value?.name),
   description: computed(() => channel.value?.description),
+  type: 'profile',
 })
 
-const brandColors = computed(() =>
-  channel.value
-    ? resolveChannelColors(channel.value.slug, channel.value.customColorPrimary, channel.value.customColorSecondary)
-    : { primary: '#8b5cf6', secondary: '#3b82f6' },
-)
+const BASE_SORTS: { value: CatalogSort; label: string }[] = [
+  { value: 'trend', label: 'Tendance' },
+  { value: 'recent', label: 'Récents' },
+]
+const articleSorts = [...BASE_SORTS, { value: 'views' as CatalogSort, label: 'Les plus lus' }]
+const statsDataSorts = [...BASE_SORTS, { value: 'views' as CatalogSort, label: 'Les plus vus' }]
+const surveySorts = [...BASE_SORTS, { value: 'votes' as CatalogSort, label: 'Les plus suivis' }]
 
-const categoryLabel = computed(() => categoryLabels.value.join(' — '))
-const recentArticles = computed(() => articles.value.slice(0, 6))
-const bannerEditHref = computed(() =>
-  isOwner.value && channel.value ? `/channels/${channel.value.slug}/dashboard/profil` : null,
+const articlesPreview = computed(() => articles.value.slice(0, 3))
+const statsDataPreview = computed(() => statsData.value.slice(0, 3))
+const surveysPreview = computed(() => surveys.value.slice(0, 2))
+const hasAnyContent = computed(
+  () => articles.value.length > 0 || statsData.value.length > 0 || surveys.value.length > 0,
 )
 </script>
 
 <template>
-  <main class="pb-24">
+  <div class="bg-[#f4f3f8] pb-24">
     <div v-if="loading" class="flex items-center justify-center py-32">
-      <p class="text-[#18181f]/50">Chargement de la chaîne...</p>
+      <p class="text-slate-500">Chargement de la chaîne…</p>
     </div>
 
     <template v-else-if="channel">
-      <!--
-        -mt-40 lg:-mt-28 cancels the layout's <main class="pt-40 lg:pt-28"> (app/layouts/default.vue)
-        so the lilac wash bleeds under the fixed header, matching the "Détail chaîne" mockup's flat
-        #eeecf5 page background — same pattern as app/pages/chaines/index.vue.
-      -->
-      <section class="relative -mt-40 min-h-screen bg-[var(--color-auth-wash)] pt-40 lg:-mt-28 lg:pt-28">
-        <div class="bg-white">
-          <div class="container lg:px-16">
-            <ChannelBreadcrumb :channel-name="channel.name" />
+      <ChannelHeroV2
+        :channel="channel"
+        :is-owner="isOwner"
+        :is-following="isFollowing"
+        :is-verified="isVerified"
+        :category-labels="categoryLabels"
+        :articles-count="counts.articles"
+        :stats-data-count="counts.statsdata"
+        :surveys-count="counts.surveys"
+        @toggle-follow="toggleFollow"
+      />
 
-            <ChannelBanner
-              :banner-url="channel.bannerUrl"
-              :color-primary="brandColors.primary"
-              :color-secondary="brandColors.secondary"
-              :edit-href="bannerEditHref"
+      <ChannelTabNav v-model="activeTab" :tabs="tabs" />
+
+      <div class="mx-auto max-w-[1240px] px-4 sm:px-6 lg:px-8">
+        <!-- APERÇU -->
+        <div v-if="activeTab === 'featured'" class="flex flex-col gap-10 py-8">
+          <p v-if="!contentLoading && !hasAnyContent" class="text-sm text-slate-500">
+            Cette chaîne n’a encore rien publié.
+          </p>
+
+          <ChannelPreviewSection
+            v-if="contentLoading || articlesPreview.length"
+            title="Articles récents"
+            link-label="Voir tous les articles"
+            @view-all="activeTab = 'articles'"
+          >
+            <ArticleCard
+              v-for="item in articlesPreview"
+              :key="item.id"
+              :item="item"
+              format="card"
+              :favorited="isFavorited(item)"
+              @favorite="toggleItemFavorite(item)"
             />
+          </ChannelPreviewSection>
 
-            <ChannelProfileHeader
-              :channel="channel"
-              :is-owner="isOwner"
-              :is-following="isFollowing"
-              :category-label="categoryLabel"
-              :brand-color="brandColors.primary"
-              :brand-color-secondary="brandColors.secondary"
-              @toggle-follow="toggleFollow"
+          <ChannelPreviewSection
+            v-if="contentLoading || statsDataPreview.length"
+            title="StatsData publiés"
+            link-label="Voir tous les StatsData"
+            @view-all="activeTab = 'statsdata'"
+          >
+            <StatsDataCard
+              v-for="item in statsDataPreview"
+              :key="item.id"
+              :item="item"
+              format="card"
+              :favorited="isFavorited(item)"
+              @favorite="toggleItemFavorite(item)"
             />
+          </ChannelPreviewSection>
 
-            <ChannelStatsStrip :channel="channel" :articles-count="articles.length" :stats-data-count="statsData.length" />
-
-            <ChannelDetailTabs v-model="activeTab" :tabs="tabs" />
-          </div>
+          <ChannelPreviewSection
+            v-if="contentLoading || surveysPreview.length"
+            title="Sondages en cours"
+            link-label="Voir tous les sondages"
+            @view-all="activeTab = 'sondages'"
+          >
+            <SurveyCard
+              v-for="item in surveysPreview"
+              :key="item.id"
+              :item="item"
+              format="card"
+              :favorited="isFavorited(item)"
+              @favorite="toggleItemFavorite(item)"
+            />
+          </ChannelPreviewSection>
         </div>
 
-        <div class="container pb-16 lg:px-16">
-          <ChannelFeaturedTab
-            v-if="activeTab === 'featured'"
-            :recent-articles="recentArticles"
-            @view-all-articles="activeTab = 'articles'"
+        <!-- ARTICLES -->
+        <ChannelContentTab
+          v-else-if="activeTab === 'articles'"
+          v-model:sort="sortArticles"
+          :sort-options="articleSorts"
+          :loading="contentLoading"
+          :is-empty="!articles.length"
+          empty-text="Aucun article publié pour le moment."
+        >
+          <ArticleCard
+            v-for="item in articles"
+            :key="item.id"
+            :item="item"
+            format="card"
+            :favorited="isFavorited(item)"
+            @favorite="toggleItemFavorite(item)"
           />
+        </ChannelContentTab>
 
-          <ChannelFeedList
-            v-else-if="activeTab === 'articles'"
-            :items="articles"
-            empty-text="Aucun article publié pour le moment."
+        <!-- STATSDATA -->
+        <ChannelContentTab
+          v-else-if="activeTab === 'statsdata'"
+          v-model:sort="sortStatsData"
+          :sort-options="statsDataSorts"
+          :loading="contentLoading"
+          :is-empty="!statsData.length"
+          empty-text="Aucune StatsData publiée pour le moment."
+        >
+          <StatsDataCard
+            v-for="item in statsData"
+            :key="item.id"
+            :item="item"
+            format="card"
+            :favorited="isFavorited(item)"
+            @favorite="toggleItemFavorite(item)"
           />
+        </ChannelContentTab>
 
-          <ChannelDatasetList
-            v-else-if="activeTab === 'statsdata'"
-            :items="statsData"
-            empty-text="Aucune StatsData publiée pour le moment."
+        <!-- SONDAGES -->
+        <ChannelContentTab
+          v-else-if="activeTab === 'sondages'"
+          v-model:sort="sortSurveys"
+          :sort-options="surveySorts"
+          :loading="contentLoading"
+          :is-empty="!surveys.length"
+          empty-text="Aucun sondage publié pour le moment."
+        >
+          <SurveyCard
+            v-for="item in surveys"
+            :key="item.id"
+            :item="item"
+            format="card"
+            :favorited="isFavorited(item)"
+            @favorite="toggleItemFavorite(item)"
           />
+        </ChannelContentTab>
 
-          <ChannelPollsTab
-            v-else-if="activeTab === 'sondages'"
-            :items="enrichedPolls"
-            empty-text="Aucun sondage publié pour le moment."
-          />
+        <!-- À PROPOS -->
+        <ChannelAboutTab
+          v-else-if="activeTab === 'apropos'"
+          :channel="channel"
+          :category-labels="categoryLabels"
+          :created-at-label="createdAtLabel"
+          :articles-count="counts.articles"
+          :stats-data-count="counts.statsdata"
+          :surveys-count="counts.surveys"
+        />
 
-          <ChannelAboutTab
-            v-else-if="activeTab === 'apropos'"
-            :channel="channel"
-            :category-labels="categoryLabels"
-            :created-at-label="createdAtLabel"
-          />
-
-          <ChannelSimilarSlider :channel="channel" />
-        </div>
-      </section>
+        <ChannelSimilarSlider :channel="channel" />
+      </div>
     </template>
-  </main>
+  </div>
 </template>

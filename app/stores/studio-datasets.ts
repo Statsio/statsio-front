@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
 import { fetchDatasets, fetchDatasetSchema, fetchDatasetPreview, deleteDataset } from '@/api/studio'
+import { useStudioStore } from '@/stores/studio'
 import type { DatasetMeta, DatasetWithSchema } from '@/types/studio'
 import type { DatasetPreview } from '@/api/studio'
 
@@ -130,6 +131,8 @@ export const useStudioDatasetsStore = defineStore('studio-datasets', () => {
     schemas.value.delete(datasetId)
     previews.value.delete(datasetId)
     previewErrors.value.delete(datasetId)
+    // Détache la source de tous les blocs qui l'utilisaient (source + colonnes liées).
+    useStudioStore().purgeDataset(datasetId)
   }
 
   return {

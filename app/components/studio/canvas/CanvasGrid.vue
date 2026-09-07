@@ -9,7 +9,6 @@ import BlockWrapper from './BlockWrapper.vue'
 const studio = useStudioStore()
 
 const items = computed(() => studio.currentPageCanvasItems)
-const isStatsdata = computed(() => studio.content?.type === 'statsdata')
 
 const isDropTargetActive = ref(false)
 const dropInsertIndex = ref<number | null>(null)
@@ -17,7 +16,8 @@ const dropInsertIndex = ref<number | null>(null)
 /** Bandes de drop entre éléments : accepte une mise en page de section ou un bloc « Boucle »/« Condition » de page. */
 function acceptsDrag(event: DragEvent): boolean {
   const types = event.dataTransfer?.types
-  return !!types && (types.includes('studio-section-layout') || types.includes('studio-page-block-type'))
+  if (!types) return false
+  return types.includes('studio-section-layout') || (studio.supportsPages && types.includes('studio-page-block-type'))
 }
 function onGapDragEnter(event: DragEvent, index: number) {
   if (!acceptsDrag(event)) return
@@ -41,7 +41,7 @@ function onGapDrop(event: DragEvent, atIndex: number) {
   const layout = event.dataTransfer?.getData('studio-section-layout')
   const pageBlock = event.dataTransfer?.getData('studio-page-block-type') as 'loop' | 'if' | ''
   if (layout) studio.addSectionInFlow(atIndex)
-  else if (pageBlock && isStatsdata.value) studio.addPageBlock(pageBlock, atIndex)
+  else if (pageBlock && studio.supportsPages) studio.addPageBlock(pageBlock, atIndex)
 }
 
 interface FlowItem { ref?: CanvasItemRef; section?: { id: string }; block?: unknown; id?: string; layout?: string }
