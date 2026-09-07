@@ -52,7 +52,7 @@ const stats = computed(() => [
     </div>
 
     <div class="flex flex-1 flex-col px-5 pb-5">
-      <div class="-mt-[26px] flex items-end justify-between gap-3">
+      <div class="relative z-10 -mt-[26px] flex items-end justify-between gap-3">
         <span
           class="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden border-[3px] border-white bg-white text-base font-extrabold text-slate-900"
           :class="item.kind === 'independant' ? 'rounded-full' : 'rounded-[15px]'"

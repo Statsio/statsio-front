@@ -11,8 +11,9 @@ import FieldNote from '@/components/studio/fields/FieldNote.vue'
 import { useSourceDrillIn } from '@/composables/useSourceDrillIn'
 import FieldPicker from '@/components/studio/fields/FieldPicker.vue'
 import SearchMappingField from '@/components/studio/fields/SearchMappingField.vue'
+import BlockFiltersField from '@/components/studio/fields/BlockFiltersField.vue'
 
-const props = defineProps<{ block: StudioBlock }>()
+const props = defineProps<{ block: StudioBlock; activeTab: string }>()
 const studio = useStudioStore()
 const datasets = useStudioDatasetsStore()
 
@@ -36,7 +37,23 @@ const sourceSummary = computed(() => {
 </script>
 
 <template>
-  <div class="flex flex-col gap-5 px-4 py-4">
+  <div v-if="activeTab === 'filters'" class="flex flex-col gap-[11px] px-4 pb-1 pt-3">
+    <FieldNote v-if="!hasSource">Choisissez d'abord une source dans l'onglet Configuration.</FieldNote>
+    <template v-else>
+      <BlockFiltersField
+        :block="block"
+        mode="primary"
+        label="Filtres sur les résultats"
+        empty-label="Aucun filtre : la recherche porte sur toutes les lignes de la source."
+      />
+      <FieldNote>
+        Restreint le périmètre de la recherche (ex. une seule année, une région).
+        Les jetons <code class="font-mono">{{ '{' + '{param}' + '}' }}</code> sont résolus au moment de la recherche.
+      </FieldNote>
+    </template>
+  </div>
+
+  <div v-else class="flex flex-col gap-5 px-4 py-4">
     <InspectorSection label="Bloc de recherche">
       <FieldText
         :model-value="block.config.searchPlaceholder ?? ''"

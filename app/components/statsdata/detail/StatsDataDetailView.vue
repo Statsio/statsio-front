@@ -126,7 +126,7 @@ async function goToAction(action: HeroAction) {
 </script>
 
 <template>
-  <div class="min-h-screen bg-[var(--studio-wash)] font-sans text-[var(--studio-ink)]">
+  <div class="sd-public min-h-screen bg-[var(--studio-wash)] font-sans text-[var(--studio-ink)]">
     <!-- Loading -->
     <div v-if="loading" class="flex items-center justify-center py-40">
       <svg class="h-8 w-8 animate-spin text-[var(--color-primary)]" fill="none" viewBox="0 0 24 24">

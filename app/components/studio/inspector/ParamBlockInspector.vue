@@ -10,8 +10,9 @@ import { useColumnDrillIn } from '@/composables/useColumnDrillIn'
 import { useSourceDrillIn } from '@/composables/useSourceDrillIn'
 import FieldPicker from '@/components/studio/fields/FieldPicker.vue'
 import FieldNote from '@/components/studio/fields/FieldNote.vue'
+import BlockFiltersField from '@/components/studio/fields/BlockFiltersField.vue'
 
-const props = defineProps<{ block: StudioBlock }>()
+const props = defineProps<{ block: StudioBlock; activeTab: string }>()
 const studio = useStudioStore()
 const datasets = useStudioDatasetsStore()
 
@@ -33,20 +34,21 @@ const datasetName = computed(() =>
 )
 const column = computed(() => props.block.fieldMapping.paramColumn ?? '')
 const paramName = computed(() => props.block.fieldMapping.paramName || column.value)
+const filters = computed(() => (props.block.filters ?? []).filter((f) => f.column && f.value !== ''))
 
 // ─── Valeurs distinctes (aperçu + choix de la valeur par défaut) ──────────────
 const values = ref<string[]>([])
 const loadingValues = ref(false)
 
 watch(
-  () => [props.block.datasetId, JSON.stringify(props.block.sources ?? []), JSON.stringify(props.block.joins ?? []), column.value].join('|'),
+  () => [props.block.datasetId, JSON.stringify(props.block.sources ?? []), JSON.stringify(props.block.joins ?? []), column.value, JSON.stringify(filters.value)].join('|'),
   async () => {
     values.value = []
     const sp = blockSourceParams(props.block)
     if (!sp.urlDatasetId || !column.value) return
     loadingValues.value = true
     try {
-      values.value = await fetchDistinctValues(sp.urlDatasetId, column.value, '', [], { sources: sp.sources, primarySourceId: sp.primarySourceId, joins: sp.joins })
+      values.value = await fetchDistinctValues(sp.urlDatasetId, column.value, '', filters.value, { sources: sp.sources, primarySourceId: sp.primarySourceId, joins: sp.joins })
     } catch {
       values.value = []
     } finally {
@@ -78,7 +80,20 @@ const CONTROLS = [
 </script>
 
 <template>
-  <div class="flex flex-col gap-[11px] px-4 pb-2 pt-3">
+  <div v-if="activeTab === 'filters'" class="flex flex-col gap-[11px] px-4 pb-2 pt-3">
+    <FieldNote v-if="!block.datasetId">Choisissez d'abord une source dans l'onglet Configuration.</FieldNote>
+    <template v-else>
+      <BlockFiltersField
+        :block="block"
+        mode="primary"
+        label="Filtres sur les valeurs"
+        empty-label="Aucun filtre : toutes les valeurs distinctes de la colonne sont proposées."
+      />
+      <FieldNote>Restreint les valeurs proposées par le sélecteur (et les pages générées).</FieldNote>
+    </template>
+  </div>
+
+  <div v-else class="flex flex-col gap-[11px] px-4 pb-2 pt-3">
     <FieldPicker
       label="Source"
       :value="datasetName"

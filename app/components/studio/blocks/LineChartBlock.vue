@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { useChart, PALETTE } from '@/composables/useChart'
+import { useChart, useChartTheme, PALETTE } from '@/composables/useChart'
 import { useBlockData, rowKey } from '@/composables/useBlockData'
 import { useExpressionNumber } from '@/composables/useResolvedTokens'
 import { useStudioStore } from '@/stores/studio'
@@ -126,24 +126,24 @@ const isHorizontal = computed(() => props.block.config.orientation === 'horizont
 const labelMap = computed(() => props.block.fieldMapping.columnLabels ?? {})
 const xTitle = computed(() => (props.block.fieldMapping.xAxis ? labelMap.value[props.block.fieldMapping.xAxis] : '') || '')
 const yTitle = computed(() => (yColumns.value.length === 1 && yColumns.value[0] ? (labelMap.value[yColumns.value[0]] || '') : ''))
+const chartTheme = useChartTheme()
 const axisTitle = (text: string) => (text
-  ? { display: true, text, font: { family: "'JetBrains Mono', monospace", size: 11, weight: 600 as const }, color: 'rgba(24,24,31,0.55)' }
+  ? { display: true, text, font: { family: "'JetBrains Mono', monospace", size: 11, weight: 600 as const }, color: chartTheme.value.title }
   : { display: false })
 
 const { scheduleResize } = useChart(canvasRef, 'line', () => chartData.value, () => ({
   indexAxis: isHorizontal.value ? 'y' : 'x',
   scales: {
     x: {
-      grid: { display: isHorizontal.value, color: 'rgba(24,24,31,0.06)' },
+      grid: { display: isHorizontal.value, color: chartTheme.value.grid },
       border: { display: false },
-      ticks: { font: { family: "'JetBrains Mono', monospace", size: 11 }, color: 'rgba(24,24,31,0.45)' },
+      ticks: { font: { family: "'JetBrains Mono', monospace", size: 11 }, color: chartTheme.value.tick },
       title: axisTitle(isHorizontal.value ? yTitle.value : xTitle.value),
     },
     y: {
-      display: isHorizontal.value,
       grid: { display: false },
       border: { display: false },
-      ticks: { font: { family: "'JetBrains Mono', monospace", size: 11 }, color: 'rgba(24,24,31,0.45)' },
+      ticks: { font: { family: "'JetBrains Mono', monospace", size: 11 }, color: chartTheme.value.tick },
       title: axisTitle(isHorizontal.value ? xTitle.value : yTitle.value),
     },
   },

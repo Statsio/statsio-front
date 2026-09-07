@@ -35,8 +35,8 @@ const LOOP_TABS      = [{ id: 'data', label: 'Boucle' }, { id: 'filters', label:
 const IF_TABS        = [{ id: 'condition', label: 'Condition' }]
 const LAYOUT_TABS    = [{ id: 'layout', label: 'Disposition' }]
 const TEXT_TABS      = [{ id: 'style', label: 'Style' }]
-const SEARCH_TABS    = [{ id: 'config', label: 'Configuration' }]
-const PARAM_TABS     = [{ id: 'config', label: 'Configuration' }]
+const SEARCH_TABS    = [{ id: 'config', label: 'Configuration' }, { id: 'filters', label: 'Filtres' }]
+const PARAM_TABS     = [{ id: 'config', label: 'Configuration' }, { id: 'filters', label: 'Filtres' }]
 const SDEMBED_TABS   = [{ id: 'config', label: 'Configuration' }]
 const EDITORIAL_TABS = [{ id: 'editorial', label: 'Contenu' }]
 const FORM_TABS      = [{ id: 'form', label: 'Question' }]
@@ -142,10 +142,10 @@ const compFilters = computed<import('@/types/studio').BlockFilter[]>(() => block
       <div class="h-full overflow-y-auto">
 
       <!-- ══════════════ SEARCH BLOCK ══════════════ -->
-      <SearchBlockInspector v-if="isSearch && block && activeTab === 'config'" :block="block" />
+      <SearchBlockInspector v-if="isSearch && block" :block="block" :active-tab="activeTab" />
 
       <!-- ══════════════ PARAM BLOCK ══════════════ -->
-      <ParamBlockInspector v-if="isParam && block && activeTab === 'config'" :block="block" />
+      <ParamBlockInspector v-if="isParam && block" :block="block" :active-tab="activeTab" />
 
       <!-- ══════════════ BLOC STATSDATA (sd-embed) ══════════════ -->
       <SdEmbedBlockInspector v-if="isSdEmbed && block && activeTab === 'config'" :block="block" />

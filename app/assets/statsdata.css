@@ -23,6 +23,61 @@
   border-left: 4px solid var(--color-primary, #7c3aed);
 }
 
+/* ─── Mode sombre du rendu public (`.sd-public`, posé par StatsDataDetailView) ──
+   On rebascule les tokens `--studio-*` que lisent l'entête, le sommaire, le hero
+   et surtout tous les blocs. Scopé à `.sd-public` pour ne pas toucher le canevas
+   du Studio (éditeur), qui partage `.sd-sec` mais reste en clair. */
+[data-color-scheme='dark'] .sd-public {
+  --studio-wash: #020617;
+  --studio-surface: #0f172a;
+  --studio-panel: #162033;
+  --studio-note: rgba(148, 163, 184, 0.06);
+  --studio-line: rgba(148, 163, 184, 0.14);
+  --studio-line-strong: rgba(148, 163, 184, 0.24);
+  --studio-ink: #f1f5f9;
+  --studio-muted: rgba(226, 232, 240, 0.72);
+  --studio-faint: rgba(226, 232, 240, 0.46);
+  --studio-tag: rgba(167, 139, 250, 0.18);
+  --studio-tag-ink: #c4b5fd;
+  --studio-accent-wash: rgba(167, 139, 250, 0.12);
+  --studio-shadow-card: 0 0 0 1px rgba(148, 163, 184, 0.1), 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* `.sd-sec` redéfinit --sd-sec-muted sur lui-même : on l'éclaircit à la source. */
+[data-color-scheme='dark'] .sd-public .sd-sec {
+  --sd-sec-muted: rgba(226, 232, 240, 0.68);
+}
+
+[data-color-scheme='dark'] .sd-public .sd-sec--card,
+[data-color-scheme='dark'] .sd-public .sd-sec--accent {
+  background: var(--studio-surface);
+}
+
+/* Surfaces claires codées en dur (bg-white, #18181f) dans le hero / l'entête /
+   les cartes d'action / certains blocs — on les rebascule ici plutôt que fichier
+   par fichier. Les utilitaires `bg-white` sont déjà repris globalement par
+   accessibility.css ; on complète pour le texte, les bordures et les fonds `#18181f`. */
+[data-color-scheme='dark'] .sd-public [class*='text-[#18181f]'] {
+  color: var(--studio-ink) !important;
+}
+[data-color-scheme='dark'] .sd-public [class*='border-[#18181f]'] {
+  border-color: var(--studio-line-strong) !important;
+}
+[data-color-scheme='dark'] .sd-public [class*='bg-[#18181f]'] {
+  background-color: var(--studio-note) !important;
+}
+[data-color-scheme='dark'] .sd-public [class*='hover:bg-[#18181f]']:hover {
+  background-color: var(--studio-note) !important;
+}
+[data-color-scheme='dark'] .sd-public [class*='hover:bg-white']:hover {
+  background-color: var(--studio-panel) !important;
+}
+/* accessibility.css reprend `bg-white` sans tenir compte du préfixe `hover:` —
+   on rétablit un fond transparent hors survol pour ces éléments (sommaire…). */
+[data-color-scheme='dark'] .sd-public [class*='hover:bg-white']:not(:hover) {
+  background-color: transparent !important;
+}
+
 .sd-sec--dark {
   border-radius: 18px;
   padding: 26px 28px;

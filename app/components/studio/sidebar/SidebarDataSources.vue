@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import type { DatasetMeta, DatasetWithSchema } from '@/types/studio'
 import { fetchDataSource, type DataSourceDetail } from '@/api/data-sources'
@@ -87,12 +87,30 @@ function getSchema(id: string): DatasetWithSchema | undefined {
   return datasets.getSchema(id)
 }
 
-const filteredDatasets = () => {
+const filteredDatasets = computed(() => {
   const q = searchQuery.value.toLowerCase().trim()
   if (!q) return datasets.datasets
   return datasets.datasets.filter((d: DatasetMeta) =>
     d.name.toLowerCase().includes(q) || d.description?.toLowerCase().includes(q),
   )
+})
+
+// ─── Pagination ───────────────────────────────────────────────────────────────
+const PAGE_SIZE = 8
+const page = ref(1)
+
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredDatasets.value.length / PAGE_SIZE)))
+
+const pagedDatasets = computed(() =>
+  filteredDatasets.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE),
+)
+
+watch(searchQuery, () => { page.value = 1 })
+watch(totalPages, (t) => { if (page.value > t) page.value = t })
+
+function goToPage(p: number) {
+  page.value = Math.min(Math.max(1, p), totalPages.value)
+  expandedId.value = null
 }
 
 const typeColors: Record<string, string> = {
@@ -159,7 +177,7 @@ const statusConfig: Record<SourceStatus, { label: string; dot: string; badge: st
 
       <!-- Empty -->
       <div
-        v-else-if="!filteredDatasets().length"
+        v-else-if="!filteredDatasets.length"
         class="flex flex-col items-center justify-center py-10 text-center text-[var(--studio-faint)]"
       >
         <svg class="w-9 h-9 mb-2 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -173,7 +191,7 @@ const statusConfig: Record<SourceStatus, { label: string; dot: string; badge: st
 
       <!-- Dataset cards -->
       <div
-        v-for="dataset in filteredDatasets()"
+        v-for="dataset in pagedDatasets"
         :key="dataset.id"
         class="rounded-xl border bg-white overflow-hidden transition-colors"
         :class="deletingId === dataset.id ? 'border-red-200' : 'border-[var(--studio-line-strong)]'"
@@ -353,6 +371,36 @@ const statusConfig: Record<SourceStatus, { label: string; dot: string; badge: st
           </template>
         </div>
       </div>
+    </div>
+
+    <!-- Pagination -->
+    <div
+      v-if="!datasets.isLoading && totalPages > 1"
+      class="shrink-0 flex items-center justify-between gap-2 bg-white px-[22px] pt-2 pb-1"
+    >
+      <button
+        class="flex items-center gap-1 rounded-lg border border-[var(--studio-line-strong)] px-2 py-1 text-[11px] font-semibold text-[var(--studio-muted)] transition-colors hover:bg-[var(--studio-note)] disabled:cursor-not-allowed disabled:opacity-40"
+        :disabled="page <= 1"
+        @click="goToPage(page - 1)"
+      >
+        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="m15 19-7-7 7-7" />
+        </svg>
+        Préc.
+      </button>
+      <span class="text-[11px] text-[var(--studio-faint)]">
+        Page {{ page }} / {{ totalPages }}
+      </span>
+      <button
+        class="flex items-center gap-1 rounded-lg border border-[var(--studio-line-strong)] px-2 py-1 text-[11px] font-semibold text-[var(--studio-muted)] transition-colors hover:bg-[var(--studio-note)] disabled:cursor-not-allowed disabled:opacity-40"
+        :disabled="page >= totalPages"
+        @click="goToPage(page + 1)"
+      >
+        Suiv.
+        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="m9 5 7 7-7 7" />
+        </svg>
+      </button>
     </div>
 
     <!-- Add source button (sticky bottom) -->
