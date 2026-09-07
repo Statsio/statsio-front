@@ -608,6 +608,91 @@ describe('useStudioStore', () => {
     })
   })
 
+  describe('empty-document seeding', () => {
+    it('initPage seeds one section when a fresh document has no sections and seedEmptySection is set', () => {
+      const store = useStudioStore()
+      store.initPage(
+        { id: 'c1', type: 'statsdata', title: 'Doc' },
+        [],
+        [],
+        [{ id: 'p1', title: 'Principale' }],
+        { seedEmptySection: true },
+      )
+      expect(store.sections).toHaveLength(1)
+      expect(store.sections[0]!.pageId).toBe('p1')
+      expect(store.sections[0]!.layout).toBe('1-col')
+    })
+
+    it('initPage leaves sections empty without seedEmptySection (public rendering)', () => {
+      const store = useStudioStore()
+      store.initPage(
+        { id: 'c1', type: 'statsdata', title: 'Doc' },
+        [],
+        [],
+        [{ id: 'p1', title: 'Principale' }],
+      )
+      expect(store.sections).toHaveLength(0)
+    })
+
+    it('addPage with seedSection creates the page with one empty section', () => {
+      const store = useStudioStore()
+      store.sections.splice(0, store.sections.length)
+      const page = store.addPage('Deuxième', { seedSection: true })
+      expect(store.sections.filter((s) => s.pageId === page.id)).toHaveLength(1)
+    })
+  })
+
+  describe('movePage / reorderPages', () => {
+    it('movePage swaps a page one slot up or down and marks undoable', () => {
+      const store = useStudioStore()
+      const first = store.pages[0]!
+      const b = store.addPage('B')
+      const c = store.addPage('C')
+      expect(store.pages.map((p) => p.id)).toEqual([first.id, b.id, c.id])
+
+      store.movePage(c.id, -1)
+      expect(store.pages.map((p) => p.id)).toEqual([first.id, c.id, b.id])
+      expect(store.canUndo).toBe(true)
+
+      store.movePage(first.id, 1)
+      expect(store.pages.map((p) => p.id)).toEqual([c.id, first.id, b.id])
+    })
+
+    it('movePage is a no-op at the bounds', () => {
+      const store = useStudioStore()
+      const first = store.pages[0]!
+      const b = store.addPage('B')
+      store.movePage(first.id, -1)
+      store.movePage(b.id, 1)
+      expect(store.pages.map((p) => p.id)).toEqual([first.id, b.id])
+    })
+
+    it('reorderPages applies a full new order, ignoring a mismatched id set', () => {
+      const store = useStudioStore()
+      const first = store.pages[0]!
+      const b = store.addPage('B')
+      const c = store.addPage('C')
+
+      store.reorderPages([c.id, first.id])
+      expect(store.pages.map((p) => p.id)).toEqual([first.id, b.id, c.id])
+
+      store.reorderPages([c.id, b.id, first.id])
+      expect(store.pages.map((p) => p.id)).toEqual([c.id, b.id, first.id])
+    })
+  })
+
+  describe('supportsPages', () => {
+    it('is true only for statsdata content', () => {
+      const store = useStudioStore()
+      store.initPage({ id: 'c1', type: 'statsdata', title: 'Doc' })
+      expect(store.supportsPages).toBe(true)
+      store.initPage({ id: 'c2', type: 'article', title: 'Article' })
+      expect(store.supportsPages).toBe(false)
+      store.initPage({ id: 'c3', type: 'survey', title: 'Sondage' })
+      expect(store.supportsPages).toBe(false)
+    })
+  })
+
   describe('multi-column section migration', () => {
     it('converts a legacy multi-column section into a 1-col section + a layout block', () => {
       const store = useStudioStore()
@@ -1127,6 +1212,123 @@ describe('useStudioStore', () => {
       const payload = store.getPayload()
       const b = payload.blocks.find((x) => x.id === id)!
       expect(b.datasetId).toBe('2')
+    })
+  })
+
+  describe('purgeDataset', () => {
+    function seedBarBlock(datasetId = '1') {
+      const store = useStudioStore()
+      const zone = `${store.sections[0]!.id}-0`
+      const block = store.addBlock('bar', zone)
+      store.updateBlockDataset(block.id, datasetId)
+      return { store, id: block.id }
+    }
+
+    it('detaches the deleted dataset as the sole/primary source and wipes its columns', () => {
+      const { store, id } = seedBarBlock('1')
+      store.updateBlockFieldMapping(id, { xAxis: 'annee', yAxes: ['montant'], columns: ['annee', 'montant'] })
+
+      store.purgeDataset('1')
+
+      const b = store.blocks.find((x) => x.id === id)!
+      expect(b.sources).toEqual([])
+      expect(b.datasetId).toBeUndefined()
+      expect(b.primarySourceId).toBeUndefined()
+      expect(b.fieldMapping.xAxis).toBeUndefined()
+      expect(b.fieldMapping.yAxes).toEqual([])
+      expect(b.fieldMapping.columns).toEqual([])
+    })
+
+    it('keeps a joined source and only drops the deleted one + its qualified refs', () => {
+      const { store, id } = seedBarBlock('1')
+      const sid = store.addBlockSource(id, '2')!
+      store.updateBlockJoins(id, [
+        { leftSourceId: '1', leftColumn: 'a', rightSourceId: sid, rightColumn: 'b', type: 'left' },
+      ])
+      store.updateBlockFieldMapping(id, { xAxis: 'annee', yAxes: [`montant@${sid}`] })
+
+      store.purgeDataset('2')
+
+      const b = store.blocks.find((x) => x.id === id)!
+      expect(b.sources).toEqual([{ id: '1', datasetId: '1' }])
+      expect(b.joins).toEqual([])
+      expect(b.primarySourceId).toBe('1')
+      expect(b.fieldMapping.xAxis).toBe('annee')
+      expect(b.fieldMapping.yAxes).toEqual([])
+    })
+
+    it('promotes the remaining source when the deleted one was primary, dropping bare refs', () => {
+      const { store, id } = seedBarBlock('1')
+      const sid = store.addBlockSource(id, '2')!
+      store.updateBlockFieldMapping(id, { xAxis: 'annee', yAxes: [`montant@${sid}`] })
+
+      store.purgeDataset('1')
+
+      const b = store.blocks.find((x) => x.id === id)!
+      expect(b.sources).toEqual([{ id: sid, datasetId: '2' }])
+      expect(b.primarySourceId).toBe(sid)
+      expect(b.datasetId).toBe('2')
+      expect(b.fieldMapping.xAxis).toBeUndefined()
+      expect(b.fieldMapping.yAxes).toEqual([`montant@${sid}`])
+    })
+
+    it('is a no-op for blocks that never used the dataset', () => {
+      const { store, id } = seedBarBlock('1')
+      const before = JSON.stringify(store.blocks.find((x) => x.id === id))
+      store.purgeDataset('999')
+      expect(JSON.stringify(store.blocks.find((x) => x.id === id))).toBe(before)
+    })
+  })
+
+  describe('importPayload', () => {
+    it('replaces title, sections and blocks and marks the document dirty', () => {
+      const store = useStudioStore()
+      store.initPage({ id: 'c1', type: 'statsdata', title: 'Ancien' })
+      const res = store.importPayload({
+        title: 'Nouveau',
+        pages: [{ id: 'default', title: 'Page 1' }],
+        sections: [{ id: 'sec-1', layout: '1-col', pageId: 'default', title: 'Intro' }],
+        blocks: [{ id: 'blk-1', type: 'paragraph', zoneId: 'sec-1-0', fieldMapping: {}, config: { content: '<p>Hello</p>' } }],
+      })
+      expect(res.ok).toBe(true)
+      expect(store.content?.title).toBe('Nouveau')
+      expect(store.sections.map((s) => s.id)).toEqual(['sec-1'])
+      expect(store.blocks.map((b) => b.id)).toEqual(['blk-1'])
+      expect(store.isDirty).toBe(true)
+    })
+
+    it('is undoable back to the previous document', () => {
+      const store = useStudioStore()
+      store.initPage(
+        { id: 'c1', type: 'statsdata', title: 'Ancien' },
+        [{ id: 's0', layout: '1-col', pageId: 'default' }],
+        [{ id: 'b0', type: 'kpi', zoneId: 's0-0', fieldMapping: {}, config: {} }],
+      )
+      store.importPayload({ sections: [], blocks: [] })
+      store.undo()
+      expect(store.sections.map((s) => s.id)).toEqual(['s0'])
+      expect(store.blocks.map((b) => b.id)).toEqual(['b0'])
+    })
+
+    it('rejects a non-object or a payload without sections/blocks arrays', () => {
+      const store = useStudioStore()
+      store.initPage({ id: 'c1', type: 'statsdata', title: 'Doc' })
+      expect(store.importPayload('nope').ok).toBe(false)
+      expect(store.importPayload({ blocks: [] }).ok).toBe(false)
+      expect(store.importPayload({ sections: [] }).ok).toBe(false)
+      expect(store.content?.title).toBe('Doc')
+    })
+
+    it('forces a single page for article / survey content', () => {
+      const store = useStudioStore()
+      store.initPage({ id: 'c1', type: 'article', title: 'Article' })
+      store.importPayload({
+        pages: [{ id: 'p1', title: 'Une' }, { id: 'p2', title: 'Deux' }],
+        sections: [{ id: 'sec-1', layout: '1-col', pageId: 'p2' }],
+        blocks: [],
+      })
+      expect(store.pages).toHaveLength(1)
+      expect(store.sections[0]!.pageId).toBe(store.pages[0]!.id)
     })
   })
 })

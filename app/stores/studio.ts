@@ -154,6 +154,13 @@ export const useStudioStore = defineStore('studio', () => {
 
   // ─── Computed ────────────────────────────────────────────────────────────────
 
+  /**
+   * Le multi-pages (sélecteur de pages, fan-out d'URL, blocs de page) n'existe
+   * que pour les StatsData. Les articles et sondages restent sur une page unique
+   * implicite (`default`).
+   */
+  const supportsPages = computed(() => content.value?.type === 'statsdata')
+
   const currentPage = computed<StudioDocumentPage | undefined>(
     () => pages.value.find((p: StudioDocumentPage) => p.id === currentPageId.value),
   )
@@ -379,6 +386,7 @@ export const useStudioStore = defineStore('studio', () => {
     pageSections?: Section[],
     pageBlocks?: StudioBlock[],
     documentPages?: StudioDocumentPage[],
+    options: { seedEmptySection?: boolean } = {},
   ) {
     content.value = pageContent
 
@@ -391,7 +399,14 @@ export const useStudioStore = defineStore('studio', () => {
 
     // Migrate sections without pageId to the first page
     const defaultPageId = pages.value[0]?.id ?? 'default'
-    sections.value = (pageSections ?? [{ id: uid(), layout: '1-col', pageId: defaultPageId }]).map((s) => ({
+    // Un document fraîchement créé arrive avec `sections: []` : côté éditeur
+    // (`seedEmptySection`), on amorce une section vide pour ne pas ouvrir le
+    // Studio sur un canevas nu. Le rendu public, lui, garde le tableau tel quel.
+    let initialSections = pageSections ?? [{ id: uid(), layout: '1-col', pageId: defaultPageId }]
+    if (initialSections.length === 0 && options.seedEmptySection) {
+      initialSections = [{ id: uid(), layout: '1-col', pageId: defaultPageId }]
+    }
+    sections.value = initialSections.map((s) => ({
       ...s,
       pageId: s.pageId ?? defaultPageId,
     }))
@@ -702,7 +717,7 @@ export const useStudioStore = defineStore('studio', () => {
 
   // ─── Pages ───────────────────────────────────────────────────────────────────
 
-  function addPage(title: string, options: { isTemplate?: boolean; paramName?: string; description?: string; icon?: string } = {}): StudioDocumentPage {
+  function addPage(title: string, options: { isTemplate?: boolean; paramName?: string; description?: string; icon?: string; seedSection?: boolean } = {}): StudioDocumentPage {
     snapshot()
     const page: StudioDocumentPage = {
       id: uid(),
@@ -715,6 +730,11 @@ export const useStudioStore = defineStore('studio', () => {
     }
     pages.value.push(page)
     currentPageId.value = page.id
+    // Une nouvelle page créée depuis l'éditeur démarre avec une section vide
+    // (l'assistant IA, lui, gère ses propres sections → `seedSection` absent).
+    if (options.seedSection) {
+      sections.value.push({ id: uid(), layout: '1-col', pageId: page.id })
+    }
     pageParams.value = defaultParamsForPage(page)
     selectedBlockId.value = null
     selectedSectionId.value = null
@@ -772,6 +792,32 @@ export const useStudioStore = defineStore('studio', () => {
       selectedBlockId.value = null
       isSidebarRightOpen.value = false
     }
+    markDirty()
+  }
+
+  /** Déplace une page d'un cran (`-1` = vers le haut, `1` = vers le bas) dans l'ordre du document. */
+  function movePage(pageId: string, direction: -1 | 1) {
+    const index = pages.value.findIndex((p: StudioDocumentPage) => p.id === pageId)
+    if (index === -1) return
+    const target = index + direction
+    if (target < 0 || target >= pages.value.length) return
+    snapshot()
+    const next = [...pages.value]
+    const [moved] = next.splice(index, 1)
+    next.splice(target, 0, moved!)
+    pages.value = next
+    markDirty()
+  }
+
+  /** Réécrit l'ordre complet des pages du document (drag & drop). */
+  function reorderPages(orderedIds: string[]) {
+    const byId = new Map(pages.value.map((p: StudioDocumentPage) => [p.id, p]))
+    const next = orderedIds
+      .map((id) => byId.get(id))
+      .filter((p): p is StudioDocumentPage => !!p)
+    if (next.length !== pages.value.length) return
+    snapshot()
+    pages.value = next
     markDirty()
   }
 
@@ -1353,13 +1399,18 @@ export const useStudioStore = defineStore('studio', () => {
     markDirty()
   }
 
-  /** Retire des `fieldMapping` / `config` / `filters` toute ref `col@<sourceId>` dont la source n'existe plus. */
-  function pruneBlockColumnRefs(block: StudioBlock) {
+  /**
+   * Retire des `fieldMapping` / `config` / `filters` toute ref `col@<sourceId>`
+   * dont la source n'existe plus. Avec `dropBareRefs`, retire AUSSI les refs nues
+   * (`col` sans `@`) : elles pointaient sur l'ancienne source primaire, disparue.
+   */
+  function pruneBlockColumnRefs(block: StudioBlock, dropBareRefs = false) {
     const ids = new Set((block.sources ?? []).map((s) => s.id))
     const ok = (ref?: string | null): boolean => {
       if (!ref) return true
       const { sourceId } = parseColumnRef(ref)
-      return !sourceId || ids.has(sourceId)
+      if (!sourceId) return !dropBareRefs
+      return ids.has(sourceId)
     }
     const keepArr = (a?: string[]) => a?.filter(ok)
     const keepKeys = <T>(rec?: Record<string, T>) =>
@@ -1392,6 +1443,50 @@ export const useStudioStore = defineStore('studio', () => {
     if (block.config.sortColumn && !ok(block.config.sortColumn)) block.config = { ...block.config, sortColumn: null }
     block.filters = block.filters?.filter((f) => ok(f.column))
     block.comparisonFilters = block.comparisonFilters?.filter((f) => ok(f.column))
+  }
+
+  /**
+   * Une source (dataset) a été supprimée du document : on la retire de la
+   * configuration de TOUS les blocs — entrée `sources`, jointures, et toutes les
+   * refs de colonnes qui en dépendaient (refs `col@<id>` de cette source + refs
+   * nues quand c'était la source primaire du bloc). Un bloc qui perd sa dernière
+   * source est remis à zéro côté données (il reste sur le canevas, à reconfigurer).
+   */
+  function purgeDataset(datasetId: string) {
+    const affected = blocks.value.filter(
+      (b: StudioBlock) =>
+        (b.sources ?? []).some((s) => s.datasetId === datasetId) ||
+        ((b.sources ?? []).length === 0 && b.datasetId === datasetId),
+    )
+    if (affected.length === 0) return
+    snapshot()
+    for (const block of affected) {
+      const sources = block.sources ?? []
+      const deadIds = new Set(sources.filter((s) => s.datasetId === datasetId).map((s) => s.id))
+      const primaryId = block.primarySourceId ?? sources[0]?.id
+      const primaryDead = sources.length === 0 || (primaryId != null && deadIds.has(primaryId))
+
+      block.sources = sources.filter((s) => !deadIds.has(s.id))
+      block.joins = (block.joins ?? []).filter(
+        (j) => !deadIds.has(j.leftSourceId) && !deadIds.has(j.rightSourceId),
+      )
+
+      if (block.sources.length === 0) {
+        block.datasetId = undefined
+        block.primarySourceId = undefined
+        block.joins = []
+      } else if (primaryDead) {
+        block.primarySourceId = block.sources[0]!.id
+        block.datasetId = block.sources[0]!.datasetId
+      } else {
+        block.datasetId =
+          block.sources.find((s) => s.id === block.primarySourceId)?.datasetId ?? block.sources[0]!.datasetId
+      }
+
+      pruneBlockColumnRefs(block, primaryDead)
+      syncAutoPageParam(block.id)
+    }
+    markDirty()
   }
 
   // ─── Branches du bloc « Condition » (if / elsif / else) ──────────────────────
@@ -1589,9 +1684,87 @@ export const useStudioStore = defineStore('studio', () => {
     }
   }
 
+  /**
+   * Remplace tout le corps du document (titre + pages + sections + blocs) par un
+   * payload JSON — même forme que {@link getPayload}. Réservé à l'outil « JSON »
+   * du super-admin : on colle le JSON produit par une IA externe. Rejoue les
+   * mêmes migrations / synchros que `initPage`, laisse le document `dirty`
+   * (l'autosave prend le relais) et empilable dans l'historique (un Ctrl+Z
+   * revient à l'état d'avant l'import).
+   */
+  function importPayload(raw: unknown): { ok: true } | { ok: false; error: string } {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      return { ok: false, error: 'Le JSON doit être un objet { title, pages, sections, blocks }.' }
+    }
+    const p = raw as Record<string, unknown>
+    if (!Array.isArray(p.sections)) return { ok: false, error: 'Champ `sections` manquant ou invalide (tableau attendu).' }
+    if (!Array.isArray(p.blocks)) return { ok: false, error: 'Champ `blocks` manquant ou invalide (tableau attendu).' }
+    if (p.pages !== undefined && !Array.isArray(p.pages)) {
+      return { ok: false, error: 'Champ `pages` invalide (tableau attendu).' }
+    }
+
+    snapshot()
+    const backup = {
+      title: content.value?.title,
+      pages: deepClone(pages.value),
+      sections: deepClone(sections.value),
+      blocks: deepClone(blocks.value),
+    }
+
+    try {
+      if (typeof p.title === 'string' && p.title.trim() && content.value) {
+        content.value.title = p.title.trim()
+      }
+
+      // Article / sondage : page unique implicite, on ignore d'éventuelles `pages`.
+      const wantsPages = supportsPages.value && Array.isArray(p.pages) && p.pages.length > 0
+      pages.value = wantsPages
+        ? (p.pages as StudioDocumentPage[])
+        : [{ id: 'default', title: 'Page 1' }]
+      currentPageId.value = pages.value[0]?.id ?? 'default'
+      const defaultPageId = currentPageId.value
+
+      sections.value = (p.sections as Section[]).map((s) => ({
+        ...s,
+        pageId: wantsPages ? (s.pageId ?? defaultPageId) : defaultPageId,
+      }))
+      // Tolérance : une IA peut omettre `fieldMapping` / `config` sur un bloc de texte.
+      blocks.value = (p.blocks as StudioBlock[])
+        .map((b) => ({ ...b, fieldMapping: b.fieldMapping ?? {}, config: b.config ?? {} }))
+        .map(normalizeBlockSources)
+
+      migrateLegacyTemplatePages()
+      migrateMultiColumnSections()
+      for (const b of blocks.value) {
+        if (b.type === 'param' && 'paramFanOut' in b.config) {
+          delete (b.config as Record<string, unknown>).paramFanOut
+        }
+      }
+      syncAllSearchPageParams()
+      syncAllParamBlockPageParams()
+      pageParams.value = defaultParamsForPage(pages.value.find((pg) => pg.id === currentPageId.value))
+
+      selectedBlockId.value = null
+      selectedSectionId.value = null
+      isPanelOpen.value = false
+      isSidebarRightOpen.value = false
+
+      markDirty()
+      return { ok: true }
+    } catch (e) {
+      if (content.value && backup.title !== undefined) content.value.title = backup.title
+      pages.value = backup.pages
+      sections.value = backup.sections
+      blocks.value = backup.blocks
+      past.value = past.value.slice(0, -1)
+      return { ok: false, error: e instanceof Error ? e.message : 'Import impossible : JSON incompatible.' }
+    }
+  }
+
   return {
     content,
     pages,
+    supportsPages,
     currentPageId,
     currentPage,
     currentPageSections,
@@ -1639,6 +1812,8 @@ export const useStudioStore = defineStore('studio', () => {
     updatePage,
     switchPage,
     removePage,
+    movePage,
+    reorderPages,
     setPageParam,
     setPageParams,
     clearPageParams,
@@ -1667,6 +1842,8 @@ export const useStudioStore = defineStore('studio', () => {
     addBlockSource,
     removeBlockSource,
     setPrimarySource,
+    purgeDataset,
+    importPayload,
     addIfBranch,
     removeIfBranch,
     updateBlockFieldMapping,
