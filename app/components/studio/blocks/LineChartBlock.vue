@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useChart, useChartTheme, PALETTE } from '@/composables/useChart'
-import { useBlockData, rowKey } from '@/composables/useBlockData'
+import { useBlockData } from '@/composables/useBlockData'
 import { useExpressionNumber } from '@/composables/useResolvedTokens'
 import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
-import { columnRefLabel } from '@/lib/studio-columns'
-import { formatDisplayValue, parseNumericValue } from '@/utils/statsDataFormat'
+import { buildChartSeries } from '@/lib/studio-chart'
 import type { StudioBlock } from '@/types/studio'
 
 const props = defineProps<{ block: StudioBlock; readonly?: boolean; scope?: Record<string, string> }>()
@@ -25,98 +24,59 @@ const { value: refValue } = useExpressionNumber({
   docSlug: () => studio.content?.slug,
 })
 
-/** Resolved list of Y columns — prefers yAxes (multi), falls back to single yAxis */
-const yColumns = computed(() => {
+/** Références des colonnes Y (pour le titre d'axe uniquement). */
+const yRefs = computed(() => {
   const axes = props.block.fieldMapping.yAxes
   if (axes?.length) return axes
   const single = props.block.fieldMapping.yAxis
   return single ? [single] : []
 })
 
-const hasMultipleSeries = computed(
-  () => Boolean(props.block.fieldMapping.series) || yColumns.value.length >= 2,
-)
+// Séries unifiées (format large / long / croisé) — voir buildChartSeries.
+const built = computed(() => buildChartSeries(props.block, data.value, datasets))
 
-const yLabels = computed(() => yColumns.value.map((c) => columnRefLabel(c, props.block, datasets)))
+/** Série unique sans regroupement → style « aire » + libellé = titre du bloc. */
+const isSingleSeries = computed(
+  () => built.value.series.length === 1 && !props.block.fieldMapping.series,
+)
+const hasMultipleSeries = computed(() => built.value.series.length >= 2)
 
 const chartData = computed(() => {
-  const rows = data.value?.rows ?? []
-  const xKey = rowKey(data.value, props.block.fieldMapping.xAxis ?? '')
-  const seriesKey = props.block.fieldMapping.series ? rowKey(data.value, props.block.fieldMapping.series) : undefined
-  const yCols = yColumns.value.map((c) => rowKey(data.value, c))
+  const { labels, series } = built.value
+  const tension = props.block.config.smooth ? 0.4 : 0
 
-  // ── Long format: group by series column ──
-  if (seriesKey && rows.length > 0) {
-    const groupLimit = props.block.config.rowLimit ?? 500
-    // Une source (surtout live, ex. valeurs géographiques) peut contenir des milliers de
-    // valeurs distinctes pour la colonne de série — sans plafond, uniqueSeries.map() ×
-    // labels.map() × rows.find() explose en complexité et peut geler/planter l'onglet.
-    const seriesLimit = props.block.config.seriesLimit ?? 20
-    const allLabels = [...new Set(rows.map((r: Record<string, unknown>) => formatDisplayValue(r[xKey], '')))]
-    const labels = allLabels.slice(0, groupLimit)
-    const uniqueSeries = [...new Set(rows.map((r: Record<string, unknown>) => String(r[seriesKey] ?? '')))].slice(0, seriesLimit)
-    const yKey = yCols[0] ?? ''
-
-    // Index à plat en un seul passage sur rows — remplace un rows.find() par (label, série),
-    // qui coûtait O(labels × séries × rows) au lieu de O(rows + labels × séries) ici.
-    const valueByKey = new Map<string, number>()
-    for (const r of rows as Record<string, unknown>[]) {
-      const key = `${formatDisplayValue(r[xKey], '')} ${String(r[seriesKey] ?? '')}`
-      if (!valueByKey.has(key)) valueByKey.set(key, parseNumericValue(r[yKey]))
-    }
-
+  if (isSingleSeries.value) {
+    const s = series[0]
+    const color = props.block.config.colors?.[0] ?? PALETTE[0]
+    const filled = props.block.config.lineFill !== false
     return {
       labels,
-      datasets: uniqueSeries.map((seriesVal, i) => {
-        const color = PALETTE[i % PALETTE.length]
-        return {
-          label: seriesVal,
-          data: labels.map((label) => valueByKey.get(`${label} ${seriesVal}`) ?? 0),
-          borderColor: color,
-          backgroundColor: color + '22',
-          tension: props.block.config.smooth ? 0.4 : 0,
-          fill: false,
-          pointRadius: 3,
-        }
-      }),
-    }
-  }
-
-  // ── Wide format: one dataset per Y column ──
-  if (yCols.length >= 2) {
-    return {
-      labels: rows.map((r: Record<string, unknown>) => formatDisplayValue(r[xKey], '')),
-      datasets: yCols.map((col, i) => {
-        const color = PALETTE[i % PALETTE.length]
-        return {
-          label: yLabels.value[i] ?? col,
-          data: rows.map((r: Record<string, unknown>) => parseNumericValue(r[col])),
-          borderColor: color,
-          backgroundColor: color + '22',
-          tension: props.block.config.smooth ? 0.4 : 0,
-          fill: false,
-          pointRadius: 3,
-        }
-      }),
-    }
-  }
-
-  // ── Single Y column ──
-  const yKey = yCols[0] ?? ''
-  const color = props.block.config.colors?.[0] ?? PALETTE[0]
-  return {
-    labels: rows.map((r: Record<string, unknown>) => formatDisplayValue(r[xKey], '')),
-    datasets: [
-      {
-        label: props.block.config.title ?? yLabels.value[0] ?? yKey,
-        data: rows.map((r: Record<string, unknown>) => parseNumericValue(r[yKey])),
+      datasets: [{
+        label: props.block.config.title ?? s?.label ?? '',
+        data: s?.values ?? [],
         borderColor: color,
-        backgroundColor: color + (props.block.config.lineFill === false ? '00' : '22'),
-        tension: props.block.config.smooth ? 0.4 : 0,
-        fill: props.block.config.lineFill !== false ? 'origin' : false,
+        backgroundColor: color + (filled ? '22' : '00'),
+        tension,
+        fill: filled ? 'origin' : false,
         pointRadius: 3,
-      },
-    ],
+      }],
+    }
+  }
+
+  return {
+    labels,
+    datasets: series.map((s) => {
+      const color = PALETTE[s.colorIndex % PALETTE.length]
+      return {
+        label: s.label,
+        data: s.values,
+        borderColor: color,
+        backgroundColor: color + '22',
+        tension,
+        fill: false,
+        pointRadius: 3,
+      }
+    }),
   }
 })
 
@@ -125,7 +85,7 @@ const isHorizontal = computed(() => props.block.config.orientation === 'horizont
 // Titre d'axe : uniquement si un libellé personnalisé est défini sur la colonne.
 const labelMap = computed(() => props.block.fieldMapping.columnLabels ?? {})
 const xTitle = computed(() => (props.block.fieldMapping.xAxis ? labelMap.value[props.block.fieldMapping.xAxis] : '') || '')
-const yTitle = computed(() => (yColumns.value.length === 1 && yColumns.value[0] ? (labelMap.value[yColumns.value[0]] || '') : ''))
+const yTitle = computed(() => (isSingleSeries.value && yRefs.value[0] ? (labelMap.value[yRefs.value[0]] || '') : ''))
 const chartTheme = useChartTheme()
 const axisTitle = (text: string) => (text
   ? { display: true, text, font: { family: "'JetBrains Mono', monospace", size: 11, weight: 600 as const }, color: chartTheme.value.title }

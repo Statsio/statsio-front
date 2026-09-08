@@ -1,13 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { useChart, useChartTheme, PALETTE } from '@/composables/useChart'
-import { useBlockData, rowKey } from '@/composables/useBlockData'
+import { useBlockData } from '@/composables/useBlockData'
 import { useExpressionNumber } from '@/composables/useResolvedTokens'
-import { markColor } from '@/lib/studio-chart'
+import { buildChartSeries, markColor } from '@/lib/studio-chart'
 import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
-import { columnRefLabel } from '@/lib/studio-columns'
-import { formatDisplayValue, parseNumericValue } from '@/utils/statsDataFormat'
 import type { StudioBlock } from '@/types/studio'
 
 const props = defineProps<{ block: StudioBlock; readonly?: boolean; scope?: Record<string, string> }>()
@@ -36,85 +34,50 @@ function barColors(values: number[], fallback: string): string[] {
   return values.map((v) => markColor(rules, Number.isFinite(v) ? v : null, ctx, fallback))
 }
 
-/** Resolved list of Y columns — prefers yAxes (multi), falls back to single yAxis */
-const yColumns = computed(() => {
+/** Références des colonnes Y (pour le titre d'axe uniquement). */
+const yRefs = computed(() => {
   const axes = props.block.fieldMapping.yAxes
   if (axes?.length) return axes
   const single = props.block.fieldMapping.yAxis
   return single ? [single] : []
 })
 
-const hasMultipleSeries = computed(
-  () => Boolean(props.block.fieldMapping.series) || yColumns.value.length >= 2,
-)
+// Séries unifiées (format large / long / croisé) — voir buildChartSeries.
+const built = computed(() => buildChartSeries(props.block, data.value, datasets))
 
-/** Libellés lisibles des colonnes Y (source jointe : « colonne · Source »). */
-const yLabels = computed(() => yColumns.value.map((c) => columnRefLabel(c, props.block, datasets)))
+/** Série unique sans regroupement → couleurs conditionnelles + libellé = titre du bloc. */
+const isSingleSeries = computed(
+  () => built.value.series.length === 1 && !props.block.fieldMapping.series,
+)
+const hasMultipleSeries = computed(() => built.value.series.length >= 2)
+
+const seriesColor = (i: number) => PALETTE[i % PALETTE.length]!
 
 const chartData = computed(() => {
-  const rows = data.value?.rows ?? []
-  const xKey = rowKey(data.value, props.block.fieldMapping.xAxis ?? '')
-  const seriesKey = props.block.fieldMapping.series ? rowKey(data.value, props.block.fieldMapping.series) : undefined
-  const yCols = yColumns.value.map((c) => rowKey(data.value, c))
+  const { labels, series } = built.value
 
-  // ── Long format: group by series column ──
-  if (seriesKey && rows.length > 0) {
-    const groupLimit = props.block.config.rowLimit ?? 500
-    // Une source (surtout live, ex. valeurs géographiques) peut contenir des milliers de
-    // valeurs distinctes pour la colonne de série — sans plafond, uniqueSeries.map() ×
-    // labels.map() × rows.find() explose en complexité et peut geler/planter l'onglet.
-    const seriesLimit = props.block.config.seriesLimit ?? 20
-    const allLabels = [...new Set(rows.map((r: Record<string, unknown>) => formatDisplayValue(r[xKey], '')))]
-    const labels = allLabels.slice(0, groupLimit)
-    const uniqueSeries = [...new Set(rows.map((r: Record<string, unknown>) => String(r[seriesKey] ?? '')))].slice(0, seriesLimit)
-    const yKey = yCols[0] ?? ''
-
-    // Index à plat en un seul passage sur rows — remplace un rows.find() par (label, série),
-    // qui coûtait O(labels × séries × rows) au lieu de O(rows + labels × séries) ici.
-    const valueByKey = new Map<string, number>()
-    for (const r of rows as Record<string, unknown>[]) {
-      const key = `${formatDisplayValue(r[xKey], '')} ${String(r[seriesKey] ?? '')}`
-      if (!valueByKey.has(key)) valueByKey.set(key, parseNumericValue(r[yKey]))
-    }
-
+  if (isSingleSeries.value) {
+    const values = series[0]?.values ?? []
+    const fallback = props.block.config.colors?.[0] ?? PALETTE[0]!
     return {
       labels,
-      datasets: uniqueSeries.map((seriesVal, i) => ({
-        label: seriesVal,
-        data: labels.map((label) => valueByKey.get(`${label} ${seriesVal}`) ?? 0),
-        backgroundColor: PALETTE[i % PALETTE.length],
-        borderRadius: 6,
-      })),
-    }
-  }
-
-  // ── Wide format: one dataset per Y column ──
-  if (yCols.length >= 2) {
-    return {
-      labels: rows.map((r: Record<string, unknown>) => formatDisplayValue(r[xKey], '')),
-      datasets: yCols.map((col, i) => ({
-        label: yLabels.value[i] ?? col,
-        data: rows.map((r: Record<string, unknown>) => parseNumericValue(r[col])),
-        backgroundColor: PALETTE[i % PALETTE.length],
-        borderRadius: 6,
-      })),
-    }
-  }
-
-  // ── Single Y column ──
-  const yKey = yCols[0] ?? ''
-  const values = rows.map((r: Record<string, unknown>) => parseNumericValue(r[yKey]))
-  const fallback = props.block.config.colors?.[0] ?? PALETTE[0]!
-  return {
-    labels: rows.map((r: Record<string, unknown>) => formatDisplayValue(r[xKey], '')),
-    datasets: [
-      {
-        label: props.block.config.title ?? yLabels.value[0] ?? yKey,
+      datasets: [{
+        label: props.block.config.title ?? series[0]?.label ?? '',
         data: values,
         backgroundColor: barColors(values, fallback),
         borderRadius: 6,
-      },
-    ],
+      }],
+    }
+  }
+
+  return {
+    labels,
+    datasets: series.map((s) => ({
+      label: s.label,
+      data: s.values,
+      backgroundColor: seriesColor(s.colorIndex),
+      borderRadius: 6,
+    })),
   }
 })
 
@@ -139,69 +102,61 @@ const fmtNum = new Intl.NumberFormat('fr-FR')
 const progressDisplay = (value: number, isPercent: boolean) =>
   isPercent ? `${value}%` : fmtNum.format(value)
 
-/** Plusieurs colonnes Y → une barre par colonne, groupée par valeur de l'axe X
- *  (même logique que le mode graphique « wide format »). */
+/** Plusieurs séries → une barre par série, groupée par valeur de l'axe X. */
 const isMultiProgress = computed(
-  () => props.block.config.barStyle === 'progress' && yColumns.value.length >= 2,
+  () => props.block.config.barStyle === 'progress' && built.value.series.length >= 2,
 )
 
 const progressSeries = computed(() =>
-  yColumns.value.map((col, i) => ({
-    label: yLabels.value[i] ?? col,
-    color: PALETTE[i % PALETTE.length]!,
-  })),
+  built.value.series.map((s) => ({ label: s.label, color: seriesColor(s.colorIndex) })),
 )
 
 const progressGroups = computed<ProgressGroup[]>(() => {
-  const rows = data.value?.rows ?? []
-  const xKey = rowKey(data.value, props.block.fieldMapping.xAxis ?? '')
-  const yCols = yColumns.value.map((c) => rowKey(data.value, c))
+  const { labels: xLabels, series } = built.value
   const limit = props.block.config.rowLimit ?? 20
   const isPercent = props.block.config.format === 'percent'
-  const sliced = (rows as Record<string, unknown>[]).slice(0, limit)
+  const sliced = xLabels.slice(0, limit)
 
-  // Échelle commune à toutes les colonnes Y (comme l'axe partagé du graphique).
+  // Échelle commune à toutes les séries (comme l'axe partagé du graphique).
   let max = 0
-  for (const r of sliced) for (const yk of yCols) max = Math.max(max, parseNumericValue(r[yk]))
+  for (const s of series) for (const v of s.values.slice(0, limit)) max = Math.max(max, v)
 
-  return sliced.map((r) => ({
-    label: formatDisplayValue(r[xKey], ''),
-    bars: yCols.map((yk, i) => {
-      const value = parseNumericValue(r[yk])
+  return sliced.map((label, li) => ({
+    label,
+    bars: series.map((s) => {
+      const value = s.values[li] ?? 0
       const width = isPercent
         ? Math.max(0, Math.min(100, value))
         : max > 0
           ? (value / max) * 100
           : 0
       return {
-        label: progressSeries.value[i]?.label ?? '',
+        label: s.label,
         width,
         display: progressDisplay(value, isPercent),
-        color: progressSeries.value[i]?.color ?? PALETTE[0]!,
+        color: seriesColor(s.colorIndex),
       }
     }),
   }))
 })
 
 const progressRows = computed<ProgressRow[]>(() => {
-  const rows = data.value?.rows ?? []
-  const xKey = rowKey(data.value, props.block.fieldMapping.xAxis ?? '')
-  const yKey = rowKey(data.value, yColumns.value[0] ?? '')
+  const { labels: xLabels, series } = built.value
   const limit = props.block.config.rowLimit ?? 20
   const colors = props.block.config.colors?.length ? props.block.config.colors : PALETTE
   const color = colors[0] ?? '#8b5cf6'
   const isPercent = props.block.config.format === 'percent'
 
-  const sliced = (rows as Record<string, unknown>[]).slice(0, limit)
-  const values = sliced.map((r) => parseNumericValue(r[yKey]))
+  const sliced = xLabels.slice(0, limit)
+  const values = (series[0]?.values ?? []).slice(0, limit)
   const max = Math.max(0, ...values)
   const marked = barColors(values, color)
 
-  return sliced.map((r, i) => {
+  return sliced.map((label, i) => {
     const value = values[i] ?? 0
     const width = isPercent ? Math.max(0, Math.min(100, value)) : (max > 0 ? (value / max) * 100 : 0)
     return {
-      label: formatDisplayValue(r[xKey], ''),
+      label,
       width,
       display: progressDisplay(value, isPercent),
       color: marked[i] ?? color,
@@ -227,10 +182,9 @@ const useLogScale = computed(() => Boolean(props.block.config.logScale))
 // Titre d'axe : uniquement si un libellé personnalisé est défini sur la colonne.
 const labels = computed(() => props.block.fieldMapping.columnLabels ?? {})
 const xTitle = computed(() => (props.block.fieldMapping.xAxis ? labels.value[props.block.fieldMapping.xAxis] : '') || '')
-const yTitle = computed(() => {
-  const cols = yColumns.value
-  return cols.length === 1 && cols[0] ? (labels.value[cols[0]] || '') : ''
-})
+const yTitle = computed(() =>
+  isSingleSeries.value && yRefs.value[0] ? (labels.value[yRefs.value[0]] || '') : '',
+)
 const chartTheme = useChartTheme()
 const axisTitle = (text: string) => (text
   ? { display: true, text, font: { family: "'JetBrains Mono', monospace", size: 11, weight: 600 as const }, color: chartTheme.value.title }

@@ -1426,6 +1426,7 @@ export const useStudioStore = defineStore('studio', () => {
       series: ok(fm.series) ? fm.series : undefined,
       columns: keepArr(fm.columns),
       columnLabels: keepKeys(fm.columnLabels),
+      valueLabels: keepKeys(fm.valueLabels),
       columnFormats: keepKeys(fm.columnFormats),
       cellRules: fm.cellRules?.filter((c) => ok(c.column)),
       recordTitleColumn: ok(fm.recordTitleColumn) ? fm.recordTitleColumn : undefined,

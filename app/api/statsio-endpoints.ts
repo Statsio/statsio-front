@@ -22,6 +22,8 @@ export const STATSIO_API = {
     profile: '/reference-data/profile',
   },
   healthcheck: '/healthcheck',
+  /** Chiffres publics de la plateforme (pages vitrine + écrans d'authentification). */
+  publicStats: '/public-stats',
   media: {
     collection: '/media',
     upload: '/media/upload',

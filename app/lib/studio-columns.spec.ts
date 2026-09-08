@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseColumnRef, makeColumnRef, columnRefLabel, blockColumnGroups, primarySourceId } from './studio-columns'
+import { parseColumnRef, makeColumnRef, columnRefLabel, valueLabel, blockColumnGroups, primarySourceId } from './studio-columns'
 import type { StudioBlock } from '@/types/studio'
 
 function block(overrides: Partial<StudioBlock> = {}): StudioBlock {
@@ -85,6 +85,31 @@ describe('columnRefLabel — libellé personnalisé (columnLabels)', () => {
     const b = block({ fieldMapping: { columnLabels: { nom: 'Nom complet', 'pop@2': 'Habitants' } } })
     expect(columnRefLabel('nom', b, datasets)).toBe('Nom complet')
     expect(columnRefLabel('pop@2', b, datasets)).toBe('Habitants')
+  })
+})
+
+describe('valueLabel — libellé personnalisé par valeur (valueLabels)', () => {
+  const b = block({
+    fieldMapping: { valueLabels: { sexe: { M: 'Hommes', F: 'Femmes' }, 'dep@2': { '75': 'Paris' } } },
+  })
+
+  it('renvoie le libellé personnalisé pour la valeur brute', () => {
+    expect(valueLabel('sexe', 'M', b)).toBe('Hommes')
+    expect(valueLabel('sexe', 'F', b)).toBe('Femmes')
+    expect(valueLabel('dep@2', '75', b)).toBe('Paris')
+  })
+
+  it('coerce la valeur brute en chaîne pour la recherche', () => {
+    expect(valueLabel('dep@2', 75, b)).toBe('Paris')
+  })
+
+  it('renvoie null quand rien ne correspond', () => {
+    expect(valueLabel('sexe', 'X', b)).toBeNull()
+    expect(valueLabel('autre', 'M', b)).toBeNull()
+    expect(valueLabel('sexe', null, b)).toBeNull()
+    expect(valueLabel('sexe', undefined, b)).toBeNull()
+    expect(valueLabel(undefined, 'M', b)).toBeNull()
+    expect(valueLabel('sexe', 'M', block())).toBeNull()
   })
 })
 

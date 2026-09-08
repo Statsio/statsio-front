@@ -137,6 +137,7 @@ RÈGLES IMPORTANTES
 - Chaque bloc doit avoir un zoneId qui pointe vers une section existante : "<sectionId>-0".
 - L'ordre d'affichage = l'ordre des sections dans "sections", puis l'ordre des blocs (même zoneId) dans "blocks".
 - Référence de colonne : le nom nu (ex. "annee") = colonne de la source primaire. Pour une source jointe : "colonne@<sourceId>".
+- "fieldMapping.columnLabels" ({ "colonne": "libellé" }) renomme un CHAMP (en-tête, légende, titre d'axe). "fieldMapping.valueLabels" ({ "colonne": { "valeurBrute": "libellé" } }) renomme les VALEURS affichées d'un champ (ex. { "sexe": { "M": "Hommes", "F": "Femmes" } }) — affichage seulement, la valeur brute reste la clé pour les filtres/agrégats. Valable pour bar/line/pie/table/record/related.
 - Les blocs de données ("nécessite des sources") DOIVENT avoir "sources" + "primarySourceId" pointant vers un datasetId listé plus bas. N'invente jamais de datasetId ni de nom de colonne.
 - Les blocs de texte / éditorial n'ont ni "sources" ni "fieldMapping" utile ({}).
 - HTML inline autorisé dans kicker/title/description de section et config.content des blocs texte : <b> <i> <u> <s> <mark> <br>. Pas de listes ni de couleurs.

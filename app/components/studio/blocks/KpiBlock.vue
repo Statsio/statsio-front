@@ -6,6 +6,7 @@ import { interpolateTokens } from '@/lib/studio-tokens'
 import { aggTermsToExpression } from '@/lib/studio-aggregates'
 import { useResolvedTokens } from '@/composables/useResolvedTokens'
 import { useStudioStore } from '@/stores/studio'
+import { valueLabel } from '@/lib/studio-columns'
 import { formatDisplayValue, parseNumericValue, toNumericOrNull } from '@/utils/statsDataFormat'
 import type { StudioBlock, BlockQueryResult, BlockFilter } from '@/types/studio'
 
@@ -57,7 +58,8 @@ const formattedValue = computed(() => {
   if (v === null || v === undefined) return '—'
   // Valeur décorée (« 90 % », « 1 234 ») → on garde le nombre ; texte pur → tel quel.
   const num = toNumericOrNull(v)
-  return num === null ? formatDisplayValue(v) : applyFormat(num)
+  if (num !== null) return applyFormat(num)
+  return valueLabel(valueCol.value, v, props.block) ?? formatDisplayValue(v)
 })
 
 // ─── Comparison value ─────────────────────────────────────────────────────────

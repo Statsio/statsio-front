@@ -6,6 +6,7 @@ import { blockColumnGroups, columnRefLabel, primarySourceId } from '@/lib/studio
 import { blockDatasetIds } from '@/lib/studio-block-sources'
 import type { StudioBlock, TableColumnFormat, TableCellRule } from '@/types/studio'
 import FieldColumns from '@/components/studio/fields/FieldColumns.vue'
+import FieldValueLabels from '@/components/studio/fields/FieldValueLabels.vue'
 
 const props = withDefaults(
   defineProps<{ block: StudioBlock; section?: 'columns' | 'rules' }>(),
@@ -143,7 +144,8 @@ function removeRule(i: number) { setRules(cellRules.value.filter((_, idx) => idx
           <button v-if="isCustomized" type="button" class="text-[11px] font-bold text-[var(--color-primary)]" @click="resetTableColumns">Réinitialiser</button>
         </div>
         <div class="flex flex-col gap-2">
-          <div v-for="(col, i) in tableColumns" :key="col" class="flex items-center gap-2">
+          <div v-for="(col, i) in tableColumns" :key="col" class="flex flex-col gap-1.5">
+            <div class="flex items-center gap-2">
             <span class="flex shrink-0 flex-col gap-0.5">
               <button type="button" class="flex h-[14px] w-[22px] items-center justify-center rounded-[5px] bg-[var(--studio-wash)] text-[9px] text-[var(--studio-muted)] disabled:opacity-30" :disabled="i === 0" @click="moveColumn(col, -1)">▲</button>
               <button type="button" class="flex h-[14px] w-[22px] items-center justify-center rounded-[5px] bg-[var(--studio-wash)] text-[9px] text-[var(--studio-muted)] disabled:opacity-30" :disabled="i === tableColumns.length - 1" @click="moveColumn(col, 1)">▼</button>
@@ -170,6 +172,8 @@ function removeRule(i: number) { setRules(cellRules.value.filter((_, idx) => idx
               @click="cycleAlign(col)"
             >{{ ALIGN_ICON[colFmt(col).align ?? ''] ?? 'A' }}</button>
             <button type="button" class="shrink-0 text-[12px] text-[var(--studio-faint)] hover:text-[var(--color-error)] disabled:opacity-30" :disabled="tableColumns.length <= 1" @click="toggleTableColumn(col)">✕</button>
+            </div>
+            <FieldValueLabels :block="block" :column-ref="col" />
           </div>
         </div>
       </div>

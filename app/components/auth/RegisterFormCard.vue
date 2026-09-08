@@ -153,7 +153,7 @@ const handleSubmit = async () => {
           size="lg"
           variant="gradient"
           type="submit"
-          class="mt-1.5"
+          class="mt-1.5 auth-cta"
         >
           {{ authStore.isAuthenticating ? 'Création...' : 'Créer mon compte' }}
         </AppButton>

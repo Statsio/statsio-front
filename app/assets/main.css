@@ -6,6 +6,12 @@
 
 /* Tailwind entrypoint only: keep @theme/@apply files in CSS. */
 
+/* Auth screens use fully-rounded CTAs (cf. maquette « Connexion v2 »),
+   contrairement au reste du produit où le variant gradient reste en 10px. */
+.auth-cta {
+  border-radius: 9999px !important;
+}
+
 #app {
   @apply min-h-screen font-normal;
 }

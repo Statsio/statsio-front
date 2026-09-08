@@ -263,6 +263,15 @@ export interface FieldMapping {
    * titres d'axes, chips de l'inspecteur. Vide = nom de colonne brut.
    */
   columnLabels?: Record<string, string>
+  /**
+   * Libellé d'affichage personnalisé par VALEUR de champ
+   * (`{ ref: { valeurBrute: libellé } }`). Résolu par `valueLabel` sur toutes les
+   * surfaces d'affichage (axes / légendes bar-line, étiquettes camembert, cellules
+   * de tableau, fiches, entités liées). Affichage uniquement : la valeur brute
+   * reste la clé pour l'agrégation, le regroupement, le tri, les filtres et le
+   * drill-in. Vide = valeur brute affichée telle quelle.
+   */
+  valueLabels?: Record<string, Record<string, string>>
   /** Table: format + alignment per column. */
   columnFormats?: Record<string, TableColumnFormat>
   /** Table: derived columns (expression per row). */
@@ -352,6 +361,13 @@ export interface BlockConfig {
   barStyle?: 'chart' | 'progress'
   /** Camembert : 'column' (défaut, étiquettes + valeur) ou 'segments' (parts calculées via `fieldMapping.pieSegments`) */
   pieMode?: 'column' | 'segments'
+  /**
+   * Bar/line : stratégie de séries mise en avant dans l'inspecteur —
+   * 'columns' (une série par colonne, `fieldMapping.yAxes`) ou 'grouped' (une série
+   * par valeur distincte de `fieldMapping.series`). Purement UX : le rendu ne lit
+   * que les champs renseignés (les deux sont combinables). Déduit quand absent.
+   */
+  seriesMode?: 'columns' | 'grouped'
   /** Bar/line value axis on a logarithmic scale — keeps small values visible when the dataset spans several orders of magnitude */
   logScale?: boolean
   // KPI comparison
