@@ -5,6 +5,7 @@ import AppAvatar from '@/components/ui/AppAvatar.vue'
 import AppSidebarNavItem from '@/components/ui/AppSidebarNavItem.vue'
 import ChannelSwitcher from '@/components/channels/ChannelSwitcher.vue'
 import CreateContentMenu from '@/components/create/CreateContentMenu.vue'
+import DashboardUpgradeCard from '@/components/offers/DashboardUpgradeCard.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useChannelDashboard } from '@/composables/useChannelDashboard'
 import { useChannelStats } from '@/composables/useChannelStats'
@@ -177,20 +178,6 @@ function isActive(item: NavItem) {
     </div>
 
     <!-- Carte upgrade -->
-    <div class="shrink-0 px-3.5 pb-4 pt-2">
-      <div class="rounded-2xl bg-[linear-gradient(135deg,var(--color-primary),var(--color-accent))] p-4 text-white">
-        <div class="text-[13px] font-extrabold leading-tight">Passez à Statsio Pro</div>
-        <div class="mt-1.5 text-[11.5px] leading-relaxed text-white/80">
-          Audience illimitée, revenus et export des données brutes.
-        </div>
-        <NuxtLink
-          to="/about"
-          class="mt-3 block rounded-full bg-white px-3.5 py-2 text-center text-[11px] font-extrabold uppercase tracking-[0.06em] text-primary"
-          @click="emit('navigate')"
-        >
-          En savoir plus
-        </NuxtLink>
-      </div>
-    </div>
+    <DashboardUpgradeCard @navigate="emit('navigate')" />
   </div>
 </template>

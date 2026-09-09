@@ -24,6 +24,15 @@ export const STATSIO_API = {
   healthcheck: '/healthcheck',
   /** Chiffres publics de la plateforme (pages vitrine + écrans d'authentification). */
   publicStats: '/public-stats',
+  /** Offres Freemium / Premium + tableau comparatif (page publique /offres). */
+  offers: {
+    collection: '/offers',
+  },
+  /** Paiement de l'offre Premium (abonnement mensuel Stripe) — pages hébergées Stripe. */
+  billing: {
+    checkoutSession: '/billing/checkout-session',
+    portalSession: '/billing/portal-session',
+  },
   media: {
     collection: '/media',
     upload: '/media/upload',
@@ -110,6 +119,8 @@ export const STATSIO_API = {
       `/studio/content/public/${encodeURIComponent(slug)}/blocks/${encodeURIComponent(blockId)}`,
     /** Mini-graphe réel de la carte de catalogue (premier graphique, ou `card_block_id`). */
     cardPreview: (slug: string) => `/studio/content/public/${encodeURIComponent(slug)}/card-preview`,
+    /** Classification premium/freemium des blocs (palette du Studio) — voir /offres. */
+    blockGates: '/studio/block-gates',
   },
   /** Vérification d'identité (Didit) — sondages « à identité vérifiée ». */
   identity: {

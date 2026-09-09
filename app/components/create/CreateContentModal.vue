@@ -8,6 +8,7 @@ import { useContentDomain } from '@/composables/useContentDomain'
 import { createStudioContent } from '@/api/studio'
 import type { StatsDataDocument } from '@/api/studio'
 import { fetchContentCategories } from '@/api/content-categories'
+import { getErrorMessage } from '@/lib/http-errors'
 import { CONTENT_COVERAGE_OPTIONS, type ContentCategory, type ContentType } from '@/types/content-creation'
 import { SUB_BRAND_OPTIONS, categoryMatchesDomain } from '@/types/sub-brand'
 import { brandCssVars, getBrandPalette } from '@/lib/brand-palette'
@@ -42,6 +43,7 @@ const emit = defineEmits<{ 'update:open': [boolean]; close: [] }>()
 const meta = computed(() => TYPE_META[props.type])
 
 const submitting = ref(false)
+const submitError = ref('')
 const createdDoc = ref<StatsDataDocument | null>(null)
 
 const categoriesCatalog = ref<ContentCategory[]>([])
@@ -158,8 +160,11 @@ function goBack() {
 
 async function handleSubmit() {
   submitting.value = true
+  submitError.value = ''
   try {
     createdDoc.value = await createStudioContent(buildPayload(props.type))
+  } catch (error) {
+    submitError.value = getErrorMessage(error, 'Impossible de créer ce contenu pour le moment.')
   } finally {
     submitting.value = false
   }
@@ -328,6 +333,13 @@ const studioPath = () =>
               </p>
             </div>
           </div>
+
+          <p
+            v-if="submitError"
+            class="mx-[26px] mb-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-[12.5px] font-semibold text-rose-700"
+          >
+            {{ submitError }}
+          </p>
 
           <!-- Footer -->
           <div class="flex items-center gap-2.5 border-t border-[#14141e]/[0.08] px-[26px] py-[18px]">
