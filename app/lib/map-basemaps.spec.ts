@@ -6,12 +6,18 @@ describe('map-basemaps', () => {
     expect(BASEMAPS.map((b) => b.id)).toEqual(['clair', 'plan', 'sombre', 'couleur', 'aerien', 'relief'])
   })
 
-  it('renvoie un style raster CARTO pour les fonds clair / plan / sombre / couleur', () => {
-    expect(JSON.stringify(basemapStyle('clair'))).toMatch(/light_nolabels/)
-    expect(JSON.stringify(basemapStyle(undefined))).toMatch(/light_nolabels/)
-    expect(JSON.stringify(basemapStyle('plan'))).toMatch(/light_all/)
-    expect(JSON.stringify(basemapStyle('sombre'))).toMatch(/dark_all/)
-    expect(JSON.stringify(basemapStyle('couleur'))).toMatch(/voyager/)
+  it('renvoie un style raster Esri (sans clé) pour clair / plan / sombre / couleur', () => {
+    expect(JSON.stringify(basemapStyle('clair'))).toMatch(/World_Light_Gray_Base/)
+    expect(JSON.stringify(basemapStyle(undefined))).toMatch(/World_Light_Gray_Base/)
+    expect(JSON.stringify(basemapStyle('plan'))).toMatch(/World_Street_Map/)
+    expect(JSON.stringify(basemapStyle('sombre'))).toMatch(/World_Dark_Gray_Base/)
+    expect(JSON.stringify(basemapStyle('couleur'))).toMatch(/World_Topo_Map/)
+  })
+
+  it('n\'utilise plus aucune tuile nécessitant une clé (CARTO)', () => {
+    for (const id of ['clair', 'plan', 'sombre', 'couleur', 'aerien', 'relief'] as const) {
+      expect(JSON.stringify(basemapStyle(id))).not.toMatch(/cartocdn|api_key|apikey|access_token/i)
+    }
   })
 
   it('renvoie un style raster pour aérien et relief', () => {

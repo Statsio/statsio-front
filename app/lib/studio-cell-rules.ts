@@ -1,11 +1,13 @@
 /**
  * Mise en forme conditionnelle partagée par le tableau (couleur de cellule) et la
- * carte (couleur de marqueur). Une règle compare la valeur numérique d'une colonne
- * à un seuil, à son signe, ou au max / min de la colonne sur les lignes chargées
- * (`top` / `bottom` — agrégat implicite).
+ * carte (couleur de marqueur). Une règle teste la valeur d'une colonne : son signe,
+ * le max / min de la colonne sur les lignes chargées (`top` / `bottom` — agrégat
+ * implicite), ou une comparaison à seuil / texte via un opérateur de filtre
+ * (`=`, `!=`, `>`, `>=`, `<`, `<=`, `contains`, `not_contains`).
  */
-import type { TableCellRule } from '@/types/studio'
+import type { FilterOperator, TableCellRule } from '@/types/studio'
 import { toNumericOrNull } from '@/utils/statsDataFormat'
+import { compareValues } from '@/lib/studio-if'
 
 export type RuleBounds = Record<string, { min: number; max: number }>
 
@@ -26,15 +28,20 @@ export function cellRuleBounds(
   return out
 }
 
-export function matchesCellRule(rule: TableCellRule, n: number, bounds: RuleBounds): boolean {
+export function matchesCellRule(rule: TableCellRule, value: unknown, bounds: RuleBounds): boolean {
+  const n = toNumericOrNull(value)
   switch (rule.when) {
-    case 'positive': return n > 0
-    case 'negative': return n < 0
-    case 'gt': return rule.value !== undefined && n > rule.value
-    case 'lt': return rule.value !== undefined && n < rule.value
-    case 'top': return bounds[rule.column]?.max === n
-    case 'bottom': return bounds[rule.column]?.min === n
-    default: return false
+    case 'positive': return n !== null && n > 0
+    case 'negative': return n !== null && n < 0
+    case 'top': return n !== null && bounds[rule.column]?.max === n
+    case 'bottom': return n !== null && bounds[rule.column]?.min === n
+    // Legacy : seuils numériques, remplacés par `>` / `<` dans l'UI.
+    case 'gt': return n !== null && rule.value != null && n > Number(rule.value)
+    case 'lt': return n !== null && rule.value != null && n < Number(rule.value)
+    default:
+      // Opérateur de filtre (=, !=, >, >=, <, <=, contains, not_contains) vs `value`.
+      if (rule.value == null || rule.value === '') return false
+      return compareValues(String(value ?? ''), rule.when as FilterOperator, String(rule.value))
   }
 }
 
@@ -45,11 +52,9 @@ export function cellRuleStyle(
   value: unknown,
   bounds: RuleBounds,
 ): { color: string; bold: boolean } | null {
-  const n = toNumericOrNull(value)
-  if (n === null) return null
   let hit: { color: string; bold: boolean } | null = null
   for (const rule of rules ?? []) {
-    if (rule.column === column && matchesCellRule(rule, n, bounds)) {
+    if (rule.column === column && matchesCellRule(rule, value, bounds)) {
       hit = { color: rule.color, bold: Boolean(rule.bold) }
     }
   }
@@ -66,8 +71,7 @@ export function rowRuleColor(
   bounds: RuleBounds,
 ): string | null {
   for (const rule of rules ?? []) {
-    const n = toNumericOrNull(valueOf(rule.column))
-    if (n !== null && matchesCellRule(rule, n, bounds)) return rule.color
+    if (matchesCellRule(rule, valueOf(rule.column), bounds)) return rule.color
   }
   return null
 }
