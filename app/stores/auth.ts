@@ -41,6 +41,7 @@ export const useAuthStore = defineStore('auth', () => {
   const hasSession = computed(() => Boolean(token.value))
   const isAuthenticated = computed(() => Boolean(token.value && user.value))
   const isAdmin = computed(() => Boolean(user.value?.is_admin))
+  const isPremium = computed(() => Boolean(user.value?.is_premium))
   const displayName = computed(() => {
     const firstName = user.value?.profile?.first_name?.trim()
     const lastName = user.value?.profile?.last_name?.trim()
@@ -220,6 +221,7 @@ export const useAuthStore = defineStore('auth', () => {
     hasSession,
     isAuthenticated,
     isAdmin,
+    isPremium,
     displayName,
     isBootstrapping,
     isAuthenticating,

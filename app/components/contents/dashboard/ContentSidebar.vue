@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppSidebarNavItem from '@/components/ui/AppSidebarNavItem.vue'
+import DashboardUpgradeCard from '@/components/offers/DashboardUpgradeCard.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useContentDashboard } from '@/composables/useContentDashboard'
 import { formatShortDate } from '@/lib/format'
@@ -159,5 +160,7 @@ function isActive(item: NavItem) {
         @click="handleLogout"
       />
     </div>
+
+    <DashboardUpgradeCard @navigate="emit('navigate')" />
   </div>
 </template>

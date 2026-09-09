@@ -5,6 +5,7 @@ import AccountPageHeader from '@/components/user/AccountPageHeader.vue'
 import AccountProfileCard from '@/components/user/AccountProfileCard.vue'
 import AccountDemographicsCard from '@/components/user/AccountDemographicsCard.vue'
 import AccountNotificationsCard from '@/components/user/AccountNotificationsCard.vue'
+import AccountBillingCard from '@/components/user/AccountBillingCard.vue'
 import AccountDangerZone from '@/components/user/AccountDangerZone.vue'
 
 definePageMeta({ layout: 'account', middleware: ['auth'], ssr: false, title: 'Paramètres', robots: 'noindex,nofollow' })
@@ -31,6 +32,7 @@ onMounted(() => {
       <AccountProfileCard />
       <AccountDemographicsCard />
       <AccountNotificationsCard />
+      <AccountBillingCard />
       <AccountDangerZone />
     </div>
   </div>
