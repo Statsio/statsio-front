@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import AppAvatar from '@/components/ui/AppAvatar.vue'
 import AppSidebarNavItem from '@/components/ui/AppSidebarNavItem.vue'
 import CreateContentMenu from '@/components/create/CreateContentMenu.vue'
+import DashboardUpgradeCard from '@/components/offers/DashboardUpgradeCard.vue'
 import { useAuthStore } from '@/stores/auth'
 import { getUserInitials } from '@/lib/format'
 
@@ -106,6 +107,19 @@ async function handleLogout() {
         />
         <div class="mt-2.5 text-[14.5px] font-extrabold text-slate-950">{{ authStore.displayName }}</div>
         <div v-if="handle" class="mt-0.5 font-mono text-[10.5px] text-slate-400">{{ handle }}</div>
+
+        <RouterLink
+          :to="authStore.isPremium ? '/user/parametres' : '/offres'"
+          class="mt-2.5 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.05em]"
+          :class="
+            authStore.isPremium
+              ? 'bg-[linear-gradient(135deg,var(--color-primary),var(--color-accent))] text-white'
+              : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+          "
+        >
+          {{ authStore.isPremium ? 'Premium' : 'Freemium' }}
+        </RouterLink>
+
         <div v-if="memberSince" class="mt-2 text-[11px] text-slate-400">Membre depuis {{ memberSince }}</div>
 
         <div class="mt-3.5 flex border-t border-slate-100 pt-3">
@@ -187,5 +201,7 @@ async function handleLogout() {
         @click="handleLogout"
       />
     </div>
+
+    <DashboardUpgradeCard @navigate="emit('navigate')" />
   </div>
 </template>

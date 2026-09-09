@@ -48,6 +48,10 @@ export interface AuthUser {
   email_verified_at?: string | null
   status?: string
   is_admin?: boolean
+  /** true si l'offre Premium est active (abonnement Stripe ou compte offert en back-office). */
+  is_premium?: boolean
+  /** Date de fin de la période Premium en cours (renouvelée automatiquement si l'abonnement est actif). */
+  premium_until?: string | null
   suspended_until?: string | null
   anonymized_at?: string | null
   created_at?: string

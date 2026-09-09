@@ -21,6 +21,8 @@ import { desiredSearchPageParam, sameSearchPageParam } from '@/lib/studio-search
 import { desiredParamBlockPageParam, sameParamBlockPageParam } from '@/lib/studio-param'
 import { parseColumnRef } from '@/lib/studio-columns'
 import type { BlockSource, BlockJoin } from '@/types/studio'
+import { fetchPremiumBlockTypes } from '@/api/studio-block-gates'
+import { useAuthStore } from '@/stores/auth'
 
 function uid(): string {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
@@ -76,6 +78,44 @@ export const useStudioStore = defineStore('studio', () => {
   const dirtyVersion = ref(0)
   /** Aperçu : canevas en lecture seule, chrome d'édition masqué. */
   const isPreview = ref(false)
+
+  // ─── Premium ─────────────────────────────────────────────────────────────────
+
+  const authStore = useAuthStore()
+  /** Types de blocs réservés à l'offre Premium (classification back-office) — voir /offres. */
+  const premiumBlockTypes = ref<BlockType[]>([])
+  const premiumGatesLoaded = ref(false)
+  /** Type de bloc dont l'ajout vient d'être bloqué → pilote la modale d'upsell. */
+  const premiumUpsellBlockType = ref<BlockType | null>(null)
+
+  function isBlockPremium(type: BlockType): boolean {
+    return premiumBlockTypes.value.includes(type)
+  }
+
+  /** L'utilisateur peut-il utiliser ce type de bloc ? Le back reste la source de vérité. */
+  function canUseBlock(type: BlockType): boolean {
+    return !isBlockPremium(type) || authStore.isPremium
+  }
+
+  function requestPremiumUpsell(type: BlockType) {
+    premiumUpsellBlockType.value = type
+  }
+
+  function dismissPremiumUpsell() {
+    premiumUpsellBlockType.value = null
+  }
+
+  /** Chargé une seule fois par session d'édition (données globales, pas par document). */
+  async function loadPremiumBlockGates() {
+    if (premiumGatesLoaded.value) return
+    premiumGatesLoaded.value = true
+    try {
+      premiumBlockTypes.value = await fetchPremiumBlockTypes()
+    } catch {
+      // Best-effort : sans cette liste, aucune pastille n'est affichée mais le
+      // back refuse toujours l'enregistrement d'un bloc premium (source de vérité).
+    }
+  }
 
   // ─── History (undo/redo) ─────────────────────────────────────────────────────
 
@@ -388,6 +428,7 @@ export const useStudioStore = defineStore('studio', () => {
     documentPages?: StudioDocumentPage[],
     options: { seedEmptySection?: boolean } = {},
   ) {
+    void loadPremiumBlockGates()
     content.value = pageContent
 
     if (documentPages && documentPages.length > 0) {
@@ -1796,6 +1837,12 @@ export const useStudioStore = defineStore('studio', () => {
     isDirty,
     dirtyVersion,
     isPreview,
+    premiumBlockTypes,
+    premiumUpsellBlockType,
+    isBlockPremium,
+    canUseBlock,
+    requestPremiumUpsell,
+    dismissPremiumUpsell,
     activeLeftTab,
     isPanelOpen,
     isSidebarRightOpen,

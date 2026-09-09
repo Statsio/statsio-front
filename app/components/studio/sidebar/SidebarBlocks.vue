@@ -33,9 +33,22 @@ const filteredCategories = computed(() => {
 })
 
 function onDragStart(event: DragEvent, type: BlockType) {
+  if (!studio.canUseBlock(type)) {
+    event.preventDefault()
+    studio.requestPremiumUpsell(type)
+    return
+  }
   if (!event.dataTransfer) return
   event.dataTransfer.setData('studio-block-type', type)
   event.dataTransfer.effectAllowed = 'copy'
+}
+
+function onBlockClick(type: BlockType) {
+  if (!studio.canUseBlock(type)) {
+    studio.requestPremiumUpsell(type)
+    return
+  }
+  studio.addBlockSmart(type)
 }
 </script>
 
@@ -64,13 +77,19 @@ function onDragStart(event: DragEvent, type: BlockType) {
             v-for="block in category.blocks"
             :key="block.type"
             type="button"
-            class="flex cursor-grab select-none flex-col items-center gap-[9px] rounded-[13px] border-[1.5px] border-[var(--studio-line)] bg-white px-2 py-[15px] transition-colors hover:border-[var(--color-primary)] hover:bg-[var(--studio-accent-wash)] active:cursor-grabbing"
+            class="relative flex cursor-grab select-none flex-col items-center gap-[9px] rounded-[13px] border-[1.5px] border-[var(--studio-line)] bg-white px-2 py-[15px] transition-colors hover:border-[var(--color-primary)] hover:bg-[var(--studio-accent-wash)] active:cursor-grabbing"
             draggable="true"
             :data-block-type="block.type"
-            :title="block.description"
+            :title="studio.isBlockPremium(block.type) ? `${block.description} · Réservé à l'offre Premium` : block.description"
             @dragstart="onDragStart($event, block.type)"
-            @click="studio.addBlockSmart(block.type)"
+            @click="onBlockClick(block.type)"
           >
+            <span
+              v-if="studio.isBlockPremium(block.type)"
+              class="absolute right-1.5 top-1.5 rounded-full bg-[var(--color-primary)]/12 px-1.5 py-[1px] font-mono text-[8.5px] font-bold tracking-[0.04em] text-[var(--color-primary)]"
+            >
+              Premium
+            </span>
             <span class="flex h-9 w-9 items-center justify-center rounded-[10px]" :class="BLOCK_META[block.type].tint">
               <svg class="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7">
                 <path stroke-linecap="round" stroke-linejoin="round" :d="BLOCK_META[block.type].iconPath" />
