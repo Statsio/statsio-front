@@ -9,7 +9,7 @@ import type {
   StyleSpecification,
 } from 'maplibre-gl'
 
-const DEFAULT_STYLE = 'https://basemaps.cartocdn.com/gl/positron-nolabels-gl-style/style.json'
+import { basemapStyle } from '@/lib/map-basemaps'
 
 export interface WorldScatterPoint {
   lat: number
@@ -35,7 +35,8 @@ const props = withDefaults(
   {
     height: 300,
     fitBounds: false,
-    mapStyle: DEFAULT_STYLE,
+    // Fond par défaut : CARTO clair en tuiles raster (le style vecteur CARTO ne charge plus).
+    mapStyle: () => basemapStyle('clair'),
   },
 )
 
@@ -65,7 +66,8 @@ function renderMarkers() {
       el.style.cursor = 'pointer'
       el.addEventListener('click', p.onClick)
     }
-    if (p.label) el.title = p.label
+    // Infobulle native seulement en l'absence de fiche riche (sinon les deux se superposent).
+    if (p.label && !p.popupHtml) el.title = p.label
 
     const marker = new MarkerCtor({ element: el }).setLngLat([p.lon, p.lat]).addTo(map)
 

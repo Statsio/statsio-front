@@ -6,12 +6,12 @@ describe('map-basemaps', () => {
     expect(BASEMAPS.map((b) => b.id)).toEqual(['clair', 'plan', 'sombre', 'couleur', 'aerien', 'relief'])
   })
 
-  it('renvoie une URL de style vecteur pour les fonds CARTO', () => {
-    expect(basemapStyle('clair')).toMatch(/positron-nolabels/)
-    expect(basemapStyle(undefined)).toMatch(/positron-nolabels/)
-    expect(basemapStyle('plan')).toMatch(/positron-gl-style/)
-    expect(basemapStyle('sombre')).toMatch(/dark-matter/)
-    expect(basemapStyle('couleur')).toMatch(/voyager/)
+  it('renvoie un style raster CARTO pour les fonds clair / plan / sombre / couleur', () => {
+    expect(JSON.stringify(basemapStyle('clair'))).toMatch(/light_nolabels/)
+    expect(JSON.stringify(basemapStyle(undefined))).toMatch(/light_nolabels/)
+    expect(JSON.stringify(basemapStyle('plan'))).toMatch(/light_all/)
+    expect(JSON.stringify(basemapStyle('sombre'))).toMatch(/dark_all/)
+    expect(JSON.stringify(basemapStyle('couleur'))).toMatch(/voyager/)
   })
 
   it('renvoie un style raster pour aérien et relief', () => {

@@ -210,5 +210,10 @@ function resolveColumns(block: StudioBlock): string[] {
   if (m.mapSizeColumn) cols.add(m.mapSizeColumn)
   if (m.columns) m.columns.forEach((c) => cols.add(c))
 
+  // Colonnes visées par les règles de mise en forme conditionnelle — seulement si une
+  // sélection explicite existe déjà : `cols` vide = « toutes les colonnes » côté API,
+  // contrat qu'on ne doit pas casser en ajoutant une colonne de règle isolée.
+  if (cols.size > 0) m.cellRules?.forEach((r) => { if (r.column) cols.add(r.column) })
+
   return cols.size > 0 ? Array.from(cols) : []
 }
