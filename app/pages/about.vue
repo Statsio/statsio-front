@@ -6,17 +6,34 @@ definePageMeta({
     'Découvrez Statsio, la plateforme de data journalism qui centralise analyses, sources et signaux pour créer des contenus à fort impact.',
 })
 
+import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import AppBadge from '@/components/ui/AppBadge.vue'
 import AppButton from '@/components/ui/AppButton.vue'
 import AppAvatar from '@/components/ui/AppAvatar.vue'
+import { usePlatformStats } from '@/composables/usePlatformStats'
+import { formatCompactNumber } from '@/utils/number'
+import { plural } from '@/utils/plural'
 
-const stats = [
-  { value: '2 481', label: 'Datasets publiés' },
-  { value: '640', label: 'Articles data' },
-  { value: '186k', label: 'Lecteurs mensuels' },
-  { value: '2019', label: 'Année de création' },
-]
+const { stats: platform, ready } = usePlatformStats()
+
+const stats = computed(() => {
+  if (!ready.value) {
+    return [
+      { value: '2 481', label: 'Datasets publiés' },
+      { value: '640', label: 'Articles data' },
+      { value: '186k', label: 'Lecteurs mensuels' },
+      { value: '2019', label: 'Année de création' },
+    ]
+  }
+  const p = platform.value
+  return [
+    { value: formatCompactNumber(p.datasets), label: 'Datasets publiés' },
+    { value: formatCompactNumber(p.statsdata), label: 'StatsData publiées' },
+    { value: formatCompactNumber(p.articles), label: 'Articles data' },
+    { value: '2019', label: 'Année de création' },
+  ]
+})
 
 const readerPoints = [
   'Graphiques et cartes filtrables en direct',
@@ -54,28 +71,34 @@ const values = [
   },
 ]
 
-const milestones = [
-  {
-    year: '2019',
-    title: "Un projet d'école",
-    desc: "Statsio naît d'un projet universitaire porté par une bande d'étudiants convaincus que la donnée publique mérite mieux qu'un tableau Excel.",
-  },
-  {
-    year: '2021',
-    title: 'Du prototype à la plateforme',
-    desc: 'Le projet étudiant devient un produit : premiers créateurs, premières chaînes, premiers lecteurs.',
-  },
-  {
-    year: '2023',
-    title: 'Ouverture aux chaînes partenaires',
-    desc: 'TVStats et Medistats rejoignent la plateforme comme premières chaînes verticales.',
-  },
-  {
-    year: '2026',
-    title: '2 500 datasets et 180k lecteurs',
-    desc: 'Statsio devient une référence pour comprendre les statistiques publiques françaises.',
-  },
-]
+const milestones = computed(() => {
+  const p = platform.value
+  const latestTitle = ready.value
+    ? `${formatCompactNumber(p.datasets)} ${plural('dataset', p.datasets)} et ${formatCompactNumber(p.publishedTotal)} ${plural('contenu', p.publishedTotal)} ${plural('publié', p.publishedTotal, 'publiés')}`
+    : '2 500 datasets et 180k lecteurs'
+  return [
+    {
+      year: '2019',
+      title: "Un projet d'école",
+      desc: "Statsio naît d'un projet universitaire porté par une bande d'étudiants convaincus que la donnée publique mérite mieux qu'un tableau Excel.",
+    },
+    {
+      year: '2021',
+      title: 'Du prototype à la plateforme',
+      desc: 'Le projet étudiant devient un produit : premiers créateurs, premières chaînes, premiers lecteurs.',
+    },
+    {
+      year: '2023',
+      title: 'Ouverture aux chaînes partenaires',
+      desc: 'TVStats et Medistats rejoignent la plateforme comme premières chaînes verticales.',
+    },
+    {
+      year: '2026',
+      title: latestTitle,
+      desc: 'Statsio devient une référence pour comprendre les statistiques publiques françaises.',
+    },
+  ]
+})
 
 const moreCards = [
   {

@@ -69,7 +69,7 @@ const handleSubmit = async () => {
       <p class="mb-7 text-sm leading-relaxed text-slate-950/55">
         {{ submitError || "Ce lien de réinitialisation est invalide ou a expiré. Demandez-en un nouveau." }}
       </p>
-      <AppButton as="router-link" to="/forgot-password" full-width size="lg" variant="gradient">
+      <AppButton as="router-link" to="/forgot-password" full-width size="lg" variant="gradient" class="auth-cta">
         Demander un nouveau lien
       </AppButton>
     </div>
@@ -85,7 +85,7 @@ const handleSubmit = async () => {
       <p class="mb-7 text-sm leading-relaxed text-slate-950/55">
         Votre mot de passe a bien été modifié. Vous pouvez désormais vous connecter avec vos nouveaux identifiants.
       </p>
-      <AppButton as="router-link" to="/login" full-width size="lg" variant="gradient">
+      <AppButton as="router-link" to="/login" full-width size="lg" variant="gradient" class="auth-cta">
         Aller à la connexion
       </AppButton>
     </div>
@@ -120,7 +120,7 @@ const handleSubmit = async () => {
           :disabled="isSubmitting"
         />
 
-        <AppButton :disabled="!isFormValid || isSubmitting" full-width size="lg" variant="gradient" type="submit" class="mt-1.5">
+        <AppButton :disabled="!isFormValid || isSubmitting" full-width size="lg" variant="gradient" type="submit" class="mt-1.5 auth-cta">
           {{ isSubmitting ? 'Mise à jour...' : 'Réinitialiser le mot de passe' }}
         </AppButton>
       </form>

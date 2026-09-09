@@ -32,6 +32,18 @@ describe('normalizeBlockSources', () => {
     expect(b.fieldMapping.yAxes).toEqual(['montant'])
   })
 
+  it('requalifies the map block lat / lng / title refs to a joined source', () => {
+    const b = normalizeBlockSources(block({
+      type: 'map',
+      datasetId: '1',
+      joins: [{ datasetId: '2', leftColumn: 'code', rightColumn: 'code', columns: ['lat', 'lon'], type: 'left' }] as never,
+      fieldMapping: { latColumn: 'lat', lngColumn: 'lon', mapTitleColumn: 'enseigne' },
+    }))
+    expect(b.fieldMapping.latColumn).toBe('lat@2')
+    expect(b.fieldMapping.lngColumn).toBe('lon@2')
+    expect(b.fieldMapping.mapTitleColumn).toBe('enseigne')
+  })
+
   it('is idempotent on an already-normalized block', () => {
     const b1 = normalizeBlockSources(block({ datasetId: '3' }))
     const b2 = normalizeBlockSources(b1)

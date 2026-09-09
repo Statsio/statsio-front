@@ -10,6 +10,7 @@ import StudioField from './StudioField.vue'
 import FieldSegmented from './FieldSegmented.vue'
 import AxisFieldRow from './AxisFieldRow.vue'
 import AggValueField from './AggValueField.vue'
+import FieldValueLabels from './FieldValueLabels.vue'
 
 const props = defineProps<{ block: StudioBlock }>()
 
@@ -111,6 +112,48 @@ function setSeriesFn(col: string, fn: AggregateFunction | '') {
   setMapping(withAggregate(props.block, col, fn))
 }
 
+// ─── Stratégie de séries : « par colonne » vs « par valeurs d'une colonne » ──
+const SERIES_MODE_OPTS = [
+  { value: 'columns', label: 'Par colonne' },
+  { value: 'grouped', label: "Valeurs d'une colonne" },
+]
+/** Mode explicite (`config.seriesMode`), sinon déduit : regroupement + ≤1 colonne → groupé. */
+const seriesMode = computed<'columns' | 'grouped'>(
+  () => cfg.value.seriesMode ?? (fm.value.series && yAxes.value.length <= 1 ? 'grouped' : 'columns'),
+)
+function setSeriesMode(mode: string | number) {
+  setConfig({ seriesMode: String(mode) })
+}
+
+/** Panneau de croisement (mode colonnes) ouvert d'office si un regroupement est déjà défini. */
+const crossOpen = ref(false)
+const showCross = computed(() => crossOpen.value || Boolean(fm.value.series))
+watch(seriesMode, () => { crossOpen.value = false })
+
+function setSeries(ref: string) {
+  setMapping({ series: ref || undefined })
+}
+function clearCross() {
+  setSeries('')
+  crossOpen.value = false
+}
+function setSeriesLimit(value: string) {
+  const n = Number.parseInt(value, 10)
+  setConfig({ seriesLimit: Number.isFinite(n) && n > 0 ? n : undefined })
+}
+/** Libellé d'un onglet / d'une ligne de série : libellé perso, sinon nom de colonne. */
+const seriesTabLabel = (ref?: string | null) => colLabel(ref) || rawName(ref) || 'Série'
+/** Ajoute / remplace la colonne de valeur d'index `i` (mode groupé). */
+function setValueColumnAt(i: number, ref: string) {
+  if (!ref) return
+  if (i < yAxes.value.length) replaceSeries(i, ref)
+  else {
+    const next = [...yAxes.value, ref]
+    writeYAxes(next)
+    activeSeries.value = next.length - 1
+  }
+}
+
 // ─── Pie / KPI ─────────────────────────────────────────────────────────────
 const FORMAT_OPTIONS = [
   { value: 'number', label: 'Nombre' },
@@ -151,8 +194,8 @@ const ORIENTATION_OPTS = [
 
 // ─── Camembert : mode « parts calculées » ──────────────────────────────────
 const PIE_MODE_OPTS = [
-  { value: 'column', label: 'Par colonne' },
-  { value: 'segments', label: 'Parts calculées' },
+  { value: 'column', label: "Valeurs d'une colonne" },
+  { value: 'segments', label: 'Colonnes (parts calculées)' },
 ]
 const PIE_FN_OPTS: { value: PieSegment['fn']; label: string }[] = [
   { value: 'sum', label: 'Somme' },
@@ -217,6 +260,7 @@ function moveSegment(i: number, dir: -1 | 1) {
               @input="setColLabel(fm.xAxis!, ($event.target as HTMLInputElement).value)"
             />
           </div>
+          <FieldValueLabels v-if="fm.xAxis" :block="block" :column-ref="fm.xAxis!" />
           <div class="flex items-center gap-2">
             <AxisFieldRow
               label="Tri"
@@ -247,77 +291,185 @@ function moveSegment(i: number, dir: -1 | 1) {
         </div>
       </StudioField>
 
-      <StudioField label="Axe Y (vertical)">
-        <div class="flex flex-col gap-2.5">
-          <!-- Onglets de séries -->
-          <div class="flex flex-wrap items-center gap-1.5">
-            <button
-              v-for="(col, i) in yAxes"
-              :key="i"
-              type="button"
-              class="flex items-center gap-1.5 rounded-[8px] border-[1.5px] px-2 py-1 text-[11px] font-bold transition-colors"
-              :class="activeSeries === i
-                ? 'border-[var(--color-primary)] bg-[var(--studio-accent-wash)] text-[var(--studio-tag-ink)]'
-                : 'border-[var(--studio-line-strong)] text-[var(--studio-muted)]'"
-              @click="activeSeries = i"
-            >
-              Série {{ i + 1 }}
-              <span
-                v-if="yAxes.length > 1"
-                class="text-[var(--studio-faint)] hover:text-[var(--color-error)]"
-                role="button"
-                aria-label="Retirer la série"
-                @click.stop="removeSeries(i)"
-              >✕</span>
-            </button>
-            <button
-              type="button"
-              class="rounded-[8px] border-[1.5px] border-dashed border-[var(--studio-line-strong)] px-2 py-1 text-[12px] font-bold text-[var(--color-primary)]"
-              aria-label="Ajouter une série"
-              @click="addSeries"
-            >+</button>
-          </div>
+      <StudioField label="Séries">
+        <div class="flex flex-col gap-3">
+          <FieldSegmented
+            :options="SERIES_MODE_OPTS"
+            :model-value="seriesMode"
+            @update:model-value="setSeriesMode($event)"
+          />
 
-          <template v-if="yAxes.length">
-            <div class="flex items-center gap-2">
-              <span class="w-[78px] shrink-0 text-[12px] font-semibold text-[var(--studio-muted)]">Fonction</span>
-              <select
-                class="studio-input min-w-0 flex-1 !py-2 !text-[12px]"
-                :value="aggregateFor(fm, yAxes[activeSeries] ?? '') ?? ''"
-                @change="setSeriesFn(yAxes[activeSeries] ?? '', ($event.target as HTMLSelectElement).value as AggregateFunction | '')"
-              >
-                <option v-for="o in AGG_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
-              </select>
+          <!-- ── « Par colonne » : une série par colonne Y ── -->
+          <template v-if="seriesMode === 'columns'">
+            <div class="flex flex-col gap-2.5">
+              <div class="flex flex-wrap items-center gap-1.5">
+                <button
+                  v-for="(col, i) in yAxes"
+                  :key="i"
+                  type="button"
+                  class="flex max-w-[170px] items-center gap-1.5 rounded-[8px] border-[1.5px] px-2 py-1 text-[11px] font-bold transition-colors"
+                  :class="activeSeries === i
+                    ? 'border-[var(--color-primary)] bg-[var(--studio-accent-wash)] text-[var(--studio-tag-ink)]'
+                    : 'border-[var(--studio-line-strong)] text-[var(--studio-muted)]'"
+                  @click="activeSeries = i"
+                >
+                  <span class="min-w-0 truncate">{{ seriesTabLabel(col) }}</span>
+                  <span
+                    v-if="yAxes.length > 1"
+                    class="shrink-0 text-[var(--studio-faint)] hover:text-[var(--color-error)]"
+                    role="button"
+                    aria-label="Retirer la série"
+                    @click.stop="removeSeries(i)"
+                  >✕</span>
+                </button>
+                <button
+                  type="button"
+                  class="rounded-[8px] border-[1.5px] border-dashed border-[var(--studio-line-strong)] px-2 py-1 text-[12px] font-bold text-[var(--color-primary)]"
+                  aria-label="Ajouter une série"
+                  @click="addSeries"
+                >+</button>
+              </div>
+
+              <template v-if="yAxes.length">
+                <div class="flex items-center gap-2">
+                  <span class="w-[78px] shrink-0 text-[12px] font-semibold text-[var(--studio-muted)]">Fonction</span>
+                  <select
+                    class="studio-input min-w-0 flex-1 !py-2 !text-[12px]"
+                    :value="aggregateFor(fm, yAxes[activeSeries] ?? '') ?? ''"
+                    @change="setSeriesFn(yAxes[activeSeries] ?? '', ($event.target as HTMLSelectElement).value as AggregateFunction | '')"
+                  >
+                    <option v-for="o in AGG_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
+                  </select>
+                </div>
+                <AxisFieldRow
+                  label="Champ"
+                  :value="refLabel(yAxes[activeSeries])"
+                  @open="pickColumn('Colonne de la série', yAxes[activeSeries] ?? null, (r) => replaceSeries(activeSeries, r))"
+                />
+                <div v-if="yAxes[activeSeries]" class="flex items-center gap-2">
+                  <span class="w-[78px] shrink-0 text-[12px] font-semibold text-[var(--studio-muted)]">Libellé</span>
+                  <input
+                    :value="colLabel(yAxes[activeSeries])"
+                    type="text"
+                    class="studio-input min-w-0 flex-1 !py-2 !text-[12px]"
+                    :placeholder="rawName(yAxes[activeSeries])"
+                    @input="setColLabel(yAxes[activeSeries]!, ($event.target as HTMLInputElement).value)"
+                  />
+                </div>
+              </template>
+              <p v-else class="text-[11.5px] text-[var(--studio-faint)]">Ajoutez une série avec « + ».</p>
             </div>
-            <AxisFieldRow
-              label="Champ"
-              :value="refLabel(yAxes[activeSeries])"
-              @open="pickColumn('Colonne de la série', yAxes[activeSeries] ?? null, (r) => replaceSeries(activeSeries, r))"
-            />
-            <div v-if="yAxes[activeSeries]" class="flex items-center gap-2">
-              <span class="w-[78px] shrink-0 text-[12px] font-semibold text-[var(--studio-muted)]">Libellé</span>
-              <input
-                :value="colLabel(yAxes[activeSeries])"
-                type="text"
-                class="studio-input min-w-0 flex-1 !py-2 !text-[12px]"
-                :placeholder="rawName(yAxes[activeSeries])"
-                @input="setColLabel(yAxes[activeSeries]!, ($event.target as HTMLInputElement).value)"
-              />
+
+            <!-- Croisement : chaque colonne répartie par les valeurs d'une dimension -->
+            <div class="flex flex-col gap-2 border-t border-[var(--studio-line)] pt-2.5">
+              <button
+                v-if="!showCross"
+                type="button"
+                class="self-start text-[12px] font-semibold text-[var(--color-primary)]"
+                @click="crossOpen = true"
+              >+ Croiser par une dimension</button>
+              <template v-else>
+                <AxisFieldRow
+                  label="Croiser"
+                  :value="refLabel(fm.series)"
+                  placeholder="Aucun croisement"
+                  clearable
+                  @open="pickColumn('Colonne de croisement', fm.series ?? null, setSeries, true)"
+                  @clear="clearCross"
+                />
+                <template v-if="fm.series">
+                  <FieldValueLabels :block="block" :column-ref="fm.series!" />
+                  <div class="flex items-center gap-2">
+                    <span class="w-[78px] shrink-0 text-[12px] font-semibold text-[var(--studio-muted)]">Max séries</span>
+                    <input
+                      type="number"
+                      min="1"
+                      class="studio-input min-w-0 flex-1 !py-2 !text-[12px]"
+                      :value="cfg.seriesLimit ?? 20"
+                      @change="setSeriesLimit(($event.target as HTMLInputElement).value)"
+                    />
+                  </div>
+                </template>
+              </template>
             </div>
           </template>
-          <p v-else class="text-[11.5px] text-[var(--studio-faint)]">Ajoutez une série avec « + ».</p>
-        </div>
-      </StudioField>
 
-      <StudioField label="Grouper par">
-        <AxisFieldRow
-          label="Série"
-          :value="refLabel(fm.series)"
-          placeholder="Aucun regroupement"
-          clearable
-          @open="pickColumn('Colonne de regroupement', fm.series ?? null, (r) => setMapping({ series: r || undefined }), true)"
-          @clear="setMapping({ series: undefined })"
-        />
+          <!-- ── « Valeurs d'une colonne » : une série par valeur distincte ── -->
+          <template v-else>
+            <AxisFieldRow
+              label="Regrouper"
+              :value="refLabel(fm.series)"
+              placeholder="Choisir une colonne"
+              clearable
+              @open="pickColumn('Colonne de regroupement', fm.series ?? null, setSeries, true)"
+              @clear="setSeries('')"
+            />
+            <template v-if="fm.series">
+              <FieldValueLabels :block="block" :column-ref="fm.series!" />
+              <div class="flex items-center gap-2">
+                <span class="w-[78px] shrink-0 text-[12px] font-semibold text-[var(--studio-muted)]">Max séries</span>
+                <input
+                  type="number"
+                  min="1"
+                  class="studio-input min-w-0 flex-1 !py-2 !text-[12px]"
+                  :value="cfg.seriesLimit ?? 20"
+                  @change="setSeriesLimit(($event.target as HTMLInputElement).value)"
+                />
+              </div>
+            </template>
+
+            <div class="flex flex-col gap-2.5 border-t border-[var(--studio-line)] pt-2.5">
+              <span class="text-[11px] font-extrabold uppercase tracking-[0.06em] text-[var(--studio-faint)]">
+                {{ yAxes.length > 1 ? 'Colonnes de valeur' : 'Colonne de valeur' }}
+              </span>
+              <div
+                v-for="(col, i) in (yAxes.length ? yAxes : [''])"
+                :key="i"
+                class="flex flex-col gap-2"
+                :class="i > 0 ? 'rounded-xl border border-[var(--studio-line)] bg-white p-2.5' : ''"
+              >
+                <div class="flex items-center gap-2">
+                  <span class="w-[78px] shrink-0 text-[12px] font-semibold text-[var(--studio-muted)]">Fonction</span>
+                  <select
+                    class="studio-input min-w-0 flex-1 !py-2 !text-[12px]"
+                    :value="aggregateFor(fm, col) ?? ''"
+                    :disabled="!col"
+                    @change="setSeriesFn(col, ($event.target as HTMLSelectElement).value as AggregateFunction | '')"
+                  >
+                    <option v-for="o in AGG_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
+                  </select>
+                </div>
+                <AxisFieldRow
+                  label="Champ"
+                  :value="refLabel(col)"
+                  @open="pickColumn('Colonne de valeur', col || null, (r) => setValueColumnAt(i, r))"
+                />
+                <div v-if="col" class="flex items-center gap-2">
+                  <span class="w-[78px] shrink-0 text-[12px] font-semibold text-[var(--studio-muted)]">Libellé</span>
+                  <input
+                    :value="colLabel(col)"
+                    type="text"
+                    class="studio-input min-w-0 flex-1 !py-2 !text-[12px]"
+                    :placeholder="rawName(col)"
+                    @input="setColLabel(col, ($event.target as HTMLInputElement).value)"
+                  />
+                </div>
+                <button
+                  v-if="i > 0"
+                  type="button"
+                  class="self-start text-[11px] font-bold text-[var(--studio-faint)] transition-colors hover:text-[var(--color-error)]"
+                  @click="removeSeries(i)"
+                >Retirer</button>
+              </div>
+              <button
+                v-if="yAxes.length"
+                type="button"
+                class="self-start text-[12px] font-semibold text-[var(--color-primary)]"
+                @click="addSeries"
+              >+ Ajouter une colonne de valeur</button>
+            </div>
+          </template>
+        </div>
       </StudioField>
     </template>
 
@@ -332,13 +484,16 @@ function moveSegment(i: number, dir: -1 | 1) {
 
       <template v-if="pieMode === 'column'">
         <StudioField label="Étiquettes">
-          <AxisFieldRow
-            label="Champ"
-            :value="refLabel(fm.label)"
-            clearable
-            @open="pickColumn('Colonne des étiquettes', fm.label ?? null, (r) => setMapping({ label: r || undefined }))"
-            @clear="setMapping({ label: undefined })"
-          />
+          <div class="flex flex-col gap-2">
+            <AxisFieldRow
+              label="Champ"
+              :value="refLabel(fm.label)"
+              clearable
+              @open="pickColumn('Colonne des étiquettes', fm.label ?? null, (r) => setMapping({ label: r || undefined }))"
+              @clear="setMapping({ label: undefined })"
+            />
+            <FieldValueLabels v-if="fm.label" :block="block" :column-ref="fm.label!" />
+          </div>
         </StudioField>
         <StudioField label="Valeurs">
           <div class="flex flex-col gap-2">

@@ -18,7 +18,8 @@ const base = useContentBasePath()
 <template>
   <section
     v-if="items.length"
-    class="border-y border-primary/10 bg-[linear-gradient(180deg,#f4f1ff_0%,#faf8ff_100%)] py-16"
+    class="border-y border-primary/10 py-16"
+    style="background: var(--home-band-live)"
   >
     <div class="mx-auto max-w-[1120px] px-6">
       <HomeSectionHeading

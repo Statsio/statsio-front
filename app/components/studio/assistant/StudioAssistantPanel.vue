@@ -314,9 +314,15 @@ async function removeConversation(id: number) {
       >
         <div
           class="max-w-[85%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm"
-          :class="m.role === 'user' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-800'"
+          :class="[
+            m.role === 'user' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-800',
+            m.pending ? 'assistant-thinking' : '',
+          ]"
         >
-          <span v-if="m.pending" class="text-slate-400">…</span>
+          <span v-if="m.pending" class="thinking" role="status" aria-label="L’assistant réfléchit">
+            <span class="thinking-dots" aria-hidden="true"><i /><i /><i /></span>
+            <span class="thinking-text">L’assistant réfléchit</span>
+          </span>
           <span v-else>{{ m.text }}</span>
         </div>
 
@@ -333,7 +339,7 @@ async function removeConversation(id: number) {
     </div>
 
     <p
-      v-if="statusLabel"
+      v-if="statusLabel && agent.status === 'error'"
       class="px-4 pb-1 text-xs"
       :class="agent.status === 'error' ? 'text-rose-500' : 'text-slate-400'"
     >
@@ -387,3 +393,125 @@ async function removeConversation(id: number) {
     </footer>
   </div>
 </template>
+
+<style scoped>
+/* ─── Indicateur « l'assistant réfléchit » ────────────────────────────────── */
+.thinking {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.thinking-text {
+  color: var(--studio-faint, #94a3b8);
+  background: linear-gradient(
+    90deg,
+    var(--studio-faint, #94a3b8) 0%,
+    var(--studio-faint, #94a3b8) 35%,
+    var(--studio-ink, #334155) 50%,
+    var(--studio-faint, #94a3b8) 65%,
+    var(--studio-faint, #94a3b8) 100%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: thinking-shimmer 1.8s ease-in-out infinite;
+}
+
+.thinking-dots {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+.thinking-dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 9999px;
+  background: currentColor;
+  color: var(--color-primary, #6366f1);
+  opacity: 0.4;
+  animation: thinking-bounce 1.2s ease-in-out infinite;
+}
+
+.thinking-dots i:nth-child(2) {
+  animation-delay: 0.16s;
+}
+
+.thinking-dots i:nth-child(3) {
+  animation-delay: 0.32s;
+}
+
+/* Halo doux autour de la bulle pendant la réflexion */
+.assistant-thinking {
+  position: relative;
+  animation: thinking-glow 2s ease-in-out infinite;
+}
+
+@keyframes thinking-bounce {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.35;
+  }
+  40% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+@keyframes thinking-shimmer {
+  0% {
+    background-position: 130% 0;
+  }
+  100% {
+    background-position: -130% 0;
+  }
+}
+
+@keyframes thinking-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thinking-dots i,
+  .thinking-text,
+  .assistant-thinking {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+  }
+
+  /* Repli lisible sans mouvement : simple pulsation d'opacité */
+  .thinking-dots i {
+    opacity: 0.6;
+    animation: thinking-fade 1.4s ease-in-out infinite;
+  }
+
+  .thinking-text {
+    -webkit-text-fill-color: currentColor;
+    animation: thinking-fade 1.4s ease-in-out infinite;
+  }
+
+  .assistant-thinking {
+    box-shadow: none;
+  }
+
+  @keyframes thinking-fade {
+    0%,
+    100% {
+      opacity: 0.45;
+    }
+    50% {
+      opacity: 0.9;
+    }
+  }
+}
+</style>

@@ -94,9 +94,13 @@ export function useBlockData(
     const ov = overrides?.() ?? {}
     const columns = resolveColumns(b)
     const groupLimit = b.config.rowLimit ?? 500
-    // When series grouping is active, each X-group produces N rows (one per series value).
-    // Fetch up to 5000 rows so the chart can slice to groupLimit unique X labels.
-    const fetchLimit = b.fieldMapping.series ? Math.min(groupLimit * 100, 5000) : (ov.limit ?? groupLimit)
+    // Only bar/line charts regroupent leurs lignes côté client (une ligne par valeur de
+    // série et par valeur d'axe X) : pour eux on récupère jusqu'à 5000 lignes et le
+    // composant tranche ensuite à `groupLimit` libellés X uniques. Pour tous les autres
+    // blocs (tableau, camembert…), `rowLimit` est un plafond dur : la valeur du champ
+    // « Limite » (ou l'override de pagination) est envoyée telle quelle à l'API.
+    const clientSideSeriesGrouping = (b.type === 'bar' || b.type === 'line') && Boolean(b.fieldMapping.series)
+    const fetchLimit = clientSideSeriesGrouping ? Math.min(groupLimit * 100, 5000) : (ov.limit ?? groupLimit)
     const aggregationParams = resolveAggregationParams(b)
     const params = {
       columns,
@@ -198,6 +202,12 @@ function resolveColumns(block: StudioBlock): string[] {
   if (m.value) cols.add(m.value)
   if (m.valueColumn) cols.add(m.valueColumn)
   if (m.comparisonColumn) cols.add(m.comparisonColumn)
+  if (m.latColumn) cols.add(m.latColumn)
+  if (m.lngColumn) cols.add(m.lngColumn)
+  if (m.mapPointColumn) cols.add(m.mapPointColumn)
+  if (m.mapTitleColumn) cols.add(m.mapTitleColumn)
+  if (m.mapColorColumn) cols.add(m.mapColorColumn)
+  if (m.mapSizeColumn) cols.add(m.mapSizeColumn)
   if (m.columns) m.columns.forEach((c) => cols.add(c))
 
   return cols.size > 0 ? Array.from(cols) : []

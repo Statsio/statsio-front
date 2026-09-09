@@ -28,7 +28,7 @@ export type BlockType = 'bar' | 'line' | 'pie' | 'table' | 'kpi' | 'record' | 'r
 export const EMBEDDABLE_BLOCK_TYPES: BlockType[] = ['bar', 'line', 'pie', 'kpi', 'table', 'search']
 
 export const TEXT_BLOCK_TYPES: BlockType[] = ['heading', 'paragraph', 'quote', 'callout']
-export const EDITORIAL_BLOCK_TYPES: BlockType[] = ['image', 'video', 'button', 'link-card', 'retenir', 'map', 'field-grid']
+export const EDITORIAL_BLOCK_TYPES: BlockType[] = ['image', 'video', 'button', 'link-card', 'retenir', 'field-grid']
 export const FORM_BLOCK_TYPES: BlockType[] = ['choice', 'checkboxes', 'dropdown', 'scale', 'rating']
 /** Blocs de logique (script) : conteneurs qui répètent (`loop`) / conditionnent (`if`) d'autres blocs. */
 export const SCRIPT_BLOCK_TYPES: BlockType[] = ['loop', 'if']
@@ -106,7 +106,7 @@ export const BLOCK_META: Record<BlockType, { label: string; iconPath: string; ti
   button:     { label: 'Bouton',           tint: 'bg-violet-100 text-violet-600',   iconPath: 'M15.042 21.672 13.684 16.6m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672zm-7.518-.267A8.25 8.25 0 1 1 20.25 10.5M8.288 14.212A5.25 5.25 0 1 1 17.25 10.5' },
   'link-card':{ label: 'Carte de lien',    tint: 'bg-blue-100 text-blue-600',       iconPath: 'M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244' },
   retenir:    { label: 'À retenir',        tint: 'bg-emerald-100 text-emerald-600', iconPath: 'M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5z' },
-  map:        { label: 'Carte',            tint: 'bg-pink-100 text-pink-600',       iconPath: 'M9 6.75V15m6-6v8.25m.503 3.498 4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 0 0-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0Z' },
+  map:        { label: 'Carte',            tint: 'bg-emerald-100 text-emerald-600', iconPath: 'M9 6.75V15m6-6v8.25m.503 3.498 4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 0 0-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0Z' },
   'field-grid':{ label: 'Grille de champs', tint: 'bg-slate-100 text-slate-600',    iconPath: 'M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z' },
   choice:     { label: 'Choix unique',     tint: 'bg-indigo-100 text-indigo-600',   iconPath: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-5.25a3.75 3.75 0 1 0 0-7.5 3.75 3.75 0 0 0 0 7.5Z' },
   checkboxes: { label: 'Cases à cocher',   tint: 'bg-indigo-100 text-indigo-600',   iconPath: 'M9 12.75 11.25 15 15 9.75M3.75 12c0-4.556 3.694-8.25 8.25-8.25s8.25 3.694 8.25 8.25-3.694 8.25-8.25 8.25S3.75 16.556 3.75 12Z' },
@@ -263,6 +263,15 @@ export interface FieldMapping {
    * titres d'axes, chips de l'inspecteur. Vide = nom de colonne brut.
    */
   columnLabels?: Record<string, string>
+  /**
+   * Libellé d'affichage personnalisé par VALEUR de champ
+   * (`{ ref: { valeurBrute: libellé } }`). Résolu par `valueLabel` sur toutes les
+   * surfaces d'affichage (axes / légendes bar-line, étiquettes camembert, cellules
+   * de tableau, fiches, entités liées). Affichage uniquement : la valeur brute
+   * reste la clé pour l'agrégation, le regroupement, le tri, les filtres et le
+   * drill-in. Vide = valeur brute affichée telle quelle.
+   */
+  valueLabels?: Record<string, Record<string, string>>
   /** Table: format + alignment per column. */
   columnFormats?: Record<string, TableColumnFormat>
   /** Table: derived columns (expression per row). */
@@ -277,6 +286,20 @@ export interface FieldMapping {
   kpiValue?: AggTerm[]
   /** Record block: column used as the fiche title (default = first column). */
   recordTitleColumn?: string
+  /** Carte : colonne latitude (réf nue ou `col@sourceId`). */
+  latColumn?: string
+  /** Carte : colonne longitude. */
+  lngColumn?: string
+  /** Carte : colonne unique contenant lat + lon (data.gouv `geo_point_2d`, WKT, GeoJSON…). Prioritaire sur latColumn/lngColumn. */
+  mapPointColumn?: string
+  /** Carte : ordre des deux nombres dans `mapPointColumn` pour les formats non typés. Défaut `latlng`. */
+  mapPointOrder?: 'latlng' | 'lnglat'
+  /** Carte : colonne titre de la fiche de survol d'un point. */
+  mapTitleColumn?: string
+  /** Carte : colonne (catégorielle) pilotant la couleur des marqueurs. */
+  mapColorColumn?: string
+  /** Carte : colonne (numérique) pilotant le rayon des marqueurs. */
+  mapSizeColumn?: string
   valueColumn?: string
   comparisonColumn?: string
   /** Legacy : fonction d'agrégation unique appliquée à toutes les colonnes de valeur. Fallback de migration vers `aggregates`. */
@@ -352,6 +375,13 @@ export interface BlockConfig {
   barStyle?: 'chart' | 'progress'
   /** Camembert : 'column' (défaut, étiquettes + valeur) ou 'segments' (parts calculées via `fieldMapping.pieSegments`) */
   pieMode?: 'column' | 'segments'
+  /**
+   * Bar/line : stratégie de séries mise en avant dans l'inspecteur —
+   * 'columns' (une série par colonne, `fieldMapping.yAxes`) ou 'grouped' (une série
+   * par valeur distincte de `fieldMapping.series`). Purement UX : le rendu ne lit
+   * que les champs renseignés (les deux sont combinables). Déduit quand absent.
+   */
+  seriesMode?: 'columns' | 'grouped'
   /** Bar/line value axis on a logarithmic scale — keeps small values visible when the dataset spans several orders of magnitude */
   logScale?: boolean
   // KPI comparison
@@ -364,10 +394,14 @@ export interface BlockConfig {
   fieldGridItems?: { label: string; value: string }[]
   fieldGridColumns?: 2 | 3 | 4
   // ── Carte (map) ──
-  /** Latitude / longitude — supportent les `{{jetons}}` (ex. `{{latitude}}` sur une page fan-out). */
-  mapLat?: string
-  mapLng?: string
-  mapLabel?: string
+  /** Carte : fond de carte (« calque »). Défaut `clair`. Voir `lib/map-basemaps`. */
+  mapBasemap?: 'clair' | 'plan' | 'sombre' | 'couleur' | 'aerien' | 'relief'
+  /** Carte : couleur des marqueurs (hex). Défaut `var(--color-primary)`. Ignoré si `fieldMapping.mapColorColumn`. */
+  mapMarkerColor?: string
+  /** Carte : cadrage automatique sur l'ensemble des points. Défaut `true`. */
+  mapAutoFit?: boolean
+  /** Carte : hauteur du bloc en px. Défaut 360. */
+  mapHeight?: number
   // Line/bar chart trend badge shown in the block header (free text, not computed)
   trendLabel?: string
   trendDirection?: 'up' | 'down'
@@ -901,6 +935,7 @@ export const BLOCK_CATEGORIES: BlockCategoryDef[] = [
       { type: 'kpi',     label: 'KPI',           description: 'Indicateur clé avec tendance', iconPath: 'M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z' },
       { type: 'record',  label: 'Fiche',         description: 'Une seule ligne (min/max/filtre) en fiche détaillée', iconPath: 'M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z' },
       { type: 'related', label: 'Entités liées', description: 'Puces vers des enregistrements liés (communes voisines…)', iconPath: 'M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244' },
+      { type: 'map',     label: 'Carte',         description: 'Points GPS sur une carte, fiche au survol', iconPath: 'M9 6.75V15m6-6v8.25m.503 3.498 4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 0 0-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0Z' },
     ],
   },
   {
@@ -913,7 +948,6 @@ export const BLOCK_CATEGORIES: BlockCategoryDef[] = [
       { type: 'link-card', label: 'Lien',      description: 'Carte de prévisualisation de lien', iconPath: 'M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244' },
       { type: 'retenir',   label: 'À retenir', description: 'Bloc de points clés mis en avant', iconPath: 'M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5z' },
       { type: 'field-grid', label: 'Grille de champs', description: 'Paires libellé / valeur (bandeau méta, encadré méthodo)', iconPath: 'M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z' },
-      { type: 'map',        label: 'Carte',           description: 'Point GPS depuis des colonnes lat / lon', iconPath: 'M9 6.75V15m6-6v8.25m.503 3.498 4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 0 0-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0Z' },
     ],
   },
   {

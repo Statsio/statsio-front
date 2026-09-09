@@ -8,6 +8,7 @@ import RichBlockInspector from '@/components/studio/inspector/RichBlockInspector
 import SearchBlockInspector from '@/components/studio/inspector/SearchBlockInspector.vue'
 import ParamBlockInspector from '@/components/studio/inspector/ParamBlockInspector.vue'
 import DataBlockInspector from '@/components/studio/inspector/DataBlockInspector.vue'
+import MapBlockInspector from '@/components/studio/inspector/MapBlockInspector.vue'
 import RecordBlockInspector from '@/components/studio/inspector/RecordBlockInspector.vue'
 import SdEmbedBlockInspector from '@/components/studio/inspector/SdEmbedBlockInspector.vue'
 import LoopBlockInspector from '@/components/studio/inspector/LoopBlockInspector.vue'
@@ -25,7 +26,7 @@ const isText   = computed(() => block.value ? isTextBlock(block.value.type) : fa
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
-const EDITORIAL_TYPES = ['image', 'video', 'button', 'link-card', 'retenir', 'map', 'field-grid'] as const
+const EDITORIAL_TYPES = ['image', 'video', 'button', 'link-card', 'retenir', 'field-grid'] as const
 const FORM_TYPES = ['choice', 'checkboxes', 'dropdown', 'scale', 'rating'] as const
 const RECORD_TYPES = ['record', 'related'] as const
 
@@ -43,6 +44,7 @@ const FORM_TABS      = [{ id: 'form', label: 'Question' }]
 
 const isSearch    = computed(() => block.value?.type === 'search')
 const isParam     = computed(() => block.value?.type === 'param')
+const isMap       = computed(() => block.value?.type === 'map')
 const isSdEmbed   = computed(() => block.value?.type === 'sd-embed')
 const isLoop      = computed(() => block.value?.type === 'loop')
 const isCondition = computed(() => block.value?.type === 'if')
@@ -169,8 +171,11 @@ const compFilters = computed<import('@/types/studio').BlockFilter[]>(() => block
       <!-- ══════════════ RECORD / RELATED ══════════════ -->
       <RecordBlockInspector v-if="isRecord && block" :block="block" :active-tab="activeTab" />
 
+      <!-- ══════════════ MAP BLOCK ══════════════ -->
+      <MapBlockInspector v-if="isMap && block" :block="block" :active-tab="activeTab" />
+
       <!-- ══════════════ DATA BLOCKS ══════════════ -->
-      <DataBlockInspector v-if="!isText && !isSearch && !isParam && !isSdEmbed && !isEditorial && !isForm && !isLoop && !isCondition && !isLayout && !isRecord && block" :block="block" :active-tab="activeTab" />
+      <DataBlockInspector v-if="!isText && !isSearch && !isParam && !isSdEmbed && !isEditorial && !isForm && !isLoop && !isCondition && !isLayout && !isRecord && !isMap && block" :block="block" :active-tab="activeTab" />
 
       <!-- ══════════════ TEXT BLOCKS ══════════════ -->
       <RichBlockInspector v-if="isText && block && activeTab === 'style'" :block="block" />

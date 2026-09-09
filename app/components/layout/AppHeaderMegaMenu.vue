@@ -37,7 +37,7 @@ const formatCount = (count?: number) => {
           class="flex items-center justify-between gap-2.5 rounded-lg px-2.5 py-2 text-[13.5px] font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-primary"
         >
           <span class="flex min-w-0 items-center gap-2.5">
-            <span class="h-[7px] w-[7px] shrink-0 rounded-full" :style="{ background: category.color }"></span>
+            <CategoryIcon :category="category.name" :color="category.color" :size="15" :dot-size="7" />
             <span class="truncate">{{ category.name }}</span>
           </span>
           <span v-if="category.count != null" class="shrink-0 font-mono text-[10.5px] text-slate-400">

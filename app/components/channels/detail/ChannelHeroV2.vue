@@ -47,16 +47,14 @@ const isShareOpen = ref(false)
       </nav>
     </div>
 
-    <div class="relative h-[130px] w-full sm:h-[180px]">
+    <div class="relative mx-auto aspect-[3/1] w-full max-w-[1500px]">
       <img v-if="channel.bannerUrl" :src="channel.bannerUrl" alt="" class="h-full w-full object-cover" />
-      <div class="absolute inset-0" :style="{ background: 'linear-gradient(120deg,rgba(0,0,0,0.12),rgba(0,0,0,0) 60%)' }" />
     </div>
 
     <div class="relative mx-auto max-w-[1240px] px-4 sm:px-6 lg:px-8">
       <div class="flex flex-wrap items-end gap-5 pb-6 pt-3.5">
         <span
-          class="-mt-12 flex h-[88px] w-[88px] shrink-0 items-center justify-center overflow-hidden rounded-[18px] border-4 border-white/15 text-[26px] font-extrabold sm:-mt-[58px]"
-          :style="{ background: heroGradient }"
+          class="-mt-12 flex h-[88px] w-[88px] shrink-0 items-center justify-center overflow-hidden rounded-[18px] border-4 border-white bg-white text-[26px] font-extrabold text-slate-900 sm:-mt-[58px]"
         >
           <img v-if="channel.logoUrl" :src="channel.logoUrl" alt="" class="h-full w-full object-cover" />
           <span v-else>{{ channel.initials }}</span>

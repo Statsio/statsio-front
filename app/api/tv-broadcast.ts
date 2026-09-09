@@ -6,6 +6,8 @@ export type BroadcastCategory = {
   name: string
   slug: string
   color: string | null
+  /** Nom d'icône Heroicons associé à la catégorie (piloté en back-office). */
+  icon: string | null
 }
 
 export type BroadcastDetail = {

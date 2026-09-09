@@ -1,11 +1,9 @@
 <script setup lang="ts">
-import { RouterLink } from 'vue-router'
 import StatsDataActionButton from '@/components/statsdata/detail/StatsDataActionButton.vue'
 import StatsDataShareMenu from '@/components/statsdata/detail/StatsDataShareMenu.vue'
 
 defineProps<{
   title: string
-  editHref?: string | null
   isFavorite: boolean
   isFollowing: boolean
   canFollow: boolean
@@ -65,16 +63,6 @@ defineEmits<{
           @native-share="$emit('native-share')"
           @open-embed="$emit('open-embed')"
         />
-
-        <RouterLink
-          v-if="editHref"
-          :to="editHref"
-          class="hidden h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-[var(--studio-line-strong)] text-[13px] text-[var(--studio-muted)] transition-colors hover:bg-[var(--studio-wash)] sm:flex"
-          title="Modifier dans le Studio"
-          aria-label="Modifier dans le Studio"
-        >
-          ✎
-        </RouterLink>
       </div>
     </div>
   </div>

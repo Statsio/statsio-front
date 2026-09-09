@@ -54,9 +54,10 @@ defineProps<{
         <span
           v-for="cat in broadcast.program.categories"
           :key="cat.id"
-          class="rounded-full px-3 py-1 text-[10.5px] font-bold"
+          class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10.5px] font-bold"
           :class="CATEGORY_COLOR_CLASS[cat.color ?? ''] ?? CATEGORY_COLOR_FALLBACK"
         >
+          <CategoryIcon :icon-name="cat.icon" :category="cat.name" :size="12" fallback="none" />
           {{ cat.name }}
         </span>
         <span

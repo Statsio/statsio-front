@@ -7,7 +7,7 @@ import { formatDisplayValue, toNumericOrNull } from '@/utils/statsDataFormat'
 import { parseExpression, evaluate, formatNumber, type AggregateRef } from '@/lib/studio-expression'
 import { rowsToCsv, downloadCsv, csvFileName } from '@/lib/csv'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
-import { columnRefLabel } from '@/lib/studio-columns'
+import { columnRefLabel, valueLabel } from '@/lib/studio-columns'
 import type { StudioBlock, TableCellRule, TableColumnFormat } from '@/types/studio'
 
 const props = defineProps<{ block: StudioBlock; readonly?: boolean; scope?: Record<string, string> }>()
@@ -115,6 +115,8 @@ function cellVal(row: Record<string, unknown>, col: string): unknown {
 function formatCell(col: string, value: unknown): string {
   const fmt = columnFormat(col).format
   if (value === null || value === undefined || value === '') return '—'
+  const relabeled = valueLabel(col, value, props.block)
+  if (relabeled !== null) return relabeled
   const n = num(value)
   if (fmt === 'percent' && n !== null) return `${formatNumber(n, 1)} %`
   if (fmt === 'currency' && n !== null) return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(n)
