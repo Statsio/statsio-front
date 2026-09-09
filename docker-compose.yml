@@ -2,9 +2,10 @@ services:
   nuxt-app:
     build: .
     container_name: statsio-front
-    dns:
-      - 1.1.1.1
-      - 8.8.8.8
+    # Requis pour que le SSR dans le conteneur atteigne l'API publiée sur l'hôte :
+    # sans ça `host.docker.internal` ne résout pas ici (→ fetch failed / pages SSR vides).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "3000:3000"
     env_file:

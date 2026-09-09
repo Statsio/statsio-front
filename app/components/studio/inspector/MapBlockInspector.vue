@@ -272,8 +272,9 @@ watch(
           <label class="text-xs font-semibold text-[var(--studio-muted)]">Couleur conditionnelle</label>
           <TableColumnsField :block="block" section="rules" />
           <p class="text-[11px] leading-relaxed text-[var(--studio-faint)]">
-            Colore un marqueur selon la valeur d'une colonne (positif / négatif, seuil,
-            max / min de la colonne). Prioritaire sur la couleur ci-dessus.
+            Colore un marqueur selon la valeur d'une colonne : signe, max / min de la
+            colonne, seuil, ou comparaison texte (égal, contient…). Prioritaire sur la
+            couleur ci-dessus.
           </p>
         </div>
 

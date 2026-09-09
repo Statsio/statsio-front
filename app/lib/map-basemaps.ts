@@ -1,9 +1,12 @@
 /**
  * Fonds de carte (« calques ») proposés dans le Studio pour le bloc Carte.
- * Tous en tuiles raster publiques sans clé : CARTO (basemaps), Esri, OpenTopoMap.
- * Les styles vecteur CARTO (`*-gl-style/style.json`) ne sont plus utilisés — leur
- * serveur de tuiles vecteur renvoyait des 4xx (seuls l'aérien et le relief, déjà
- * en raster, s'affichaient).
+ * Tous en tuiles raster publiques **sans clé** : Esri ArcGIS Online (basemaps
+ * gratuits) + OpenTopoMap pour le relief.
+ *
+ * Historique : les styles vecteur CARTO (`*-gl-style/style.json`) ne rendaient plus
+ * leurs tuiles (4xx), puis les tuiles raster CARTO (`basemaps.cartocdn.com`) ont
+ * exigé une clé API → on est passé entièrement sur Esri, qui servait déjà l'aérien
+ * sans souci.
  */
 import type { StyleSpecification } from 'maplibre-gl'
 
@@ -26,27 +29,26 @@ const rasterStyle = (tiles: string[], attribution: string): StyleSpecification =
   layers: [{ id: 'base', type: 'raster', source: 'base' }],
 })
 
-/** Tuiles raster CARTO (sans clé), déclinées sur les sous-domaines a–d. */
-const carto = (variant: string) =>
+const ESRI_ATTR = '© Esri, HERE, Garmin, FAO, NOAA, USGS, © OpenStreetMap contributors'
+
+/** Tuile raster d'un service ArcGIS Online public (sans clé). Ordre Esri : {z}/{y}/{x}. */
+const esri = (service: string, attribution = ESRI_ATTR) =>
   rasterStyle(
-    ['a', 'b', 'c', 'd'].map((s) => `https://${s}.basemaps.cartocdn.com/${variant}/{z}/{x}/{y}.png`),
-    '© CARTO, © OpenStreetMap contributors',
+    [`https://server.arcgisonline.com/ArcGIS/rest/services/${service}/MapServer/tile/{z}/{y}/{x}`],
+    attribution,
   )
 
 /** Objet de style raster prêt pour `new maplibregl.Map({ style })`. */
 export function basemapStyle(id: BasemapId | undefined | null): string | StyleSpecification {
   switch (id) {
     case 'plan':
-      return carto('light_all')
+      return esri('World_Street_Map')
     case 'sombre':
-      return carto('dark_all')
+      return esri('Canvas/World_Dark_Gray_Base', '© Esri, HERE, Garmin, © OpenStreetMap contributors')
     case 'couleur':
-      return carto('rastertiles/voyager')
+      return esri('World_Topo_Map')
     case 'aerien':
-      return rasterStyle(
-        ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
-        '© Esri, Maxar, Earthstar Geographics',
-      )
+      return esri('World_Imagery', '© Esri, Maxar, Earthstar Geographics')
     case 'relief':
       return rasterStyle(
         [
@@ -58,6 +60,6 @@ export function basemapStyle(id: BasemapId | undefined | null): string | StyleSp
       )
     case 'clair':
     default:
-      return carto('light_nolabels')
+      return esri('Canvas/World_Light_Gray_Base', '© Esri, HERE, Garmin, © OpenStreetMap contributors')
   }
 }
