@@ -7,6 +7,7 @@ import { formatNumber } from '@/lib/studio-expression'
 import { formatDisplayValue, toNumericOrNull } from '@/utils/statsDataFormat'
 import { parseLatLng } from '@/lib/geo-point'
 import { basemapStyle } from '@/lib/map-basemaps'
+import { cellRuleBounds, rowRuleColor } from '@/lib/studio-cell-rules'
 import AppWorldScatterMap, { type WorldScatterPoint } from '@/components/ui/AppWorldScatterMap.vue'
 import type { StudioBlock } from '@/types/studio'
 
@@ -62,10 +63,24 @@ function formatValue(col: string, value: unknown): string {
   return formatDisplayValue(value)
 }
 
-const cardColumns = computed(() => fm.value.columns ?? [])
-
 /** Résout une réf de colonne (nue ou `col@source`) en clé réelle de ligne. */
 const keyFor = (ref?: string | null) => (ref ? rowKey(data.value, ref) : '')
+
+/**
+ * Réfs de colonnes affichées dans la fiche. Sans sélection explicite, on reprend
+ * toutes les colonnes chargées (hors coordonnées / titre) — l'inspecteur liste de
+ * même toutes les colonnes sous « Lignes de la fiche » tant que rien n'est
+ * personnalisé, or `fm.columns` reste vide dans ce cas.
+ */
+const cardColumns = computed<string[]>(() => {
+  if (fm.value.columns?.length) return fm.value.columns
+  const geometry = new Set(
+    [fm.value.mapPointColumn, fm.value.latColumn, fm.value.lngColumn, fm.value.mapTitleColumn].flatMap((ref) =>
+      ref ? [ref, keyFor(ref)] : [],
+    ),
+  )
+  return (data.value?.columns ?? []).filter((c) => !geometry.has(c))
+})
 
 const rows = computed<Record<string, unknown>[]>(() => data.value?.rows ?? [])
 
@@ -78,6 +93,11 @@ const sizeBounds = computed<{ min: number; max: number } | null>(() => {
   if (!vals.length) return null
   return { min: Math.min(...vals), max: Math.max(...vals) }
 })
+
+/** Bornes des colonnes visées par une règle `top` / `bottom`, sur les lignes chargées. */
+const ruleBounds = computed(() =>
+  cellRuleBounds(fm.value.cellRules, rows.value, (row, col) => row[keyFor(col)]),
+)
 
 /** Couleur par valeur distincte de la colonne de couleur. */
 const colorScale = computed<Map<string, string>>(() => {
@@ -120,6 +140,9 @@ const points = computed<WorldScatterPoint[]>(() => {
 
     let fill = baseColor
     if (fm.value.mapColorColumn) fill = colorScale.value.get(String(row[colorK] ?? '')) ?? baseColor
+    // Les règles de mise en forme conditionnelle priment sur la couleur catégorielle.
+    const ruleColor = rowRuleColor(fm.value.cellRules, (col) => row[keyFor(col)], ruleBounds.value)
+    if (ruleColor) fill = ruleColor
 
     let r = 6
     if (sizeK && bounds && bounds.max > bounds.min) {

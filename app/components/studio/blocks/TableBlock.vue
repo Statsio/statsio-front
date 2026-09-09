@@ -8,7 +8,8 @@ import { parseExpression, evaluate, formatNumber, type AggregateRef } from '@/li
 import { rowsToCsv, downloadCsv, csvFileName } from '@/lib/csv'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import { columnRefLabel, valueLabel } from '@/lib/studio-columns'
-import type { StudioBlock, TableCellRule, TableColumnFormat } from '@/types/studio'
+import { cellRuleBounds, cellRuleStyle } from '@/lib/studio-cell-rules'
+import type { StudioBlock, TableColumnFormat } from '@/types/studio'
 
 const props = defineProps<{ block: StudioBlock; readonly?: boolean; scope?: Record<string, string> }>()
 const studio = useStudioStore()
@@ -125,38 +126,16 @@ function formatCell(col: string, value: unknown): string {
   return formatDisplayValue(value)
 }
 
-/** Bornes des colonnes visibles pour les règles top/bottom (sur la page courante). */
-const colBounds = computed<Record<string, { min: number; max: number }>>(() => {
-  const out: Record<string, { min: number; max: number }> = {}
-  for (const rule of props.block.fieldMapping.cellRules ?? []) {
-    if (rule.when !== 'top' && rule.when !== 'bottom') continue
-    const vals = rows.value.map((r) => num(cellVal(r, rule.column))).filter((v): v is number => v !== null)
-    if (vals.length) out[rule.column] = { min: Math.min(...vals), max: Math.max(...vals) }
-  }
-  return out
-})
-
-function matchesRule(rule: TableCellRule, n: number): boolean {
-  switch (rule.when) {
-    case 'positive': return n > 0
-    case 'negative': return n < 0
-    case 'gt': return rule.value !== undefined && n > rule.value
-    case 'lt': return rule.value !== undefined && n < rule.value
-    case 'top': return colBounds.value[rule.column]?.max === n
-    case 'bottom': return colBounds.value[rule.column]?.min === n
-    default: return false
-  }
-}
+/** Bornes des colonnes pour les règles top/bottom (sur la page courante). */
+const ruleBounds = computed(() => cellRuleBounds(props.block.fieldMapping.cellRules, rows.value, cellVal))
 
 function cellStyle(col: string, value: unknown): Record<string, string> {
   const n = num(value)
   const style: Record<string, string> = { textAlign: columnFormat(col).align ?? (n !== null ? 'right' : 'left') }
-  if (n === null) return style
-  for (const rule of props.block.fieldMapping.cellRules ?? []) {
-    if (rule.column === col && matchesRule(rule, n)) {
-      style.color = rule.color
-      if (rule.bold) style.fontWeight = '700'
-    }
+  const ruled = cellRuleStyle(props.block.fieldMapping.cellRules, col, value, ruleBounds.value)
+  if (ruled) {
+    style.color = ruled.color
+    if (ruled.bold) style.fontWeight = '700'
   }
   return style
 }
