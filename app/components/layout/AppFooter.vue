@@ -22,11 +22,13 @@ const accountNav = computed(() => {
       { label: 'Mon profil', href: '/user' },
       { label: 'Mes contenus', href: '/user/contenus' },
       { label: 'Mes chaînes', href: '/user/chaines' },
+      { label: 'Offres', href: '/offres' },
     ]
   }
   return [
     { label: 'Me connecter', href: '/login' },
     { label: "M'inscrire", href: '/register' },
+    { label: 'Offres', href: '/offres' },
   ]
 })
 

@@ -14,5 +14,6 @@ usePageSeo({ title: 'Studio', robots: 'noindex,nofollow' })
   >
     <slot />
     <SourceSyncToast />
+    <StudioPremiumUpsellModal />
   </div>
 </template>

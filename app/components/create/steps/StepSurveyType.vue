@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { RouterLink } from 'vue-router'
 import AppCheckbox from '@/components/ui/AppCheckbox.vue'
 import { SURVEY_KIND_OPTIONS, type SurveyKind } from '@/types/content-creation'
+import { useAuthStore } from '@/stores/auth'
 
 defineProps<{
   kind: SurveyKind
@@ -11,6 +13,8 @@ const emit = defineEmits<{
   'update:kind': [SurveyKind]
   'update:identity': [boolean]
 }>()
+
+const auth = useAuthStore()
 </script>
 
 <template>
@@ -50,10 +54,23 @@ const emit = defineEmits<{
     <div class="rounded-2xl border border-slate-100 bg-slate-50 p-4">
       <AppCheckbox
         :model-value="identity"
+        :disabled="!auth.isPremium"
         label="Exiger la vérification d'identité des répondants"
-        description="Seuls les comptes ayant validé leur identité (KYC via un prestataire tiers) pourront voter. Modifiable ensuite dans les propriétés du sondage."
+        :description="
+          auth.isPremium
+            ? 'Seuls les comptes ayant validé leur identité (KYC via un prestataire tiers) pourront voter. Modifiable ensuite dans les propriétés du sondage.'
+            : 'Réservé à l\'offre Premium.'
+        "
         @update:model-value="emit('update:identity', $event)"
       />
+      <RouterLink
+        v-if="!auth.isPremium"
+        to="/offres"
+        target="_blank"
+        class="mt-2 inline-block text-[12px] font-bold text-[var(--color-primary)]"
+      >
+        Voir l'offre Premium →
+      </RouterLink>
     </div>
   </div>
 </template>
