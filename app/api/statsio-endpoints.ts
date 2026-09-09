@@ -22,6 +22,8 @@ export const STATSIO_API = {
     profile: '/reference-data/profile',
   },
   healthcheck: '/healthcheck',
+  /** Chiffres publics de la plateforme (pages vitrine + écrans d'authentification). */
+  publicStats: '/public-stats',
   media: {
     collection: '/media',
     upload: '/media/upload',
@@ -181,6 +183,7 @@ export const STATSIO_API = {
   },
   tv: {
     epg: (date: string) => `/tv/epg?date=${encodeURIComponent(date)}`,
+    categories: '/tv/categories',
     audiences: '/tv/audiences',
     channelDetail: (slug: string) => `/tv/channels/${encodeURIComponent(slug)}`,
     channelPopular: (slug: string) => `/tv/channels/${encodeURIComponent(slug)}/popular`,

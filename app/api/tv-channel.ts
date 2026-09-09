@@ -19,9 +19,24 @@ export type PopularProgramme = {
   title: string
   category: string | null
   categoryColor: string | null
+  categoryIcon: string | null
   imageUrl: string | null
   score: number
   rating: number | null
+}
+
+export type TvCategoryItem = {
+  id: number
+  name: string
+  slug: string
+  color: string | null
+  /** Nom d'icône Heroicons associé à la catégorie (piloté en back-office). */
+  icon: string | null
+}
+
+export async function fetchTvCategories(): Promise<TvCategoryItem[]> {
+  const { data } = await apiHttp.get<{ success: boolean; data: TvCategoryItem[] }>(STATSIO_API.tv.categories)
+  return data.data
 }
 
 export type ToggleFollowResponse = {

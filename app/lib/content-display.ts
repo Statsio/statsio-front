@@ -32,6 +32,18 @@ export function publicContentListPath(type: ContentType, basePath = ''): string 
   return `${basePath}/statsdata`
 }
 
+/** Préfixes de sous-marque susceptibles d'apparaître devant une route de contenu partagé. */
+const BRAND_PREFIX_RE = /^\/(tvstats|medistats)(?=\/|$)/
+
+/**
+ * Chemin canonique d'un contenu partagé (article / statsdata / sondage / dossier) :
+ * le même contenu publié sous plusieurs univers (`/`, `/tvstats`, `/medistats`)
+ * ne doit exposer qu'une seule URL à Google. On ramène toujours au préfixe racine.
+ */
+export function canonicalContentPath(path: string): string {
+  return path.replace(BRAND_PREFIX_RE, '') || '/'
+}
+
 /**
  * Dashboard « Propriétés du contenu » — chemin unifié indépendant du type
  * (`/contenu/{slug}/proprietes`). Le paramètre `type` n'est plus utilisé mais

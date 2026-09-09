@@ -3,19 +3,14 @@ definePageMeta({ layout: 'studio', middleware: ['guest'], ssr: false, title: 'R�
 
 const resetSignals = [
   {
-    label: 'Récupération rapide',
+    label: 'récupération',
     value: 'Quelques minutes',
-    detail: 'Choisissez un nouveau mot de passe et reprenez immédiatement l\'accès à votre compte.',
+    detail: 'choisissez un nouveau mot de passe et reprenez l\'accès à votre compte',
   },
   {
-    label: 'Accès protégés',
-    value: '100%',
-    detail: 'Vos anciennes sessions sont automatiquement révoquées après la mise à jour.',
-  },
-  {
-    label: 'Aide disponible',
-    value: 'Support',
-    detail: "En cas de blocage, vous pouvez demander un nouveau lien à tout moment.",
+    label: 'sécurité',
+    value: 'Sessions révoquées',
+    detail: 'vos anciennes sessions sont fermées après la mise à jour',
   },
 ]
 </script>
@@ -23,7 +18,6 @@ const resetSignals = [
 <template>
   <AuthShell
     :signals="resetSignals"
-    badge-label="Récupération sécurisée"
     title="Choisissez un nouveau mot de passe."
     description="Définissez un mot de passe solide pour sécuriser à nouveau l'accès à votre compte Statsio."
   >

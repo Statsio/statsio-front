@@ -9,7 +9,11 @@ import ArticleTeaserCard from '@/components/articles/ArticleTeaserCard.vue'
 import StatsDataUsefulBar from '@/components/statsdata/detail/StatsDataUsefulBar.vue'
 import StatsDataEmbedModal from '@/components/statsdata/detail/StatsDataEmbedModal.vue'
 import ContentOwnerBar from '@/components/statsdata/detail/ContentOwnerBar.vue'
-import { fetchPublicArticles, fetchPublicStatsDataDocument, type StatsDataDocument } from '@/api/studio'
+import {
+  fetchPublicArticles,
+  fetchPublicStatsDataDocument,
+  type StatsDataDocument,
+} from '@/api/studio'
 import { useStudioStore } from '@/stores/studio'
 import { useStatsDataChrome } from '@/composables/useStatsDataChrome'
 import { useContentBasePath } from '@/composables/useContentBasePath'
@@ -17,7 +21,7 @@ import { useContentDomain } from '@/composables/useContentDomain'
 import { isFormBlock, isTextBlock } from '@/types/studio'
 import type { StudioBlock } from '@/types/studio'
 import { getHttpErrorStatus } from '@/lib/http-errors'
-import { publicContentListPath } from '@/lib/content-display'
+import { canonicalContentPath, publicContentListPath } from '@/lib/content-display'
 import { sectionAnchorId } from '@/lib/slug'
 import { stripInlineHtml } from '@/lib/inline-rich-text'
 
@@ -54,7 +58,7 @@ usePageSeo({
   title: computed(() => article.value?.title),
   description: computed(() => article.value?.description ?? undefined),
   image: computed(() => article.value?.thumbnail_url ?? undefined),
-  canonical: computed(() => route.path),
+  canonical: computed(() => canonicalContentPath(route.path)),
   robots: computed(() => (props.embed ? 'noindex,follow' : undefined)),
   type: 'article',
 })
@@ -62,7 +66,10 @@ usePageSeo({
 // ─── Blocs dérivés ───────────────────────────────────────────────────────────
 
 function stripHtml(html?: string) {
-  return (html ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  return (html ?? '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 const contentBlocks = computed<StudioBlock[]>(() =>
@@ -72,7 +79,9 @@ const contentBlocks = computed<StudioBlock[]>(() =>
 const readingMinutes = computed(() => {
   let words = 0
   for (const block of contentBlocks.value) {
-    words += isTextBlock(block.type) ? stripHtml(block.config.content).split(' ').filter(Boolean).length : 60
+    words += isTextBlock(block.type)
+      ? stripHtml(block.config.content).split(' ').filter(Boolean).length
+      : 60
   }
   return Math.max(1, Math.round(words / 200))
 })
@@ -99,15 +108,24 @@ const tocEntries = computed(() => {
   return out
 })
 
-const linkedStatsData = computed(() =>
-  contentBlocks.value
-    .filter((b) => b.type === 'sd-embed' && b.config.sourceBlockId)
-    .map((b) => ({ id: `block-${b.id}`, title: b.config.sourceDocTitle || b.config.sourceSlug || 'Statsdata' })),
-)
-
-const editHref = computed(() =>
-  article.value?.can_edit ? `/studio/article/${article.value.slug ?? slug.value}` : null,
-)
+// Statsdata réutilisés dans l'article, dédupliqués : plusieurs blocs `sd-embed`
+// peuvent pointer vers le même Statsdata source — on ne le liste qu'une fois
+// (ancre = premier bloc rencontré).
+const linkedStatsData = computed(() => {
+  const seen = new Set<string>()
+  const out: { id: string; title: string }[] = []
+  for (const b of contentBlocks.value) {
+    if (b.type !== 'sd-embed' || !b.config.sourceBlockId) continue
+    const key = b.config.sourceSlug || b.config.sourceDocTitle || b.id
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push({
+      id: `block-${b.id}`,
+      title: b.config.sourceDocTitle || b.config.sourceSlug || 'Statsdata',
+    })
+  }
+  return out
+})
 
 const listPath = computed(() => publicContentListPath('article', basePath.value))
 
@@ -115,14 +133,22 @@ onMounted(async () => {
   try {
     const [doc, articles] = await Promise.all([
       fetchPublicStatsDataDocument(slug.value),
-      props.embed ? Promise.resolve([] as StatsDataDocument[]) : fetchPublicArticles({ sub_brand: domain.value }),
+      props.embed
+        ? Promise.resolve([] as StatsDataDocument[])
+        : fetchPublicArticles({ sub_brand: domain.value }),
     ])
 
     article.value = doc
     relatedArticles.value = articles.filter((item) => item.slug !== doc.slug).slice(0, 2)
 
     studio.initPage(
-      { id: doc.id, type: 'article', title: doc.title, status: doc.status as 'draft' | 'published', slug: slug.value },
+      {
+        id: doc.id,
+        type: 'article',
+        title: doc.title,
+        status: doc.status as 'draft' | 'published',
+        slug: slug.value,
+      },
       doc.sections,
       doc.blocks,
       doc.pages,
@@ -146,7 +172,11 @@ onMounted(async () => {
     <div v-if="loading" class="flex items-center justify-center py-40">
       <svg class="h-8 w-8 animate-spin text-[var(--color-primary)]" fill="none" viewBox="0 0 24 24">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        <path
+          class="opacity-75"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+        />
       </svg>
     </div>
 
@@ -154,7 +184,9 @@ onMounted(async () => {
       <!-- Embed : corps seul -->
       <template v-if="embed">
         <main class="mx-auto max-w-[820px] px-4 py-6 sm:px-6">
-          <article class="rounded-[18px] bg-[var(--studio-surface)] p-6 shadow-[var(--studio-shadow-card)] sm:p-9">
+          <article
+            class="rounded-[18px] bg-[var(--studio-surface)] p-6 shadow-[var(--studio-shadow-card)] sm:p-9"
+          >
             <ArticleBody />
           </article>
           <a
@@ -162,7 +194,8 @@ onMounted(async () => {
             target="_blank"
             rel="noopener"
             class="mt-4 block text-center text-[11px] font-semibold text-[var(--studio-faint)] hover:text-[var(--studio-muted)]"
-          >Réalisé avec Statsio →</a>
+            >Réalisé avec Statsio →</a
+          >
         </main>
       </template>
 
@@ -177,7 +210,6 @@ onMounted(async () => {
 
         <ArticleSubHeader
           :title="article.title"
-          :edit-href="editHref"
           :is-favorite="isFavorite"
           :is-following="isFollowing"
           :can-follow="canFollowChannel"
@@ -201,13 +233,17 @@ onMounted(async () => {
         />
 
         <div class="mx-auto max-w-[1180px] px-4 sm:px-6">
-          <div class="grid grid-cols-1 gap-10 pt-8 lg:grid-cols-[212px_minmax(0,1fr)] lg:items-start">
+          <div
+            class="grid grid-cols-1 gap-10 pt-8 lg:grid-cols-[212px_minmax(0,1fr)] lg:items-start"
+          >
             <div class="lg:sticky lg:top-40">
               <ArticleToc :entries="tocEntries" :linked="linkedStatsData" />
             </div>
 
             <main class="flex min-w-0 flex-col gap-4 pb-20">
-              <article class="rounded-[18px] bg-[var(--studio-surface)] p-6 shadow-[var(--studio-shadow-card)] sm:p-[38px_44px]">
+              <article
+                class="rounded-[18px] bg-[var(--studio-surface)] p-6 shadow-[var(--studio-shadow-card)] sm:p-[38px_44px]"
+              >
                 <ArticleBody />
               </article>
 
@@ -226,11 +262,22 @@ onMounted(async () => {
               />
 
               <section v-if="relatedArticles.length" class="mt-8 flex flex-col gap-5">
-                <p class="text-[9.5px] font-extrabold uppercase tracking-[0.09em] text-[var(--studio-faint)]">À lire aussi</p>
+                <p
+                  class="text-[9.5px] font-extrabold uppercase tracking-[0.09em] text-[var(--studio-faint)]"
+                >
+                  À lire aussi
+                </p>
                 <div class="grid gap-5 sm:grid-cols-2">
-                  <ArticleTeaserCard v-for="item in relatedArticles" :key="item.slug" :article="item" />
+                  <ArticleTeaserCard
+                    v-for="item in relatedArticles"
+                    :key="item.slug"
+                    :article="item"
+                  />
                 </div>
-                <RouterLink :to="listPath" class="text-[13px] font-semibold text-[var(--color-primary)]">
+                <RouterLink
+                  :to="listPath"
+                  class="text-[13px] font-semibold text-[var(--color-primary)]"
+                >
                   Tous les articles →
                 </RouterLink>
               </section>
@@ -238,7 +285,11 @@ onMounted(async () => {
           </div>
         </div>
 
-        <StatsDataEmbedModal v-model:open="showEmbedModal" :snippet="embedSnippet" :preview-url="embedUrl" />
+        <StatsDataEmbedModal
+          v-model:open="showEmbedModal"
+          :snippet="embedSnippet"
+          :preview-url="embedUrl"
+        />
       </template>
     </template>
   </div>

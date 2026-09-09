@@ -10,14 +10,14 @@ definePageMeta({
 
 const verifySignals = [
   {
-    label: 'Activation rapide',
-    value: '6 chiffres',
-    detail: 'Saisissez le code reçu par e-mail pour activer votre compte en quelques secondes.',
+    label: 'activation',
+    value: 'Code à 6 chiffres',
+    detail: 'activez votre compte en quelques secondes',
   },
   {
-    label: 'Accès protégés',
-    value: 'Sécurisé',
-    detail: 'La vérification protège votre compte contre les usages frauduleux.',
+    label: 'sécurité',
+    value: 'Compte protégé',
+    detail: 'la vérification protège votre compte contre les usages frauduleux',
   },
 ]
 </script>
@@ -25,7 +25,6 @@ const verifySignals = [
 <template>
   <AuthShell
     :signals="verifySignals"
-    badge-label="Vérification"
     title="Confirmez votre identité."
     description="Un code à 6 chiffres a été envoyé à votre adresse e-mail. Saisissez-le ci-dessous pour activer votre compte."
   >

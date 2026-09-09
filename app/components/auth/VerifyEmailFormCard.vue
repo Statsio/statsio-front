@@ -149,6 +149,7 @@ const handleResend = async () => {
           size="lg"
           variant="gradient"
           type="submit"
+          class="auth-cta"
         >
           {{ authStore.isAuthenticating ? 'Vérification...' : 'Confirmer mon compte' }}
         </AppButton>

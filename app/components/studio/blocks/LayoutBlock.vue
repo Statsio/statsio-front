@@ -31,22 +31,29 @@ function blocksInZone(zoneId: string): StudioBlock[] {
 
 <template>
   <!-- ══════════ ÉDITEUR ══════════ -->
+  <!-- Mobile : colonnes en flex-wrap (empilées / repliées) ; ≥ sm : vraie grille `Nfr`. -->
   <div
     v-if="!readonly"
-    class="grid items-start gap-4"
+    class="flex flex-wrap items-start gap-4 sm:grid"
     :style="{ gridTemplateColumns: def.gridCols.map((s: number) => `${s}fr`).join(' ') }"
     @click.stop
   >
-    <CanvasZone v-for="(zoneId, i) in zoneIds" :key="zoneId" :zone-id="zoneId" :col-index="i" nested />
+    <div
+      v-for="(zoneId, i) in zoneIds"
+      :key="zoneId"
+      class="min-w-0 grow basis-[min(100%,16rem)] sm:basis-auto"
+    >
+      <CanvasZone :zone-id="zoneId" :col-index="i" nested />
+    </div>
   </div>
 
   <!-- ══════════ LECTURE SEULE (publié / aperçu) ══════════ -->
   <div
     v-else
-    class="grid items-start gap-4"
+    class="flex flex-wrap items-start gap-4 sm:grid"
     :style="{ gridTemplateColumns: def.gridCols.map((s: number) => `${s}fr`).join(' ') }"
   >
-    <div v-for="zoneId in zoneIds" :key="zoneId" class="flex min-w-0 flex-col gap-4">
+    <div v-for="zoneId in zoneIds" :key="zoneId" class="flex min-w-0 grow basis-[min(100%,16rem)] flex-col gap-4 sm:basis-auto">
       <BlockCard v-for="child in blocksInZone(zoneId)" :key="child.id" :block="child" :scope="scope" flat>
         <BlockRenderer :block="child" :readonly="true" :scope="scope" />
       </BlockCard>

@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useStatsDataDetail } from '@/composables/useStatsDataDetail'
 import { useStatsDataChrome } from '@/composables/useStatsDataChrome'
-import { publicContentListPath } from '@/lib/content-display'
+import { canonicalContentPath, publicContentListPath } from '@/lib/content-display'
 import { useContentBasePath } from '@/composables/useContentBasePath'
 import StatsDataHero from './StatsDataHero.vue'
 import StatsDataSubHeader from './StatsDataSubHeader.vue'
@@ -20,6 +20,7 @@ const {
   doc,
   loading,
   error,
+  fanOutHydrated,
   activePage,
   allPages,
   canvasItems,
@@ -46,20 +47,42 @@ const {
 
 const showEmbedModal = ref(false)
 
-// Page fan-out atteinte sans valeur (clic d'onglet, URL nue) : contenu « vide »,
-// on la sort de l'index — seules les vraies pages par valeur doivent être indexées.
-const emptyFanOutPage = computed(() => {
-  const param = activePage.value?.params?.find((p) => p.fanOut && p.name)
-  if (!param) return false
+const fanOutParam = computed(() => activePage.value?.params?.find((p) => p.fanOut && p.name) ?? null)
+
+/** Valeur de fan-out active (lisible), depuis la colonne slug ou le nom du paramètre. */
+const fanOutValue = computed(() => {
+  const param = fanOutParam.value
+  if (!param) return ''
   const key = param.slugColumn || param.column || param.name
-  return !studio.pageParams[key] && !studio.pageParams[param.name]
+  return studio.pageParams[key] || studio.pageParams[param.name] || ''
 })
 
+// Page fan-out atteinte sans valeur (clic d'onglet, URL nue) : contenu « vide »,
+// on la sort de l'index — seules les vraies pages par valeur doivent être indexées.
+const emptyFanOutPage = computed(() => Boolean(fanOutParam.value) && !fanOutValue.value)
+
+// Valeur de fan-out qui ne correspond à aucune donnée réelle (repli dé-slugifié) :
+// page « mince », hors index elle aussi.
+const thinFanOutPage = computed(
+  () => Boolean(fanOutParam.value) && Boolean(fanOutValue.value) && fanOutHydrated.value === false,
+)
+
+/** Titre/description enrichis de la valeur quand le gabarit n'y fait pas déjà référence via un jeton. */
+function withFanOutValue(text: string | undefined): string | undefined {
+  if (!text) return undefined
+  const resolved = resolveToken(text)
+  const value = fanOutValue.value
+  if (!value || fanOutHydrated.value !== true || /\{\{/.test(text)) return resolved
+  return `${resolved} — ${value}`
+}
+
 usePageSeo({
-  title: computed(() => (doc.value?.title ? resolveToken(doc.value.title) : undefined)),
-  description: computed(() => (doc.value?.description ? resolveToken(doc.value.description) : undefined)),
-  canonical: computed(() => route.path),
-  robots: computed(() => (props.embed || emptyFanOutPage.value ? 'noindex,follow' : undefined)),
+  title: computed(() => withFanOutValue(doc.value?.title)),
+  description: computed(() => withFanOutValue(doc.value?.description ?? undefined)),
+  canonical: computed(() => canonicalContentPath(route.path)),
+  robots: computed(() =>
+    props.embed || emptyFanOutPage.value || thinFanOutPage.value ? 'noindex,follow' : undefined,
+  ),
 })
 
 const pageTitle = computed(() => resolveToken(doc.value?.title ?? ''))

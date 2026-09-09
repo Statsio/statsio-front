@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useBlockData, rowKey } from '@/composables/useBlockData'
 import { useStudioStore } from '@/stores/studio'
+import { valueLabel } from '@/lib/studio-columns'
 import { formatDisplayValue } from '@/utils/statsDataFormat'
 import { buildFanOutSegment, findFanOutTarget } from '@/lib/statsdata-fanout'
 import { slugify } from '@/lib/slug'
@@ -35,13 +36,16 @@ const items = computed(() => {
   const labelKey = rowKey(data.value, labelCol.value)
   const valueKey = valueCol.value ? rowKey(data.value, valueCol.value) : ''
   return (data.value?.rows ?? []).slice(0, limit.value).map((r) => {
-    const label = formatDisplayValue(r[labelKey], '')
+    const label = valueLabel(labelCol.value, r[labelKey], props.block) ?? formatDisplayValue(r[labelKey], '')
     let href: string | undefined
     if (fanOut.value && docSlug.value) {
       const seg = buildFanOutSegment(fanOut.value.param, r) || slugify(String(r[labelKey] ?? ''))
       if (seg) href = `/statsdata/${docSlug.value}/${seg}`
     }
-    return { label, value: valueKey ? formatDisplayValue(r[valueKey], '') : '', href }
+    const value = valueKey
+      ? (valueLabel(valueCol.value, r[valueKey], props.block) ?? formatDisplayValue(r[valueKey], ''))
+      : ''
+    return { label, value, href }
   }).filter((it) => it.label)
 })
 </script>

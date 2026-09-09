@@ -106,6 +106,39 @@ describe('useBlockData', () => {
     expect(params.limit).toBe(10)
   })
 
+  it('load() sends config.rowLimit as a hard limit for a plain table', async () => {
+    vi.mocked(fetchBlockData).mockResolvedValue(result)
+    const block = makeBlock({ type: 'table', config: { rowLimit: 5 } })
+
+    const { reload } = useBlockData(() => block, false)
+    await reload()
+
+    const params = vi.mocked(fetchBlockData).mock.calls[0]![1] as { limit?: number }
+    expect(params.limit).toBe(5)
+  })
+
+  it('load() keeps rowLimit as a hard cap even when a stale series mapping is present on a non-chart block', async () => {
+    vi.mocked(fetchBlockData).mockResolvedValue(result)
+    const block = makeBlock({ type: 'table', fieldMapping: { series: 'region' }, config: { rowLimit: 5 } })
+
+    const { reload } = useBlockData(() => block, false)
+    await reload()
+
+    const params = vi.mocked(fetchBlockData).mock.calls[0]![1] as { limit?: number }
+    expect(params.limit).toBe(5)
+  })
+
+  it('load() over-fetches for a bar chart with a series column so the chart can slice X labels', async () => {
+    vi.mocked(fetchBlockData).mockResolvedValue(result)
+    const block = makeBlock({ type: 'bar', fieldMapping: { xAxis: 'x', yAxis: 'y', series: 'region' }, config: { rowLimit: 5 } })
+
+    const { reload } = useBlockData(() => block, false)
+    await reload()
+
+    const params = vi.mocked(fetchBlockData).mock.calls[0]![1] as { limit?: number }
+    expect(params.limit).toBe(500)
+  })
+
   it('load() falls back to config sort when no override sort is given', async () => {
     vi.mocked(fetchBlockData).mockResolvedValue(result)
     const block = makeBlock({ config: { sortColumn: 'a', sortDirection: 'desc' } })
@@ -172,6 +205,24 @@ describe('useBlockData', () => {
     expect(params?.primarySourceId).toBe('1')
     expect(params?.joins).toHaveLength(1)
     expect(params?.aggregates).toEqual([{ column: 'y@2', fn: 'sum' }])
+  })
+
+  it('load() forwards the map block coordinate + card columns as query columns', async () => {
+    vi.mocked(fetchBlockData).mockResolvedValue(result)
+    const block = makeBlock({
+      type: 'map',
+      fieldMapping: {
+        mapPointColumn: 'geo_point_2d', mapTitleColumn: 'enseigne',
+        mapColorColumn: 'marque', mapSizeColumn: 'volume', columns: ['adresse', 'prix'],
+      },
+    })
+    const { reload } = useBlockData(() => block, false)
+    await reload()
+
+    const [, params] = vi.mocked(fetchBlockData).mock.calls[0]!
+    expect(params?.columns).toEqual(
+      expect.arrayContaining(['geo_point_2d', 'enseigne', 'marque', 'volume', 'adresse', 'prix']),
+    )
   })
 })
 

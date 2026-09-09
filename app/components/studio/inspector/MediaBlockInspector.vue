@@ -16,8 +16,6 @@ import FieldImage from '@/components/media/FieldImage.vue'
 const props = defineProps<{ block: StudioBlock }>()
 const studio = useStudioStore()
 
-const TOKEN_HINT = '{{ colonne }}'
-
 function set<K extends keyof BlockConfig>(key: K, value: BlockConfig[K]) {
   studio.updateBlockConfig(props.block.id, { [key]: value })
 }
@@ -205,16 +203,6 @@ const pickedPage = computed(() => studio.pages.find((p) => p.id === props.block.
           @update:model-value="set('videoCaption', $event)"
         />
         <FieldNote>Lecteur intégré en iframe au ratio 16:9, avec badge du fournisseur détecté automatiquement.</FieldNote>
-      </InspectorSection>
-    </template>
-
-    <!-- MAP -->
-    <template v-else-if="block.type === 'map'">
-      <InspectorSection label="Point GPS">
-        <FieldText :model-value="block.config.mapLat ?? ''" label="Latitude" :placeholder="`ex. 45.75781 ou ${TOKEN_HINT}`" @update:model-value="set('mapLat', $event)" />
-        <FieldText :model-value="block.config.mapLng ?? ''" label="Longitude" :placeholder="`ex. 4.83201 ou ${TOKEN_HINT}`" @update:model-value="set('mapLng', $event)" />
-        <FieldText :model-value="block.config.mapLabel ?? ''" label="Libellé" placeholder="Nom du lieu (optionnel)" @update:model-value="set('mapLabel', $event)" />
-        <FieldNote>Les jetons {{ TOKEN_HINT }} sont résolus — utile sur une page générée par valeur.</FieldNote>
       </InspectorSection>
     </template>
 

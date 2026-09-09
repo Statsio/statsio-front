@@ -66,7 +66,8 @@ function goToDetail() {
       <p class="u-card-title truncate text-sm font-bold text-slate-900">{{ programme.title }}</p>
 
       <div class="flex flex-wrap items-center gap-1.5">
-        <span v-if="categoryLabel" class="rounded-full px-2 py-0.5 text-[10px] font-bold" :class="categoryBadgeClass(categoryLabel)">
+        <span v-if="categoryLabel" class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold" :class="categoryBadgeClass(categoryLabel)">
+          <CategoryIcon :category="categoryLabel" :size="11" fallback="none" />
           {{ categoryLabel }}
         </span>
         <span v-if="mention" class="rounded-full px-2 py-0.5 text-[10px] font-bold" :class="mention.class">
