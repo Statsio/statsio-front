@@ -116,6 +116,13 @@ export default defineNuxtConfig({
     // Espace compte v2 : onglets consolidés en routes imbriquées sous /user.
     '/contenus': { redirect: '/user/contenus' },
     '/mes-chaines': { redirect: '/user/chaines' },
+    // Studio : strictement client-only. `definePageMeta({ ssr: false })` ne suffit pas sur
+    // le preset Cloudflare (le Worker rend quand même la route → 500) ; ces règles forcent
+    // le fallback SPA statique pour que le Worker ne rende jamais le studio en SSR.
+    '/studio': { ssr: false },
+    '/studio/**': { ssr: false },
+    '/tvstats/studio': { ssr: false },
+    '/tvstats/studio/**': { ssr: false },
   },
 
   components: [
