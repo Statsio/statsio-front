@@ -113,9 +113,14 @@ function removeComputed(i: number) { setComputed(computedCols.value.filter((_, i
 const cellRules = computed(() => fm.value.cellRules ?? [])
 const RULE_WHENS = [
   { v: 'positive', l: 'positif' }, { v: 'negative', l: 'négatif' },
-  { v: 'gt', l: '> seuil' }, { v: 'lt', l: '< seuil' },
   { v: 'top', l: 'max colonne' }, { v: 'bottom', l: 'min colonne' },
+  { v: '=', l: 'égal à' }, { v: '!=', l: 'différent de' },
+  { v: 'contains', l: 'contient' }, { v: 'not_contains', l: 'ne contient pas' },
+  { v: '>', l: '> à' }, { v: '>=', l: '≥ à' },
+  { v: '<', l: '< à' }, { v: '<=', l: '≤ à' },
 ] as const
+/** `when` sans valeur comparée : signe et max / min de colonne. */
+const RULE_WHENS_NO_VALUE: TableCellRule['when'][] = ['positive', 'negative', 'top', 'bottom']
 const RULE_COLORS = ['#059669', '#e11d48', '#7c3aed', '#2563eb', '#b45309']
 
 function setRules(next: TableCellRule[]) {
@@ -223,7 +228,8 @@ function removeRule(i: number) { setRules(cellRules.value.filter((_, idx) => idx
           <button type="button" class="text-[11px] font-bold text-[var(--color-primary)]" :disabled="!allTableColumns.length" @click="addRule">+ Ajouter</button>
         </div>
         <p v-if="!cellRules.length" class="text-[11.5px] text-[var(--studio-faint)]">
-          Colore une cellule selon sa valeur (positif / négatif, seuil, min / max de colonne).
+          Colore une cellule selon sa valeur : signe, min / max de colonne, seuil, ou
+          comparaison texte (égal, contient…).
         </p>
         <div v-for="(r, i) in cellRules" :key="i" class="mb-2 flex flex-wrap items-center gap-1.5">
           <select class="studio-input !w-[112px] !py-2 !text-[11px]" :value="r.column" @change="updateRule(i, { column: ($event.target as HTMLSelectElement).value })">
@@ -233,11 +239,12 @@ function removeRule(i: number) { setRules(cellRules.value.filter((_, idx) => idx
             <option v-for="w in RULE_WHENS" :key="w.v" :value="w.v">{{ w.l }}</option>
           </select>
           <input
-            v-if="r.when === 'gt' || r.when === 'lt'"
-            type="number"
-            class="studio-input !w-[60px] !py-2 !text-[11px]"
+            v-if="!RULE_WHENS_NO_VALUE.includes(r.when)"
+            type="text"
+            placeholder="valeur"
+            class="studio-input !w-[84px] !py-2 !text-[11px]"
             :value="r.value ?? ''"
-            @change="updateRule(i, { value: Number(($event.target as HTMLInputElement).value) })"
+            @change="updateRule(i, { value: ($event.target as HTMLInputElement).value })"
           />
           <span class="flex gap-1">
             <button
