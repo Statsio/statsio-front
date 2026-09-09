@@ -8,6 +8,7 @@ import { catalogThemeStyle } from '@/lib/catalog-theme'
 import { formatRelativePublished } from '@/lib/catalog-format'
 import { formatShortDate } from '@/lib/format'
 import { canonicalContentPath, publicContentPath } from '@/lib/content-display'
+import { breadcrumbNode, collectionNode } from '@/lib/structured-data'
 import ContentCard from '@/components/content/ContentCard.vue'
 import CatalogEmpty from '@/components/listing/CatalogEmpty.vue'
 import AppMediaImage from '@/components/ui/AppMediaImage.vue'
@@ -15,6 +16,7 @@ import type { CatalogItem } from '@/types/catalog'
 import type { ContentType } from '@/types/content-creation'
 
 const route = useRoute()
+const requestUrl = useRequestURL()
 const slug = computed(() => String(route.params.slug))
 const basePath = useContentBasePath()
 
@@ -60,12 +62,43 @@ const hero = computed(() => {
 const { isFollowing, toggle } = useDossierFollows()
 const following = computed(() => isFollowing(slug.value))
 
+const canonicalPath = computed(() => canonicalContentPath(route.path))
+
 usePageSeo({
   title: () => dossier.value.name,
   description: () =>
     dossier.value.description ?? `Tous les contenus Statsio du dossier « ${dossier.value.name} ».`,
   image: () => dossier.value.image_url ?? undefined,
-  canonical: () => canonicalContentPath(route.path),
+  canonical: canonicalPath,
+  jsonLd: computed(() => {
+    const d = dossier.value
+    const url = `${requestUrl.origin}${canonicalPath.value}`
+    return [
+      breadcrumbNode(
+        [
+          { name: 'Accueil', path: '/' },
+          { name: 'Dossiers', path: '/dossiers' },
+          ...(d.category ? [{ name: d.category.label, path: `/dossiers?category=${d.category.slug}` }] : []),
+          { name: d.name, path: canonicalPath.value },
+        ],
+        requestUrl.origin,
+      ),
+      collectionNode(
+        {
+          url,
+          name: d.name,
+          description: d.description ?? undefined,
+          image: d.image_url ?? undefined,
+          dateModified: d.updated_at ?? undefined,
+          items: detail.value.items.map((it) => ({
+            url: `${requestUrl.origin}${publicContentPath((it.type ?? 'statsdata') as ContentType, it.slug)}`,
+            name: it.title,
+          })),
+        },
+        requestUrl.origin,
+      ),
+    ]
+  }),
 })
 
 // ── Filtres client ──────────────────────────────────────────────────────────

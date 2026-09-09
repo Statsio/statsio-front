@@ -22,12 +22,14 @@ import { isFormBlock, isTextBlock } from '@/types/studio'
 import type { StudioBlock } from '@/types/studio'
 import { getHttpErrorStatus } from '@/lib/http-errors'
 import { canonicalContentPath, publicContentListPath } from '@/lib/content-display'
+import { articleNode, breadcrumbNode } from '@/lib/structured-data'
 import { sectionAnchorId } from '@/lib/slug'
 import { stripInlineHtml } from '@/lib/inline-rich-text'
 
 const props = withDefaults(defineProps<{ embed?: boolean }>(), { embed: false })
 
 const route = useRoute()
+const requestUrl = useRequestURL()
 const studio = useStudioStore()
 const basePath = useContentBasePath()
 const domain = useContentDomain()
@@ -54,13 +56,48 @@ const {
 
 const showEmbedModal = ref(false)
 
+const canonicalPath = computed(() => canonicalContentPath(route.path))
+
+function channelPublicUrl(handle?: string | null) {
+  return handle ? `${requestUrl.origin}/channels/${handle}` : undefined
+}
+
 usePageSeo({
   title: computed(() => article.value?.title),
   description: computed(() => article.value?.description ?? undefined),
   image: computed(() => article.value?.thumbnail_url ?? undefined),
-  canonical: computed(() => canonicalContentPath(route.path)),
+  canonical: canonicalPath,
   robots: computed(() => (props.embed ? 'noindex,follow' : undefined)),
   type: 'article',
+  jsonLd: computed(() => {
+    const doc = article.value
+    if (!doc || props.embed) return []
+    return [
+      breadcrumbNode(
+        [
+          { name: 'Accueil', path: '/' },
+          { name: 'Articles', path: publicContentListPath('article') },
+          { name: doc.title, path: canonicalPath.value },
+        ],
+        requestUrl.origin,
+      ),
+      articleNode(
+        {
+          url: `${requestUrl.origin}${canonicalPath.value}`,
+          headline: doc.title,
+          description: doc.description ?? undefined,
+          image: doc.thumbnail_url ?? undefined,
+          datePublished: doc.first_published_at ?? doc.created_at,
+          dateModified: doc.last_published_at ?? doc.updated_at,
+          section: doc.categories?.[0],
+          authorName: doc.author?.name,
+          channelName: doc.channel?.name ?? undefined,
+          channelUrl: channelPublicUrl(doc.channel?.handle),
+        },
+        requestUrl.origin,
+      ),
+    ]
+  }),
 })
 
 // ─── Blocs dérivés ───────────────────────────────────────────────────────────

@@ -268,6 +268,15 @@ watch(
           />
         </div>
 
+        <div v-if="hasSource" class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold text-[var(--studio-muted)]">Couleur conditionnelle</label>
+          <TableColumnsField :block="block" section="rules" />
+          <p class="text-[11px] leading-relaxed text-[var(--studio-faint)]">
+            Colore un marqueur selon la valeur d'une colonne (positif / négatif, seuil,
+            max / min de la colonne). Prioritaire sur la couleur ci-dessus.
+          </p>
+        </div>
+
         <div class="toggle-row" @click="updateConfig('mapAutoFit', cfg.mapAutoFit === false ? undefined : false)">
           <div>
             <span class="text-sm text-[var(--studio-ink)]">Cadrer automatiquement sur les points</span>

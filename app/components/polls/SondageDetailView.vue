@@ -18,6 +18,7 @@ import { isFormBlock } from '@/types/studio'
 import type { StudioBlock } from '@/types/studio'
 import { getHttpErrorStatus } from '@/lib/http-errors'
 import { canonicalContentPath, publicContentPath, publicContentListPath } from '@/lib/content-display'
+import { breadcrumbNode, pollNode } from '@/lib/structured-data'
 import { useContentBasePath } from '@/composables/useContentBasePath'
 import { useContentDomain } from '@/composables/useContentDomain'
 import { useRespondentToken } from '@/composables/useRespondentToken'
@@ -29,6 +30,7 @@ import { formatCompactNumber } from '@/lib/format'
 
 const route = useRoute()
 const router = useRouter()
+const requestUrl = useRequestURL()
 const studio = useStudioStore()
 const domain = useContentDomain()
 const auth = useAuthStore()
@@ -41,12 +43,7 @@ const poll = ref<StatsDataDocument | null>(null)
 const relatedPolls = ref<StatsDataDocument[]>([])
 const loading = ref(true)
 
-usePageSeo({
-  title: computed(() => poll.value?.title),
-  description: computed(() => poll.value?.description ?? undefined),
-  canonical: computed(() => canonicalContentPath(route.path)),
-  type: 'article',
-})
+const canonicalPath = computed(() => canonicalContentPath(route.path))
 
 /* ───────── Métadonnées d'en-tête ───────── */
 
@@ -306,6 +303,49 @@ const otherPolls = computed(() =>
 )
 
 const listPath = computed(() => publicContentListPath('survey', basePath.value))
+
+/* ───────── SEO / données structurées ───────── */
+
+usePageSeo({
+  title: computed(() => poll.value?.title),
+  description: computed(() => poll.value?.description ?? undefined),
+  image: computed(() => poll.value?.thumbnail_url ?? undefined),
+  canonical: canonicalPath,
+  type: 'article',
+  jsonLd: computed(() => {
+    const doc = poll.value
+    if (!doc) return []
+    const aggOptions = primaryAggregate.value?.options ?? []
+    const answers = aggOptions.length
+      ? aggOptions.map((o) => ({ text: o.value, count: o.count }))
+      : primaryOptions.value.map((text) => ({ text }))
+    return [
+      breadcrumbNode(
+        [
+          { name: 'Accueil', path: '/' },
+          { name: 'Sondages', path: publicContentListPath('survey') },
+          { name: doc.title, path: canonicalPath.value },
+        ],
+        requestUrl.origin,
+      ),
+      pollNode(
+        {
+          url: `${requestUrl.origin}${canonicalPath.value}`,
+          question: primaryBlock.value?.config?.title || doc.title,
+          description: doc.description ?? undefined,
+          dateCreated: doc.first_published_at ?? doc.created_at,
+          answers,
+          authorName: doc.author?.name,
+          channelName: doc.channel?.name ?? undefined,
+          channelUrl: doc.channel?.handle
+            ? `${requestUrl.origin}/channels/${doc.channel.handle}`
+            : undefined,
+        },
+        requestUrl.origin,
+      ),
+    ]
+  }),
+})
 
 onMounted(async () => {
   try {
