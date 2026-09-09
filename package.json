@@ -31,7 +31,7 @@
     "@sentry/nuxt": "^10.73.0",
     "@tailwindcss/vite": "^4.3.3",
     "@tiptap/extension-bubble-menu": "^3.28.0",
-    "@tiptap/extension-color": "^3.28.0",
+    "@tiptap/extension-color": "^3.31.3",
     "@tiptap/extension-highlight": "^3.31.2",
     "@tiptap/extension-text-align": "^3.28.0",
     "@tiptap/extension-text-style": "^3.31.2",
