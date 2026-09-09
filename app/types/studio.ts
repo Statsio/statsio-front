@@ -212,12 +212,18 @@ export interface PieSegment {
   label?: string
 }
 
-/** Règle de mise en forme conditionnelle d'une cellule. */
+/** Règle de mise en forme conditionnelle d'une cellule (couleur de cellule / de marqueur carte). */
 export interface TableCellRule {
   column: string
-  /** positive/negative : signe ; gt/lt : vs `value` ; top/bottom : max/min de la colonne visible. */
-  when: 'positive' | 'negative' | 'gt' | 'lt' | 'top' | 'bottom'
-  value?: number
+  /**
+   * - `positive` / `negative` : signe de la valeur numérique
+   * - `top` / `bottom` : max / min de la colonne sur les lignes chargées
+   * - opérateur de filtre (`=`, `!=`, `>`, `>=`, `<`, `<=`, `contains`, `not_contains`) : vs `value`
+   * - `gt` / `lt` : legacy, équivalents de `>` / `<` (données existantes uniquement)
+   */
+  when: 'positive' | 'negative' | 'top' | 'bottom' | 'gt' | 'lt' | FilterOperator
+  /** Valeur comparée pour les opérateurs à seuil / texte. */
+  value?: string | number
   /** Couleur du texte (hex). */
   color: string
   bold?: boolean
