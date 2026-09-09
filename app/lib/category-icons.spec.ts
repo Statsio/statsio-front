@@ -15,8 +15,9 @@ describe('category-icons', () => {
   })
 
   it('every registered icon is a renderable component', () => {
-    for (const [name, component] of Object.entries(CATEGORY_ICON_COMPONENTS)) {
-      expect(component, name).toBeTruthy()
-    }
+    const notRenderable = Object.entries(CATEGORY_ICON_COMPONENTS)
+      .filter(([, component]) => !component)
+      .map(([name]) => name)
+    expect(notRenderable).toEqual([])
   })
 })

@@ -81,7 +81,7 @@ describe('fetchPublicContentEntries', () => {
   })
 
   it('does not expand fan-out under a sub-brand base path (root only, dedup via canonical)', async () => {
-    const fetchSpy = vi.fn((url: string) => {
+    const fetchSpy = vi.fn<(url: string) => Promise<unknown>>((url: string) => {
       if (url === `${API}/studio/content/public`) {
         return Promise.resolve({ data: [{
           slug: 'prix-carburants', visibility: 'public', updated_at: '2026-08-10T00:00:00Z',
