@@ -1,8 +1,12 @@
 import type { MaybeRefOrGetter } from 'vue'
+import {
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  organizationNode,
+  websiteNode,
+  type SchemaNode,
+} from '@/lib/structured-data'
 
-const SITE_NAME = 'Statsio'
-const DEFAULT_DESCRIPTION =
-  'Statsio centralise les analyses, les sources et les signaux en temps réel pour créer des articles, des StatsData et des sondages à fort impact.'
 const DEFAULT_OG_IMAGE_PATH = '/brand/blank.png'
 
 /** Miroir du type `ogType` d'Unhead — pas de nom exporté à réutiliser directement. */
@@ -20,6 +24,13 @@ export interface PageSeoOptions {
   robots?: MaybeRefOrGetter<string | undefined>
   /** URL canonique explicite (chemin absolu ou URL complète). Défaut : l'URL courante avec sa query. */
   canonical?: MaybeRefOrGetter<string | undefined>
+  /**
+   * Nœuds JSON-LD supplémentaires (schema.org) propres à la page — fil d'Ariane,
+   * `Article`, `Dataset`, `QAPage`… Poussés dans le `@graph` global, après les
+   * nœuds `Organization` et `WebSite` toujours présents. Construits via les
+   * helpers de `@/lib/structured-data`. Les valeurs `undefined` sont ignorées.
+   */
+  jsonLd?: MaybeRefOrGetter<(SchemaNode | undefined)[] | undefined>
 }
 
 export function usePageSeo(options: PageSeoOptions = {}) {
@@ -34,7 +45,7 @@ export function usePageSeo(options: PageSeoOptions = {}) {
   const description = computed(() =>
     toValue(options.description) ??
     (route.meta.description as string | undefined) ??
-    DEFAULT_DESCRIPTION,
+    SITE_DESCRIPTION,
   )
 
   const image = computed(() =>
@@ -72,20 +83,25 @@ export function usePageSeo(options: PageSeoOptions = {}) {
     twitterDescription: () => description.value,
   })
 
+  // `@graph` unique : Organization + WebSite (toujours) puis les nœuds de la page.
+  // Clé stable partagée avec l'appel global du layout → la version la plus riche
+  // (celle de la page de détail) remplace celle du layout après hydratation.
+  const graph = computed<SchemaNode[]>(() => {
+    const origin = requestUrl.origin
+    const pageNodes = (toValue(options.jsonLd) ?? []).filter(
+      (node): node is SchemaNode => Boolean(node),
+    )
+    return [organizationNode(origin), websiteNode(origin), ...pageNodes]
+  })
+
   useHead({
     link: [{ rel: 'canonical', href: () => canonicalUrl.value }],
     script: [
       {
-        key: 'org-jsonld',
+        key: 'statsio-jsonld',
         type: 'application/ld+json',
         innerHTML: () =>
-          JSON.stringify({
-            '@context': 'https://schema.org',
-            '@type': 'Organization',
-            name: SITE_NAME,
-            url: requestUrl.origin,
-            logo: `${requestUrl.origin}/favicon.ico`,
-          }),
+          JSON.stringify({ '@context': 'https://schema.org', '@graph': graph.value }),
       },
     ],
   })

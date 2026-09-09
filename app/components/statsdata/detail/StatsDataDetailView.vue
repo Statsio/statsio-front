@@ -4,6 +4,7 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useStatsDataDetail } from '@/composables/useStatsDataDetail'
 import { useStatsDataChrome } from '@/composables/useStatsDataChrome'
 import { canonicalContentPath, publicContentListPath } from '@/lib/content-display'
+import { breadcrumbNode, datasetNode } from '@/lib/structured-data'
 import { useContentBasePath } from '@/composables/useContentBasePath'
 import StatsDataHero from './StatsDataHero.vue'
 import StatsDataSubHeader from './StatsDataSubHeader.vue'
@@ -29,6 +30,7 @@ const {
 
 const route = useRoute()
 const router = useRouter()
+const requestUrl = useRequestURL()
 const studio = useStudioStore()
 
 const {
@@ -76,13 +78,48 @@ function withFanOutValue(text: string | undefined): string | undefined {
   return `${resolved} — ${value}`
 }
 
+const canonicalPath = computed(() => canonicalContentPath(route.path))
+
 usePageSeo({
   title: computed(() => withFanOutValue(doc.value?.title)),
   description: computed(() => withFanOutValue(doc.value?.description ?? undefined)),
-  canonical: computed(() => canonicalContentPath(route.path)),
+  image: computed(() => doc.value?.thumbnail_url ?? undefined),
+  canonical: canonicalPath,
   robots: computed(() =>
     props.embed || emptyFanOutPage.value || thinFanOutPage.value ? 'noindex,follow' : undefined,
   ),
+  jsonLd: computed(() => {
+    const d = doc.value
+    if (!d || props.embed || emptyFanOutPage.value || thinFanOutPage.value) return []
+    const name = withFanOutValue(d.title) ?? d.title
+    return [
+      breadcrumbNode(
+        [
+          { name: 'Accueil', path: '/' },
+          { name: 'StatsData', path: publicContentListPath('statsdata') },
+          { name, path: canonicalPath.value },
+        ],
+        requestUrl.origin,
+      ),
+      datasetNode(
+        {
+          url: `${requestUrl.origin}${canonicalPath.value}`,
+          name,
+          description: withFanOutValue(d.description ?? undefined) ?? d.description ?? undefined,
+          image: d.thumbnail_url ?? undefined,
+          datePublished: d.first_published_at ?? d.created_at,
+          dateModified: d.last_published_at ?? d.updated_at,
+          keywords: d.categories,
+          authorName: d.author?.name,
+          channelName: d.channel?.name ?? undefined,
+          channelUrl: d.channel?.handle
+            ? `${requestUrl.origin}/channels/${d.channel.handle}`
+            : undefined,
+        },
+        requestUrl.origin,
+      ),
+    ]
+  }),
 })
 
 const pageTitle = computed(() => resolveToken(doc.value?.title ?? ''))

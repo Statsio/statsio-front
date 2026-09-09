@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useChannelProfile } from '@/composables/useChannelProfile'
+import { breadcrumbNode, channelNode } from '@/lib/structured-data'
 import type { CatalogSort } from '@/types/catalog'
 import ArticleCard from '@/components/content/ArticleCard.vue'
 import StatsDataCard from '@/components/content/StatsDataCard.vue'
@@ -35,10 +36,43 @@ const {
   isFavorited,
 } = useChannelProfile()
 
+const requestUrl = useRequestURL()
+const channelUrl = computed(() =>
+  channel.value ? `${requestUrl.origin}/channels/${channel.value.handle}` : requestUrl.origin,
+)
+
 usePageSeo({
   title: computed(() => channel.value?.name),
   description: computed(() => channel.value?.description),
+  image: computed(() => channel.value?.logoUrl ?? undefined),
   type: 'profile',
+  canonical: computed(() => (channel.value ? `/channels/${channel.value.handle}` : undefined)),
+  jsonLd: computed(() => {
+    const c = channel.value
+    if (!c) return []
+    return [
+      breadcrumbNode(
+        [
+          { name: 'Accueil', path: '/' },
+          { name: 'Chaînes', path: '/chaines' },
+          { name: c.name, path: `/channels/${c.handle}` },
+        ],
+        requestUrl.origin,
+      ),
+      channelNode(
+        {
+          url: channelUrl.value,
+          name: c.name,
+          description: c.description || c.longDescription || undefined,
+          image: c.logoUrl ?? c.bannerUrl ?? undefined,
+          handle: c.handle,
+          dateCreated: c.createdAt,
+          subscriberCount: c.subscriptions ?? c.followers,
+        },
+        requestUrl.origin,
+      ),
+    ]
+  }),
 })
 
 const BASE_SORTS: { value: CatalogSort; label: string }[] = [
