@@ -183,6 +183,7 @@ export const STATSIO_API = {
   },
   tv: {
     epg: (date: string) => `/tv/epg?date=${encodeURIComponent(date)}`,
+    categories: '/tv/categories',
     audiences: '/tv/audiences',
     channelDetail: (slug: string) => `/tv/channels/${encodeURIComponent(slug)}`,
     channelPopular: (slug: string) => `/tv/channels/${encodeURIComponent(slug)}/popular`,

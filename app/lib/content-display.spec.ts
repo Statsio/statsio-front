@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { CONTENT_TYPE_META, getStatusMeta, publicContentListPath, publicContentPath } from './content-display'
+import {
+  CONTENT_TYPE_META,
+  canonicalContentPath,
+  getStatusMeta,
+  publicContentListPath,
+  publicContentPath,
+} from './content-display'
 
 describe('CONTENT_TYPE_META', () => {
   it('provides a label, color and bg for every content type', () => {
@@ -51,5 +57,24 @@ describe('publicContentListPath', () => {
 
   it('prefixes the path with a base path when provided', () => {
     expect(publicContentListPath('article', '/tvstats')).toBe('/tvstats/articles')
+  })
+})
+
+describe('canonicalContentPath', () => {
+  it('strips a leading sub-brand prefix', () => {
+    expect(canonicalContentPath('/tvstats/statsdata/incendies/lyon')).toBe('/statsdata/incendies/lyon')
+    expect(canonicalContentPath('/medistats/articles/mon-article')).toBe('/articles/mon-article')
+  })
+
+  it('leaves a root path untouched', () => {
+    expect(canonicalContentPath('/statsdata/incendies/lyon')).toBe('/statsdata/incendies/lyon')
+  })
+
+  it('does not strip a prefix that is only a name fragment', () => {
+    expect(canonicalContentPath('/tvstats-recap/x')).toBe('/tvstats-recap/x')
+  })
+
+  it('maps a bare sub-brand landing path to root', () => {
+    expect(canonicalContentPath('/medistats')).toBe('/')
   })
 })

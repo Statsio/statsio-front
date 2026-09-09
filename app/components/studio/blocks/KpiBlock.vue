@@ -176,11 +176,18 @@ const trendLabel = computed(() => {
 
 const isPositive = computed(() => (delta.value?.diff ?? 0) >= 0)
 
-// {{item}} & co. dans les libellés quand le bloc est dans une boucle
-const tk = (s?: string) => interpolateTokens(s ?? '', props.scope)
-const resolvedTitle = computed(() => tk(props.block.config.title))
-const resolvedDescription = computed(() => tk(props.block.config.description))
-const resolvedComparisonLabel = computed(() => tk(props.block.config.comparisonLabel))
+// Libellés : {{param}} (page), {{item}} (boucle) + expressions calculées —
+// même résolution que le titre des autres blocs (voir BlockCard.vue).
+const labelOpts = {
+  tokenMap: () => ({ ...studio.pageParams, ...props.scope }),
+  block: () => props.block,
+  datasetId: () => props.block.datasetId,
+  readonly: () => props.readonly ?? false,
+  docSlug: () => studio.content?.slug,
+}
+const { text: resolvedTitle } = useResolvedTokens({ raw: () => props.block.config.title, ...labelOpts })
+const { text: resolvedDescription } = useResolvedTokens({ raw: () => props.block.config.description, ...labelOpts })
+const { text: resolvedComparisonLabel } = useResolvedTokens({ raw: () => props.block.config.comparisonLabel, ...labelOpts })
 </script>
 
 <template>

@@ -134,8 +134,10 @@ const handleSubmit = async () => {
 
         <AppCheckbox v-model="acceptTerms" class="mt-0.5">
           <span class="text-sm leading-[1.4] text-slate-700">
-            J'accepte les <a href="#" class="font-semibold text-[var(--color-primary)]">conditions d'utilisation</a>
-            et la <a href="#" class="font-semibold text-[var(--color-primary)]">politique de confidentialité</a>
+            J'accepte les
+            <NuxtLink to="/mentions-legales" target="_blank" class="font-semibold text-[var(--color-primary)]">mentions légales</NuxtLink>
+            et la
+            <NuxtLink to="/politique-de-confidentialite" target="_blank" class="font-semibold text-[var(--color-primary)]">politique de confidentialité</NuxtLink>
           </span>
         </AppCheckbox>
 

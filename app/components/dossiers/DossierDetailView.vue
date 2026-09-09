@@ -7,7 +7,7 @@ import { useContentBasePath } from '@/composables/useContentBasePath'
 import { catalogThemeStyle } from '@/lib/catalog-theme'
 import { formatRelativePublished } from '@/lib/catalog-format'
 import { formatShortDate } from '@/lib/format'
-import { publicContentPath } from '@/lib/content-display'
+import { canonicalContentPath, publicContentPath } from '@/lib/content-display'
 import ContentCard from '@/components/content/ContentCard.vue'
 import CatalogEmpty from '@/components/listing/CatalogEmpty.vue'
 import AppMediaImage from '@/components/ui/AppMediaImage.vue'
@@ -65,7 +65,7 @@ usePageSeo({
   description: () =>
     dossier.value.description ?? `Tous les contenus Statsio du dossier « ${dossier.value.name} ».`,
   image: () => dossier.value.image_url ?? undefined,
-  canonical: () => route.path,
+  canonical: () => canonicalContentPath(route.path),
 })
 
 // ── Filtres client ──────────────────────────────────────────────────────────

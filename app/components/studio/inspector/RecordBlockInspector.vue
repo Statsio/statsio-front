@@ -66,6 +66,15 @@ const sourceDrill = useSourceDrillIn()
   <div>
     <template v-if="activeTab === 'data'">
       <div class="flex flex-col gap-[11px] px-4 pb-1 pt-3">
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold text-[var(--studio-muted)]">Titre du bloc</label>
+          <input
+            type="text" class="cfg-input" placeholder="Ex : Station la moins chère"
+            :value="block.config.title ?? ''"
+            @input="updateConfig('title', ($event.target as HTMLInputElement).value || undefined)"
+          />
+        </div>
+
         <FieldPicker
           label="Source"
           :value="datasetName"
@@ -152,13 +161,8 @@ const sourceDrill = useSourceDrillIn()
     </template>
 
     <template v-if="activeTab === 'style'">
-      <div class="flex flex-col gap-1.5 px-4 pb-1 pt-3">
-        <label class="text-xs font-semibold text-[var(--studio-muted)]">Titre du bloc</label>
-        <input
-          type="text" class="cfg-input" placeholder="Ex : Station la moins chère"
-          :value="block.config.title ?? ''"
-          @input="updateConfig('title', ($event.target as HTMLInputElement).value || undefined)"
-        />
+      <div class="px-4 pb-1 pt-3">
+        <FieldNote>Le titre du bloc se règle dans l'onglet Données. Ce bloc n'a pas d'autres options de style.</FieldNote>
       </div>
     </template>
   </div>

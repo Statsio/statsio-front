@@ -21,9 +21,7 @@ function pageSections(pageId: string): Section[] {
 }
 
 // Liste à plat de tous les titres de sections (toutes pages) pour la résolution des jetons.
-const flatSections = computed(() =>
-  studio.pages.flatMap((p) => pageSections(p.id)),
-)
+const flatSections = computed(() => studio.pages.flatMap((p) => pageSections(p.id)))
 
 const { list: resolvedTitles } = useResolvedTokenList({
   items: () => flatSections.value.map((s) => s.title ?? ''),
@@ -34,8 +32,16 @@ const { list: resolvedTitles } = useResolvedTokenList({
 })
 
 function cleanLabel(raw: string, fallback?: string | null): string {
-  const out = raw.replace(/\{\{[^}]*\}\}/g, '').replace(/\s+/g, ' ').trim()
-  return out || stripInlineHtml(fallback).replace(/\{\{[^}]*\}\}/g, '').trim()
+  const out = stripInlineHtml(raw)
+    .replace(/\{\{[^}]*\}\}/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return (
+    out ||
+    stripInlineHtml(fallback)
+      .replace(/\{\{[^}]*\}\}/g, '')
+      .trim()
+  )
 }
 
 interface TocEntry {
@@ -58,16 +64,18 @@ const tocPages = computed<TocPage[]>(() => {
   return studio.pages.map((page) => {
     const isActive = page.id === activePageId.value
     const pageHref = `/statsdata/${docSlug.value}/${page.slug ?? page.id}`
-    const entries: TocEntry[] = pageSections(page.id).map((s, i) => {
-      const anchor = sectionAnchorId(s)
-      const label = cleanLabel(resolvedTitles.value[flatIndex++] ?? '', s.title)
-      return {
-        id: anchor ?? '',
-        label,
-        num: String(i + 1).padStart(2, '0'),
-        to: isActive || !anchor ? undefined : `${pageHref}#${anchor}`,
-      }
-    }).filter((e) => e.id && e.label)
+    const entries: TocEntry[] = pageSections(page.id)
+      .map((s, i) => {
+        const anchor = sectionAnchorId(s)
+        const label = cleanLabel(resolvedTitles.value[flatIndex++] ?? '', s.title)
+        return {
+          id: anchor ?? '',
+          label,
+          num: String(i + 1).padStart(2, '0'),
+          to: isActive || !anchor ? undefined : `${pageHref}#${anchor}`,
+        }
+      })
+      .filter((e) => e.id && e.label)
     return {
       id: page.id,
       title: page.title,
@@ -83,13 +91,32 @@ const activeEntries = computed<TocEntry[]>(
   () => tocPages.value.find((p) => p.isActive)?.entries ?? [],
 )
 
-const showToc = computed(() => isMultiPage.value || activeEntries.value.length >= 2)
-
-// Paramètres déclarés + valeur active (ligne « affiché dans toute la page »).
+// Paramètres déclarés + valeur active choisie par le lecteur. Le libellé affiché
+// est le placeholder du bloc recherche / le titre du bloc paramètre d'origine
+// (à défaut : le libellé déclaré du paramètre, puis son nom technique).
 const activeParams = computed(() =>
   (studio.currentPage?.params ?? [])
-    .map((p) => ({ name: p.label || p.name, value: studio.pageParams[p.name] }))
+    .map((p) => {
+      const block = p.searchBlockId
+        ? studio.blocks.find((b) => b.id === p.searchBlockId)
+        : p.paramBlockId
+          ? studio.blocks.find((b) => b.id === p.paramBlockId)
+          : undefined
+      const blockLabel =
+        block?.type === 'search'
+          ? block.config.searchPlaceholder?.trim()
+          : block?.config.title?.trim()
+      return {
+        key: p.name,
+        label: blockLabel || p.label || p.name,
+        value: studio.pageParams[p.name],
+      }
+    })
     .filter((p) => p.value),
+)
+
+const showToc = computed(
+  () => isMultiPage.value || activeEntries.value.length >= 2 || activeParams.value.length > 0,
 )
 
 // ─── Scroll-spy (page courante uniquement) ───────────────────────────────────
@@ -99,7 +126,12 @@ let observer: IntersectionObserver | null = null
 
 function observe() {
   observer?.disconnect()
-  if (typeof window === 'undefined' || typeof IntersectionObserver === 'undefined' || !activeEntries.value.length) return
+  if (
+    typeof window === 'undefined' ||
+    typeof IntersectionObserver === 'undefined' ||
+    !activeEntries.value.length
+  )
+    return
   observer = new IntersectionObserver(
     (records) => {
       const visible = records
@@ -134,68 +166,101 @@ onBeforeUnmount(() => observer?.disconnect())
 
 <template>
   <nav v-if="showToc" class="hidden lg:block">
-    <p class="mb-3 text-[9.5px] font-extrabold uppercase tracking-[0.09em] text-[var(--studio-faint)]">Sommaire</p>
+    <template v-if="isMultiPage || activeEntries.length >= 2">
+      <p
+        class="mb-3 text-[9.5px] font-extrabold uppercase tracking-[0.09em] text-[var(--studio-faint)]"
+      >
+        Sommaire
+      </p>
 
-    <div class="flex flex-col gap-4">
-      <div v-for="page in tocPages" :key="page.id" class="flex flex-col gap-px">
-        <!-- En-tête de page (masqué en mono-page) -->
-        <component
-          :is="page.to ? RouterLink : 'p'"
-          v-if="isMultiPage"
-          :to="page.to"
-          class="mb-1 flex items-center gap-1.5 px-2.5 text-[10px] font-extrabold uppercase tracking-[0.08em] transition-colors"
-          :class="page.isActive
-            ? 'text-[var(--studio-ink)]'
-            : 'text-[var(--studio-faint)] hover:text-[var(--studio-ink)]'"
-        >
-          <span
-            class="h-1.5 w-1.5 shrink-0 rounded-full"
-            :class="page.isActive ? 'bg-[var(--color-primary)]' : 'bg-[var(--studio-line-strong)]'"
-          />
-          <span class="truncate">{{ page.title }}</span>
-        </component>
-
-        <p
-          v-if="isMultiPage && !page.entries.length"
-          class="px-2.5 py-[7px] text-[12px] italic text-[var(--studio-faint)]"
-        >
-          Aucune section
-        </p>
-
-        <template v-for="e in page.entries" :key="page.id + e.id">
-          <!-- Page courante : ancre locale + scroll-spy -->
-          <a
-            v-if="!e.to"
-            :href="`#${e.id}`"
-            class="flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[12.5px] font-semibold transition-colors"
-            :class="activeId === e.id
-              ? 'bg-[var(--studio-tag)] text-[var(--studio-tag-ink)]'
-              : 'text-[var(--studio-muted)] hover:bg-white hover:text-[var(--studio-ink)]'"
-            @click.prevent="goTo(e.id)"
+      <div class="flex flex-col gap-4">
+        <div v-for="page in tocPages" :key="page.id" class="flex flex-col gap-px">
+          <!-- En-tête de page (masqué en mono-page) -->
+          <component
+            :is="page.to ? RouterLink : 'p'"
+            v-if="isMultiPage"
+            :to="page.to"
+            class="mb-1 flex items-center gap-1.5 px-2.5 text-[10px] font-extrabold uppercase tracking-[0.08em] transition-colors"
+            :class="
+              page.isActive
+                ? 'text-[var(--studio-ink)]'
+                : 'text-[var(--studio-faint)] hover:text-[var(--studio-ink)]'
+            "
           >
-            <span class="mono shrink-0 text-[9.5px]" :class="activeId === e.id ? 'text-[var(--studio-tag-ink)]/70' : 'text-[var(--studio-faint)]'">{{ e.num }}</span>
-            <span class="truncate">{{ e.label }}</span>
-          </a>
-          <!-- Autre page : navigation -->
-          <RouterLink
-            v-else
-            :to="e.to"
-            class="flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[12.5px] font-semibold text-[var(--studio-muted)] transition-colors hover:bg-white hover:text-[var(--studio-ink)]"
+            <span
+              class="h-1.5 w-1.5 shrink-0 rounded-full"
+              :class="
+                page.isActive ? 'bg-[var(--color-primary)]' : 'bg-[var(--studio-line-strong)]'
+              "
+            />
+            <span class="truncate">{{ page.title }}</span>
+          </component>
+
+          <p
+            v-if="isMultiPage && !page.entries.length"
+            class="px-2.5 py-[7px] text-[12px] italic text-[var(--studio-faint)]"
           >
-            <span class="mono shrink-0 text-[9.5px] text-[var(--studio-faint)]">{{ e.num }}</span>
-            <span class="truncate">{{ e.label }}</span>
-          </RouterLink>
-        </template>
+            Aucune section
+          </p>
+
+          <template v-for="e in page.entries" :key="page.id + e.id">
+            <!-- Page courante : ancre locale + scroll-spy -->
+            <a
+              v-if="!e.to"
+              :href="`#${e.id}`"
+              class="flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[12.5px] font-semibold transition-colors"
+              :class="
+                activeId === e.id
+                  ? 'bg-[var(--studio-tag)] text-[var(--studio-tag-ink)]'
+                  : 'text-[var(--studio-muted)] hover:bg-white hover:text-[var(--studio-ink)]'
+              "
+              @click.prevent="goTo(e.id)"
+            >
+              <span
+                class="mono shrink-0 text-[9.5px]"
+                :class="
+                  activeId === e.id
+                    ? 'text-[var(--studio-tag-ink)]/70'
+                    : 'text-[var(--studio-faint)]'
+                "
+                >{{ e.num }}</span
+              >
+              <span class="truncate">{{ e.label }}</span>
+            </a>
+            <!-- Autre page : navigation -->
+            <RouterLink
+              v-else
+              :to="e.to"
+              class="flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[12.5px] font-semibold text-[var(--studio-muted)] transition-colors hover:bg-white hover:text-[var(--studio-ink)]"
+            >
+              <span class="mono shrink-0 text-[9.5px] text-[var(--studio-faint)]">{{ e.num }}</span>
+              <span class="truncate">{{ e.label }}</span>
+            </RouterLink>
+          </template>
+        </div>
       </div>
-    </div>
+    </template>
 
     <div
       v-if="activeParams.length"
-      class="mt-[18px] rounded-xl border-[1.5px] border-dashed border-[var(--studio-line-strong)] px-3 py-[13px] text-[11.5px] leading-[1.5] text-[var(--studio-faint)]"
+      class="rounded-xl border-[1.5px] border-dashed border-[var(--studio-line-strong)] px-3 py-[13px]"
+      :class="isMultiPage || activeEntries.length >= 2 ? 'mt-[18px]' : ''"
     >
-      <template v-for="(p, i) in activeParams" :key="p.name">
-        <span v-if="i > 0"> · </span>{{ p.name }} affiché dans la page : <b class="text-[var(--studio-tag-ink)]">{{ p.value }}</b>
-      </template>
+      <p
+        class="mb-2 text-[10px] font-extrabold uppercase tracking-[0.05em] text-[var(--studio-faint)]"
+      >
+        Vos paramètres
+      </p>
+      <div class="flex flex-col gap-2">
+        <div v-for="p in activeParams" :key="p.key" class="flex flex-col gap-px">
+          <span class="truncate text-[10.5px] font-semibold text-[var(--studio-faint)]">{{
+            p.label
+          }}</span>
+          <span class="truncate text-[12.5px] font-bold text-[var(--studio-tag-ink)]">{{
+            p.value
+          }}</span>
+        </div>
+      </div>
     </div>
   </nav>
 </template>

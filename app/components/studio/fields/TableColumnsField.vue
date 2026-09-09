@@ -9,8 +9,8 @@ import FieldColumns from '@/components/studio/fields/FieldColumns.vue'
 import FieldValueLabels from '@/components/studio/fields/FieldValueLabels.vue'
 
 const props = withDefaults(
-  defineProps<{ block: StudioBlock; section?: 'columns' | 'rules' }>(),
-  { section: 'columns' },
+  defineProps<{ block: StudioBlock; section?: 'columns' | 'rules'; columnsHeading?: string }>(),
+  { section: 'columns', columnsHeading: 'Colonnes affichées & ordre' },
 )
 
 const studio = useStudioStore()
@@ -140,7 +140,7 @@ function removeRule(i: number) { setRules(cellRules.value.filter((_, idx) => idx
     <template v-if="section === 'columns'">
       <div>
         <div class="mb-2.5 flex items-baseline justify-between gap-3">
-          <span class="text-[11px] font-extrabold uppercase tracking-[0.07em] text-[var(--studio-faint)]">Colonnes affichées &amp; ordre</span>
+          <span class="text-[11px] font-extrabold uppercase tracking-[0.07em] text-[var(--studio-faint)]">{{ props.columnsHeading }}</span>
           <button v-if="isCustomized" type="button" class="text-[11px] font-bold text-[var(--color-primary)]" @click="resetTableColumns">Réinitialiser</button>
         </div>
         <div class="flex flex-col gap-2">

@@ -5,6 +5,7 @@ import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import { useActiveEditor } from '@/composables/useActiveEditor'
 import type { ChartMarkRule, DatasetMeta, StudioBlock } from '@/types/studio'
 import FieldPicker from '@/components/studio/fields/FieldPicker.vue'
+import VariableButton from '@/components/studio/fields/VariableButton.vue'
 import FieldNote from '@/components/studio/fields/FieldNote.vue'
 import FieldColumns from '@/components/studio/fields/FieldColumns.vue'
 import { blockColumnGroups, primarySourceId } from '@/lib/studio-columns'
@@ -17,7 +18,7 @@ import TableColumnsField from '@/components/studio/fields/TableColumnsField.vue'
 const props = defineProps<{ block: StudioBlock; activeTab: string }>()
 const studio = useStudioStore()
 const datasets = useStudioDatasetsStore()
-const { setActiveInput } = useActiveEditor()
+const { setActiveInput, insertRaw } = useActiveEditor()
 
 const block = computed(() => props.block)
 
@@ -91,6 +92,24 @@ const sourceSummary = computed(() => {
         <template v-if="activeTab === 'data'">
 
           <div class="flex flex-col gap-[11px] px-4 pb-1 pt-3">
+            <div class="flex flex-col gap-1.5">
+              <label class="text-xs font-semibold text-[var(--studio-muted)]">Titre du bloc</label>
+              <div class="flex items-center gap-1.5">
+                <input
+                  type="text"
+                  class="cfg-input min-w-0 flex-1"
+                  placeholder="Ex : Évolution des ventes"
+                  :value="block.config.title ?? ''"
+                  @focus="setActiveInput($event.target as HTMLInputElement)"
+                  @input="updateConfig('title', ($event.target as HTMLInputElement).value)"
+                />
+                <VariableButton context="Titre du bloc" :block-id="block.id" @pick="insertRaw" />
+              </div>
+              <p class="text-[11px] text-[var(--studio-faint)] leading-relaxed">
+                Accepte les jetons <code class="font-mono">{{ '{' + '{commune}' + '}' }}</code> — remplacés à la publication.
+              </p>
+            </div>
+
             <FieldPicker
               label="Source"
               :value="sourceSummary"
@@ -281,14 +300,17 @@ const sourceSummary = computed(() => {
             <!-- Libellé de la comparaison -->
             <div class="flex flex-col gap-1.5 px-4 pb-1 pt-2">
               <label class="text-xs font-semibold text-[var(--studio-muted)]">Libellé de la comparaison</label>
-              <input
-                :value="block.config.comparisonLabel ?? ''"
-                type="text"
-                class="cfg-input !text-[12.5px]"
-                placeholder="ex. vs 2020"
-                @focus="setActiveInput($event.target as HTMLInputElement)"
-                @input="updateConfig('comparisonLabel', inputVal($event) || undefined)"
-              />
+              <div class="flex items-center gap-1.5">
+                <input
+                  :value="block.config.comparisonLabel ?? ''"
+                  type="text"
+                  class="cfg-input min-w-0 flex-1 !text-[12.5px]"
+                  placeholder="ex. vs 2020"
+                  @focus="setActiveInput($event.target as HTMLInputElement)"
+                  @input="updateConfig('comparisonLabel', inputVal($event) || undefined)"
+                />
+                <VariableButton context="Libellé de la comparaison" :block-id="block.id" @pick="insertRaw" />
+              </div>
               <p class="text-[11px] text-[var(--studio-faint)] leading-relaxed">Affiché après l'écart. Accepte les jetons <code class="font-mono">{{ '{' + '{colonne}' + '}' }}</code>.</p>
             </div>
 
@@ -325,26 +347,9 @@ const sourceSummary = computed(() => {
         <!-- ── Tab: Style ── -->
         <template v-if="activeTab === 'style'">
 
-          <!-- Titre -->
-          <div class="accordion-item">
-            <button class="accordion-header" @click="toggle('title')">
-              <span>Titre du bloc</span>
-              <svg class="chevron" :class="open('title') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-              </svg>
-            </button>
-            <div v-show="open('title')" class="accordion-body">
-              <input
-                type="text"
-                class="cfg-input"
-                placeholder="Ex : Évolution des ventes"
-                :value="block.config.title ?? ''"
-                @focus="setActiveInput($event.target as HTMLInputElement)"
-                @input="updateConfig('title', ($event.target as HTMLInputElement).value)"
-              />
-            </div>
+          <div v-if="block.type === 'pie' || block.type === 'kpi'" class="px-4 pb-1 pt-3">
+            <FieldNote>Le titre du bloc se règle dans l'onglet Données. Ce bloc n'a pas d'autres options de style.</FieldNote>
           </div>
-
 
           <!-- Options barre (bar) -->
           <div v-if="block.type === 'bar'" class="accordion-item">

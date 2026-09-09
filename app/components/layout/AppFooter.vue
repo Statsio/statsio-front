@@ -112,6 +112,9 @@ const aboutNav = [
         <RouterLink to="/politique-de-confidentialite" class="hover:text-slate-600 transition-colors">
           Politique de confidentialité
         </RouterLink>
+        <RouterLink to="/mentions-legales" class="hover:text-slate-600 transition-colors">
+          Mentions légales
+        </RouterLink>
         <button
           class="hover:text-slate-600 transition-colors"
           @click="openCookieBanner = true"

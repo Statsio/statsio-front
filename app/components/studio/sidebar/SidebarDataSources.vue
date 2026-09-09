@@ -162,7 +162,7 @@ const statusConfig: Record<SourceStatus, { label: string; dot: string; badge: st
     </div>
 
     <!-- Source list -->
-    <div class="flex flex-1 flex-col gap-2 overflow-y-auto px-[22px] py-2">
+    <div class="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-[22px] py-2">
 
       <p v-if="editingLoadError" class="text-xs text-red-500 px-1">{{ editingLoadError }}</p>
 
@@ -193,7 +193,7 @@ const statusConfig: Record<SourceStatus, { label: string; dot: string; badge: st
       <div
         v-for="dataset in pagedDatasets"
         :key="dataset.id"
-        class="rounded-xl border bg-white overflow-hidden transition-colors"
+        class="shrink-0 rounded-xl border bg-white overflow-hidden transition-colors"
         :class="deletingId === dataset.id ? 'border-red-200' : 'border-[var(--studio-line-strong)]'"
       >
         <!-- Delete confirmation overlay -->

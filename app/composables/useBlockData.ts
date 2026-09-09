@@ -202,6 +202,12 @@ function resolveColumns(block: StudioBlock): string[] {
   if (m.value) cols.add(m.value)
   if (m.valueColumn) cols.add(m.valueColumn)
   if (m.comparisonColumn) cols.add(m.comparisonColumn)
+  if (m.latColumn) cols.add(m.latColumn)
+  if (m.lngColumn) cols.add(m.lngColumn)
+  if (m.mapPointColumn) cols.add(m.mapPointColumn)
+  if (m.mapTitleColumn) cols.add(m.mapTitleColumn)
+  if (m.mapColorColumn) cols.add(m.mapColorColumn)
+  if (m.mapSizeColumn) cols.add(m.mapSizeColumn)
   if (m.columns) m.columns.forEach((c) => cols.add(c))
 
   return cols.size > 0 ? Array.from(cols) : []
