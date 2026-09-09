@@ -33,7 +33,7 @@ export interface StudioColumnGroup {
   columns: ColumnItem[]
 }
 
-interface DatasetsLike {
+export interface DatasetsLike {
   getSchema: (id: string) => { columns: DatasetColumn[] } | undefined | null
   readyDatasets: { id: string; name: string }[]
 }
@@ -84,6 +84,17 @@ export function columnRefLabel(ref: string, block: StudioBlock, datasets: Datase
   const src = block.sources?.find((s) => s.id === sourceId)
   const dsName = src && datasets.readyDatasets.find((d) => d.id === src.datasetId)?.name
   return `${name} · ${src?.alias || dsName || sourceId}`
+}
+
+/**
+ * Libellé d'affichage personnalisé d'une VALEUR brute pour une référence de
+ * colonne (`fieldMapping.valueLabels[ref][valeurBrute]`), ou `null` si aucun
+ * libellé n'est défini. À utiliser en priorité sur `formatDisplayValue` partout
+ * où l'on affiche une valeur de champ (axes, légendes, cellules, fiches).
+ */
+export function valueLabel(ref: string | null | undefined, raw: unknown, block: StudioBlock): string | null {
+  if (!ref || raw === null || raw === undefined) return null
+  return block.fieldMapping?.valueLabels?.[ref]?.[String(raw)] ?? null
 }
 
 /**

@@ -26,15 +26,15 @@ const resolvedHeroSrc = computed(() => {
 </script>
 
 <template>
-  <section class="relative overflow-hidden border-b border-slate-200/80 bg-white px-4 pb-11 pt-10 sm:px-6 lg:px-8 lg:pb-12 lg:pt-14" :class="heroClass">
+  <section class="page-hero relative overflow-hidden border-b border-slate-200/80 bg-white px-4 pb-11 pt-10 sm:px-6 lg:px-8 lg:pb-12 lg:pt-14" :class="heroClass">
     <img
       v-if="resolvedHeroSrc"
       :src="resolvedHeroSrc"
       alt=""
-      class="pointer-events-none absolute inset-0 h-full w-full object-cover"
+      class="page-hero__art pointer-events-none absolute inset-0 h-full w-full object-cover"
     />
     <div
-      class="pointer-events-none absolute inset-0 bg-[linear-gradient(100deg,rgba(255,255,255,0.97)_0%,rgba(255,255,255,0.92)_42%,rgba(255,255,255,0.4)_64%,rgba(255,255,255,0)_100%)]"
+      class="page-hero__wash pointer-events-none absolute inset-0 bg-[linear-gradient(100deg,rgba(255,255,255,0.97)_0%,rgba(255,255,255,0.92)_42%,rgba(255,255,255,0.4)_64%,rgba(255,255,255,0)_100%)]"
       aria-hidden="true"
     />
     <div class="relative mx-auto max-w-[1240px]">

@@ -28,6 +28,14 @@ export function useStatsDataDetail() {
   const doc = ref<StatsDataDocument | null>(null)
   const loading = ref(true)
   const error = ref<string | null>(null)
+  /**
+   * État d'hydratation d'une page fan-out atteinte par valeur :
+   *  - `null` : la page courante n'est pas une valeur de fan-out ;
+   *  - `true` : le segment d'URL correspond à une vraie ligne / valeur distincte ;
+   *  - `false` : aucune correspondance — on n'a qu'un repli dé-slugifié (page « mince »).
+   * Sert à sortir de l'index les valeurs de fan-out sans contenu réel.
+   */
+  const fanOutHydrated = ref<boolean | null>(null)
 
   const activePage = computed(() =>
     studio.pages.length ? resolveSegment(segment.value, studio.pages).page : null,
@@ -45,6 +53,7 @@ export function useStatsDataDetail() {
    * via les valeurs distinctes de la colonne — pour résoudre tous les jetons.
    */
   async function hydrateFanOut(page: StudioDocumentPage, param: PageParam, seg: string) {
+    fanOutHydrated.value = false
     const slugKey = fanOutSlugKey(param)
     const keys = fanOutSegmentKeys(param)
     const term = seg.replace(/-+/g, ' ')
@@ -74,6 +83,7 @@ export function useStatsDataDetail() {
               if (val !== null && val !== undefined && val !== '') rowParams[col] = String(val)
             }
             studio.setPageParams(rowParams)
+            fanOutHydrated.value = true
             return
           }
         } catch { /* best effort */ }
@@ -87,7 +97,7 @@ export function useStatsDataDetail() {
       try {
         const values = await fetchPublicDistinctValues(docSlug.value, param.datasetId, col)
         const exact = values.find((v) => slugify(v) === seg)
-        if (exact) { studio.setPageParam(param.name, exact); return }
+        if (exact) { studio.setPageParam(param.name, exact); fanOutHydrated.value = true; return }
       } catch { /* best effort */ }
     }
 
@@ -113,6 +123,7 @@ export function useStatsDataDetail() {
       return
     }
 
+    fanOutHydrated.value = null
     studio.switchPage(page.id)
     for (const [k, v] of Object.entries(urlParams)) studio.setPageParam(k, v)
   }
@@ -161,10 +172,12 @@ export function useStatsDataDetail() {
         const deslug = fanOut.segment.replace(/-+/g, ' ')
         studio.setPageParam(fanOut.param.name, deslug)
         studio.setPageParam(fanOutSlugKey(fanOut.param), deslug)
-        if (!hasSaved) void hydrateFanOut(page, fanOut.param, fanOut.segment)
+        if (hasSaved) fanOutHydrated.value = true
+        else void hydrateFanOut(page, fanOut.param, fanOut.segment)
         return
       }
 
+      fanOutHydrated.value = null
       studio.switchPage(page.id)
       studio.setPageParams({ ...(hasSaved ? savedParams : {}), ...urlParams })
     } catch {
@@ -182,6 +195,7 @@ export function useStatsDataDetail() {
     doc,
     loading,
     error,
+    fanOutHydrated,
     activePage,
     publicPages,
     allPages,

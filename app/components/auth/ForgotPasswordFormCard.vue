@@ -63,7 +63,7 @@ const goLogin = () => {
         Un lien de réinitialisation a été envoyé à<br />
         <strong class="text-slate-950">{{ email }}</strong>
       </p>
-      <AppButton full-width size="lg" variant="gradient" @click="goLogin">Retour à la connexion</AppButton>
+      <AppButton full-width size="lg" variant="gradient" class="auth-cta" @click="goLogin">Retour à la connexion</AppButton>
       <p class="mt-4.5 text-[13px] text-slate-950/50">
         Rien reçu ?
         <button
@@ -105,7 +105,7 @@ const goLogin = () => {
           :disabled="isSubmitting"
         />
 
-        <AppButton :disabled="!isFormValid || isSubmitting" full-width size="lg" variant="gradient" type="submit">
+        <AppButton :disabled="!isFormValid || isSubmitting" full-width size="lg" variant="gradient" type="submit" class="auth-cta">
           {{ isSubmitting ? 'Envoi...' : 'Envoyer le lien' }}
         </AppButton>
       </form>

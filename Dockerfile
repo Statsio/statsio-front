@@ -1,7 +1,9 @@
 # On prend la version Node souhaitée (variante slim : pas d'outils/libs OS inutiles
 # pour une app Node comme ImageMagick, MariaDB/Postgres client, etc. — moins de
 # surface de vulnérabilités, image plus légère)
-FROM node:20-slim
+# Node 22 : Nuxt 4.5+ / Nitro et de nombreuses dépendances exigent désormais Node >=22
+# (cf. package.json engines : ^20.19.0 || >=22.12.0, et les warnings EBADENGINE).
+FROM node:22-slim
 
 # Applique les correctifs de sécurité OS (CVE sur les paquets Debian de l'image de base)
 RUN apt-get update && apt-get upgrade --no-install-recommends -y \
@@ -9,13 +11,12 @@ RUN apt-get update && apt-get upgrade --no-install-recommends -y \
 
 # Met à jour le CLI npm lui-même : la version embarquée dans l'image de base
 # vendorise de vieilles versions de tar/cross-spawn/etc. avec des CVE connues
-# (npm 12+ nécessite Node >=22, on reste donc sur la dernière 11.x compatible Node 20)
-RUN npm install -g npm@11
+RUN npm install -g npm@latest
 
 # Crée le dossier de travail
 WORKDIR /app
 
-# Exécute le conteneur en utilisateur non-root (image node:20 fournit déjà "node", uid 1000)
+# Exécute le conteneur en utilisateur non-root (image node:22 fournit déjà "node", uid 1000)
 RUN chown node:node /app
 USER node
 

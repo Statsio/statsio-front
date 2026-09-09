@@ -5,7 +5,7 @@ import { useBlockData, rowKey, resolveBlockFilters } from '@/composables/useBloc
 import { useResolvedTokenList } from '@/composables/useResolvedTokens'
 import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
-import { columnRefLabel } from '@/lib/studio-columns'
+import { columnRefLabel, valueLabel } from '@/lib/studio-columns'
 import { markColor } from '@/lib/studio-chart'
 import { formatDisplayValue, parseNumericValue } from '@/utils/statsDataFormat'
 import type { StudioBlock } from '@/types/studio'
@@ -69,7 +69,8 @@ const segments = computed<Segment[]>(() => {
         const valueKey = rowKey(data.value, props.block.fieldMapping.value ?? '')
         const limit = props.block.config.rowLimit ?? 12
         return rows.slice(0, limit).map((r) => ({
-          label: formatDisplayValue(r[labelKey], ''),
+          label: valueLabel(props.block.fieldMapping.label, r[labelKey], props.block)
+            ?? formatDisplayValue(r[labelKey], ''),
           value: parseNumericValue(r[valueKey]),
         }))
       })()

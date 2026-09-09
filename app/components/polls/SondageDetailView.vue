@@ -17,7 +17,7 @@ import { useAuthStore } from '@/stores/auth'
 import { isFormBlock } from '@/types/studio'
 import type { StudioBlock } from '@/types/studio'
 import { getHttpErrorStatus } from '@/lib/http-errors'
-import { publicContentPath, publicContentListPath } from '@/lib/content-display'
+import { canonicalContentPath, publicContentPath, publicContentListPath } from '@/lib/content-display'
 import { useContentBasePath } from '@/composables/useContentBasePath'
 import { useContentDomain } from '@/composables/useContentDomain'
 import { useRespondentToken } from '@/composables/useRespondentToken'
@@ -44,6 +44,7 @@ const loading = ref(true)
 usePageSeo({
   title: computed(() => poll.value?.title),
   description: computed(() => poll.value?.description ?? undefined),
+  canonical: computed(() => canonicalContentPath(route.path)),
   type: 'article',
 })
 

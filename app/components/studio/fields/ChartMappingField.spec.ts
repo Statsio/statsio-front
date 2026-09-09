@@ -52,9 +52,12 @@ describe('ChartMappingField — bar', () => {
     const block = seed('bar', { xAxis: 'annee', yAxes: ['ca'] })
     const w = mount(ChartMappingField, { props: { block } })
     expect(w.text()).toContain('Axe X')
-    expect(w.text()).toContain('Axe Y')
-    expect(w.text()).toContain('Série 1')
-    expect(w.text()).toContain('Grouper par')
+    expect(w.text()).toContain('Séries')
+    // une seule pastille de série (les onglets partagent la largeur max fixe)
+    const seriesTabs = w.findAll('button').filter((b) => b.classes().includes('max-w-[170px]'))
+    expect(seriesTabs).toHaveLength(1)
+    expect(seriesTabs[0]!.text()).toBe('ca')
+    expect(w.text()).toContain('Croiser par une dimension')
   })
 
   it('un libellé personnalisé pour l\'axe X / la série est écrit dans columnLabels', async () => {
@@ -134,7 +137,7 @@ describe('ChartMappingField — pie / kpi', () => {
     const store = useStudioStore()
     const w = mount(ChartMappingField, { props: { block } })
 
-    await w.findAll('button').find((b) => b.text().includes('Parts calculées'))!.trigger('click')
+    await w.findAll('button').find((b) => b.text().includes('parts calculées'))!.trigger('click')
 
     expect(store.selectedBlock!.config.pieMode).toBe('segments')
     expect(w.text()).toContain('Ajouter une part')

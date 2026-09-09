@@ -4,6 +4,8 @@ export type ContentCategory = {
   id: number
   slug: string
   name: string
+  /** Nom d'icône Heroicons associé à la catégorie (piloté en back-office). */
+  icon?: string | null
   /** Sous-marque de rattachement (`all` = disponible partout). */
   sub_brand?: CategorySubBrand
 }

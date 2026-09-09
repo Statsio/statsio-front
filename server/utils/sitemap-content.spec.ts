@@ -80,6 +80,41 @@ describe('fetchPublicContentEntries', () => {
     ])
   })
 
+  it('does not expand fan-out under a sub-brand base path (root only, dedup via canonical)', async () => {
+    const fetchSpy = vi.fn<(url: string) => Promise<unknown>>((url: string) => {
+      if (url === `${API}/studio/content/public`) {
+        return Promise.resolve({ data: [{
+          slug: 'prix-carburants', visibility: 'public', updated_at: '2026-08-10T00:00:00Z',
+          pages: [{ slug: 'commune', params: [{ name: 'c', slugColumn: 'nom', datasetId: '7', fanOut: true }] }],
+        }] })
+      }
+      return Promise.resolve({ data: { rows: [{ nom: 'Lyon' }] } })
+    })
+    vi.stubGlobal('$fetch', fetchSpy)
+
+    const entries = await fetchPublicContentEntries(API, 'statsdata', '/medistats', ['sante'])
+    expect(entries.map((e) => e.loc)).toEqual(['/medistats/statsdata/prix-carburants'])
+    // pas d'appel à la requête de valeurs distinctes
+    expect(fetchSpy.mock.calls.every(([url]) => !String(url).includes('/query'))).toBe(true)
+  })
+
+  it('caps the number of fan-out URLs emitted per document', async () => {
+    stubFetch((url) => {
+      if (url === `${API}/studio/content/public`) {
+        return { data: [{
+          slug: 'communes', visibility: 'public',
+          pages: [{ slug: 'commune', params: [{ name: 'c', slugColumn: 'nom', datasetId: '7', fanOut: true }] }],
+        }] }
+      }
+      return { data: { rows: Array.from({ length: 5000 }, (_, i) => ({ nom: `Ville ${i}` })) } }
+    })
+
+    const entries = await fetchPublicContentEntries(API, 'statsdata', '')
+    // 1 URL parente + le plafond fan-out
+    expect(entries.length).toBeLessThanOrEqual(1 + 800)
+    expect(entries.length).toBeGreaterThan(1)
+  })
+
   it('does not expand fan-out for non-statsdata types', async () => {
     stubFetch(() => ({ data: [{ slug: 's', visibility: 'public', pages: [{ params: [{ name: 'x', column: 'x', datasetId: '1', fanOut: true }] }] }] }))
     const entries = await fetchPublicContentEntries(API, 'survey', '')

@@ -12,7 +12,11 @@ vi.mock('@/api/studio', () => ({
 const RouterLinkStub = { name: 'RouterLink', props: ['to'], template: '<a :href="to"><slot /></a>' }
 const mountToc = () => mount(StatsDataToc, { global: { stubs: { RouterLink: RouterLinkStub } } })
 
-function seed(sections: { id: string; title?: string }[], params: Record<string, string> = {}, pageParams: { name: string; label?: string }[] = []) {
+function seed(
+  sections: { id: string; title?: string }[],
+  params: Record<string, string> = {},
+  pageParams: { name: string; label?: string }[] = [],
+) {
   const store = useStudioStore()
   store.initPage(
     { id: 'c1', type: 'statsdata', title: 'Doc' },
@@ -43,6 +47,17 @@ describe('StatsDataToc', () => {
     expect(links[1]!.attributes('href')).toBe('#ecarts-regionaux')
   })
 
+  it('strips inline rich-text markup from section titles', () => {
+    seed([
+      { id: 's1', title: '<p>Base de données détaillée des prénoms</p>' },
+      { id: 's2', title: 'Chiffres <strong>clés</strong>&amp;co' },
+    ])
+    const links = mountToc().findAll('a')
+    expect(links[0]!.text()).toContain('Base de données détaillée des prénoms')
+    expect(links[0]!.text()).not.toContain('<p>')
+    expect(links[1]!.text()).toContain('Chiffres clés&co')
+  })
+
   it('hides itself when there are fewer than 2 titled sections', () => {
     seed([{ id: 's1', title: 'Seul' }])
     expect(mount(StatsDataToc).find('nav').exists()).toBe(false)
@@ -50,7 +65,10 @@ describe('StatsDataToc', () => {
 
   it('shows the active value of declared page params', () => {
     seed(
-      [{ id: 's1', title: 'A' }, { id: 's2', title: 'B' }],
+      [
+        { id: 's1', title: 'A' },
+        { id: 's2', title: 'B' },
+      ],
       { carburant: 'Gazole', code_commune: '69003' },
       [{ name: 'carburant', label: 'Carburant' }],
     )
@@ -58,6 +76,44 @@ describe('StatsDataToc', () => {
     expect(text).toContain('Carburant')
     expect(text).toContain('Gazole')
     expect(text).not.toContain('69003') // non déclaré → pas affiché
+  })
+
+  it('titles a param value with the origin block placeholder / title', () => {
+    const store = useStudioStore()
+    store.initPage(
+      { id: 'c1', type: 'statsdata', title: 'Doc' },
+      [
+        { id: 's1', title: 'A', layout: '1-col', pageId: 'p1' },
+        { id: 's2', title: 'B', layout: '1-col', pageId: 'p1' },
+      ],
+      [],
+      [
+        {
+          id: 'p1',
+          title: 'Principale',
+          params: [
+            { name: 'q', label: 'q', searchBlockId: 'blk-s' },
+            { name: 'carburant', label: 'Carburant', paramBlockId: 'blk-p' },
+          ],
+        },
+      ],
+    )
+    // Blocs d'origine (sync désactivé : injectés après initPage).
+    store.blocks = [
+      {
+        id: 'blk-s',
+        type: 'search',
+        fieldMapping: {},
+        config: { searchPlaceholder: 'Chercher une commune' },
+      },
+      { id: 'blk-p', type: 'param', fieldMapping: {}, config: { title: 'Type de carburant' } },
+    ] as never
+    store.setPageParams({ q: 'Lyon', carburant: 'Gazole' })
+    const text = mountToc().text()
+    expect(text).toContain('Chercher une commune')
+    expect(text).toContain('Lyon')
+    expect(text).toContain('Type de carburant')
+    expect(text).toContain('Gazole')
   })
 
   it('lists every page and its sections, linking other pages by URL', () => {

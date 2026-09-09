@@ -69,6 +69,11 @@ export default defineNuxtConfig({
         interval: 300,
       },
     },
+    // maplibre-gl charge un web worker en ESM que le pré-bundler Vite casse
+    // (« maplibre-gl-worker.mjs … does not exist ») → on le sort de l'optimizer.
+    optimizeDeps: {
+      exclude: ['maplibre-gl'],
+    },
   },
 
   runtimeConfig: {

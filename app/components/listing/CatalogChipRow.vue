@@ -42,11 +42,12 @@ const emit = defineEmits<{
         "
         @click="emit('update:modelValue', option.value)"
       >
-        <span
+        <CategoryIcon
           v-if="variant !== 'mono' && option.value"
-          class="h-1.5 w-1.5 shrink-0 rounded-full"
-          :style="{ background: catalogThemeStyle(option.value).dot }"
-          aria-hidden="true"
+          :category="option.value"
+          :color="modelValue === option.value ? '#fff' : catalogThemeStyle(option.value).dot"
+          :size="14"
+          :dot-size="6"
         />
         <span>{{ option.label }}</span>
         <span

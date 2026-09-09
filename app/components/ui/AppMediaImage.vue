@@ -47,7 +47,8 @@ watch(
     v-bind="$attrs"
     role="img"
     :aria-label="alt || 'Statsio'"
-    class="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-200 to-slate-300"
+    class="flex h-full w-full items-center justify-center"
+    style="background: var(--app-media-fallback)"
   >
     <img
       :src="statsioMark"

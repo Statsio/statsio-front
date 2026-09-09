@@ -21,6 +21,17 @@
   --app-badge-border: rgba(139, 92, 246, 0.3);
   --app-badge-surface: rgba(139, 92, 246, 0.08);
   --app-badge-text: #4c1d95;
+  /* Fond du shell applicatif public (layouts/default.vue) */
+  --app-shell-bg: linear-gradient(180deg, #f8fafc 0%, #ffffff 16%, #eef4ff 100%);
+  /* Surface « encastrée » : encadrés, aperçus de blocs, entêtes de tableau… */
+  --app-surface-inset: #faf9fd;
+  /* Fond de substitution image (AppMediaImage, pas d'image / échec de chargement) */
+  --app-media-fallback: linear-gradient(to bottom right, #e2e8f0, #cbd5e1);
+  /* Bandes pleine largeur de la home (chaque section porte son fond) */
+  --home-band-muted: #f8f8fb;
+  --home-band-muted-2: #f6f6fb;
+  --home-band-tint: #f3f0fb;
+  --home-band-live: linear-gradient(180deg, #f4f1ff 0%, #faf8ff 100%);
 }
 
 /* ─── Typography ─────────────────────────────────────────────────────────── */
@@ -56,6 +67,35 @@ body {
   --app-badge-border: rgba(167, 139, 250, 0.42);
   --app-badge-surface: rgba(167, 139, 250, 0.18);
   --app-badge-text: #ddd6fe;
+  --app-shell-bg: linear-gradient(180deg, #020617 0%, #0b1120 42%, #0f172a 100%);
+  --app-surface-inset: rgba(148, 163, 184, 0.08);
+  --app-media-fallback: linear-gradient(to bottom right, #1e293b, #0f172a);
+  --home-band-muted: rgba(148, 163, 184, 0.05);
+  --home-band-muted-2: rgba(148, 163, 184, 0.05);
+  --home-band-tint: rgba(167, 139, 250, 0.08);
+  --home-band-live: linear-gradient(180deg, rgba(167, 139, 250, 0.1) 0%, transparent 100%);
+}
+
+/* ─── Dark : bascule les neutres « Studio » pour tout le rendu public ─────────
+   Les blocs, le sommaire, les entêtes de section, les cartes… lisent les tokens
+   `--studio-*`. Par défaut ils ne basculaient qu'à l'intérieur de `.sd-public`
+   (page détail Statsdata). On élargit à `.app-shell` : accueil, listings, pages
+   détail, compte. Le canevas du Studio (éditeur, `layouts/studio.vue`) est hors
+   `.app-shell` et garde volontairement son thème clair. */
+:root[data-color-scheme='dark'] .app-shell {
+  --studio-wash: #020617;
+  --studio-surface: #0f172a;
+  --studio-panel: #162033;
+  --studio-note: rgba(148, 163, 184, 0.06);
+  --studio-line: rgba(148, 163, 184, 0.14);
+  --studio-line-strong: rgba(148, 163, 184, 0.24);
+  --studio-ink: #f1f5f9;
+  --studio-muted: rgba(226, 232, 240, 0.72);
+  --studio-faint: rgba(226, 232, 240, 0.46);
+  --studio-tag: rgba(167, 139, 250, 0.18);
+  --studio-tag-ink: #c4b5fd;
+  --studio-accent-wash: rgba(167, 139, 250, 0.12);
+  --studio-shadow-card: 0 0 0 1px rgba(148, 163, 184, 0.1), 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
 /* Remap Tailwind slate utilities in dark mode */
@@ -96,9 +136,96 @@ body {
 :root[data-color-scheme='dark'] [class*='text-emerald-700'] {
   color: #86efac !important;
 }
+:root[data-color-scheme='dark'] [class*='text-amber-700'] {
+  color: #fcd34d !important;
+}
+:root[data-color-scheme='dark'] [class*='text-blue-700'],
+:root[data-color-scheme='dark'] [class*='text-sky-700'] {
+  color: #93c5fd !important;
+}
 
-:root[data-color-scheme='dark'] [class*='bg-emerald-100'] {
-  background-color: rgba(20, 83, 45, 0.7) !important;
+:root[data-color-scheme='dark'] [class*='bg-emerald-100'],
+:root[data-color-scheme='dark'] [class*='bg-emerald-50'] {
+  background-color: rgba(6, 78, 59, 0.55) !important;
+}
+:root[data-color-scheme='dark'] [class*='bg-amber-100'],
+:root[data-color-scheme='dark'] [class*='bg-amber-50'] {
+  background-color: rgba(120, 53, 15, 0.5) !important;
+}
+:root[data-color-scheme='dark'] [class*='bg-blue-100'],
+:root[data-color-scheme='dark'] [class*='bg-blue-50'],
+:root[data-color-scheme='dark'] [class*='bg-sky-50'] {
+  background-color: rgba(30, 58, 138, 0.5) !important;
+}
+:root[data-color-scheme='dark'] :is(
+    [class*='border-emerald-200'],
+    [class*='border-amber-200'],
+    [class*='border-blue-200'],
+    [class*='border-sky-200']
+  ) {
+  border-color: rgba(148, 163, 184, 0.24) !important;
+}
+
+:root[data-color-scheme='dark'] [class*='border-slate-100'] {
+  border-color: var(--app-border) !important;
+}
+
+/* ─── Dark : surfaces claires codées en dur (valeurs arbitraires Tailwind) ─────
+   Le remap `bg-white` ne couvre pas `bg-[#faf9fd]` & co (panneaux secondaires,
+   encadrés, aperçus de blocs, entêtes de tableau, fonds de page de listing).
+   Scopé à `.app-shell` pour ne pas toucher le canevas du Studio. */
+:root[data-color-scheme='dark'] .app-shell :is(
+    [class*='bg-[#faf9fd]'],
+    [class*='bg-[#f8f8fb]'],
+    [class*='bg-[#f7f6fb]'],
+    [class*='bg-[#f6f6fb]'],
+    [class*='bg-[#f4f3f8]'],
+    [class*='bg-[#f3f0fb]']
+  ) {
+  background-color: var(--app-surface-inset) !important;
+}
+
+/* `#faf8ff` n'apparaît qu'en `hover:` (survol de lignes / cartes cliquables). */
+:root[data-color-scheme='dark'] .app-shell [class*='bg-[#faf8ff]']:hover {
+  background-color: rgba(148, 163, 184, 0.1) !important;
+}
+
+/* Chips / tags violet clair. */
+:root[data-color-scheme='dark'] .app-shell [class*='bg-[#f2ecfd]'] {
+  background-color: rgba(167, 139, 250, 0.18) !important;
+}
+:root[data-color-scheme='dark'] .app-shell [class*='text-[#7c3aed]'] {
+  color: #c4b5fd !important;
+}
+
+/* Fonds roses (jauges de pétition / sondage). */
+:root[data-color-scheme='dark'] .app-shell :is(
+    [class*='bg-[#f7dde4]'],
+    [class*='bg-[#fdf7f9]'],
+    [class*='bg-[#fdeef1]']
+  ) {
+  background-color: rgba(148, 163, 184, 0.12) !important;
+}
+
+/* ─── Dark : blocs hero de listing / page (CatalogHero, PageHeroV2) ───────────
+   L'illustration `…-hero-*.png` est claire et le voile est blanc → titre
+   illisible. En sombre : fond profond, illustration inversée + atténuée (les
+   maquettes UI blanches deviennent sombres), voile dégradé sombre. */
+:root[data-color-scheme='dark'] .page-hero {
+  background: #020617 !important;
+}
+:root[data-color-scheme='dark'] .page-hero__art {
+  opacity: 0.28;
+  filter: invert(1) hue-rotate(185deg) saturate(1.15) brightness(0.95);
+}
+:root[data-color-scheme='dark'] .page-hero__wash {
+  background: linear-gradient(
+    100deg,
+    #020617 0%,
+    rgba(2, 6, 23, 0.94) 40%,
+    rgba(2, 6, 23, 0.6) 64%,
+    rgba(2, 6, 23, 0.18) 100%
+  ) !important;
 }
 
 /* ─── High contrast ──────────────────────────────────────────────────────── */

@@ -12,8 +12,17 @@ interface SitemapPageParam {
   fanOut?: boolean
 }
 
-/** Nombre max d'URLs fan-out émises par document (garde-fou anti-sitemap géant). */
-const FANOUT_URL_CAP = 5000
+/**
+ * Nombre max d'URLs fan-out émises par document. Volontairement bas : on ne
+ * soumet au départ qu'un sous-ensemble de valeurs (les premières distinctes) —
+ * inonder Google de milliers de pages paramétrées mène surtout à « Détectée,
+ * actuellement non indexée ». On élargira quand ces pages auront prouvé leur
+ * valeur (trafic, contenu enrichi).
+ */
+const FANOUT_URL_CAP = 800
+
+/** Limite de la requête de valeurs distinctes (cohérente avec {@link FANOUT_URL_CAP}). */
+const FANOUT_QUERY_LIMIT = 800
 
 interface SitemapPage {
   slug?: string
@@ -68,8 +77,8 @@ async function fanOutEntries(
     try {
       const qs =
         keys.length === 1
-          ? `columns[]=${encodeURIComponent(keys[0]!)}&distinct=true&limit=2000`
-          : keys.map((k) => `columns[]=${encodeURIComponent(k)}`).join('&') + '&limit=2000'
+          ? `columns[]=${encodeURIComponent(keys[0]!)}&distinct=true&limit=${FANOUT_QUERY_LIMIT}`
+          : keys.map((k) => `columns[]=${encodeURIComponent(k)}`).join('&') + `&limit=${FANOUT_QUERY_LIMIT}`
       const res = await $fetch<DistinctResponse>(
         `${apiBaseUrl}/studio/content/public/${encodeURIComponent(item.slug!)}/datasets/${encodeURIComponent(datasetId)}/query?${qs}`,
       )
@@ -106,7 +115,10 @@ export async function fetchPublicContentEntries(
     lastmod: item.updated_at,
   }))
 
-  if (type !== 'statsdata') return base
+  // Fan-out : émis uniquement sous le préfixe racine. Le même statsdata décliné
+  // sous /tvstats ou /medistats pointe déjà vers l'URL racine via rel=canonical
+  // (voir canonicalContentPath) — inutile de tripler les URLs paramétrées.
+  if (type !== 'statsdata' || basePath !== '') return base
 
   const fanOut = (await Promise.all(items.map((item) => fanOutEntries(apiBaseUrl, basePath, item)))).flat()
   return [...base, ...fanOut]

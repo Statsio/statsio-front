@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useBlockData, rowKey } from '@/composables/useBlockData'
+import { valueLabel } from '@/lib/studio-columns'
 import { formatDisplayValue } from '@/utils/statsDataFormat'
 import type { StudioBlock } from '@/types/studio'
 
@@ -27,10 +28,13 @@ const titleCol = computed(() => props.block.fieldMapping.recordTitleColumn ?? co
 /** Valeur de ligne pour une ref (nue ou `col@<sourceId>`). */
 const cellValue = (ref: string) => row.value?.[rowKey(data.value, ref)]
 const titleValue = computed(() => cellValue(titleCol.value))
+/** Valeur d'affichage d'une colonne : libellé de valeur perso, sinon valeur brute formatée. */
+const displayValue = (ref: string) =>
+  valueLabel(ref, cellValue(ref), props.block) ?? formatDisplayValue(cellValue(ref))
 const fields = computed(() =>
   cols.value
     .filter((c) => c !== titleCol.value && cellValue(c) != null && cellValue(c) !== '')
-    .map((c) => ({ label: props.block.fieldMapping.columnLabels?.[c] ?? c, value: formatDisplayValue(cellValue(c)) })),
+    .map((c) => ({ label: props.block.fieldMapping.columnLabels?.[c] ?? c, value: displayValue(c) })),
 )
 </script>
 
@@ -43,7 +47,7 @@ const fields = computed(() =>
 
     <template v-else>
       <p v-if="titleCol && titleValue" class="text-[17px] font-extrabold tracking-[-0.01em] text-[var(--studio-ink)]">
-        {{ formatDisplayValue(titleValue) }}
+        {{ displayValue(titleCol) }}
       </p>
       <dl class="mt-3 flex flex-col divide-y divide-[var(--studio-line)]">
         <div v-for="f in fields" :key="f.label" class="flex items-baseline justify-between gap-4 py-2">

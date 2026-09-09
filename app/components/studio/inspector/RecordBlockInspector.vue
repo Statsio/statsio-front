@@ -8,6 +8,7 @@ import { useSourceDrillIn } from '@/composables/useSourceDrillIn'
 import FieldPicker from '@/components/studio/fields/FieldPicker.vue'
 import FieldNote from '@/components/studio/fields/FieldNote.vue'
 import FieldColumns from '@/components/studio/fields/FieldColumns.vue'
+import FieldValueLabels from '@/components/studio/fields/FieldValueLabels.vue'
 import BlockFiltersField from '@/components/studio/fields/BlockFiltersField.vue'
 
 const props = defineProps<{ block: StudioBlock; activeTab: string }>()
@@ -65,6 +66,15 @@ const sourceDrill = useSourceDrillIn()
   <div>
     <template v-if="activeTab === 'data'">
       <div class="flex flex-col gap-[11px] px-4 pb-1 pt-3">
+        <div class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold text-[var(--studio-muted)]">Titre du bloc</label>
+          <input
+            type="text" class="cfg-input" placeholder="Ex : Station la moins chère"
+            :value="block.config.title ?? ''"
+            @input="updateConfig('title', ($event.target as HTMLInputElement).value || undefined)"
+          />
+        </div>
+
         <FieldPicker
           label="Source"
           :value="datasetName"
@@ -81,6 +91,10 @@ const sourceDrill = useSourceDrillIn()
             :selected="cols"
             @pick="toggleColumn"
           />
+          <div v-if="cols.length" class="flex flex-col gap-2">
+            <label class="text-xs font-semibold text-[var(--studio-muted)]">Libellés des valeurs</label>
+            <FieldValueLabels v-for="c in cols" :key="c" :block="block" :column-ref="c" />
+          </div>
           <div v-if="!isRelated" class="flex flex-col gap-1.5">
             <label class="text-xs font-semibold text-[var(--studio-muted)]">Colonne de titre</label>
             <FieldColumns
@@ -147,13 +161,8 @@ const sourceDrill = useSourceDrillIn()
     </template>
 
     <template v-if="activeTab === 'style'">
-      <div class="flex flex-col gap-1.5 px-4 pb-1 pt-3">
-        <label class="text-xs font-semibold text-[var(--studio-muted)]">Titre du bloc</label>
-        <input
-          type="text" class="cfg-input" placeholder="Ex : Station la moins chère"
-          :value="block.config.title ?? ''"
-          @input="updateConfig('title', ($event.target as HTMLInputElement).value || undefined)"
-        />
+      <div class="px-4 pb-1 pt-3">
+        <FieldNote>Le titre du bloc se règle dans l'onglet Données. Ce bloc n'a pas d'autres options de style.</FieldNote>
       </div>
     </template>
   </div>

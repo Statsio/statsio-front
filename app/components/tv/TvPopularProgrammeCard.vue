@@ -29,9 +29,10 @@ defineProps<{
     <div class="p-4">
       <span
         v-if="programme.category"
-        class="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+        class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
         :class="CATEGORY_COLOR_CLASS[programme.categoryColor ?? ''] ?? CATEGORY_COLOR_FALLBACK"
       >
+        <CategoryIcon :icon-name="programme.categoryIcon" :category="programme.category" :size="11" fallback="none" />
         {{ programme.category }}
       </span>
       <p class="u-card-title mt-2 text-[14.5px] font-bold leading-tight text-slate-900">{{ programme.title }}</p>

@@ -6,6 +6,7 @@ import { interpolateTokens } from '@/lib/studio-tokens'
 import { aggTermsToExpression } from '@/lib/studio-aggregates'
 import { useResolvedTokens } from '@/composables/useResolvedTokens'
 import { useStudioStore } from '@/stores/studio'
+import { valueLabel } from '@/lib/studio-columns'
 import { formatDisplayValue, parseNumericValue, toNumericOrNull } from '@/utils/statsDataFormat'
 import type { StudioBlock, BlockQueryResult, BlockFilter } from '@/types/studio'
 
@@ -57,7 +58,8 @@ const formattedValue = computed(() => {
   if (v === null || v === undefined) return '—'
   // Valeur décorée (« 90 % », « 1 234 ») → on garde le nombre ; texte pur → tel quel.
   const num = toNumericOrNull(v)
-  return num === null ? formatDisplayValue(v) : applyFormat(num)
+  if (num !== null) return applyFormat(num)
+  return valueLabel(valueCol.value, v, props.block) ?? formatDisplayValue(v)
 })
 
 // ─── Comparison value ─────────────────────────────────────────────────────────
@@ -174,11 +176,18 @@ const trendLabel = computed(() => {
 
 const isPositive = computed(() => (delta.value?.diff ?? 0) >= 0)
 
-// {{item}} & co. dans les libellés quand le bloc est dans une boucle
-const tk = (s?: string) => interpolateTokens(s ?? '', props.scope)
-const resolvedTitle = computed(() => tk(props.block.config.title))
-const resolvedDescription = computed(() => tk(props.block.config.description))
-const resolvedComparisonLabel = computed(() => tk(props.block.config.comparisonLabel))
+// Libellés : {{param}} (page), {{item}} (boucle) + expressions calculées —
+// même résolution que le titre des autres blocs (voir BlockCard.vue).
+const labelOpts = {
+  tokenMap: () => ({ ...studio.pageParams, ...props.scope }),
+  block: () => props.block,
+  datasetId: () => props.block.datasetId,
+  readonly: () => props.readonly ?? false,
+  docSlug: () => studio.content?.slug,
+}
+const { text: resolvedTitle } = useResolvedTokens({ raw: () => props.block.config.title, ...labelOpts })
+const { text: resolvedDescription } = useResolvedTokens({ raw: () => props.block.config.description, ...labelOpts })
+const { text: resolvedComparisonLabel } = useResolvedTokens({ raw: () => props.block.config.comparisonLabel, ...labelOpts })
 </script>
 
 <template>
