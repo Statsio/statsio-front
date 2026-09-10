@@ -2,6 +2,17 @@ import axios, { type AxiosInstance, type InternalAxiosRequestConfig, type AxiosR
 import { AUTH_REDIRECT_KEY, clearStoredToken, getStoredToken, storeSession } from '@/lib/auth-storage'
 import type { ApiAuthResponse, AuthSession, PersistMode } from '@/types/auth'
 
+/**
+ * Sur le runtime Cloudflare Workers (SSR), l'adaptateur HTTP Node d'axios est inutilisable :
+ * le shim `node:http` de workerd passe un champ `cache` que le runtime rejette
+ * (« The 'cache' field on 'RequestInitializerDict' is not implemented. ») et sa chaîne de
+ * dépendances (`follow-redirects`, `https-proxy-agent`) casse au chargement. On force donc
+ * l'adaptateur `fetch` d'axios côté serveur — il a un support explicite des Workers (axios
+ * ≥ 1.7) et réutilise tout le pipeline axios (intercepteurs, paramsSerializer, FormData…).
+ * Côté client, on garde l'adaptateur par défaut (XHR).
+ */
+const SERVER_FETCH_ADAPTER = import.meta.server ? ('fetch' as const) : undefined
+
 let _authApiBaseUrl = 'http://localhost:8080/api/auth'
 let _apiBaseUrl = 'http://localhost:8080/api'
 
@@ -54,6 +65,7 @@ const refreshAccessToken = async (): Promise<AuthSession | null> => {
     `${_authApiBaseUrl}${REFRESH_ENDPOINT}`,
     { refresh_token: storedToken.refreshToken },
     {
+      adapter: SERVER_FETCH_ADAPTER,
       headers: {
         Accept: 'application/json',
       },
@@ -70,6 +82,7 @@ const refreshAccessToken = async (): Promise<AuthSession | null> => {
 
 function createAuthenticatedClient(getBaseURL: () => string): AxiosInstance {
   const client = axios.create({
+    adapter: SERVER_FETCH_ADAPTER,
     headers: { Accept: 'application/json' },
   })
 
@@ -143,7 +156,10 @@ export const apiHttp = createAuthenticatedClient(getApiBaseUrl)
  * consultables anonymement). Le token est tout de même transmis quand il existe, pour que
  * l'API puisse renvoyer des champs dépendants du viewer (ex. `can_edit`) aux visiteurs connectés.
  */
-export const publicHttp = axios.create({ headers: { Accept: 'application/json' } })
+export const publicHttp = axios.create({
+  adapter: SERVER_FETCH_ADAPTER,
+  headers: { Accept: 'application/json' },
+})
 publicHttp.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   config.baseURL = getApiBaseUrl()
   const storedToken = getStoredToken()

@@ -2,6 +2,7 @@
 import { computed, nextTick, watch } from 'vue'
 import StatsDataSection from './StatsDataSection.vue'
 import BlockRenderer from '@/components/studio/blocks/BlockRenderer.vue'
+import BlockCard from '@/components/studio/blocks/BlockCard.vue'
 import type { CanvasItemRef, Section, StudioBlock } from '@/types/studio'
 
 const props = defineProps<{
@@ -43,7 +44,9 @@ watch(() => visibleItems.value, async () => {
     <template v-for="item in visibleItems" :key="item.ref.kind + ':' + item.ref.id">
       <StatsDataSection v-if="item.section" :section="item.section" />
       <div v-else-if="item.block" :id="`block-${item.block.id}`" data-block-anim class="min-w-0 scroll-mt-40">
-        <BlockRenderer :block="item.block" :readonly="true" />
+        <BlockCard :block="item.block" :readonly="true">
+          <BlockRenderer :block="item.block" :readonly="true" />
+        </BlockCard>
       </div>
     </template>
   </template>
