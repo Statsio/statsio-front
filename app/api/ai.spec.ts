@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import AxiosMockAdapter from 'axios-mock-adapter'
-import { apiHttp } from '@/lib/http'
+import { createFetchMock, type FetchMock } from '#test/mock-fetch'
 import {
   createAgentConversation,
   listAgentConversations,
@@ -11,10 +10,10 @@ import {
 } from './ai'
 
 describe('app/api/ai', () => {
-  let apiMock: AxiosMockAdapter
+  let apiMock: FetchMock
 
   beforeEach(() => {
-    apiMock = new AxiosMockAdapter(apiHttp)
+    apiMock = createFetchMock()
   })
 
   afterEach(() => {
@@ -67,7 +66,7 @@ describe('app/api/ai', () => {
 
   it('sendAgentMessage posts text and returns the run id', async () => {
     apiMock.onPost('/ai/studio/conversations/7/messages').reply((config) => {
-      expect(JSON.parse(config.data)).toEqual({ text: 'ajoute un titre' })
+      expect(JSON.parse(config.data as string)).toEqual({ text: 'ajoute un titre' })
       return [202, { success: true, data: { run_id: 99, conversation_id: 7 } }]
     })
 

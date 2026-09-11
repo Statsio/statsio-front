@@ -3,15 +3,30 @@ import { STATSIO_API } from './statsio-endpoints'
 import type { DatasetColumn, DatasetMeta, DatasetWithSchema, BlockQueryResult, StudioBlock } from '@/types/studio'
 import type { ContentType, ContentCoverage } from '@/types/content-creation'
 
+/** Enveloppe Laravel générique `{ data: T }` — pour typer les réponses `apiHttp`/`publicHttp`. */
+interface Envelope<T> {
+  data: T
+}
+
+/** Forme brute (snake_case) de `BlockQueryResult`, telle que renvoyée par `GET .../query`. */
+interface RawBlockQueryResult {
+  columns?: string[]
+  rows?: Record<string, unknown>[]
+  total_rows?: number
+  column_map?: Record<string, string>
+}
+
 // ─── Datasets ─────────────────────────────────────────────────────────────────
 
 export async function fetchDatasets(): Promise<DatasetMeta[]> {
-  const { data } = await apiHttp.get(STATSIO_API.datasets.collection)
+  const { data } = await apiHttp.get<Envelope<Record<string, unknown>[]>>(STATSIO_API.datasets.collection)
   return (data.data ?? []).map(mapDatasetMeta)
 }
 
 export async function fetchDatasetSchema(datasetId: string): Promise<DatasetWithSchema> {
-  const { data } = await apiHttp.get(STATSIO_API.datasets.one(datasetId))
+  const { data } = await apiHttp.get<Envelope<Record<string, unknown> & { columns?: Record<string, unknown>[] }>>(
+    STATSIO_API.datasets.one(datasetId),
+  )
   return {
     ...mapDatasetMeta(data.data),
     columns: (data.data.columns ?? []).map((col: Record<string, unknown>) => ({
@@ -31,12 +46,12 @@ export interface DatasetPreview {
 }
 
 export async function fetchDatasetPreview(datasetId: string, limit = 5): Promise<DatasetPreview> {
-  const { data } = await apiHttp.get(STATSIO_API.datasets.preview(datasetId), { params: { limit } })
+  const { data } = await apiHttp.get<Envelope<DatasetPreview>>(STATSIO_API.datasets.preview(datasetId), { params: { limit } })
   return data.data
 }
 
 export async function updateDataset(datasetId: string, payload: { name?: string; description?: string }): Promise<DatasetMeta> {
-  const { data } = await apiHttp.patch(STATSIO_API.datasets.one(datasetId), payload)
+  const { data } = await apiHttp.patch<Envelope<Record<string, unknown>>>(STATSIO_API.datasets.one(datasetId), payload)
   return mapDatasetMeta(data.data)
 }
 
@@ -134,7 +149,7 @@ export async function fetchBlockData(
   datasetId: string,
   params: BlockQueryParams = {},
 ): Promise<BlockQueryResult> {
-  const { data } = await apiHttp.get(STATSIO_API.datasets.query(datasetId), {
+  const { data } = await apiHttp.get<Envelope<RawBlockQueryResult>>(STATSIO_API.datasets.query(datasetId), {
     params,
     paramsSerializer: buildParamsSerializer,
   })
@@ -151,7 +166,7 @@ export async function fetchPublicBlockData(
   datasetId: string,
   params: BlockQueryParams = {},
 ): Promise<BlockQueryResult> {
-  const { data } = await publicHttp.get(
+  const { data } = await publicHttp.get<Envelope<RawBlockQueryResult>>(
     STATSIO_API.studioContent.publicDatasetQuery(docSlug, datasetId),
     { params, paramsSerializer: buildParamsSerializer },
   )
@@ -218,7 +233,7 @@ export async function fetchDistinctValues(
   filters: import('@/types/studio').BlockFilter[] = [],
   ctx: DistinctSourceCtx = {},
 ): Promise<string[]> {
-  const { data } = await apiHttp.get(STATSIO_API.datasets.query(datasetId), {
+  const { data } = await apiHttp.get<Envelope<RawBlockQueryResult>>(STATSIO_API.datasets.query(datasetId), {
     params: {},
     paramsSerializer: distinctParamsSerializer(column, search, filters, ctx),
   })
@@ -233,7 +248,7 @@ export async function fetchPublicDistinctValues(
   filters: import('@/types/studio').BlockFilter[] = [],
   ctx: DistinctSourceCtx = {},
 ): Promise<string[]> {
-  const { data } = await publicHttp.get(
+  const { data } = await publicHttp.get<Envelope<RawBlockQueryResult>>(
     STATSIO_API.studioContent.publicDatasetQuery(docSlug, datasetId),
     { params: {}, paramsSerializer: distinctParamsSerializer(column, search, filters, ctx) },
   )
@@ -449,7 +464,7 @@ export interface StatsDataDocument {
 }
 
 export async function fetchUserStudioContents(type?: ContentType, channelId?: number): Promise<StatsDataDocument[]> {
-  const { data } = await apiHttp.get(STATSIO_API.studioContent.collection, {
+  const { data } = await apiHttp.get<Envelope<StatsDataDocument[]>>(STATSIO_API.studioContent.collection, {
     params: { ...(type ? { type } : {}), ...(channelId ? { channel_id: channelId } : {}) },
   })
   return data.data ?? []
@@ -466,7 +481,7 @@ export interface CreateStudioContentPayload {
 }
 
 export async function createStudioContent(payload: CreateStudioContentPayload): Promise<StatsDataDocument> {
-  const { data } = await apiHttp.post(STATSIO_API.studioContent.collection, payload)
+  const { data } = await apiHttp.post<Envelope<StatsDataDocument>>(STATSIO_API.studioContent.collection, payload)
   return data.data
 }
 
@@ -477,7 +492,7 @@ export interface PublicCollectionScope {
 }
 
 async function fetchPublicCollection(type: ContentType, scope: PublicCollectionScope): Promise<StatsDataDocument[]> {
-  const { data } = await publicHttp.get(STATSIO_API.studioContent.publicCollection, {
+  const { data } = await publicHttp.get<Envelope<StatsDataDocument[]>>(STATSIO_API.studioContent.publicCollection, {
     params: {
       type,
       ...(scope.sub_brand ? { sub_brand: scope.sub_brand } : {}),
@@ -500,7 +515,7 @@ export function fetchPublicArticles(scope: PublicCollectionScope = {}): Promise<
 }
 
 export async function fetchPublicCatalog(query: import('@/types/catalog').CatalogQuery): Promise<import('@/types/catalog').CatalogResponse> {
-  const { data } = await publicHttp.get(STATSIO_API.studioContent.publicCatalog, {
+  const { data } = await publicHttp.get<Partial<import('@/types/catalog').CatalogResponse>>(STATSIO_API.studioContent.publicCatalog, {
     params: {
       type: query.type,
       ...(query.q ? { q: query.q } : {}),
@@ -528,12 +543,12 @@ export async function fetchPublicCatalog(query: import('@/types/catalog').Catalo
 }
 
 export async function fetchStatsDataDocument(documentId: string): Promise<StatsDataDocument> {
-  const { data } = await apiHttp.get(STATSIO_API.studioContent.one(documentId))
+  const { data } = await apiHttp.get<Envelope<StatsDataDocument>>(STATSIO_API.studioContent.one(documentId))
   return data.data
 }
 
 export async function fetchPublicStatsDataDocument(slug: string): Promise<StatsDataDocument> {
-  const { data } = await publicHttp.get(STATSIO_API.studioContent.publicBySlug(slug))
+  const { data } = await publicHttp.get<Envelope<StatsDataDocument>>(STATSIO_API.studioContent.publicBySlug(slug))
   return data.data
 }
 
@@ -546,7 +561,10 @@ export async function fetchGlobalSearch(q: string): Promise<import('@/types/sear
   const query = q.trim()
   if (query.length < 2) return { ...EMPTY_SEARCH, query }
 
-  const { data } = await publicHttp.get(STATSIO_API.studioContent.publicSearch, { params: { q: query } })
+  const { data } = await publicHttp.get<Partial<import('@/types/search').GlobalSearchResponse>>(
+    STATSIO_API.studioContent.publicSearch,
+    { params: { q: query } },
+  )
   return {
     query: data.query ?? query,
     total: data.total ?? 0,
@@ -569,7 +587,7 @@ export async function fetchContentMentions(
   q: string,
   type?: ContentType,
 ): Promise<ContentMention[]> {
-  const { data } = await publicHttp.get(STATSIO_API.studioContent.publicMentions, {
+  const { data } = await publicHttp.get<Envelope<ContentMention[]>>(STATSIO_API.studioContent.publicMentions, {
     params: { q, ...(type ? { type } : {}) },
   })
   return data.data ?? []
@@ -609,8 +627,10 @@ export interface ResolvedEmbeddedBlock {
 export async function fetchStatsDataEmbeddableBlocks(
   slug: string,
 ): Promise<{ doc: EmbeddedBlockDoc; blocks: EmbeddableBlockSummary[] }> {
-  const { data } = await publicHttp.get(STATSIO_API.studioContent.publicBlocks(slug))
-  return { doc: data.data?.doc, blocks: data.data?.blocks ?? [] }
+  const { data } = await publicHttp.get<Envelope<{ doc: EmbeddedBlockDoc; blocks?: EmbeddableBlockSummary[] }>>(
+    STATSIO_API.studioContent.publicBlocks(slug),
+  )
+  return { doc: data.data.doc, blocks: data.data.blocks ?? [] }
 }
 
 /**
@@ -622,9 +642,10 @@ export async function fetchStatsDataCardPreview(
   slug: string,
   blockId?: string,
 ): Promise<import('@/types/catalog').CardPreview> {
-  const { data } = await publicHttp.get(STATSIO_API.studioContent.cardPreview(slug), {
-    params: blockId ? { block_id: blockId } : undefined,
-  })
+  const { data } = await publicHttp.get<Partial<Envelope<import('@/types/catalog').CardPreview>>>(
+    STATSIO_API.studioContent.cardPreview(slug),
+    { params: blockId ? { block_id: blockId } : undefined },
+  )
   return (data?.data ?? { empty: true }) as import('@/types/catalog').CardPreview
 }
 
@@ -633,7 +654,15 @@ export async function fetchPublicStatsDataBlock(
   slug: string,
   blockId: string,
 ): Promise<ResolvedEmbeddedBlock> {
-  const { data } = await publicHttp.get(STATSIO_API.studioContent.publicBlock(slug, blockId))
+  const { data } = await publicHttp.get<
+    Envelope<{
+      block: StudioBlock
+      doc: EmbeddedBlockDoc
+      pages?: import('@/types/studio').StudioDocumentPage[]
+      datasets?: ContentDataset[]
+      params?: import('@/types/studio').PageParam[]
+    }>
+  >(STATSIO_API.studioContent.publicBlock(slug, blockId))
   return {
     block: data.data.block,
     doc: data.data.doc,
@@ -679,7 +708,7 @@ export async function saveStatsDataDocument(
   if (thumbnailMediaId != null) body.thumbnail_media_id = thumbnailMediaId
   if (removeThumbnail) body.remove_thumbnail = true
 
-  const { data } = await apiHttp.patch(STATSIO_API.studioContent.one(documentId), body)
+  const { data } = await apiHttp.patch<Envelope<StatsDataDocument>>(STATSIO_API.studioContent.one(documentId), body)
   return data.data
 }
 
@@ -700,7 +729,7 @@ export async function publishStudioContent(
     dossierIds?: number[]
   } = {},
 ): Promise<StatsDataDocument> {
-  const { data } = await apiHttp.post(STATSIO_API.studioContent.publish(documentId), {
+  const { data } = await apiHttp.post<Envelope<StatsDataDocument>>(STATSIO_API.studioContent.publish(documentId), {
     ...(opts.publishedAs ? { published_as: opts.publishedAs } : {}),
     ...(opts.channelId != null ? { channel_id: opts.channelId } : {}),
     ...(opts.dossierIds ? { dossier_ids: opts.dossierIds } : {}),
@@ -709,7 +738,7 @@ export async function publishStudioContent(
 }
 
 export async function unpublishStudioContent(documentId: string): Promise<StatsDataDocument> {
-  const { data } = await apiHttp.post(STATSIO_API.studioContent.unpublish(documentId))
+  const { data } = await apiHttp.post<Envelope<StatsDataDocument>>(STATSIO_API.studioContent.unpublish(documentId))
   return data.data
 }
 
@@ -723,13 +752,13 @@ export interface StudioContentVersionRow {
 }
 
 export async function fetchContentVersions(documentId: string): Promise<StudioContentVersionRow[]> {
-  const { data } = await apiHttp.get(STATSIO_API.studioContent.versions(documentId))
+  const { data } = await apiHttp.get<Envelope<StudioContentVersionRow[]>>(STATSIO_API.studioContent.versions(documentId))
   return data.data ?? []
 }
 
 /** Recharge une version antérieure dans le brouillon de travail (public inchangé). */
 export async function restoreContentVersion(documentId: string, version: number): Promise<StatsDataDocument> {
-  const { data } = await apiHttp.post(STATSIO_API.studioContent.restoreVersion(documentId, version))
+  const { data } = await apiHttp.post<Envelope<StatsDataDocument>>(STATSIO_API.studioContent.restoreVersion(documentId, version))
   return data.data
 }
 

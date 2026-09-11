@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import AxiosMockAdapter from 'axios-mock-adapter'
-import { apiHttp } from '@/lib/http'
+import { createFetchMock, type FetchMock } from '#test/mock-fetch'
 import {
   fetchDossiers,
   fetchPinnedDossiers,
@@ -12,10 +11,10 @@ import {
 } from './dossiers'
 
 describe('app/api/dossiers', () => {
-  let apiMock: AxiosMockAdapter
+  let apiMock: FetchMock
 
   beforeEach(() => {
-    apiMock = new AxiosMockAdapter(apiHttp)
+    apiMock = createFetchMock()
   })
   afterEach(() => {
     apiMock.restore()
@@ -75,7 +74,7 @@ describe('app/api/dossiers', () => {
   it('sends dossier_ids as the body on sync', async () => {
     let sentBody: unknown
     apiMock.onPut('/studio/content/my-slug/dossiers').reply((config) => {
-      sentBody = JSON.parse(config.data)
+      sentBody = JSON.parse(config.data as string)
       return [200, { success: true, data: [{ id: 2, slug: 'b', name: 'B' }] }]
     })
 

@@ -1,13 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import AxiosMockAdapter from 'axios-mock-adapter'
-import { apiHttp } from '@/lib/http'
+import { createFetchMock, type FetchMock } from '#test/mock-fetch'
 import { startIdentityVerification, fetchIdentityStatus } from './identity'
 
 describe('identity api', () => {
-  let mock: AxiosMockAdapter
+  let mock: FetchMock
 
   beforeEach(() => {
-    mock = new AxiosMockAdapter(apiHttp)
+    mock = createFetchMock()
   })
 
   afterEach(() => {
@@ -27,7 +26,7 @@ describe('identity api', () => {
     const result = await startIdentityVerification('/sondages/mon-sondage')
 
     expect(result.url).toBe('https://verify.didit.me/en/session/abc')
-    expect(JSON.parse(mock.history.post[0]!.data)).toEqual({ return_path: '/sondages/mon-sondage' })
+    expect(JSON.parse(mock.history.post[0]!.data as string)).toEqual({ return_path: '/sondages/mon-sondage' })
   })
 
   it('reads the current identity status', async () => {
