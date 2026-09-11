@@ -156,7 +156,15 @@ export function useStatsDataDetail() {
       // (navigation index.vue → [segment].vue) — on les préserve.
       const savedParams = { ...studio.pageParams }
       studio.initPage(
-        { id: data.id, type: 'statsdata', title: data.title, status: data.status as 'draft' | 'published', slug: docSlug.value },
+        {
+          id: data.id,
+          type: 'statsdata',
+          title: data.title,
+          status: data.status as 'draft' | 'published',
+          slug: docSlug.value,
+          download_enabled: data.download_enabled !== false,
+          embed_enabled: data.embed_enabled !== false,
+        },
         data.sections, data.blocks, data.pages,
       )
 

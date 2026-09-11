@@ -10,7 +10,13 @@ import { markColor } from '@/lib/studio-chart'
 import { formatDisplayValue, parseNumericValue } from '@/utils/statsDataFormat'
 import type { StudioBlock } from '@/types/studio'
 
-const props = defineProps<{ block: StudioBlock; readonly?: boolean; scope?: Record<string, string> }>()
+const props = defineProps<{
+  block: StudioBlock
+  readonly?: boolean
+  scope?: Record<string, string>
+  /** Modal d'agrandissement : camembert plus large. */
+  expanded?: boolean
+}>()
 
 const studio = useStudioStore()
 const datasets = useStudioDatasetsStore()
@@ -127,9 +133,13 @@ const conicGradient = computed(() => {
       <span class="text-xs">Configurer les données →</span>
     </div>
 
-    <div v-else class="flex items-center gap-8">
-      <div class="h-[150px] w-[150px] shrink-0 rounded-full" :style="{ background: conicGradient }" />
-      <div class="flex min-w-0 flex-1 flex-col gap-2.5 text-sm">
+    <div v-else class="flex items-center gap-8" :class="expanded ? 'flex-col sm:flex-row sm:gap-12' : ''">
+      <div
+        class="shrink-0 rounded-full"
+        :class="expanded ? 'h-[240px] w-[240px] sm:h-[280px] sm:w-[280px]' : 'h-[150px] w-[150px]'"
+        :style="{ background: conicGradient }"
+      />
+      <div class="flex min-w-0 flex-1 flex-col gap-2.5 text-sm" :class="expanded ? 'text-base' : ''">
         <div v-for="s in segments" :key="s.label" class="flex items-center gap-2">
           <span class="h-2.5 w-2.5 shrink-0 rounded-sm" :style="{ backgroundColor: s.color }" />
           <span class="min-w-0 flex-1 truncate text-[color:color-mix(in_srgb,var(--studio-ink)_80%,transparent)]">{{ s.label }}</span>

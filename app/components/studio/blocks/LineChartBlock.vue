@@ -8,7 +8,13 @@ import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import { buildChartSeries } from '@/lib/studio-chart'
 import type { StudioBlock } from '@/types/studio'
 
-const props = defineProps<{ block: StudioBlock; readonly?: boolean; scope?: Record<string, string> }>()
+const props = defineProps<{
+  block: StudioBlock
+  readonly?: boolean
+  scope?: Record<string, string>
+  /** Modal d'agrandissement : hauteur de graphique plus généreuse. */
+  expanded?: boolean
+}>()
 
 const studio = useStudioStore()
 const datasets = useStudioDatasetsStore()
@@ -128,7 +134,9 @@ watch(() => [studio.isPanelOpen, studio.selectedBlockId !== null], scheduleResiz
   <div class="relative w-full overflow-hidden">
     <div
       class="relative"
-      :class="hasMultipleSeries ? 'h-64 sm:h-80' : 'h-48 sm:h-64'"
+      :class="expanded
+        ? 'h-[28rem] sm:h-[32rem]'
+        : hasMultipleSeries ? 'h-64 sm:h-80' : 'h-48 sm:h-64'"
     >
       <div v-if="isLoading" class="absolute inset-0 flex items-center justify-center bg-white/70">
         <span class="text-sm text-[var(--studio-faint)]">Chargement…</span>

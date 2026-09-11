@@ -21,7 +21,7 @@ import { desiredSearchPageParam, sameSearchPageParam } from '@/lib/studio-search
 import { desiredParamBlockPageParam, sameParamBlockPageParam } from '@/lib/studio-param'
 import { parseColumnRef } from '@/lib/studio-columns'
 import type { BlockSource, BlockJoin } from '@/types/studio'
-import { fetchPremiumBlockTypes } from '@/api/studio-block-gates'
+import { fetchBlockGates, type RequiredOffer } from '@/api/studio-block-gates'
 import { useAuthStore } from '@/stores/auth'
 
 function uid(): string {
@@ -82,14 +82,21 @@ export const useStudioStore = defineStore('studio', () => {
   // ─── Premium ─────────────────────────────────────────────────────────────────
 
   const authStore = useAuthStore()
-  /** Types de blocs réservés à l'offre Premium (classification back-office) — voir /offres. */
+  /** Types de blocs réservés à une offre payante (classification back-office) — voir /offres. */
   const premiumBlockTypes = ref<BlockType[]>([])
+  /** Offre réelle (CRUD Offres) qui débloque chaque bloc premium — pour l'affichage, pas de libellé codé en dur. */
+  const premiumBlockOffers = ref<Partial<Record<BlockType, RequiredOffer>>>({})
   const premiumGatesLoaded = ref(false)
   /** Type de bloc dont l'ajout vient d'être bloqué → pilote la modale d'upsell. */
   const premiumUpsellBlockType = ref<BlockType | null>(null)
 
   function isBlockPremium(type: BlockType): boolean {
     return premiumBlockTypes.value.includes(type)
+  }
+
+  /** Nom de l'offre réelle qui débloque ce bloc — undefined tant que non chargé/configuré. */
+  function requiredOfferForBlock(type: BlockType): RequiredOffer | undefined {
+    return premiumBlockOffers.value[type]
   }
 
   /** L'utilisateur peut-il utiliser ce type de bloc ? Le back reste la source de vérité. */
@@ -110,7 +117,9 @@ export const useStudioStore = defineStore('studio', () => {
     if (premiumGatesLoaded.value) return
     premiumGatesLoaded.value = true
     try {
-      premiumBlockTypes.value = await fetchPremiumBlockTypes()
+      const gates = await fetchBlockGates()
+      premiumBlockTypes.value = gates.types
+      premiumBlockOffers.value = gates.offerByType
     } catch {
       // Best-effort : sans cette liste, aucune pastille n'est affichée mais le
       // back refuse toujours l'enregistrement d'un bloc premium (source de vérité).
@@ -1838,8 +1847,10 @@ export const useStudioStore = defineStore('studio', () => {
     dirtyVersion,
     isPreview,
     premiumBlockTypes,
+    premiumBlockOffers,
     premiumUpsellBlockType,
     isBlockPremium,
+    requiredOfferForBlock,
     canUseBlock,
     requestPremiumUpsell,
     dismissPremiumUpsell,

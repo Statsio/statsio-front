@@ -54,7 +54,7 @@ function blocksInZone(zoneId: string): StudioBlock[] {
     :style="{ gridTemplateColumns: def.gridCols.map((s: number) => `${s}fr`).join(' ') }"
   >
     <div v-for="zoneId in zoneIds" :key="zoneId" class="flex min-w-0 grow basis-[min(100%,16rem)] flex-col gap-4 sm:basis-auto">
-      <BlockCard v-for="child in blocksInZone(zoneId)" :key="child.id" :block="child" :scope="scope" flat>
+      <BlockCard v-for="child in blocksInZone(zoneId)" :key="child.id" :block="child" :scope="scope" :readonly="true" flat>
         <BlockRenderer :block="child" :readonly="true" :scope="scope" />
       </BlockCard>
     </div>

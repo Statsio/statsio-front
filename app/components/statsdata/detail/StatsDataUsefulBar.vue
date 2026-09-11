@@ -10,6 +10,7 @@ defineProps<{
   shareUrl: string
   canWebShare: boolean
   shareTargets: { key: string; label: string; href: string }[]
+  canEmbed?: boolean
 }>()
 
 defineEmits<{
@@ -47,6 +48,7 @@ defineEmits<{
       :share-url="shareUrl"
       :can-web-share="canWebShare"
       :targets="shareTargets"
+      :can-embed="canEmbed !== false"
       @native-share="$emit('native-share')"
       @open-embed="$emit('open-embed')"
     />

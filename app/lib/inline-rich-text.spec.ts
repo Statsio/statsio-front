@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { sanitizeInlineHtml, stripInlineHtml, isBlankInlineHtml } from './inline-rich-text'
+import { sanitizeInlineHtml, sanitizePromoTitleHtml, stripInlineHtml, isBlankInlineHtml } from './inline-rich-text'
 
 describe('sanitizeInlineHtml', () => {
   it('keeps allowed character marks', () => {
@@ -28,6 +28,31 @@ describe('sanitizeInlineHtml', () => {
   it('escapes a legacy plain-text value', () => {
     expect(sanitizeInlineHtml('Marges & seuils < 5')).toBe('Marges &amp; seuils &lt; 5')
     expect(sanitizeInlineHtml('')).toBe('')
+  })
+})
+
+describe('sanitizePromoTitleHtml', () => {
+  it('rewrites the Filament RichEditor --color custom property into a real color', () => {
+    expect(sanitizePromoTitleHtml('<span class="color" data-color="#e11d48" style="--color: #e11d48; --dark-color: #f43f5e">Vente</span>'))
+      .toBe('<span style="color: #e11d48">Vente</span>')
+  })
+
+  it('keeps selection-level text stroke styles from the RichEditor', () => {
+    expect(
+      sanitizePromoTitleHtml(
+        '<span class="text-stroke" data-stroke-color="#ffffff" style="-webkit-text-stroke-color: #ffffff; -webkit-text-stroke-width: 1px; paint-order: stroke fill">2027</span>',
+      ),
+    ).toBe(
+      '<span style="-webkit-text-stroke-color: #ffffff; -webkit-text-stroke-width: 1px; paint-order: stroke fill">2027</span>',
+    )
+  })
+
+  it('still accepts a plain color declaration', () => {
+    expect(sanitizePromoTitleHtml('<span style="color: #e11d48">x</span>')).toBe('<span style="color: #e11d48">x</span>')
+  })
+
+  it('keeps rejecting unsafe values', () => {
+    expect(sanitizePromoTitleHtml('<span style="--color: url(javascript:alert(1))">x</span>')).toBe('<span>x</span>')
   })
 })
 

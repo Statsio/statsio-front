@@ -20,21 +20,27 @@ function mapMedia(raw: RawMedia): MediaItem {
   return { id: raw.id, url: raw.url, type: raw.type, createdAt: raw.created_at ?? null }
 }
 
-/** Bibliothèque d'images de l'utilisateur courant (plus récentes d'abord). */
-export async function fetchMyMedia(): Promise<MediaItem[]> {
-  const { data } = await apiHttp.get<{ success: boolean; data: RawMedia[] }>(STATSIO_API.media.collection)
+/** Bibliothèque d'images : utilisateur courant, ou propriétaire du contenu si contexte partagé. */
+export async function fetchMyMedia(studioContentSlug?: string): Promise<MediaItem[]> {
+  const { data } = await apiHttp.get<{ success: boolean; data: RawMedia[] }>(STATSIO_API.media.collection, {
+    params: studioContentSlug ? { studio_content_slug: studioContentSlug } : undefined,
+  })
   return (data.data ?? []).map(mapMedia)
 }
 
-/** Upload d'une image ; la lie automatiquement à l'utilisateur courant. */
-export async function uploadMedia(file: File, directory = 'studio/images'): Promise<MediaItem> {
+/** Upload d'une image ; au nom du propriétaire du contenu si `studioContentSlug` est fourni. */
+export async function uploadMedia(
+  file: File,
+  directory = 'studio/images',
+  studioContentSlug?: string,
+): Promise<MediaItem> {
   const form = new FormData()
   form.append('file', file)
   form.append('directory', directory)
+  if (studioContentSlug) form.append('studio_content_slug', studioContentSlug)
   const { data } = await apiHttp.post<{ success: boolean; data: RawMedia }>(
     STATSIO_API.media.upload,
     form,
-    { headers: { 'Content-Type': 'multipart/form-data' } },
   )
   return mapMedia(data.data)
 }

@@ -7,7 +7,7 @@ export interface StudioContent {
   type: ContentType
   title: string
   slug?: string
-  status?: 'draft' | 'published'
+  status?: 'draft' | 'published' | 'scheduled'
   categories?: string[]
   /** Numéro de la version en ligne (v1, v2…). Null tant que non publié. */
   published_version?: number | null
@@ -15,6 +15,12 @@ export interface StudioContent {
   first_published_at?: string | null
   published_as?: 'user' | 'channel' | null
   channel_id?: number | null
+  /** Téléchargement public des données (parquet / CSV). Défaut true. */
+  download_enabled?: boolean
+  /** Intégration iframe publique. Défaut true. */
+  embed_enabled?: boolean
+  /** Droits du viewer courant (show privé). */
+  access?: import('@/api/studio').ContentAccessPayload
 }
 
 // ─── Blocks ───────────────────────────────────────────────────────────────────
@@ -23,9 +29,13 @@ export type BlockType = 'bar' | 'line' | 'pie' | 'table' | 'kpi' | 'record' | 'r
 
 /**
  * Types de blocs qu'un article peut réutiliser via un bloc `sd-embed`
- * (« Bloc Statsdata »). Miroir de StudioContentController::EMBEDDABLE_BLOCK_TYPES.
+ * (« Bloc Statsdata »), ou exposer en iframe publique.
+ * Miroir de StudioContentController::EMBEDDABLE_BLOCK_TYPES.
  */
-export const EMBEDDABLE_BLOCK_TYPES: BlockType[] = ['bar', 'line', 'pie', 'kpi', 'table', 'search']
+export const EMBEDDABLE_BLOCK_TYPES: BlockType[] = ['bar', 'line', 'pie', 'kpi', 'table', 'search', 'map']
+
+/** Blocs pour lesquels la page publique propose un code iframe d'intégration. */
+export const IFRAME_EMBED_BLOCK_TYPES: BlockType[] = ['bar', 'line', 'pie', 'table', 'kpi', 'map']
 
 export const TEXT_BLOCK_TYPES: BlockType[] = ['heading', 'paragraph', 'quote', 'callout']
 export const EDITORIAL_BLOCK_TYPES: BlockType[] = ['image', 'video', 'button', 'link-card', 'retenir', 'field-grid']
@@ -153,6 +163,11 @@ export interface BlockAggregate {
 export interface TableColumnFormat {
   format?: 'text' | 'number' | 'percent' | 'currency' | 'mono'
   align?: 'left' | 'center' | 'right'
+  bold?: boolean
+  italic?: boolean
+  underline?: boolean
+  /** Carte : affiche cette colonne dans la fiche au survol d'un point. Défaut `true` (toutes les colonnes de la fiche y figurent). */
+  showOnHover?: boolean
 }
 
 /** Colonne dérivée d'une expression par ligne : `{col}` réfs + agrégats `AVG(x@N)`. */
@@ -212,8 +227,8 @@ export interface PieSegment {
   label?: string
 }
 
-/** Règle de mise en forme conditionnelle d'une cellule (couleur de cellule / de marqueur carte). */
-export interface TableCellRule {
+/** Condition d'une règle de mise en forme conditionnelle (cellule de tableau / marqueur carte). */
+export interface RuleCondition {
   column: string
   /**
    * - `positive` / `negative` : signe de la valeur numérique
@@ -224,9 +239,43 @@ export interface TableCellRule {
   when: 'positive' | 'negative' | 'top' | 'bottom' | 'gt' | 'lt' | FilterOperator
   /** Valeur comparée pour les opérateurs à seuil / texte. */
   value?: string | number
+  /**
+   * `value` est une expression d'agrégat (ex. `AVG(prix)`, `MAX(prix) * 1.1`) évaluée
+   * sur les lignes chargées, plutôt qu'une valeur littérale — permet par ex.
+   * `prix > AVG(prix)`. Même syntaxe que les colonnes calculées (`lib/studio-expression`).
+   */
+  valueIsExpression?: boolean
+}
+
+/**
+ * Base commune aux règles de mise en forme conditionnelle : une liste de conditions
+ * combinées en ET (au moins une utilisée en pratique). Les champs `column` / `when` /
+ * `value` / `valueIsExpression` à plat sont l'ancien schéma (une seule condition) —
+ * conservés pour compat, repliés sur `conditions` par `ruleConditions()`.
+ */
+export interface ConditionalRuleBase {
+  conditions?: RuleCondition[]
+  /** @deprecated Remplacé par `conditions` — lu en repli par `ruleConditions()`. */
+  column?: string
+  /** @deprecated */
+  when?: RuleCondition['when']
+  /** @deprecated */
+  value?: string | number
+  /** @deprecated */
+  valueIsExpression?: boolean
+}
+
+/** Règle de mise en forme conditionnelle d'une cellule (couleur de cellule / de marqueur carte). */
+export interface TableCellRule extends ConditionalRuleBase {
   /** Couleur du texte (hex). */
   color: string
   bold?: boolean
+}
+
+/** Carte : règle de taille conditionnelle d'un marqueur, selon la valeur d'une ou plusieurs colonnes. */
+export interface MapSizeRule extends ConditionalRuleBase {
+  /** Rayon du marqueur en px si la règle matche. */
+  size: number
 }
 
 // ─── Graphiques v2 ────────────────────────────────────────────────────────────
@@ -306,6 +355,8 @@ export interface FieldMapping {
   mapColorColumn?: string
   /** Carte : colonne (numérique) pilotant le rayon des marqueurs. */
   mapSizeColumn?: string
+  /** Carte : rayon de marqueur conditionnel, selon la valeur d'une colonne. Prioritaire sur `mapSizeColumn`. */
+  mapSizeRules?: MapSizeRule[]
   valueColumn?: string
   /** @deprecated Legacy : colonne de comparaison seule (même agrégat que la valeur principale). Remplacé par `comparisonValue`. */
   comparisonColumn?: string

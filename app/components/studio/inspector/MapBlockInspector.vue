@@ -278,6 +278,16 @@ watch(
           </p>
         </div>
 
+        <div v-if="hasSource" class="flex flex-col gap-1.5">
+          <label class="text-xs font-semibold text-[var(--studio-muted)]">Taille conditionnelle</label>
+          <TableColumnsField :block="block" section="sizeRules" />
+          <p class="text-[11px] leading-relaxed text-[var(--studio-faint)]">
+            Fixe le rayon d'un marqueur selon la valeur d'une colonne : signe, max / min
+            de la colonne, seuil, ou comparaison texte (égal, contient…). Prioritaire sur
+            la colonne de taille ci-dessus.
+          </p>
+        </div>
+
         <div class="toggle-row" @click="updateConfig('mapAutoFit', cfg.mapAutoFit === false ? undefined : false)">
           <div>
             <span class="text-sm text-[var(--studio-ink)]">Cadrer automatiquement sur les points</span>

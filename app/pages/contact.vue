@@ -2,18 +2,18 @@
 definePageMeta({
   layout: 'default',
   title: 'Contact',
-  description:
-    'Une question sur Statsio, un partenariat ou une demande presse ? Contactez notre équipe.',
+  description: 'Une question sur Statsio ou besoin de support ? Contactez notre équipe.',
 })
 
-import { computed, ref } from 'vue'
+import { computed, ref, type Component } from 'vue'
+import { ChatBubbleLeftRightIcon, LifebuoyIcon } from '@heroicons/vue/24/outline'
 import { getBrandFromPath } from '@/data/brands'
 import { submitContactMessage } from '@/api/contact'
 import AppBadge from '@/components/ui/AppBadge.vue'
 import AppButton from '@/components/ui/AppButton.vue'
 import AppTurnstile from '@/components/ui/AppTurnstile.vue'
 
-type ReasonKey = 'general' | 'partenariat' | 'presse' | 'commercial'
+type ReasonKey = 'general' | 'support'
 
 const REASONS: {
   key: ReasonKey
@@ -22,7 +22,7 @@ const REASONS: {
   label: string
   color: string
   bg: string
-  shape: string
+  icon: Component
 }[] = [
   {
     key: 'general',
@@ -31,34 +31,16 @@ const REASONS: {
     label: 'Question générale',
     color: 'var(--color-primary)',
     bg: '#f2ecfd',
-    shape: 'rounded-[4px]',
+    icon: ChatBubbleLeftRightIcon,
   },
   {
-    key: 'partenariat',
-    title: 'Partenariat',
-    desc: 'Devenir chaîne partenaire',
-    label: 'Demande de partenariat',
+    key: 'support',
+    title: 'Support',
+    desc: 'Problème avec votre compte ou un bug',
+    label: 'Demande de support',
     color: 'var(--color-accent)',
     bg: '#eaf1fe',
-    shape: 'rounded-full',
-  },
-  {
-    key: 'presse',
-    title: 'Presse & médias',
-    desc: 'Interview ou communiqué',
-    label: 'Demande presse',
-    color: '#e11d48',
-    bg: '#fdeef2',
-    shape: 'rounded-[2px]',
-  },
-  {
-    key: 'commercial',
-    title: 'Ventes & offres pro',
-    desc: 'Abonnements pour équipes',
-    label: 'Demande commerciale',
-    color: '#166534',
-    bg: '#eafbf1',
-    shape: 'rounded-[4px]',
+    icon: LifebuoyIcon,
   },
 ]
 
@@ -131,8 +113,8 @@ const xUrl = computed(() => getBrandFromPath(route.path).xUrl)
           Parlons de votre projet
         </h1>
         <p class="max-w-xl text-[15.5px] leading-relaxed text-slate-500">
-          Une question sur Statsio, un partenariat ou une demande presse&nbsp;? Choisissez le bon
-          interlocuteur ci-dessous.
+          Une question sur Statsio ou besoin de support&nbsp;? Choisissez le bon interlocuteur
+          ci-dessous.
         </p>
       </div>
     </section>
@@ -140,7 +122,7 @@ const xUrl = computed(() => getBrandFromPath(route.path).xUrl)
     <!-- Reason cards -->
     <section class="!pt-0">
       <div class="container max-w-3xl">
-        <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div class="grid grid-cols-2 gap-4">
           <button
             v-for="r in REASONS"
             :key="r.key"
@@ -156,11 +138,7 @@ const xUrl = computed(() => getBrandFromPath(route.path).xUrl)
               class="flex h-[34px] w-[34px] items-center justify-center rounded-[9px]"
               :style="{ background: r.bg }"
             >
-              <span
-                class="block h-[11px] w-[11px]"
-                :class="r.shape"
-                :style="{ background: r.color }"
-              />
+              <component :is="r.icon" class="h-[18px] w-[18px]" :style="{ color: r.color }" />
             </span>
             <span class="text-sm font-bold text-slate-900">{{ r.title }}</span>
             <span class="text-xs leading-relaxed text-slate-500">{{ r.desc }}</span>
@@ -289,18 +267,13 @@ const xUrl = computed(() => getBrandFromPath(route.path).xUrl)
           </div>
 
           <div class="card p-5.5">
-            <p class="mb-2 text-sm font-bold text-slate-900">
-              Besoin d'assistance technique&nbsp;?
-            </p>
+            <p class="mb-2 text-sm font-bold text-slate-900">Besoin d'aide&nbsp;?</p>
             <p class="mb-2.5 text-[13px] leading-relaxed text-slate-500">
-              Pour un problème avec votre compte ou un bug, passez plutôt par le support dédié.
+              Consultez le centre d'aide&nbsp;: des articles pour vous aider à utiliser le site.
             </p>
-            <a
-              href="mailto:support@statsio.fr"
-              class="text-[13px] font-bold text-[var(--color-primary)] hover:opacity-70"
-            >
-              Contacter le support →
-            </a>
+            <NuxtLink to="/aide" class="text-[13px] font-bold text-[var(--color-primary)] hover:opacity-70">
+              Accéder au centre d'aide →
+            </NuxtLink>
           </div>
 
           <div class="flex gap-2.5">

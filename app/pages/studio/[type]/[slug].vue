@@ -53,6 +53,7 @@ onMounted(async () => {
           first_published_at: doc.first_published_at ?? null,
           published_as: doc.published_as ?? null,
           channel_id: doc.channel_id ?? null,
+          access: doc.access,
         },
         doc.sections,
         doc.blocks,

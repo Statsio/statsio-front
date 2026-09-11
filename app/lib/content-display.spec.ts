@@ -25,6 +25,10 @@ describe('getStatusMeta', () => {
     expect(getStatusMeta('draft')).toMatchObject({ label: 'Brouillon', live: false })
   })
 
+  it('reports scheduled when a future publish is queued', () => {
+    expect(getStatusMeta('scheduled')).toMatchObject({ label: 'Programmé', live: false })
+  })
+
   it('reports published once the content is published', () => {
     expect(getStatusMeta('published')).toMatchObject({ label: 'Publié', live: true })
   })

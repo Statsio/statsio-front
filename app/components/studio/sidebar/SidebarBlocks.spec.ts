@@ -10,14 +10,16 @@ beforeEach(() => {
 })
 
 describe('SidebarBlocks', () => {
-  it('shows a "Premium" pill on a block flagged premium', () => {
+  it('shows the real offer name (from the CRUD, not a hardcoded label) on a block flagged premium', () => {
     const studio = useStudioStore()
     studio.premiumBlockTypes.push('map')
+    studio.premiumBlockOffers.map = { id: 2, key: 'pro', name: 'Pro' }
 
     const w = mount(SidebarBlocks)
 
     const mapCard = w.find('[data-block-type="map"]')
-    expect(mapCard.text()).toContain('Premium')
+    expect(mapCard.text()).toContain('Pro')
+    expect(mapCard.text()).not.toContain('Premium')
   })
 
   it('does not add the block and opens the upsell when a freemium user clicks a premium block', async () => {

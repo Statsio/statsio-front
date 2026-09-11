@@ -5,6 +5,8 @@ const props = defineProps<{
   shareUrl: string
   canWebShare: boolean
   targets: { key: string; label: string; href: string }[]
+  /** Afficher l’entrée « Intégrer (iframe) ». Défaut true. */
+  canEmbed?: boolean
 }>()
 
 const emit = defineEmits<{ 'native-share': []; 'open-embed': [] }>()
@@ -70,8 +72,13 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
         <span class="text-[#18181f]/45">↗</span>
         {{ target.label }}
       </a>
-      <div class="my-1 border-t border-[#18181f]/[0.07]" />
-      <button type="button" class="flex w-full items-center gap-2.5 px-4 py-2 text-left text-[13px] font-medium text-[#18181f] hover:bg-[#18181f]/[0.04]" @click="open = false; emit('open-embed')">
+      <div v-if="canEmbed !== false" class="my-1 border-t border-[#18181f]/[0.07]" />
+      <button
+        v-if="canEmbed !== false"
+        type="button"
+        class="flex w-full items-center gap-2.5 px-4 py-2 text-left text-[13px] font-medium text-[#18181f] hover:bg-[#18181f]/[0.04]"
+        @click="open = false; emit('open-embed')"
+      >
         <span class="text-[#18181f]/45">&lt;/&gt;</span>
         Intégrer (iframe)
       </button>

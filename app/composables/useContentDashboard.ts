@@ -29,9 +29,14 @@ export function useContentDashboard() {
   const typeLabel = computed(() => CONTENT_TYPE_META[contentType.value].label)
   const statusMeta = computed(() => getStatusMeta(content.value?.status))
   const publishMode = computed<'author' | 'confirm'>(() =>
-    content.value?.first_published_at ? 'confirm' : 'author',
+    content.value?.first_published_at || content.value?.status === 'scheduled' ? 'confirm' : 'author',
   )
   const publishNextVersion = computed(() => (content.value?.published_version ?? 0) + 1)
+  const hasFutureSchedule = computed(() => {
+    const at = content.value?.scheduled_publish_at
+    if (!at) return false
+    return new Date(at).getTime() > Date.now()
+  })
 
   const slugOrId = computed(
     () => content.value?.slug || content.value?.id || loadedSlug.value || '',
@@ -94,10 +99,15 @@ export function useContentDashboard() {
   /**
    * Ouvre le flux de publication : re-publication directe si l'auteur est déjà
    * verrouillé, sinon la modal de choix profil / chaîne.
+   * Contenu déjà programmé → mise en ligne immédiate (bypass de la date).
    */
   function startPublish() {
     const doc = content.value
     if (!doc) return
+    if (doc.status === 'scheduled') {
+      void confirmPublish({ immediate: true })
+      return
+    }
     if (doc.status !== 'published' && doc.first_published_at) {
       void confirmPublish({})
       return
@@ -106,7 +116,12 @@ export function useContentDashboard() {
   }
 
   async function confirmPublish(
-    opts: { publishedAs?: 'user' | 'channel'; channelId?: number | null; dossierIds?: number[] } = {},
+    opts: {
+      publishedAs?: 'user' | 'channel'
+      channelId?: number | null
+      dossierIds?: number[]
+      immediate?: boolean
+    } = {},
   ) {
     const id = content.value?.slug || content.value?.id
     if (!id) return
@@ -114,7 +129,11 @@ export function useContentDashboard() {
     try {
       content.value = await publishStudioContent(id, opts)
       publishModalOpen.value = false
-      notifications.success('Contenu publié.')
+      notifications.success(
+        content.value.status === 'scheduled'
+          ? 'Publication programmée.'
+          : 'Contenu publié.',
+      )
     } catch (err) {
       const status = (err as { response?: { status?: number } })?.response?.status
       notifications.error(status === 403 ? 'Vous ne gérez pas cette chaîne.' : "Le contenu n'a pas pu être publié.")
@@ -145,6 +164,7 @@ export function useContentDashboard() {
     publishModalOpen,
     publishMode,
     publishNextVersion,
+    hasFutureSchedule,
     contentType,
     typeLabel,
     statusMeta,

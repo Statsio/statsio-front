@@ -156,7 +156,12 @@ const pickedPage = computed(() => studio.pages.find((p) => p.id === props.block.
     <!-- IMAGE -->
     <template v-if="block.type === 'image'">
       <InspectorSection label="Image">
-        <FieldImage v-model="imageUrl" v-model:media-id="imageMediaId" ratio="video" />
+        <FieldImage
+          v-model="imageUrl"
+          v-model:media-id="imageMediaId"
+          ratio="video"
+          :studio-content-slug="studio.content?.slug"
+        />
         <FieldText
           :model-value="block.config.imageAlt ?? ''"
           label="Texte alternatif"
@@ -298,7 +303,13 @@ const pickedPage = computed(() => studio.pages.find((p) => p.id === props.block.
         <FieldText :model-value="block.config.linkTitle ?? ''" label="Titre" placeholder="Titre affiché" @update:model-value="set('linkTitle', $event)" />
         <FieldTextarea :model-value="block.config.linkDescription ?? ''" label="Description" :rows="3" placeholder="Résumé ou accroche…" @update:model-value="set('linkDescription', $event)" />
         <FieldText v-if="linkMode === 'url'" :model-value="block.config.linkDomain ?? ''" label="Domaine" placeholder="lemonde.fr" @update:model-value="set('linkDomain', $event)" />
-        <FieldImage v-model="linkImage" v-model:media-id="linkImageMediaId" label="Image (optionnel)" ratio="wide" />
+        <FieldImage
+          v-model="linkImage"
+          v-model:media-id="linkImageMediaId"
+          label="Image (optionnel)"
+          ratio="wide"
+          :studio-content-slug="studio.content?.slug"
+        />
       </InspectorSection>
     </template>
 
