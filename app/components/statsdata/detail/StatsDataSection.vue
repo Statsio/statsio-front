@@ -75,7 +75,7 @@ function isKpiGrid(blocks: StudioBlock[]): boolean {
     >
       <template v-for="block in blocks" :key="block.id">
         <div :id="`block-${block.id}`" data-block-anim class="min-w-0 scroll-mt-40">
-          <BlockCard :block="block" :dark="dark" :flat="carded" :scope="scope">
+          <BlockCard :block="block" :dark="dark" :flat="carded" :scope="scope" :readonly="true">
             <BlockRenderer :block="block" :readonly="true" :scope="scope" />
           </BlockCard>
         </div>

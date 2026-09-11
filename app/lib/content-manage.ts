@@ -24,7 +24,12 @@ export function contentManageMeta(doc: StatsDataDocument, ctx: ManageOwnerContex
     live: status.live,
     ownerKind: owner.kind,
     ownerLabel: owner.label,
-    date: formatShortDate(doc.updated_at ?? doc.created_at),
+    isShared: Boolean(doc.is_shared),
+    date: formatShortDate(
+      doc.status === 'scheduled'
+        ? (doc.scheduled_publish_at ?? doc.updated_at ?? doc.created_at)
+        : (doc.updated_at ?? doc.created_at),
+    ),
     viewsCount: doc.views_count ?? 0,
     studioPath: `/studio/${type}/${doc.slug ?? doc.id}`,
     propertiesPath: contentPropertiesPath(type, doc.slug),

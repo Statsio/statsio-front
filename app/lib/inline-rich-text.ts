@@ -11,6 +11,18 @@
 
 const ALLOWED_TAGS = new Set(['strong', 'b', 'em', 'i', 'u', 's', 'strike', 'mark', 'span', 'br'])
 const ALLOWED_STYLE_PROPS = /^(text-transform|letter-spacing|background-color)$/i
+/**
+ * Variante avec couleur de texte + contour — réservée au contenu saisi côté admin
+ * (ex. flash promo), jamais au richtext utilisateur du Studio. Le RichEditor Filament
+ * n'émet pas `color: <hex>` mais `--color: <hex>; --dark-color: <hex>` sur un
+ * `<span class="color">` (indirection pensée pour son propre thème clair/dur admin) :
+ * sans son CSS compagnon, absent du site public, le texte reste noir. On accepte
+ * `--color` et on le réécrit en `color` (seule la valeur claire est reprise,
+ * `--dark-color` est ignorée). Le contour de sélection (`text-stroke`) arrive en
+ * `-webkit-text-stroke-*` / `paint-order` (ou `--stroke-color`).
+ */
+const ALLOWED_STYLE_PROPS_WITH_COLOR =
+  /^(text-transform|letter-spacing|background-color|color|--color|-webkit-text-stroke-color|-webkit-text-stroke-width|-webkit-text-stroke|paint-order|--stroke-color)$/i
 
 const TAG_RE = /<\/?([a-zA-Z][a-zA-Z0-9]*)((?:[^<>"']|"[^"]*"|'[^']*')*)>/g
 
@@ -29,7 +41,7 @@ function escapeTextSegment(value: string): string {
     .replace(/>/g, '&gt;')
 }
 
-function safeStyle(attrs: string): string {
+function safeStyle(attrs: string, allowedStyleProps: RegExp): string {
   const m = /style\s*=\s*("([^"]*)"|'([^']*)')/i.exec(attrs)
   if (!m) return ''
   const kept: string[] = []
@@ -38,19 +50,18 @@ function safeStyle(attrs: string): string {
     if (idx === -1) continue
     const prop = decl.slice(0, idx).trim().toLowerCase()
     const val = decl.slice(idx + 1).trim()
-    if (!ALLOWED_STYLE_PROPS.test(prop)) continue
+    if (!allowedStyleProps.test(prop)) continue
     if (/[<>"']/.test(val) || /url\s*\(/i.test(val) || /expression/i.test(val)) continue
-    kept.push(`${prop}: ${val}`)
+    if (prop === '-webkit-text-stroke-width' && !/^\d+(\.\d+)?px$/i.test(val)) continue
+    if (prop === 'paint-order' && !/^(stroke|fill|markers)(\s+(stroke|fill|markers))*$/i.test(val)) continue
+    const outputProp =
+      prop === '--color' ? 'color' : prop === '--stroke-color' ? '-webkit-text-stroke-color' : prop
+    kept.push(`${outputProp}: ${val}`)
   }
   return kept.join('; ')
 }
 
-/**
- * Nettoie une chaîne de texte enrichi inline pour un `v-html` : ne garde que les
- * balises de mise en forme autorisées, sans attributs hormis un `style` filtré.
- * Une valeur héritée en texte brut (aucune balise) est simplement échappée.
- */
-export function sanitizeInlineHtml(input: string | null | undefined): string {
+function sanitizeInlineHtmlWithStyles(input: string | null | undefined, allowedStyleProps: RegExp): string {
   const raw = input ?? ''
   if (!raw) return ''
   if (!/[<>]/.test(raw)) return escapeText(raw)
@@ -67,11 +78,29 @@ export function sanitizeInlineHtml(input: string | null | undefined): string {
     if (name === 'br') { out += '<br>'; continue }
     if (!ALLOWED_TAGS.has(name)) continue
     if (isClosing) { out += `</${name}>`; continue }
-    const style = safeStyle(m[2] ?? '')
+    const style = safeStyle(m[2] ?? '', allowedStyleProps)
     out += style ? `<${name} style="${style}">` : `<${name}>`
   }
   out += escapeTextSegment(raw.slice(last))
   return out
+}
+
+/**
+ * Nettoie une chaîne de texte enrichi inline pour un `v-html` : ne garde que les
+ * balises de mise en forme autorisées, sans attributs hormis un `style` filtré.
+ * Une valeur héritée en texte brut (aucune balise) est simplement échappée.
+ */
+export function sanitizeInlineHtml(input: string | null | undefined): string {
+  return sanitizeInlineHtmlWithStyles(input, ALLOWED_STYLE_PROPS)
+}
+
+/**
+ * Variante de `sanitizeInlineHtml` autorisant la couleur de texte — pour le
+ * titre (3 lignes) des catégories de promotion, saisi via le RichEditor de
+ * l'admin Filament (pas le richtext du Studio, où la couleur reste exclue).
+ */
+export function sanitizePromoTitleHtml(input: string | null | undefined): string {
+  return sanitizeInlineHtmlWithStyles(input, ALLOWED_STYLE_PROPS_WITH_COLOR)
 }
 
 /** Retire toute balise / entité — pour les ancres, le sommaire, les tests « a un en-tête ». */

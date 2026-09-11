@@ -9,18 +9,26 @@ definePageMeta({
 
 import { computed, onMounted, ref, watch } from 'vue'
 import ContentDashboardHeader from '@/components/contents/dashboard/ContentDashboardHeader.vue'
-import ContentComingSoonCard from '@/components/contents/dashboard/ContentComingSoonCard.vue'
+import ContentScheduledPublishCard from '@/components/contents/dashboard/ContentScheduledPublishCard.vue'
 import StatsDataSettingsCard from '@/components/statsdata/settings/StatsDataSettingsCard.vue'
+import AccountToggle from '@/components/user/AccountToggle.vue'
 import AppSelect from '@/components/ui/AppSelect.vue'
 import { useContentDashboard } from '@/composables/useContentDashboard'
 import { useMyChannels } from '@/composables/useMyChannels'
 
-const { content, patch } = useContentDashboard()
+const { content, contentType, patch } = useContentDashboard()
 const { channels, loading: channelsLoading, fetch: fetchChannels } = useMyChannels()
 
 const publishedAs = ref<'user' | 'channel'>('user')
 const channelId = ref<number | null>(null)
+const scheduledPublishAt = ref<string | null>(null)
+const commentsEnabled = ref(true)
+const downloadEnabled = ref(true)
+const embedEnabled = ref(true)
 const saving = ref(false)
+
+const showDownloadToggle = computed(() => contentType.value === 'statsdata')
+const showEmbedToggle = computed(() => contentType.value === 'statsdata' || contentType.value === 'article')
 
 watch(
   content,
@@ -28,6 +36,12 @@ watch(
     if (!doc) return
     publishedAs.value = doc.published_as === 'channel' ? 'channel' : 'user'
     channelId.value = doc.channel_id ?? null
+    scheduledPublishAt.value = doc.scheduled_publish_at
+      ? doc.scheduled_publish_at.slice(0, 10)
+      : null
+    commentsEnabled.value = doc.comments_enabled !== false
+    downloadEnabled.value = doc.download_enabled !== false
+    embedEnabled.value = doc.embed_enabled !== false
   },
   { immediate: true },
 )
@@ -60,6 +74,10 @@ async function save() {
     await patch({
       published_as: publishedAs.value,
       channel_id: publishedAs.value === 'channel' ? channelId.value : null,
+      scheduled_publish_at: scheduledPublishAt.value,
+      comments_enabled: commentsEnabled.value,
+      ...(showDownloadToggle.value ? { download_enabled: downloadEnabled.value } : {}),
+      ...(showEmbedToggle.value ? { embed_enabled: embedEnabled.value } : {}),
     })
   } finally {
     saving.value = false
@@ -159,35 +177,50 @@ async function save() {
         </div>
       </StatsDataSettingsCard>
 
-      <ContentComingSoonCard
+      <StatsDataSettingsCard
         title="Options de publication"
-        description="Commentaires, export des données, notification aux abonnés, intégration."
-        note="Ces réglages seront pris en charge par l'API prochainement."
+        description="Ce que les lecteurs peuvent faire avec le contenu."
       >
-        <div class="flex flex-col gap-3">
+        <div class="flex flex-col divide-y divide-[#18181f]/[0.07]">
+          <div class="flex items-center justify-between gap-4 py-3 first:pt-1 last:pb-1">
+            <div class="min-w-0">
+              <p class="text-[13.5px] font-bold text-[#18181f]">Commentaires</p>
+              <p class="mt-0.5 text-[12.5px] text-[#18181f]/50">
+                Les lecteurs peuvent réagir sous le contenu.
+              </p>
+            </div>
+            <AccountToggle v-model="commentsEnabled" label="Commentaires" />
+          </div>
+
           <div
-            v-for="opt in [
-              'Commentaires',
-              'Téléchargement des données',
-              'Envoyer aux abonnés',
-              'Intégration autorisée',
-            ]"
-            :key="opt"
-            class="flex items-center justify-between gap-4"
+            v-if="showDownloadToggle"
+            class="flex items-center justify-between gap-4 py-3 first:pt-1 last:pb-1"
           >
-            <span class="text-[13.5px] font-semibold text-slate-500">{{ opt }}</span>
-            <span class="h-6 w-[42px] rounded-full bg-slate-200" />
+            <div class="min-w-0">
+              <p class="text-[13.5px] font-bold text-[#18181f]">Téléchargement des données</p>
+              <p class="mt-0.5 text-[12.5px] text-[#18181f]/50">
+                Export parquet des sources et CSV des tableaux.
+              </p>
+            </div>
+            <AccountToggle v-model="downloadEnabled" label="Téléchargement des données" />
+          </div>
+
+          <div
+            v-if="showEmbedToggle"
+            class="flex items-center justify-between gap-4 py-3 first:pt-1 last:pb-1"
+          >
+            <div class="min-w-0">
+              <p class="text-[13.5px] font-bold text-[#18181f]">Intégration iframe</p>
+              <p class="mt-0.5 text-[12.5px] text-[#18181f]/50">
+                Autoriser l’intégration du contenu (ou d’un bloc) via iframe.
+              </p>
+            </div>
+            <AccountToggle v-model="embedEnabled" label="Intégration iframe" />
           </div>
         </div>
-      </ContentComingSoonCard>
+      </StatsDataSettingsCard>
 
-      <ContentComingSoonCard
-        title="Date de publication"
-        description="Programmer la mise en ligne à une date future."
-        note="La publication différée n'est pas encore disponible."
-      >
-        <div class="h-11 w-44 rounded-[10px] border border-slate-200 bg-slate-50" />
-      </ContentComingSoonCard>
+      <ContentScheduledPublishCard v-model="scheduledPublishAt" />
     </div>
   </div>
 </template>

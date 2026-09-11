@@ -147,6 +147,7 @@ const summary = computed(() => {
           :key="child.id + '::' + value"
           :block="child"
           :scope="scopeFor(value)"
+          :readonly="true"
         >
           <BlockRenderer :block="child" :readonly="true" :scope="scopeFor(value)" />
         </BlockCard>

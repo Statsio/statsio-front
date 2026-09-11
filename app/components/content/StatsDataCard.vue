@@ -171,7 +171,7 @@ const fPubMeta = computed(
     class="u-hover grid grid-cols-[minmax(0,2.4fr)_1.3fr_1fr_0.8fr_0.7fr_46px] items-center gap-3.5 border-b border-slate-100 px-5 py-3.5 last:border-b-0 hover:bg-[#faf8ff]"
   >
     <div class="flex min-w-0 items-center gap-3">
-      <span class="h-[34px] w-11 shrink-0 overflow-hidden rounded-[7px]">
+      <span v-if="hasImage" class="h-[34px] w-11 shrink-0 overflow-hidden rounded-[7px]">
         <AppMediaImage :src="item.thumbnail_url" :alt="item.title" class="u-card-media rounded-[7px]" mark-class="min-w-0 w-1/2" />
       </span>
       <span class="min-w-0">
@@ -266,16 +266,13 @@ const fPubMeta = computed(
 
       <!-- Aucun bloc graphique → on n'affiche aucune viz (pas de graphe factice). -->
       <template v-if="hasChart">
-        <!-- Image posée : sparkline discret en signature « data ». Sinon : mini-graphe réel. -->
-        <div v-if="hasImage" class="mt-3.5">
+        <StatsDataCardChart v-if="showViz" :item="item" :class="hasImage ? 'mt-3.5' : undefined" />
+        <div v-else-if="hasImage" class="mt-3.5">
           <AppSparkline v-if="!isManage" :points="sparklinePoints" :color="visual.color" :height="26" />
         </div>
-        <template v-else>
-          <StatsDataCardChart v-if="showViz" :item="item" />
-          <div v-else class="my-4 rounded-[14px] bg-[#faf9fd] p-3.5">
-            <AppSparkline :points="sparklinePoints" :color="visual.color" :height="44" />
-          </div>
-        </template>
+        <div v-else class="my-4 rounded-[14px] bg-[#faf9fd] p-3.5">
+          <AppSparkline :points="sparklinePoints" :color="visual.color" :height="44" />
+        </div>
       </template>
 
       <slot name="cta" />

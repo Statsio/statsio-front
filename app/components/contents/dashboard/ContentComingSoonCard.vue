@@ -1,9 +1,8 @@
 <script setup lang="ts">
 /**
  * Carte « Bientôt » : présente une fonctionnalité de la maquette dont le
- * backend ne dispose pas encore (mots-clés, options de publication,
- * autorisations fines, historique des versions…). Le contenu illustratif passé
- * en slot est grisé et non interactif.
+ * backend ne dispose pas encore (options de publication, autorisations
+ * fines…). Le contenu illustratif passé en slot est grisé et non interactif.
  */
 withDefaults(
   defineProps<{

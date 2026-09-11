@@ -21,7 +21,7 @@ async function load(force = false) {
   loading.value = true
   loadError.value = ''
   try {
-    items.value = await fetchMyMedia()
+    items.value = await fetchMyMedia(state.studioContentSlug ?? undefined)
     loadedOnce = true
   } catch {
     loadError.value = 'Impossible de charger la bibliothèque.'
@@ -32,7 +32,12 @@ async function load(force = false) {
 
 watch(
   () => state.open,
-  (open) => { if (open) load() },
+  (open) => {
+    if (open) {
+      loadedOnce = false
+      load(true)
+    }
+  },
   { immediate: true },
 )
 
@@ -44,7 +49,7 @@ async function upload(file: File) {
   uploadError.value = ''
   uploading.value = true
   try {
-    const media = await uploadMedia(file, state.directory)
+    const media = await uploadMedia(file, state.directory, state.studioContentSlug ?? undefined)
     items.value = [media, ...items.value]
     if (state.mode === 'pick') select(media)
   } catch (e: unknown) {

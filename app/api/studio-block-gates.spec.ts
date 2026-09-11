@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { createFetchMock, type FetchMock } from '#test/mock-fetch'
-import { fetchPremiumBlockTypes } from './studio-block-gates'
+import { fetchBlockGates } from './studio-block-gates'
 
 describe('studio block gates api', () => {
   let mock: FetchMock
@@ -13,18 +13,24 @@ describe('studio block gates api', () => {
     mock.restore()
   })
 
-  it('returns the list of premium block types', async () => {
+  it('returns the list of premium block types and their required offer', async () => {
     mock.onGet('/studio/block-gates').reply(200, {
       success: true,
-      data: { premium_block_types: ['map'] },
+      data: {
+        premium_block_types: ['map'],
+        premium_block_offers: { map: { id: 2, key: 'premium', name: 'Premium' } },
+      },
     })
 
-    await expect(fetchPremiumBlockTypes()).resolves.toEqual(['map'])
+    await expect(fetchBlockGates()).resolves.toEqual({
+      types: ['map'],
+      offerByType: { map: { id: 2, key: 'premium', name: 'Premium' } },
+    })
   })
 
-  it('falls back to an empty list when the field is missing', async () => {
+  it('falls back to empty data when the fields are missing', async () => {
     mock.onGet('/studio/block-gates').reply(200, { success: true, data: {} })
 
-    await expect(fetchPremiumBlockTypes()).resolves.toEqual([])
+    await expect(fetchBlockGates()).resolves.toEqual({ types: [], offerByType: {} })
   })
 })

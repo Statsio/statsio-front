@@ -9,6 +9,7 @@ import ArticleTeaserCard from '@/components/articles/ArticleTeaserCard.vue'
 import StatsDataUsefulBar from '@/components/statsdata/detail/StatsDataUsefulBar.vue'
 import StatsDataEmbedModal from '@/components/statsdata/detail/StatsDataEmbedModal.vue'
 import ContentOwnerBar from '@/components/statsdata/detail/ContentOwnerBar.vue'
+import ContentCommentsSection from '@/components/contents/ContentCommentsSection.vue'
 import {
   fetchPublicArticles,
   fetchPublicStatsDataDocument,
@@ -55,6 +56,7 @@ const {
 } = useStatsDataChrome(article, { contentType: 'article' })
 
 const showEmbedModal = ref(false)
+const canEmbed = computed(() => article.value?.embed_enabled !== false)
 
 const canonicalPath = computed(() => canonicalContentPath(route.path))
 
@@ -218,9 +220,9 @@ onMounted(async () => {
     </div>
 
     <template v-else-if="article">
-      <!-- Embed : corps seul -->
+      <!-- Embed : corps seul (si l’intégration est autorisée) -->
       <template v-if="embed">
-        <main class="mx-auto max-w-[820px] px-4 py-6 sm:px-6">
+        <main v-if="canEmbed" class="mx-auto max-w-[820px] px-4 py-6 sm:px-6">
           <article
             class="rounded-[18px] bg-[var(--studio-surface)] p-6 shadow-[var(--studio-shadow-card)] sm:p-9"
           >
@@ -234,6 +236,9 @@ onMounted(async () => {
             >Réalisé avec Statsio →</a
           >
         </main>
+        <div v-else class="py-16 text-center text-sm text-slate-500">
+          L’intégration de ce contenu est désactivée.
+        </div>
       </template>
 
       <!-- Page publique complète -->
@@ -254,6 +259,7 @@ onMounted(async () => {
           :share-url="shareUrl"
           :can-web-share="canWebShare"
           :share-targets="shareTargets"
+          :can-embed="canEmbed"
           @toggle-favorite="toggleFavoriteAction"
           @toggle-follow="toggleFollowAction"
           @native-share="nativeShare"
@@ -292,10 +298,17 @@ onMounted(async () => {
                 :share-url="shareUrl"
                 :can-web-share="canWebShare"
                 :share-targets="shareTargets"
+                :can-embed="canEmbed"
                 @toggle-favorite="toggleFavoriteAction"
                 @toggle-follow="toggleFollowAction"
                 @native-share="nativeShare"
                 @open-embed="showEmbedModal = true"
+              />
+
+              <ContentCommentsSection
+                v-if="!embed"
+                :slug="slug"
+                :enabled="article.comments_enabled !== false"
               />
 
               <section v-if="relatedArticles.length" class="mt-8 flex flex-col gap-5">
@@ -323,6 +336,7 @@ onMounted(async () => {
         </div>
 
         <StatsDataEmbedModal
+          v-if="canEmbed"
           v-model:open="showEmbedModal"
           :snippet="embedSnippet"
           :preview-url="embedUrl"

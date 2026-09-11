@@ -69,13 +69,13 @@ describe('StatsDataCard', () => {
     expect(w.text()).toContain('☆')
   })
 
-  it('card: a cover image replaces the mini chart and carries the category badge', () => {
+  it('card: a cover image keeps the real chart below it, same as the imageless card', () => {
     const w = mount(StatsDataCard, {
       props: { item: item({ thumbnail_url: 'https://cdn.test/cover.jpg' }), mode: 'public' },
       global,
     })
     expect(w.find('img[src="https://cdn.test/cover.jpg"]').exists()).toBe(true)
-    expect(w.findComponent(StatsDataCardChart).exists()).toBe(false)
+    expect(w.findComponent(StatsDataCardChart).exists()).toBe(true)
     expect(w.text()).toContain('ECONOMIE')
   })
 

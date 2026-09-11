@@ -3,11 +3,19 @@ import { ref } from 'vue'
 import AppModal from '@/components/ui/AppModal.vue'
 import AppButton from '@/components/ui/AppButton.vue'
 
-const props = defineProps<{
-  open: boolean
-  snippet: string
-  previewUrl: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    open: boolean
+    snippet: string
+    previewUrl: string
+    title?: string
+    previewHeight?: number
+  }>(),
+  {
+    title: 'Intégrer cette StatsData',
+    previewHeight: 320,
+  },
+)
 
 const emit = defineEmits<{ 'update:open': [boolean] }>()
 
@@ -21,7 +29,7 @@ function copy() {
 </script>
 
 <template>
-  <AppModal :open="open" title="Intégrer cette StatsData" size="md" @update:open="emit('update:open', $event)">
+  <AppModal :open="open" :title="title" size="md" @update:open="emit('update:open', $event)">
     <div class="flex flex-col gap-4">
       <p class="text-sm text-slate-500">
         Collez ce code dans votre page ou votre CMS. Le contenu reste à jour automatiquement.
@@ -46,7 +54,8 @@ function copy() {
         <label class="mb-2 block text-xs font-semibold uppercase tracking-[0.06em] text-slate-400">Aperçu</label>
         <iframe
           :src="previewUrl"
-          class="h-[320px] w-full rounded-xl border border-slate-200"
+          class="w-full rounded-xl border border-slate-200"
+          :style="{ height: `${previewHeight}px` }"
           loading="lazy"
           title="Aperçu de l'intégration"
         />

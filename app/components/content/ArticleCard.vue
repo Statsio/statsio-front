@@ -43,13 +43,16 @@ const isManage = computed(() => props.mode === 'manage' && !!props.manage)
 const pubMeta = computed(() => formatCatalogItemMeta(props.item.views_count, props.item.updated_at))
 /** Contenu « à la une » (admin) hors grande card featured → pastille « À LA UNE ». */
 const pinned = computed(() => Boolean(props.item.is_featured) && !props.feature)
+/** Pas d'image de couverture → on masque tout le bloc visuel plutôt que d'afficher le visuel de substitution. */
+const hasImage = computed(() => Boolean(props.item.thumbnail_url))
 </script>
 
 <template>
   <NuxtLink
     v-if="feature"
     :to="to"
-    class="u-card grid overflow-hidden rounded-[22px] border-[1.5px] border-slate-200/80 bg-white text-slate-950 shadow-[0_1px_3px_rgba(20,20,30,0.06)] lg:grid-cols-2"
+    class="u-card grid overflow-hidden rounded-[22px] border-[1.5px] border-slate-200/80 bg-white text-slate-950 shadow-[0_1px_3px_rgba(20,20,30,0.06)]"
+    :class="{ 'lg:grid-cols-2': hasImage }"
   >
     <span class="block px-8 py-8 lg:px-8 lg:py-9">
       <span class="mb-4 flex flex-wrap items-center gap-2.5">
@@ -60,6 +63,14 @@ const pinned = computed(() => Boolean(props.item.is_featured) && !props.feature)
         <span v-else class="font-mono text-[10px] font-semibold tracking-[0.08em] text-accent">
           {{ formatReadingTime(item.reading_minutes).toUpperCase() }}
         </span>
+        <template v-if="!hasImage">
+          <span v-if="item.linked_datasets_count" class="rounded-md bg-[#f2ecfd] px-2.5 py-1.5 font-mono text-[10px] font-semibold text-primary">
+            {{ item.linked_datasets_count }} STATSDATA LIÉ{{ item.linked_datasets_count > 1 ? 'S' : '' }}
+          </span>
+          <span v-if="item.charts_count" class="rounded-md bg-slate-100 px-2.5 py-1.5 font-mono text-[10px] font-semibold text-slate-500">
+            {{ item.charts_count }} GRAPHIQUE{{ item.charts_count > 1 ? 'S' : '' }}
+          </span>
+        </template>
       </span>
       <span class="u-card-title block text-[1.7rem] font-extrabold leading-[1.14] tracking-[-0.025em] text-pretty lg:text-[31px]">{{ item.title }}</span>
       <span v-if="item.description" class="mt-3.5 block max-w-[52ch] text-[15px] leading-[1.62] text-slate-500">{{ item.description }}</span>
@@ -82,7 +93,7 @@ const pinned = computed(() => Boolean(props.item.is_featured) && !props.feature)
         LIRE L’ARTICLE →
       </span>
     </span>
-    <span class="relative min-h-[220px] overflow-hidden lg:min-h-[340px]">
+    <span v-if="hasImage" class="relative min-h-[220px] overflow-hidden lg:min-h-[340px]">
       <AppMediaImage :src="item.thumbnail_url" :alt="item.title" class="u-card-media absolute inset-0" />
       <span class="absolute bottom-5 left-5 flex flex-wrap gap-1.5">
         <span v-if="item.linked_datasets_count" class="rounded-md bg-white px-2.5 py-1.5 font-mono text-[10px] font-semibold text-primary">
@@ -100,7 +111,7 @@ const pinned = computed(() => Boolean(props.item.is_featured) && !props.feature)
     class="u-hover grid grid-cols-[minmax(0,2.6fr)_0.9fr_1.1fr_0.7fr_0.6fr_46px] items-center gap-3.5 border-b border-slate-100 px-5 py-3.5 last:border-b-0 hover:bg-[#faf8ff]"
   >
     <div class="flex min-w-0 items-center gap-3">
-      <span class="h-[34px] w-11 shrink-0 overflow-hidden rounded-[7px]">
+      <span v-if="hasImage" class="h-[34px] w-11 shrink-0 overflow-hidden rounded-[7px]">
         <AppMediaImage :src="item.thumbnail_url" :alt="item.title" class="u-card-media rounded-[7px]" mark-class="min-w-0 w-1/2" />
       </span>
       <span class="min-w-0">
@@ -129,7 +140,7 @@ const pinned = computed(() => Boolean(props.item.is_featured) && !props.feature)
     v-else
     class="u-card flex flex-col overflow-hidden rounded-[18px] border-[1.5px] border-slate-200/80 bg-white shadow-[0_1px_3px_rgba(20,20,30,0.06)] hover:-translate-y-0.5"
   >
-    <div class="relative h-[150px] overflow-hidden">
+    <div v-if="hasImage" class="relative h-[150px] overflow-hidden">
       <AppMediaImage :src="item.thumbnail_url" :alt="item.title" class="u-card-media absolute inset-0" />
       <span v-if="pinned || item.category" class="absolute left-3 top-3 flex flex-col items-start gap-1.5">
         <ContentFeaturedBadge v-if="pinned" />
@@ -149,7 +160,25 @@ const pinned = computed(() => Boolean(props.item.is_featured) && !props.feature)
       >{{ manage.statusLabel }}</span>
     </div>
 
-    <div class="flex flex-1 flex-col px-5 pb-5 pt-[18px]">
+    <div class="flex flex-1 flex-col" :class="hasImage ? 'px-5 pb-5 pt-[18px]' : 'p-5'">
+      <div v-if="!hasImage" class="mb-3.5 flex flex-wrap items-center gap-2">
+        <ContentFeaturedBadge v-if="pinned" />
+        <span
+          v-if="item.category"
+          class="rounded-[5px] px-2 py-1 font-mono text-[9.5px] font-semibold tracking-[0.08em]"
+          :style="{ color: theme.fg, background: theme.bg }"
+        >
+          {{ item.category.toUpperCase() }}
+        </span>
+        <span class="flex-1" />
+        <ContentCardFavButton v-if="!isManage" compact :active="favorited" @toggle="emit('favorite')" />
+        <span
+          v-else-if="manage"
+          class="rounded-full px-2.5 py-1 text-[10.5px] font-bold"
+          :style="{ background: manage.statusBg, color: manage.statusColor }"
+        >{{ manage.statusLabel }}</span>
+      </div>
+
       <div class="mb-2.5 flex flex-wrap items-center gap-2">
         <span
           v-if="formatMeta"

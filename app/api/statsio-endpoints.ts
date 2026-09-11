@@ -90,6 +90,15 @@ export const STATSIO_API = {
     catalog: '/dossiers/catalog',
     publicBySlug: (slug: string) => `/dossiers/public/${encodeURIComponent(slug)}`,
   },
+  /** Centre d'aide public (catégories/articles gérés en back-office Filament). */
+  help: {
+    home: '/help/home',
+    search: '/help/search',
+    category: (slug: string) => `/help/categories/${encodeURIComponent(slug)}`,
+    article: (categorySlug: string, articleSlug: string) =>
+      `/help/categories/${encodeURIComponent(categorySlug)}/articles/${encodeURIComponent(articleSlug)}`,
+    feedback: (articleId: string | number) => `/help/articles/${encodeURIComponent(String(articleId))}/feedback`,
+  },
   studioContent: {
     collection: '/studio/content',
     one: (id: string) => `/studio/content/${encodeURIComponent(id)}`,
@@ -101,6 +110,16 @@ export const STATSIO_API = {
     versions: (id: string) => `/studio/content/${encodeURIComponent(id)}/versions`,
     restoreVersion: (id: string, version: number) =>
       `/studio/content/${encodeURIComponent(id)}/versions/${version}/restore`,
+    accessPermissions: '/studio/content/access-permissions',
+    collaborators: (id: string) => `/studio/content/${encodeURIComponent(id)}/collaborators`,
+    collaborator: (id: string, userId: number) =>
+      `/studio/content/${encodeURIComponent(id)}/collaborators/${userId}`,
+    invitations: (id: string) => `/studio/content/${encodeURIComponent(id)}/invitations`,
+    invitation: (id: string, invitationId: number) =>
+      `/studio/content/${encodeURIComponent(id)}/invitations/${invitationId}`,
+    invitationByToken: (token: string) => `/studio/content/invitations/${encodeURIComponent(token)}`,
+    acceptInvitation: (token: string) =>
+      `/studio/content/invitations/${encodeURIComponent(token)}/accept`,
     publicCollection: '/studio/content/public',
     publicCatalog: '/studio/content/public/catalog',
     /** Recherche de contenus publiés pour la mention `@` de l'assistant du Studio. */
@@ -110,6 +129,8 @@ export const STATSIO_API = {
     publicBySlug: (slug: string) => `/studio/content/public/${encodeURIComponent(slug)}`,
     publicDatasetQuery: (slug: string, datasetId: string) =>
       `/studio/content/public/${encodeURIComponent(slug)}/datasets/${encodeURIComponent(datasetId)}/query`,
+    publicDatasetDownload: (slug: string, datasetId: string) =>
+      `/studio/content/public/${encodeURIComponent(slug)}/datasets/${encodeURIComponent(datasetId)}/download`,
     blockResponse: (slug: string, blockId: string) =>
       `/studio/content/public/${encodeURIComponent(slug)}/blocks/${encodeURIComponent(blockId)}/response`,
     /** Blocs embarquables (graphique/KPI/tableau/recherche) d'un Statsdata publié — sélecteur du bloc `sd-embed`. */
@@ -119,6 +140,10 @@ export const STATSIO_API = {
       `/studio/content/public/${encodeURIComponent(slug)}/blocks/${encodeURIComponent(blockId)}`,
     /** Mini-graphe réel de la carte de catalogue (premier graphique, ou `card_block_id`). */
     cardPreview: (slug: string) => `/studio/content/public/${encodeURIComponent(slug)}/card-preview`,
+    /** Commentaires lecteurs d'un contenu publié. */
+    publicComments: (slug: string) => `/studio/content/public/${encodeURIComponent(slug)}/comments`,
+    publicComment: (slug: string, commentId: number | string) =>
+      `/studio/content/public/${encodeURIComponent(slug)}/comments/${encodeURIComponent(String(commentId))}`,
     /** Classification premium/freemium des blocs (palette du Studio) — voir /offres. */
     blockGates: '/studio/block-gates',
   },

@@ -23,6 +23,8 @@ export interface ContentManageMeta {
   live: boolean
   ownerKind: 'perso' | 'chaine'
   ownerLabel: string
+  /** Contenu partagé avec le viewer (collaborateur). */
+  isShared?: boolean
   /** Pré-formaté : `formatShortDate(updated_at ?? created_at)`. */
   date: string
   viewsCount: number
