@@ -118,6 +118,11 @@ export default defineNuxtConfig({
     '/studio/**': { ssr: false },
     '/tvstats/studio': { ssr: false },
     '/tvstats/studio/**': { ssr: false },
+    // Cloudflare injecte `X-Frame-Options: SAMEORIGIN` en périphérie (absent du code de
+    // l'app) ce qui bloque l'intégration <iframe> de /embed/** sur des sites tiers. La CSP
+    // frame-ancestors prévaut sur X-Frame-Options côté navigateur : on l'ouvre explicitement
+    // pour ces routes, pensées pour être embarquées n'importe où.
+    '/embed/**': { headers: { 'content-security-policy': 'frame-ancestors *' } },
   },
 
   components: [

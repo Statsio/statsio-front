@@ -165,12 +165,56 @@ watch([currentTitleLines, phase], () => {
   void recomputeTitleLineOffsets()
 })
 
+/**
+ * Défilement du bloc « info » du flash promo, uniquement quand son contenu
+ * dépasse la largeur disponible (sinon il reste figé, tronqué au besoin).
+ * Mesure via un clone invisible en position absolue (n'influe pas sur la
+ * largeur du conteneur flex) comparé à la largeur réellement rendue.
+ */
+const FLASH_INFO_MARQUEE_SPEED_PX_S = 70
+const FLASH_INFO_MARQUEE_MIN_DURATION = 6
+
+const flashInfoViewportEl = ref<HTMLElement | null>(null)
+const flashInfoContentEl = ref<HTMLElement | null>(null)
+const flashInfoOverflow = ref(false)
+const flashInfoMarqueeDuration = ref(FLASH_INFO_MARQUEE_MIN_DURATION)
+
+async function recomputeFlashInfoOverflow(retries = 0) {
+  await nextTick()
+  const viewport = flashInfoViewportEl.value
+  const content = flashInfoContentEl.value
+  if (!viewport || !content) {
+    // Transition out-in : le panneau flash n'est pas encore monté → réessai au frame suivant.
+    if (retries < 30) {
+      requestAnimationFrame(() => {
+        void recomputeFlashInfoOverflow(retries + 1)
+      })
+    }
+    return
+  }
+
+  const viewportWidth = viewport.clientWidth
+  const contentWidth = content.getBoundingClientRect().width
+  flashInfoOverflow.value = contentWidth > viewportWidth
+  flashInfoMarqueeDuration.value = Math.max(
+    FLASH_INFO_MARQUEE_MIN_DURATION,
+    contentWidth / FLASH_INFO_MARQUEE_SPEED_PX_S,
+  )
+}
+
+watch(currentInfo, () => {
+  flashInfoOverflow.value = false
+  void recomputeFlashInfoOverflow()
+})
+
 function onWindowResize() {
   recomputeTitleLineOffsets()
+  recomputeFlashInfoOverflow()
 }
 
 onMounted(() => {
   recomputeTitleLineOffsets()
+  recomputeFlashInfoOverflow()
   window.addEventListener('resize', onWindowResize)
 })
 
@@ -358,10 +402,35 @@ const surveyLeadPct = (options: { pct: number; lead: boolean }[]) =>
           <div
             v-if="currentInfo"
             :key="`${currentCategory?.id}-${currentInfo.title}`"
-            class="min-w-0 flex-1 truncate text-[12px] sm:text-[12.5px]"
+            ref="flashInfoViewportEl"
+            class="relative min-w-0 flex-1 text-[12px] sm:text-[12.5px]"
           >
-            <strong class="font-bold text-slate-900">{{ currentInfo.title }}</strong>
-            <span v-if="currentInfo.description" class="ml-1.5 text-slate-600">{{ currentInfo.description }}</span>
+            <!-- Mesure invisible (hors flux) servant à détecter le dépassement. -->
+            <span ref="flashInfoContentEl" class="invisible absolute left-0 top-0 whitespace-nowrap" aria-hidden="true">
+              <strong class="font-bold">{{ currentInfo.title }}</strong>
+              <span v-if="currentInfo.description" class="ml-1.5">{{ currentInfo.description }}</span>
+            </span>
+
+            <div v-if="flashInfoOverflow && !reducedMotion" class="promo-flash-marquee overflow-hidden">
+              <div
+                class="promo-flash-marquee-track flex w-max items-center"
+                :style="{ animationDuration: `${flashInfoMarqueeDuration}s` }"
+              >
+                <span
+                  v-for="copy in 2"
+                  :key="copy"
+                  class="mr-12 whitespace-nowrap"
+                  :aria-hidden="copy === 2 ? 'true' : undefined"
+                >
+                  <strong class="font-bold text-slate-900">{{ currentInfo.title }}</strong>
+                  <span v-if="currentInfo.description" class="ml-1.5 text-slate-600">{{ currentInfo.description }}</span>
+                </span>
+              </div>
+            </div>
+            <div v-else :class="flashInfoOverflow ? 'promo-scroll overflow-x-auto' : 'truncate'">
+              <strong class="font-bold text-slate-900">{{ currentInfo.title }}</strong>
+              <span v-if="currentInfo.description" class="ml-1.5 text-slate-600">{{ currentInfo.description }}</span>
+            </div>
           </div>
         </Transition>
 
@@ -413,13 +482,23 @@ const surveyLeadPct = (options: { pct: number; lead: boolean }[]) =>
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .promo-track--run {
+  .promo-track--run,
+  .promo-flash-marquee-track {
     animation: none;
   }
 }
 
 .promo-flash-title :deep(strong) {
   font-weight: 800;
+}
+
+.promo-flash-marquee-track {
+  animation: promo-marquee linear infinite;
+}
+
+.promo-flash-marquee:hover .promo-flash-marquee-track,
+.promo-flash-marquee:focus-within .promo-flash-marquee-track {
+  animation-play-state: paused;
 }
 
 /* Contour lisible sur les titres stroke (contour derrière le fill). */

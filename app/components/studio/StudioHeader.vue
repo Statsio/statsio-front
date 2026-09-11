@@ -346,7 +346,7 @@ const saveDotClass = computed(() => {
           <span class="shrink-0 rounded-[5px] px-1.5 py-[3px] font-mono text-[9.5px] font-semibold" :class="pageKind(currentPage).cls">
             {{ pageKind(currentPage).tag }}
           </span>
-          <span class="truncate text-[12.5px] font-bold text-[var(--studio-ink)]">{{ currentPage?.title ?? 'Page' }}</span>
+          <span class="min-w-0 truncate text-[12.5px] font-bold text-[var(--studio-ink)]">{{ currentPage?.title ?? 'Page' }}</span>
           <span class="shrink-0 text-[8px] text-[var(--studio-faint)]">▾</span>
         </button>
 
@@ -385,7 +385,7 @@ const saveDotClass = computed(() => {
               </span>
               <button
                 v-if="editingPageId !== page.id"
-                class="min-w-0 text-left"
+                class="block w-full min-w-0 text-left"
                 @click="studio.switchPage(page.id); pagesOpen = false"
               >
                 <span class="block truncate text-[12.5px] font-bold text-[var(--studio-ink)]">{{ page.title }}</span>
