@@ -19,7 +19,7 @@ defineProps<{
       class="cta-halo pointer-events-none absolute -right-16 -top-24 h-[280px] w-[280px] rounded-full"
       aria-hidden="true"
     />
-    <div class="relative min-w-[260px] flex-1">
+    <div class="relative min-w-0 flex-1 sm:min-w-[260px]">
       <h2 class="m-0 max-w-[26ch] text-[28px] font-extrabold tracking-[-0.02em] text-white text-pretty">
         {{ headline }}
       </h2>
@@ -27,16 +27,16 @@ defineProps<{
         {{ subtitle }}
       </p>
     </div>
-    <div class="relative flex shrink-0 flex-wrap gap-3">
+    <div class="relative flex w-full flex-col gap-3 sm:w-auto sm:shrink-0 sm:flex-row sm:flex-wrap">
       <RouterLink
         :to="primaryTo"
-        class="rounded-full bg-[linear-gradient(135deg,var(--color-primary),var(--color-accent))] px-6 py-[15px] text-[14px] font-extrabold tracking-[0.02em] text-white transition hover:brightness-105"
+        class="w-full rounded-full bg-[linear-gradient(135deg,var(--color-primary),var(--color-accent))] px-6 py-[15px] text-center text-[14px] font-extrabold tracking-[0.02em] text-white transition hover:brightness-105 sm:w-auto"
       >
         {{ primaryLabel }}
       </RouterLink>
       <RouterLink
         :to="secondaryTo"
-        class="rounded-full border-[1.5px] border-white/25 px-[22px] py-[15px] text-[14px] font-bold text-white transition hover:border-primary hover:text-primary"
+        class="w-full rounded-full border-[1.5px] border-white/25 px-[22px] py-[15px] text-center text-[14px] font-bold text-white transition hover:border-primary hover:text-primary sm:w-auto"
       >
         {{ secondaryLabel }}
       </RouterLink>

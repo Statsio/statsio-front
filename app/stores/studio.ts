@@ -108,6 +108,17 @@ export const useStudioStore = defineStore('studio', () => {
     premiumUpsellBlockType.value = type
   }
 
+  /**
+   * Un sondage « question unique » (`survey_kind === 'single_question'`) ne peut
+   * contenir qu'un seul bloc de formulaire — vrai dès qu'un bloc formulaire existe
+   * déjà et que `type` en est un lui aussi.
+   */
+  function isFormBlockLimitReached(type: BlockType): boolean {
+    if (!FORM_BLOCK_TYPES.includes(type)) return false
+    if (content.value?.type !== 'survey' || content.value?.survey_kind !== 'single_question') return false
+    return blocks.value.some((b) => FORM_BLOCK_TYPES.includes(b.type))
+  }
+
   function dismissPremiumUpsell() {
     premiumUpsellBlockType.value = null
   }
@@ -1852,6 +1863,7 @@ export const useStudioStore = defineStore('studio', () => {
     isBlockPremium,
     requiredOfferForBlock,
     canUseBlock,
+    isFormBlockLimitReached,
     requestPremiumUpsell,
     dismissPremiumUpsell,
     activeLeftTab,

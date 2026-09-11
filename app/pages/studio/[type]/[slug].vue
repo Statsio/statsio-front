@@ -45,6 +45,7 @@ onMounted(async () => {
         {
           id: doc.id,
           type: doc.type ?? routeType,
+          survey_kind: doc.survey_kind,
           title: doc.title,
           status: doc.status as 'draft' | 'published',
           categories: doc.categories ?? [],
