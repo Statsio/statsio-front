@@ -4,10 +4,14 @@ import { formatRowCount } from '@/utils/statsDataFormat'
 import { downloadPublicDatasetParquet, type ContentDataset } from '@/api/studio'
 import StatsDataFreshnessBadge from './StatsDataFreshnessBadge.vue'
 
-const props = defineProps<{
-  datasets: ContentDataset[]
-  docSlug: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    datasets: ContentDataset[]
+    docSlug: string
+    hideHeading?: boolean
+  }>(),
+  { hideHeading: false },
+)
 
 defineEmits<{ reuse: [dataset: ContentDataset] }>()
 
@@ -35,7 +39,10 @@ async function downloadParquet(dataset: ContentDataset) {
 
 <template>
   <aside v-if="datasets.length > 0" class="rounded-2xl border border-[var(--studio-line-strong)] bg-white px-4 py-4">
-    <p class="mb-3 text-[9.5px] font-extrabold uppercase tracking-[0.09em] text-[var(--studio-faint)]">
+    <p
+      v-if="!hideHeading"
+      class="mb-3 text-[9.5px] font-extrabold uppercase tracking-[0.09em] text-[var(--studio-faint)]"
+    >
       Sources de données
     </p>
     <div class="flex flex-col gap-4">
