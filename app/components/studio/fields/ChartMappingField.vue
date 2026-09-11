@@ -151,6 +151,8 @@ function setValueColumnAt(i: number, ref: string) {
     const next = [...yAxes.value, ref]
     writeYAxes(next)
     activeSeries.value = next.length - 1
+    const inherited = (yAxes.value.length ? aggregateFor(fm.value, yAxes.value[0]!) : undefined) ?? 'sum'
+    setMapping(withAggregate({ ...props.block, fieldMapping: { ...fm.value, yAxes: next } }, ref, inherited))
   }
 }
 
