@@ -1,18 +1,24 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { navigateTo } from '#app'
 import { useStatsDataDetail } from '@/composables/useStatsDataDetail'
 import { useStatsDataChrome } from '@/composables/useStatsDataChrome'
 import { canonicalContentPath, publicContentListPath } from '@/lib/content-display'
 import { breadcrumbNode, datasetNode } from '@/lib/structured-data'
 import { useContentBasePath } from '@/composables/useContentBasePath'
+import CreateContentModal from '@/components/create/CreateContentModal.vue'
+import { useAuthStore } from '@/stores/auth'
+import { AUTH_REDIRECT_KEY } from '@/lib/auth-storage'
 import StatsDataHero from './StatsDataHero.vue'
 import StatsDataSubHeader from './StatsDataSubHeader.vue'
 import StatsDataToc from './StatsDataToc.vue'
+import StatsDataSourceCard from './StatsDataSourceCard.vue'
 import StatsDataUsefulBar from './StatsDataUsefulBar.vue'
 import ContentOwnerBar from './ContentOwnerBar.vue'
 import StatsDataEmbedModal from './StatsDataEmbedModal.vue'
 import StatsDataContent from './StatsDataContent.vue'
+import ContentCommentsSection from '@/components/contents/ContentCommentsSection.vue'
 
 const props = withDefaults(defineProps<{ embed?: boolean }>(), { embed: false })
 
@@ -48,6 +54,25 @@ const {
 } = useStatsDataChrome(doc)
 
 const showEmbedModal = ref(false)
+const canEmbed = computed(() => doc.value?.embed_enabled !== false)
+
+const auth = useAuthStore()
+const createModalOpen = ref(false)
+
+const datasets = computed(() => doc.value?.datasets ?? [])
+
+function openReuseSource() {
+  if (!auth.isAuthenticated) {
+    if (import.meta.client) {
+      const next = window.location.pathname + window.location.search
+      try { sessionStorage.setItem(AUTH_REDIRECT_KEY, next) } catch { /* ignore */ }
+      try { localStorage.setItem(AUTH_REDIRECT_KEY, next) } catch { /* ignore */ }
+    }
+    void navigateTo('/login')
+    return
+  }
+  createModalOpen.value = true
+}
 
 const fanOutParam = computed(() => activePage.value?.params?.find((p) => p.fanOut && p.name) ?? null)
 
@@ -202,9 +227,9 @@ async function goToAction(action: HeroAction) {
     </div>
 
     <template v-else-if="doc">
-      <!-- Embed : contenu seul -->
+      <!-- Embed : contenu seul (si l’intégration est autorisée) -->
       <template v-if="embed">
-        <main class="mx-auto flex max-w-[1180px] flex-col gap-4 px-3 py-4 sm:px-5">
+        <main v-if="canEmbed" class="mx-auto flex max-w-[1180px] flex-col gap-4 px-3 py-4 sm:px-5">
           <StatsDataContent :items="canvasItems" />
           <a
             :href="shareUrl"
@@ -213,6 +238,9 @@ async function goToAction(action: HeroAction) {
             class="block text-center text-[11px] font-semibold text-[var(--studio-faint)] hover:text-[var(--studio-muted)]"
           >Réalisé avec Statsio →</a>
         </main>
+        <div v-else class="py-16 text-center text-sm text-slate-500">
+          L’intégration de ce contenu est désactivée.
+        </div>
       </template>
 
       <!-- Page publique complète -->
@@ -237,6 +265,7 @@ async function goToAction(action: HeroAction) {
           :share-url="shareUrl"
           :can-web-share="canWebShare"
           :share-targets="shareTargets"
+          :can-embed="canEmbed"
           @toggle-favorite="toggleFavoriteAction"
           @toggle-follow="toggleFollowAction"
           @native-share="nativeShare"
@@ -256,10 +285,11 @@ async function goToAction(action: HeroAction) {
         />
 
         <div class="mx-auto max-w-[1180px] px-4 sm:px-6">
-          <div class="grid grid-cols-1 gap-10 pt-8 lg:grid-cols-[184px_minmax(0,1fr)] lg:items-start">
-            <div class="lg:sticky lg:top-40">
+          <div class="grid grid-cols-1 gap-10 pt-8 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start">
+            <aside class="flex flex-col gap-5 lg:sticky lg:top-40">
               <StatsDataToc />
-            </div>
+              <StatsDataSourceCard :datasets="datasets" :doc-slug="docSlug" @reuse="openReuseSource" />
+            </aside>
 
             <main class="flex min-w-0 flex-col gap-4 pb-24">
               <StatsDataContent :items="canvasItems" />
@@ -272,16 +302,35 @@ async function goToAction(action: HeroAction) {
                 :share-url="shareUrl"
                 :can-web-share="canWebShare"
                 :share-targets="shareTargets"
+                :can-embed="canEmbed"
                 @toggle-favorite="toggleFavoriteAction"
                 @toggle-follow="toggleFollowAction"
                 @native-share="nativeShare"
                 @open-embed="showEmbedModal = true"
               />
+
+              <ContentCommentsSection
+                v-if="!embed"
+                :slug="docSlug"
+                :enabled="doc.comments_enabled !== false"
+              />
             </main>
           </div>
         </div>
 
-        <StatsDataEmbedModal v-model:open="showEmbedModal" :snippet="embedSnippet" :preview-url="embedUrl" />
+        <StatsDataEmbedModal
+          v-if="canEmbed"
+          v-model:open="showEmbedModal"
+          :snippet="embedSnippet"
+          :preview-url="embedUrl"
+        />
+        <CreateContentModal
+          v-if="createModalOpen"
+          :open="createModalOpen"
+          type="statsdata"
+          @update:open="createModalOpen = $event"
+          @close="createModalOpen = false"
+        />
       </template>
     </template>
   </div>

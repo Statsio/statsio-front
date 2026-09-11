@@ -24,7 +24,13 @@ import DropdownBlock from './DropdownBlock.vue'
 import LinearScaleBlock from './LinearScaleBlock.vue'
 import RatingBlock from './RatingBlock.vue'
 
-const props = defineProps<{ block: StudioBlock; readonly?: boolean; scope?: Record<string, string> }>()
+const props = defineProps<{
+  block: StudioBlock
+  readonly?: boolean
+  scope?: Record<string, string>
+  /** Rendu agrandi (modal d'aperçu public). */
+  expanded?: boolean
+}>()
 
 // Résolus via l'auto-import Nuxt pour éviter le cycle d'import
 // BlockRenderer → LoopBlock/IfBlock/LayoutBlock → CanvasZone → BlockWrapper → BlockRenderer,
@@ -71,7 +77,15 @@ const component = computed(() => {
 </script>
 
 <template>
-  <component :is="component" v-if="component" :block="block" :readonly="props.readonly" :scope="props.scope" class="h-full w-full" />
+  <component
+    :is="component"
+    v-if="component"
+    :block="block"
+    :readonly="props.readonly"
+    :scope="props.scope"
+    :expanded="props.expanded"
+    class="h-full w-full"
+  />
   <div v-else class="flex items-center justify-center h-full text-[var(--studio-faint)] text-xs">
     Bloc inconnu : {{ block.type }}
   </div>

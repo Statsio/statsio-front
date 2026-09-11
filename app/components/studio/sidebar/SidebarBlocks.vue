@@ -80,7 +80,11 @@ function onBlockClick(type: BlockType) {
             class="relative flex cursor-grab select-none flex-col items-center gap-[9px] rounded-[13px] border-[1.5px] border-[var(--studio-line)] bg-white px-2 py-[15px] transition-colors hover:border-[var(--color-primary)] hover:bg-[var(--studio-accent-wash)] active:cursor-grabbing"
             draggable="true"
             :data-block-type="block.type"
-            :title="studio.isBlockPremium(block.type) ? `${block.description} · Réservé à l'offre Premium` : block.description"
+            :title="
+              studio.isBlockPremium(block.type)
+                ? `${block.description} · Réservé à l'offre ${studio.requiredOfferForBlock(block.type)?.name ?? 'payante'}`
+                : block.description
+            "
             @dragstart="onDragStart($event, block.type)"
             @click="onBlockClick(block.type)"
           >
@@ -88,7 +92,7 @@ function onBlockClick(type: BlockType) {
               v-if="studio.isBlockPremium(block.type)"
               class="absolute right-1.5 top-1.5 rounded-full bg-[var(--color-primary)]/12 px-1.5 py-[1px] font-mono text-[8.5px] font-bold tracking-[0.04em] text-[var(--color-primary)]"
             >
-              Premium
+              {{ studio.requiredOfferForBlock(block.type)?.name ?? 'Premium' }}
             </span>
             <span class="flex h-9 w-9 items-center justify-center rounded-[10px]" :class="BLOCK_META[block.type].tint">
               <svg class="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7">

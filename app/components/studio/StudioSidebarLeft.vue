@@ -123,7 +123,7 @@ watch(tabs, (newTabs) => {
       type="button"
       class="flex w-[52px] flex-col items-center gap-1.5 rounded-[11px] py-[9px] transition-colors hover:bg-[var(--studio-wash)]"
       title="Médias"
-      @click="mediaLibrary.open({ mode: 'browse' })"
+      @click="mediaLibrary.open({ mode: 'browse', studioContentSlug: studio.content?.slug })"
     >
       <svg class="h-[19px] w-[19px] text-[var(--studio-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7">
         <path stroke-linecap="round" stroke-linejoin="round" :d="MEDIA_ICON" />

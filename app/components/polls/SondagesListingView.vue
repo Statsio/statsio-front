@@ -46,10 +46,10 @@ const {
   key: 'surveys-catalog',
 })
 
-const sortOptions: { value: 'trend' | 'recent' | 'votes'; label: string }[] = [
-  { value: 'trend', label: 'Tendance' },
-  { value: 'recent', label: 'Récents' },
-  { value: 'votes', label: 'Les plus suivis' },
+const sortOptions: { value: 'trend' | 'created' | 'recent'; label: string }[] = [
+  { value: 'trend', label: 'Popularité' },
+  { value: 'created', label: 'Date de création' },
+  { value: 'recent', label: 'Date de modification' },
 ]
 
 const statusOptions: { value: SurveyStatusFilter | ''; label: string }[] = [
@@ -87,7 +87,12 @@ const categoryFacets = computed(() => catalog.value.facets.categories)
 const countLine = computed(
   () => `${catalog.value.meta.total} consultation${catalog.value.meta.total > 1 ? 's' : ''} · ${catalog.value.meta.shown} affichée${catalog.value.meta.shown > 1 ? 's' : ''}`,
 )
-const contextLine = computed(() => (anyFilter.value ? 'Filtres actifs' : 'Classées par tendance'))
+const contextLine = computed(() => {
+  if (anyFilter.value) return 'Filtres actifs'
+  if (sort.value === 'created') return 'Classées par date de création'
+  if (sort.value === 'recent') return 'Classées par date de modification'
+  return 'Classées par popularité'
+})
 const moreCount = computed(() =>
   Math.min(6, Math.max(0, catalog.value.meta.total - catalog.value.meta.shown)),
 )

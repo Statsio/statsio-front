@@ -11,8 +11,10 @@ const props = withDefaults(
     directory?: string
     /** Ratio du cadre d'aperçu. */
     ratio?: 'video' | 'square' | 'wide'
+    /** Si défini, upload/liste au nom du propriétaire du contenu. */
+    studioContentSlug?: string
   }>(),
-  { label: '', hint: '', directory: 'studio/images', ratio: 'video' },
+  { label: '', hint: '', directory: 'studio/images', ratio: 'video', studioContentSlug: '' },
 )
 
 /** URL de l'image (source de vérité pour l'affichage). */
@@ -31,6 +33,7 @@ function choose() {
   open({
     mode: 'pick',
     directory: props.directory,
+    studioContentSlug: props.studioContentSlug || undefined,
     onSelect: (media) => {
       model.value = media.url
       mediaId.value = media.id
@@ -48,7 +51,7 @@ async function uploadDirect(file: File) {
   error.value = ''
   uploading.value = true
   try {
-    const media = await uploadMedia(file, props.directory)
+    const media = await uploadMedia(file, props.directory, props.studioContentSlug || undefined)
     model.value = media.url
     mediaId.value = media.id
   } catch (e: unknown) {

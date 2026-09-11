@@ -17,6 +17,9 @@ export function getStatusMeta(status?: string | null): ContentStatusMeta {
   if (status === 'published') {
     return { label: 'Publié', bg: 'rgba(16,185,129,0.14)', color: '#10b981', live: true }
   }
+  if (status === 'scheduled') {
+    return { label: 'Programmé', bg: 'rgba(59,130,246,0.14)', color: '#3b82f6', live: false }
+  }
   return { label: 'Brouillon', bg: 'rgba(24,24,31,0.08)', color: 'rgba(24,24,31,0.55)', live: false }
 }
 

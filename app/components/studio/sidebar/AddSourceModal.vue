@@ -134,6 +134,8 @@ async function submitFile() {
   meta.categories.forEach((c) => form.append('categories[]', c))
   if (meta.provenance_id !== null) form.append('provenance_id', String(meta.provenance_id))
   if (meta.provenance_other_label) form.append('provenance_other_label', meta.provenance_other_label)
+  const contentSlug = studio.content?.slug
+  if (contentSlug) form.append('studio_content_slug', contentSlug)
 
   await apiHttp.post(STATSIO_API.dataSources.upload, form, {
     headers: { 'Content-Type': 'multipart/form-data' },
@@ -142,7 +144,10 @@ async function submitFile() {
 
 /** @returns true si la source créée est en direct (live). */
 async function submitApi(): Promise<boolean> {
-  const created = await createApiDataSource(buildApiPayload())
+  const payload: Record<string, unknown> = buildApiPayload()
+  const contentSlug = studio.content?.slug
+  if (contentSlug) payload.studio_content_slug = contentSlug
+  const created = await createApiDataSource(payload)
   if (created.materialization === 'live') {
     detectedQueryMapping.value = created.queryMapping
     return true

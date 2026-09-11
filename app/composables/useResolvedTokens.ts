@@ -46,7 +46,7 @@ function blockCtxKey(opts: { block?: () => StudioBlock | null; datasetId?: () =>
   return opts.extraFilters ? `${base}|${JSON.stringify(opts.extraFilters())}` : base
 }
 
-type AggregateContext = Pick<Options, 'block' | 'datasetId' | 'readonly' | 'docSlug' | 'extraFilters'>
+export type AggregateContext = Pick<Options, 'block' | 'datasetId' | 'readonly' | 'docSlug' | 'extraFilters'>
 
 /**
  * Résout l'agrégat `ref` (issu de `{{ AVG(col@X) }}`) contre :
@@ -115,6 +115,74 @@ function substitutePlain(raw: string, map: Record<string, string>): string {
     if (direct !== undefined) return direct
     return key.replace(/\w+/g, (name) => map[name] ?? name)
   })
+}
+
+/**
+ * Résout les `{{ }}` d'un texte : variables (synchrone) + expressions calculées
+ * (agrégats via l'API, arithmétique) — version non réactive, pour un appel ponctuel
+ * dans un flux impératif. `render` décide comment sérialiser le nombre obtenu
+ * (affichage localisé vs valeur brute machine-lisible) — voir {@link resolveTokensAsync}
+ * et {@link resolveFilterValue}.
+ */
+async function resolveExpressionTokens(
+  raw: string,
+  tokenMap: Record<string, string>,
+  ctx: AggregateContext,
+  render: (n: number | null, decimals: number | undefined) => string,
+): Promise<string> {
+  if (!raw.includes('{{')) return raw
+
+  const base = substitutePlain(raw, tokenMap)
+
+  const exprTokens: { match: string; key: string }[] = []
+  base.replace(STUDIO_TOKEN_PATTERN, (match, key: string) => {
+    if (isExpressionToken(key)) exprTokens.push({ match, key })
+    return match
+  })
+  if (!exprTokens.length) return base
+
+  const parsed = exprTokens.map((t) => ({ ...t, expr: parseExpression(t.key, (name) => tokenMap[name]) }))
+
+  const refs = new Map<string, AggregateRef>()
+  for (const p of parsed) for (const r of p.expr?.aggregates ?? []) refs.set(r.key, r)
+
+  const values = new Map<string, number | null>()
+  await Promise.all([...refs.values()].map(async (r) => { values.set(r.key, await resolveAggregate(r, ctx)) }))
+
+  let out = base
+  for (const p of parsed) {
+    if (!p.expr) continue
+    const n = evaluate(p.expr.node, values)
+    out = out.split(p.match).join(render(n, p.expr.decimals))
+  }
+  return out
+}
+
+/**
+ * Résout les `{{ }}` d'un texte pour l'affichage : variables + expressions calculées,
+ * mises en forme localisée (`formatNumber`). Pour un appel ponctuel dans un flux
+ * impératif — même logique à deux passes que {@link useResolvedTokens}.
+ */
+export async function resolveTokensAsync(
+  raw: string,
+  tokenMap: Record<string, string>,
+  ctx: AggregateContext,
+): Promise<string> {
+  return resolveExpressionTokens(raw, tokenMap, ctx, (n, decimals) => (n === null ? '—' : formatNumber(n, decimals)))
+}
+
+/**
+ * Résout la valeur d'un filtre de bloc : variables + expression d'agrégat
+ * (`{{ AVG(prix) }}`, inséré via le sélecteur de variable en mode « valeur
+ * calculée »), en nombre BRUT (`String(n)`, jamais la mise en forme localisée
+ * `formatNumber`) — la valeur doit rester comparable côté serveur, pas juste lisible.
+ */
+export async function resolveFilterValue(
+  raw: string,
+  tokenMap: Record<string, string>,
+  ctx: AggregateContext,
+): Promise<string> {
+  return resolveExpressionTokens(raw, tokenMap, ctx, (n) => (n === null ? '' : String(n)))
 }
 
 /**
