@@ -3,9 +3,14 @@ import { RouterLink } from 'vue-router'
 import MegaMenuDocCard from '@/components/layout/MegaMenuDocCard.vue'
 import type { HeaderNavItem } from '@/components/layout/brands/header-nav.types'
 
-defineProps<{
-  item: HeaderNavItem
-}>()
+withDefaults(
+  defineProps<{
+    item: HeaderNavItem
+    /** Espacements réduits pour l'intégration dans l'accordéon du menu burger mobile. */
+    dense?: boolean
+  }>(),
+  { dense: false },
+)
 
 const sparklineMax = (values: number[]) => Math.max(...values, 1)
 
@@ -20,8 +25,11 @@ const formatCount = (count?: number) => {
 
 <template>
   <div
-    class="container grid gap-8 py-8 lg:gap-11 lg:py-10"
-    :class="item.categories.length ? 'lg:grid-cols-[210px_1fr]' : 'lg:grid-cols-1'"
+    class="grid gap-6"
+    :class="[
+      item.categories.length ? 'lg:grid-cols-[210px_1fr]' : 'lg:grid-cols-1',
+      dense ? '' : 'container py-8 lg:gap-11 lg:py-10',
+    ]"
   >
     <aside v-if="item.categories.length" class="min-w-0">
       <p class="mb-3 px-2.5 text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">

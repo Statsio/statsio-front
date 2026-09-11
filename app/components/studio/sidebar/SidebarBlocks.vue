@@ -7,12 +7,13 @@ import { useStudioStore } from '@/stores/studio'
 const studio = useStudioStore()
 const search = ref('')
 
-// Blocs de formulaire → sondages ; bloc Recherche → StatsData (pages template).
+// Blocs de formulaire → sondages (hors pétition, qui n'a pas de question) ; bloc Recherche → StatsData (pages template).
 const availableCategories = computed(() => {
   const type = studio.content?.type
+  const surveyKind = studio.content?.survey_kind
   return BLOCK_CATEGORIES.filter((cat) => {
     if (cat.id === 'script') return false // onglet dédié « Script »
-    if (cat.id === 'form') return type === 'survey'
+    if (cat.id === 'form') return type === 'survey' && surveyKind !== 'petition'
     if (cat.id === 'special') return type !== 'survey' && type !== 'article'
     if (cat.id === 'statsio') return type === 'article'
     return true
@@ -33,6 +34,10 @@ const filteredCategories = computed(() => {
 })
 
 function onDragStart(event: DragEvent, type: BlockType) {
+  if (studio.isFormBlockLimitReached(type)) {
+    event.preventDefault()
+    return
+  }
   if (!studio.canUseBlock(type)) {
     event.preventDefault()
     studio.requestPremiumUpsell(type)
@@ -44,6 +49,7 @@ function onDragStart(event: DragEvent, type: BlockType) {
 }
 
 function onBlockClick(type: BlockType) {
+  if (studio.isFormBlockLimitReached(type)) return
   if (!studio.canUseBlock(type)) {
     studio.requestPremiumUpsell(type)
     return
@@ -78,12 +84,15 @@ function onBlockClick(type: BlockType) {
             :key="block.type"
             type="button"
             class="relative flex cursor-grab select-none flex-col items-center gap-[9px] rounded-[13px] border-[1.5px] border-[var(--studio-line)] bg-white px-2 py-[15px] transition-colors hover:border-[var(--color-primary)] hover:bg-[var(--studio-accent-wash)] active:cursor-grabbing"
-            draggable="true"
+            :class="{ 'cursor-not-allowed opacity-40 hover:border-[var(--studio-line)] hover:bg-white': studio.isFormBlockLimitReached(block.type) }"
+            :draggable="!studio.isFormBlockLimitReached(block.type)"
             :data-block-type="block.type"
             :title="
-              studio.isBlockPremium(block.type)
-                ? `${block.description} · Réservé à l'offre ${studio.requiredOfferForBlock(block.type)?.name ?? 'payante'}`
-                : block.description
+              studio.isFormBlockLimitReached(block.type)
+                ? 'Un seul bloc de formulaire est autorisé pour un sondage « question unique ».'
+                : studio.isBlockPremium(block.type)
+                  ? `${block.description} · Réservé à l'offre ${studio.requiredOfferForBlock(block.type)?.name ?? 'payante'}`
+                  : block.description
             "
             @dragstart="onDragStart($event, block.type)"
             @click="onBlockClick(block.type)"

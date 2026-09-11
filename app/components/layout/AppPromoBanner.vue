@@ -33,9 +33,11 @@ const { data } = useAsyncData(
 const items = computed<PromoTickerItem[]>(() => data.value ?? [])
 
 // Catégories de promotion (« flash ») avec lesquelles le ticker de tendances alterne.
-const { data: flashCategoriesData } = useAsyncData('promo-flash-categories', fetchPromoCategories, {
-  default: (): PromoCategory[] => [],
-})
+const { data: flashCategoriesData } = useAsyncData(
+  'promo-flash-categories',
+  () => fetchPromoCategories(brand.value.id),
+  { watch: [() => brand.value.id], default: (): PromoCategory[] => [] },
+)
 const flashCategories = computed<PromoCategory[]>(() => flashCategoriesData.value ?? [])
 const { phase, currentCategory, currentInfo } = usePromoFlashRotation(flashCategories)
 
