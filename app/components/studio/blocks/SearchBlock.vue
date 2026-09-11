@@ -5,7 +5,7 @@ import { fetchBlockData, fetchPublicBlockData } from '@/api/studio'
 import { useStudioStore } from '@/stores/studio'
 import { blockSourceParams, resolveBlockFilters } from '@/composables/useBlockData'
 import { bareNames } from '@/lib/studio-search'
-import { buildFanOutSegment } from '@/lib/statsdata-fanout'
+import { buildFanOutSegment, fanOutSlugKey } from '@/lib/statsdata-fanout'
 import { isCalcRef, parseColumnRef } from '@/lib/studio-columns'
 import { STUDIO_EMBED_CONTEXT, type StudioEmbedContext } from '@/composables/studioEmbedContext'
 import type { BlockQueryResult, ResultPart, StudioBlock, StudioDocumentPage, PageParam } from '@/types/studio'
@@ -233,6 +233,40 @@ function onSelect(result: SearchResult) {
   studio.setPageParams({ ...studio.pageParams, ...rowParams })
 }
 
+// ─── Option déjà sélectionnée (choisie, ou déduite des pageParams/URL) ───────
+
+/** Une valeur pour chaque colonne d'identité est déjà posée dans les pageParams. */
+const isSelected = computed(() =>
+  isConfigured.value && searchCols.value.every((c) => {
+    const v = studio.pageParams[c]
+    return v != null && v !== ''
+  }),
+)
+
+/** Même construction que les résultats de la liste — à partir des pageParams. */
+const selectedTitle = computed(() => (isSelected.value ? buildTitle(studio.pageParams) : ''))
+
+function clearSelection() {
+  const param = fanParam.value
+  const currentSeg = param ? buildFanOutSegment(param, studio.pageParams) : ''
+  const onFanOutUrl = Boolean(docSlug.value) && String(route.params.pageSlug ?? '') === currentSeg && currentSeg !== ''
+
+  const next = { ...studio.pageParams }
+  for (const c of searchCols.value) delete next[c]
+  for (const p of titleParts.value) delete next[parseColumnRef(p.ref).name]
+  for (const p of descParts.value) delete next[parseColumnRef(p.ref).name]
+  if (param) {
+    delete next[param.name]
+    delete next[fanOutSlugKey(param)]
+  }
+  studio.setPageParams(next)
+  query.value = ''
+  results.value = []
+  isOpen.value = false
+
+  if (onFanOutUrl) router.push(`/statsdata/${docSlug.value}`)
+}
+
 function onFocus() {
   if (!isConfigured.value) return
   updateDropdownPosition()
@@ -266,6 +300,24 @@ onBeforeUnmount(() => {
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
       </svg>
       <span class="text-xs">Choisissez une source et des colonnes de recherche →</span>
+    </div>
+
+    <!-- Option sélectionnée : on masque le champ de recherche -->
+    <div
+      v-else-if="isSelected"
+      class="flex items-center gap-2.5 rounded-xl border border-[var(--studio-line-strong)] bg-[color-mix(in_srgb,var(--studio-ink)_5%,transparent)] py-3.5 pl-4 pr-4"
+    >
+      <svg class="w-4 h-4 shrink-0 text-[var(--studio-faint)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+      </svg>
+      <p class="min-w-0 flex-1 truncate text-sm text-[var(--studio-ink)]">{{ selectedTitle }}</p>
+      <button
+        type="button"
+        class="shrink-0 text-[11px] font-semibold text-[var(--color-primary)] hover:underline"
+        @click="clearSelection"
+      >
+        Changer
+      </button>
     </div>
 
     <!-- Search UI -->

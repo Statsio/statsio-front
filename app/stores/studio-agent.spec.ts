@@ -1,15 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import AxiosMockAdapter from 'axios-mock-adapter'
-import { apiHttp } from '@/lib/http'
+import { createFetchMock, type FetchMock } from '#test/mock-fetch'
 import { useStudioAgentStore } from './studio-agent'
 
 describe('useStudioAgentStore', () => {
-  let apiMock: AxiosMockAdapter
+  let apiMock: FetchMock
 
   beforeEach(() => {
     setActivePinia(createPinia())
-    apiMock = new AxiosMockAdapter(apiHttp)
+    apiMock = createFetchMock()
   })
 
   afterEach(() => {
@@ -124,7 +123,7 @@ describe('useStudioAgentStore', () => {
     mockFreshOpen()
     let postedText: string | undefined
     apiMock.onPost('/ai/studio/conversations/3/messages').reply((config) => {
-      postedText = JSON.parse(config.data).text
+      postedText = JSON.parse(config.data as string).text
       return [202, { success: true, data: { run_id: 91, conversation_id: 3 } }]
     })
     apiMock.onGet('/ai/studio/runs/91').reply(200, {

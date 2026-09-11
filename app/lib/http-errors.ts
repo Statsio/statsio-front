@@ -1,4 +1,4 @@
-import axios from 'axios'
+import { isHttpError } from '@/lib/http'
 
 type ValidationErrors = Record<string, string[]>
 
@@ -7,12 +7,11 @@ interface LaravelValidationErrorPayload {
   errors?: ValidationErrors
 }
 
-export const isUnauthorizedError = (error: unknown) =>
-  axios.isAxiosError(error) && error.response?.status === 401
+export const isUnauthorizedError = (error: unknown) => isHttpError(error) && error.response?.status === 401
 
 /** Statut HTTP réel de l'erreur si disponible, sinon un statut par défaut (ex: 404 pour une ressource introuvable). */
 export const getHttpErrorStatus = (error: unknown, fallback: number): number =>
-  (axios.isAxiosError(error) && error.response?.status) || fallback
+  (isHttpError(error) && error.response?.status) || fallback
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -20,7 +19,7 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 
 /** Message principal + détail validation Laravel + message d’exception debug si présent. */
 export const formatApiErrorDetail = (error: unknown, fallback: string): string => {
-  if (!axios.isAxiosError(error)) {
+  if (!isHttpError(error)) {
     return fallback
   }
 
@@ -60,11 +59,12 @@ export const getErrorMessage = (error: unknown, fallback: string) => {
 }
 
 export const getValidationErrors = (error: unknown) => {
-  if (!axios.isAxiosError<LaravelValidationErrorPayload>(error) || error.response?.status !== 422) {
+  if (!isHttpError(error) || error.response?.status !== 422) {
     return {}
   }
 
-  const errors = error.response.data?.errors ?? {}
+  const data = error.response.data as LaravelValidationErrorPayload | undefined
+  const errors = data?.errors ?? {}
 
   return Object.fromEntries(
     Object.entries(errors).map(([field, messages]) => [field, messages[0] ?? 'Champ invalide']),

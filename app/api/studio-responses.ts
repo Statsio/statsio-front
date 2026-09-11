@@ -49,7 +49,7 @@ export async function fetchBlockResponse(
   blockId: string,
   respondentToken: string,
 ): Promise<BlockResponseState> {
-  const { data } = await apiHttp.get(STATSIO_API.studioContent.blockResponse(slug, blockId), {
+  const { data } = await apiHttp.get<{ data: Record<string, unknown> }>(STATSIO_API.studioContent.blockResponse(slug, blockId), {
     params: { respondent_token: respondentToken },
   })
   return mapResponseState(data.data)
@@ -60,7 +60,7 @@ export async function submitBlockResponse(
   blockId: string,
   payload: { value: FormAnswerValue; respondent_token: string },
 ): Promise<BlockResponseState> {
-  const { data } = await apiHttp.post(STATSIO_API.studioContent.blockResponse(slug, blockId), payload)
+  const { data } = await apiHttp.post<{ data: Record<string, unknown> }>(STATSIO_API.studioContent.blockResponse(slug, blockId), payload)
   return mapResponseState(data.data)
 }
 

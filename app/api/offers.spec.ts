@@ -1,13 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import AxiosMockAdapter from 'axios-mock-adapter'
-import { publicHttp } from '@/lib/http'
+import { createFetchMock, type FetchMock } from '#test/mock-fetch'
 import { fetchOffers, EMPTY_OFFERS } from './offers'
 
 describe('offers api', () => {
-  let mock: AxiosMockAdapter
+  let mock: FetchMock
 
   beforeEach(() => {
-    mock = new AxiosMockAdapter(publicHttp)
+    mock = createFetchMock()
   })
 
   afterEach(() => {

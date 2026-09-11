@@ -1,13 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import AxiosMockAdapter from 'axios-mock-adapter'
-import { apiHttp } from '@/lib/http'
+import { createFetchMock, type FetchMock } from '#test/mock-fetch'
 import { submitContactMessage } from './contact'
 
 describe('contact api', () => {
-  let mock: AxiosMockAdapter
+  let mock: FetchMock
 
   beforeEach(() => {
-    mock = new AxiosMockAdapter(apiHttp)
+    mock = createFetchMock()
   })
 
   afterEach(() => {
@@ -26,7 +25,7 @@ describe('contact api', () => {
     })
 
     expect(mock.history.post).toHaveLength(1)
-    expect(JSON.parse(mock.history.post[0]!.data)).toEqual({
+    expect(JSON.parse(mock.history.post[0]!.data as string)).toEqual({
       reason: 'general',
       name: 'Jeanne Dupont',
       email: 'jeanne@example.com',

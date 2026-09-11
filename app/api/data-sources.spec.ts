@@ -1,15 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import AxiosMockAdapter from 'axios-mock-adapter'
-import { apiHttp } from '@/lib/http'
+import { createFetchMock, type FetchMock } from '#test/mock-fetch'
 import { STATSIO_API } from './statsio-endpoints'
 import { fetchDataSource, createApiDataSource, updateDataSource, refreshDataSource, mapPaginationToApi } from './data-sources'
 import type { DataSourcePagination } from './data-sources'
 
 describe('app/api/data-sources', () => {
-  let apiMock: AxiosMockAdapter
+  let apiMock: FetchMock
 
   beforeEach(() => {
-    apiMock = new AxiosMockAdapter(apiHttp)
+    apiMock = createFetchMock()
   })
 
   afterEach(() => {
@@ -56,7 +55,7 @@ describe('app/api/data-sources', () => {
   describe('createApiDataSource', () => {
     it('POSTs the payload to the api-sources collection endpoint', async () => {
       apiMock.onPost(STATSIO_API.apiSources.collection).reply((config) => {
-        expect(JSON.parse(config.data)).toEqual({ name: 'x', url: 'https://example.com' })
+        expect(JSON.parse(config.data as string)).toEqual({ name: 'x', url: 'https://example.com' })
         return [200, { data: { id: 5, name: 'x' } }]
       })
 
@@ -68,7 +67,7 @@ describe('app/api/data-sources', () => {
   describe('updateDataSource', () => {
     it('PATCHes a plain JSON payload when no file is provided', async () => {
       apiMock.onPatch(STATSIO_API.dataSources.one('7')).reply((config) => {
-        expect(JSON.parse(config.data)).toEqual({ name: 'renamed' })
+        expect(JSON.parse(config.data as string)).toEqual({ name: 'renamed' })
         return [200, { data: { id: 7, name: 'renamed' } }]
       })
 
@@ -78,7 +77,9 @@ describe('app/api/data-sources', () => {
 
     it('POSTs multipart with _method=PATCH when a file is provided', async () => {
       apiMock.onPost(STATSIO_API.dataSources.one('7')).reply((config) => {
-        expect(config.headers?.['Content-Type']).toBe('multipart/form-data')
+        // Pas de Content-Type manuel sur un body FormData : fetch pose lui-même le
+        // boundary, un header explicite sans boundary casserait le parsing serveur.
+        expect(config.headers?.['Content-Type']).toBeUndefined()
         expect(config.data).toBeInstanceOf(FormData)
         return [200, { data: { id: 7, name: 'renamed' } }]
       })

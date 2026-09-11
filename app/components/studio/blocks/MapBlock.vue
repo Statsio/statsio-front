@@ -50,6 +50,21 @@ function toNum(v: unknown): number | null {
   return Number.isFinite(n) ? n : null
 }
 
+/**
+ * Certains exports (ex. prix-carburants.gouv.fr) stockent lat/lon en degrés × 100 000
+ * sous forme d'entier (ex. 4818300 pour 48.183) plutôt qu'en décimal. Si la valeur dépasse
+ * la plage valide mais y rentre une fois divisée par 1e5, on la considère comme telle.
+ */
+function toCoord(v: unknown, maxAbs: number): number | null {
+  const n = toNum(v)
+  if (n === null) return null
+  if (Math.abs(n) > maxAbs) {
+    const scaled = n / 1e5
+    return Math.abs(scaled) <= maxAbs ? scaled : null
+  }
+  return n
+}
+
 /** Rendu d'une valeur de cellule — mêmes règles que TableBlock.formatCell. */
 function formatValue(col: string, value: unknown): string {
   if (value === null || value === undefined || value === '') return '—'
@@ -131,8 +146,8 @@ const points = computed<WorldScatterPoint[]>(() => {
       const parsed = parseLatLng(row[pointK], order)
       ;[lat, lon] = parsed ?? [null, null]
     } else {
-      lat = toNum(row[latK])
-      lon = toNum(row[lngK])
+      lat = toCoord(row[latK], 90)
+      lon = toCoord(row[lngK], 180)
     }
     if (lat === null || lon === null) return []
 
