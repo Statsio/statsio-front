@@ -1,6 +1,7 @@
 import { computed, ref } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { publishStudioContent } from '@/api/studio'
+import type { StudioContent } from '@/types/studio'
 
 /**
  * Orchestration du bouton « Publier » du Studio :
@@ -57,7 +58,7 @@ export function useStudioPublish(saveNow: () => Promise<void> | void) {
         immediate: opts.immediate ?? studio.content?.status === 'scheduled',
       })
       if (studio.content) {
-        studio.content.status = updated.status ?? 'published'
+        studio.content.status = (updated.status as StudioContent['status']) ?? 'published'
         studio.content.published_version = updated.published_version ?? nextVersion.value
         studio.content.first_published_at =
           updated.first_published_at ?? studio.content.first_published_at

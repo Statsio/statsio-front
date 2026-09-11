@@ -13,6 +13,8 @@ export interface StudioContent {
   published_version?: number | null
   /** ISO — 1re publication. Présent ⇒ l'auteur (profil/chaîne) est verrouillé. */
   first_published_at?: string | null
+  /** ISO — mise en ligne programmée. Null = publier immédiatement au prochain « Publier ». */
+  scheduled_publish_at?: string | null
   published_as?: 'user' | 'channel' | null
   channel_id?: number | null
   /** Téléchargement public des données (parquet / CSV). Défaut true. */
