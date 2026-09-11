@@ -75,13 +75,14 @@ usePageSeo({
   }),
 })
 
-const BASE_SORTS: { value: CatalogSort; label: string }[] = [
-  { value: 'trend', label: 'Tendance' },
-  { value: 'recent', label: 'Récents' },
+const CONTENT_SORTS: { value: CatalogSort; label: string }[] = [
+  { value: 'trend', label: 'Popularité' },
+  { value: 'created', label: 'Date de création' },
+  { value: 'recent', label: 'Date de modification' },
 ]
-const articleSorts = [...BASE_SORTS, { value: 'views' as CatalogSort, label: 'Les plus lus' }]
-const statsDataSorts = [...BASE_SORTS, { value: 'views' as CatalogSort, label: 'Les plus vus' }]
-const surveySorts = [...BASE_SORTS, { value: 'votes' as CatalogSort, label: 'Les plus suivis' }]
+const articleSorts = CONTENT_SORTS
+const statsDataSorts = CONTENT_SORTS
+const surveySorts = CONTENT_SORTS
 
 const articlesPreview = computed(() => articles.value.slice(0, 3))
 const statsDataPreview = computed(() => statsData.value.slice(0, 3))

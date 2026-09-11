@@ -7,6 +7,7 @@ const studio = useStudioStore()
 
 const blockType = computed(() => studio.premiumUpsellBlockType)
 const blockLabel = computed(() => (blockType.value ? BLOCK_META[blockType.value].label : ''))
+const offerName = computed(() => (blockType.value ? (studio.requiredOfferForBlock(blockType.value)?.name ?? 'payante') : ''))
 </script>
 
 <template>
@@ -18,7 +19,7 @@ const blockLabel = computed(() => (blockType.value ? BLOCK_META[blockType.value]
     >
       <div class="w-full max-w-[420px] overflow-hidden rounded-[18px] bg-white shadow-[0_30px_70px_rgba(20,16,30,0.35)]">
         <div class="flex items-center justify-between border-b border-[var(--studio-line)] px-6 py-[18px]">
-          <span class="text-[15px] font-extrabold text-[var(--studio-ink)]">Bloc réservé à l'offre Premium</span>
+          <span class="text-[15px] font-extrabold text-[var(--studio-ink)]">Bloc réservé à l'offre {{ offerName }}</span>
           <button
             type="button"
             class="flex h-7 w-7 items-center justify-center rounded-full text-[13px] text-[var(--studio-muted)] hover:bg-[var(--studio-wash)]"
@@ -30,8 +31,8 @@ const blockLabel = computed(() => (blockType.value ? BLOCK_META[blockType.value]
         <div class="px-6 py-5">
           <p class="text-[13px] leading-relaxed text-[var(--studio-muted)]">
             Le bloc « {{ blockLabel }} » fait partie de l'offre
-            <span class="font-bold text-[var(--studio-ink)]">Premium</span>. Passez à Premium pour l'utiliser
-            sans limite, avec vos chaînes et vos sondages.
+            <span class="font-bold text-[var(--studio-ink)]">{{ offerName }}</span>. Passez à {{ offerName }} pour
+            l'utiliser sans limite, avec vos chaînes et vos sondages.
           </p>
 
           <div class="mt-5 flex items-center justify-end gap-2.5">

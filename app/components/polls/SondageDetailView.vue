@@ -7,6 +7,7 @@ import ContentCoverImage from '@/components/statsdata/detail/ContentCoverImage.v
 import ContentCreatorByline from '@/components/statsdata/detail/ContentCreatorByline.vue'
 import ContentDossierBadge from '@/components/statsdata/detail/ContentDossierBadge.vue'
 import ContentOwnerBar from '@/components/statsdata/detail/ContentOwnerBar.vue'
+import ContentCommentsSection from '@/components/contents/ContentCommentsSection.vue'
 import { fetchPublicStatsDataDocument, fetchPublicSurveys, type StatsDataDocument } from '@/api/studio'
 import { fetchBlockResponse, submitBlockResponse, type BlockResponseAggregate, type FormAnswerValue } from '@/api/studio-responses'
 import { startIdentityVerification } from '@/api/identity'
@@ -444,7 +445,10 @@ onUnmounted(() => {
 
       <!-- Hero -->
       <section class="border-b border-slate-200/80 bg-white px-4 py-10 sm:px-6 lg:py-11">
-        <div class="mx-auto grid max-w-[1180px] items-stretch gap-10 lg:grid-cols-[minmax(0,1fr)_306px]">
+        <div
+          class="mx-auto grid max-w-[1180px] items-stretch gap-10"
+          :class="poll.thumbnail_url ? 'lg:grid-cols-[minmax(0,1fr)_306px]' : ''"
+        >
           <div class="min-w-0">
             <RouterLink :to="listPath" class="mb-4 inline-flex items-center gap-1.5 text-[13px] font-medium text-slate-400 transition hover:text-primary">
               ← Retour aux sondages
@@ -488,7 +492,7 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <ContentCoverImage :doc="poll" />
+          <ContentCoverImage v-if="poll.thumbnail_url" :doc="poll" />
         </div>
       </section>
 
@@ -697,6 +701,11 @@ onUnmounted(() => {
             </p>
           </section>
           </template>
+
+          <ContentCommentsSection
+            :slug="slug"
+            :enabled="poll?.comments_enabled !== false"
+          />
         </main>
 
         <!-- Rail droit collant -->

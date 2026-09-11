@@ -8,7 +8,7 @@ import { parseExpression, evaluate, formatNumber, type AggregateRef } from '@/li
 import { rowsToCsv, downloadCsv, csvFileName } from '@/lib/csv'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import { columnRefLabel, valueLabel } from '@/lib/studio-columns'
-import { cellRuleBounds, cellRuleStyle } from '@/lib/studio-cell-rules'
+import { cellRuleBounds, cellRuleStyle, ruleAggregateRefs } from '@/lib/studio-cell-rules'
 import type { StudioBlock, TableColumnFormat } from '@/types/studio'
 
 const props = defineProps<{ block: StudioBlock; readonly?: boolean; scope?: Record<string, string> }>()
@@ -55,6 +55,7 @@ const computedDefs = computed(() =>
 const aggRefs = computed<AggregateRef[]>(() => {
   const map = new Map<string, AggregateRef>()
   for (const d of computedDefs.value) for (const r of d.parsed?.aggregates ?? []) map.set(r.key, r)
+  for (const r of ruleAggregateRefs(props.block.fieldMapping.cellRules)) map.set(r.key, r)
   return [...map.values()]
 })
 
@@ -129,10 +130,14 @@ function formatCell(col: string, value: unknown): string {
 /** Bornes des colonnes pour les règles top/bottom (sur la page courante). */
 const ruleBounds = computed(() => cellRuleBounds(props.block.fieldMapping.cellRules, rows.value, cellVal))
 
-function cellStyle(col: string, value: unknown): Record<string, string> {
-  const n = num(value)
-  const style: Record<string, string> = { textAlign: columnFormat(col).align ?? (n !== null ? 'right' : 'left') }
-  const ruled = cellRuleStyle(props.block.fieldMapping.cellRules, col, value, ruleBounds.value)
+function cellStyle(col: string, row: Record<string, unknown>): Record<string, string> {
+  const n = num(cellVal(row, col))
+  const fmt = columnFormat(col)
+  const style: Record<string, string> = { textAlign: fmt.align ?? (n !== null ? 'right' : 'left') }
+  if (fmt.bold) style.fontWeight = '700'
+  if (fmt.italic) style.fontStyle = 'italic'
+  if (fmt.underline) style.textDecoration = 'underline'
+  const ruled = cellRuleStyle(props.block.fieldMapping.cellRules, col, (c) => cellVal(row, c), ruleBounds.value, aggValues.value)
   if (ruled) {
     style.color = ruled.color
     if (ruled.bold) style.fontWeight = '700'
@@ -151,7 +156,9 @@ const pageInfo = computed(() => `Page ${page.value + 1} / ${totalPages.value} ·
 
 // ─── Export CSV (lignes chargées) ────────────────────────────────────────────
 
-const canExport = computed(() => props.readonly && rows.value.length > 0)
+const canExport = computed(
+  () => props.readonly && rows.value.length > 0 && studio.content?.download_enabled !== false,
+)
 
 function exportCsv() {
   const cols = visibleColumns.value
@@ -216,7 +223,7 @@ function exportCsv() {
                   :key="col"
                   class="whitespace-nowrap px-3.5 py-3 text-[12px]"
                   :class="isMono(col) ? 'mono' : ''"
-                  :style="cellStyle(col, cellVal(row, col))"
+                  :style="cellStyle(col, row)"
                 >
                   {{ formatCell(col, cellVal(row, col)) }}
                 </td>

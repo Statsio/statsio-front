@@ -28,6 +28,7 @@ const typeMeta = computed(() => CONTENT_TYPE_META[props.item.type ?? 'statsdata'
 const views = computed(() => (props.manage.live ? `${formatCatalogCount(props.manage.viewsCount)} vues` : '— vues'))
 
 const ownerInitials = computed(() => props.item.publisher.initials || getNameInitials(props.manage.ownerLabel) || '?')
+const hasImage = computed(() => Boolean(props.item.thumbnail_url))
 </script>
 
 <template>
@@ -57,7 +58,7 @@ const ownerInitials = computed(() => props.item.publisher.initials || getNameIni
     v-else
     class="u-card flex flex-col overflow-hidden rounded-[14px] border border-[rgba(20,20,30,0.08)] bg-white shadow-[0_1px_3px_rgba(20,20,30,0.05)]"
   >
-    <div class="relative flex h-[112px] items-center justify-center overflow-hidden font-mono text-[10.5px]">
+    <div v-if="hasImage" class="relative flex h-[112px] items-center justify-center overflow-hidden font-mono text-[10.5px]">
       <AppMediaImage :src="item.thumbnail_url" :alt="item.title" class="u-card-media absolute inset-0" />
 
       <span
@@ -67,8 +68,19 @@ const ownerInitials = computed(() => props.item.publisher.initials || getNameIni
     </div>
 
     <div class="flex flex-1 flex-col px-[18px] pb-[18px] pt-4">
-      <span class="text-[10.5px] font-extrabold uppercase tracking-[0.06em]" :style="{ color: typeMeta.color }">
-        {{ typeMeta.label }}
+        <span class="flex items-center gap-2">
+        <span class="text-[10.5px] font-extrabold uppercase tracking-[0.06em]" :style="{ color: typeMeta.color }">
+          {{ typeMeta.label }}
+        </span>
+        <span
+          v-if="manage.isShared"
+          class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-extrabold text-slate-600"
+        >Partagé</span>
+        <span
+          v-if="!hasImage"
+          class="ml-auto rounded-full px-2.5 py-1 text-[10px] font-extrabold"
+          :style="{ background: manage.statusBg, color: manage.statusColor }"
+        >{{ manage.statusLabel }}</span>
       </span>
 
       <div class="mb-auto">

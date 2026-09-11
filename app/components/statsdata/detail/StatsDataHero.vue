@@ -49,11 +49,16 @@ const meta = computed(() => {
   if (props.doc.views_count) items.push({ label: 'Consultations', value: new Intl.NumberFormat('fr-FR').format(props.doc.views_count) })
   return items
 })
+
+const hasCover = computed(() => Boolean(props.doc.thumbnail_url?.trim()))
 </script>
 
 <template>
   <section class="border-b border-[var(--studio-line)] bg-white">
-    <div class="mx-auto grid max-w-[1180px] gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[minmax(0,1fr)_306px] lg:gap-[46px] lg:py-11">
+    <div
+      class="mx-auto grid max-w-[1180px] gap-10 px-4 py-10 sm:px-6 lg:gap-[46px] lg:py-11"
+      :class="hasCover ? 'lg:grid-cols-[minmax(0,1fr)_306px]' : ''"
+    >
       <div class="min-w-0">
         <div class="mb-4 flex flex-wrap items-center gap-2.5">
           <ContentDossierBadge :dossiers="doc.dossiers" />
@@ -107,7 +112,7 @@ const meta = computed(() => {
         </div>
       </div>
 
-      <ContentCoverImage :doc="doc" />
+      <ContentCoverImage v-if="hasCover" :doc="doc" />
     </div>
   </section>
 </template>

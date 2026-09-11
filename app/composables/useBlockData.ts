@@ -6,6 +6,7 @@ import { getErrorMessage } from '@/lib/http-errors'
 import { interpolateTokens } from '@/lib/studio-tokens'
 import { primarySourceId } from '@/lib/studio-columns'
 import { STUDIO_EMBED_CONTEXT, type StudioEmbedContext } from '@/composables/studioEmbedContext'
+import { resolveFilterValue } from '@/composables/useResolvedTokens'
 
 export interface BlockDataOverrides {
   /** Tri interactif (clic sur un en-tête de tableau) — remplace `config.sortColumn`. */
@@ -68,9 +69,27 @@ export function useBlockData(
     return b != null && (b.sources?.some((s) => s.datasetId) || b.datasetId != null)
   })
 
-  function resolveFilters(filters: BlockFilter[]): BlockFilter[] {
-    // scope (variable de boucle) prioritaire sur les paramètres de page
-    return resolveBlockFilters(filters, { ...studio.pageParams, ...scope?.() })
+  /**
+   * Interpole les jetons `{{param}}` (synchrone) puis résout les jetons "expression"
+   * (`{{ AVG(prix) }}`…, insérés via le sélecteur de variable en mode « valeur
+   * calculée ») via l'agrégat serveur — permet un filtre comme `prix > {{ AVG(prix) }}`.
+   * Écarte les filtres dont un jeton reste non résolu, plutôt que de renvoyer 0 ligne.
+   */
+  async function resolveFilters(filters: BlockFilter[], b: StudioBlock): Promise<BlockFilter[]> {
+    // scope (variable de boucle) prioritaire sur les paramètres de page, eux-mêmes prioritaires sur l'embed.
+    const tokenMap = { ...embed?.params, ...studio.pageParams, ...scope?.() }
+    const withValue = filters.filter((f) => f.column && f.value)
+    const resolved = await Promise.all(
+      withValue.map(async (f) => ({
+        ...f,
+        value: await resolveFilterValue(f.value, tokenMap, {
+          block: () => b,
+          readonly: () => readonly,
+          docSlug: () => embed?.docSlug ?? studio.content?.slug,
+        }),
+      })),
+    )
+    return resolved.filter((f) => f.value !== '' && !/\{\{.+\}\}/.test(f.value))
   }
 
   async function load() {
@@ -102,6 +121,7 @@ export function useBlockData(
     const clientSideSeriesGrouping = (b.type === 'bar' || b.type === 'line') && Boolean(b.fieldMapping.series)
     const fetchLimit = clientSideSeriesGrouping ? Math.min(groupLimit * 100, 5000) : (ov.limit ?? groupLimit)
     const aggregationParams = resolveAggregationParams(b)
+    const resolvedFilters = await resolveFilters(b.filters ?? [], b)
     const params = {
       columns,
       limit: fetchLimit,
@@ -113,7 +133,7 @@ export function useBlockData(
       distinctColumn: aggregationParams.aggregates ? undefined : (b.config.distinctColumn ?? undefined),
       sortColumn: (ov.sortColumn ?? b.config.sortColumn) ?? undefined,
       sortDirection: (ov.sortColumn !== undefined && ov.sortColumn !== null ? ov.sortDirection : b.config.sortDirection) ?? undefined,
-      filters: resolveFilters(b.filters ?? []),
+      filters: resolvedFilters,
       sources: sp.sources,
       primarySourceId: sp.primarySourceId,
       joins: sp.joins,

@@ -1,14 +1,18 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { RouterLink } from 'vue-router'
+import draggable from 'vuedraggable'
 import { useStudioStore } from '@/stores/studio'
 import { useAuthStore } from '@/stores/auth'
 import { contentPropertiesPath, publicContentPath } from '@/lib/content-display'
+import { getContentCollaborators, type ContentCollaborator } from '@/api/studio'
 import StudioModal from '@/components/studio/ui/StudioModal.vue'
 import StudioJsonModal from '@/components/studio/StudioJsonModal.vue'
 import VariablePickerModal from '@/components/studio/VariablePickerModal.vue'
 import FieldText from '@/components/studio/fields/FieldText.vue'
+import AppAvatar from '@/components/ui/AppAvatar.vue'
 import { slugify } from '@/lib/slug'
+import { getNameInitials } from '@/lib/format'
 import type { StudioDocumentPage } from '@/types/studio'
 import studioLogo from '@/assets/brand/statsio-studio.svg'
 
@@ -23,9 +27,9 @@ const props = defineProps<{ publishing?: boolean }>()
 
 const isPublished = computed(() => studio.content?.status === 'published')
 const publishLabel = computed(() => {
-  if (props.publishing) return 'PUBLICATION…'
-  if (!isPublished.value) return 'PUBLIER'
-  return studio.isDirty ? 'METTRE À JOUR' : '✓ PUBLIÉ'
+  if (props.publishing) return 'Publication…'
+  if (!isPublished.value) return 'Publier'
+  return studio.isDirty ? 'Mettre à jour' : 'Publié'
 })
 
 const settingsPath = computed(() => {
@@ -34,12 +38,82 @@ const settingsPath = computed(() => {
   return contentPropertiesPath(content.type ?? 'statsdata', content.slug)
 })
 
+const accesPath = computed(() => {
+  const base = settingsPath.value
+  return base ? `${base}/acces` : null
+})
+
 // Lien « voir sur la page publique » — nécessite un slug (contenu déjà enregistré).
 const publicPath = computed(() => {
   const content = studio.content
   if (!content?.slug) return null
   return publicContentPath(content.type ?? 'statsdata', content.slug)
 })
+
+const isOwner = computed(() => studio.content?.access?.is_owner === true)
+
+// ─── Share dropdown ───────────────────────────────────────────────────────────
+
+const shareDropdownRef = ref<HTMLElement | null>(null)
+const shareOpen = ref(false)
+const collaborators = ref<ContentCollaborator[]>([])
+const collaboratorsLoading = ref(false)
+const collaboratorsLoaded = ref(false)
+/** True si l'API collaborateurs a répondu (propriétaire). */
+const canManageCollaborators = ref(false)
+
+const showAccessSection = computed(() => isOwner.value || canManageCollaborators.value)
+
+async function loadCollaborators() {
+  const slug = studio.content?.slug
+  if (!slug) {
+    collaborators.value = []
+    collaboratorsLoaded.value = true
+    canManageCollaborators.value = false
+    return
+  }
+  if (studio.content?.access && !isOwner.value) {
+    collaborators.value = []
+    collaboratorsLoaded.value = true
+    canManageCollaborators.value = false
+    return
+  }
+  collaboratorsLoading.value = true
+  try {
+    collaborators.value = await getContentCollaborators(slug)
+    canManageCollaborators.value = true
+    collaboratorsLoaded.value = true
+  } catch {
+    collaborators.value = []
+    canManageCollaborators.value = false
+    collaboratorsLoaded.value = true
+  } finally {
+    collaboratorsLoading.value = false
+  }
+}
+
+async function toggleShare() {
+  shareOpen.value = !shareOpen.value
+  if (shareOpen.value && !collaboratorsLoaded.value) {
+    await loadCollaborators()
+  }
+}
+
+function publish() {
+  const id = studio.content?.id
+  if (!id || id === 'demo') return
+  shareOpen.value = false
+  emit('publish')
+}
+
+watch(
+  () => studio.content?.slug,
+  () => {
+    collaboratorsLoaded.value = false
+    canManageCollaborators.value = false
+    collaborators.value = []
+  },
+)
 
 // ─── Page kind badge ─────────────────────────────────────────────────────────
 
@@ -92,6 +166,15 @@ function removePage(id: string, title: string) {
   }
 }
 
+/** Glisser-déposer dans la liste des pages : réécrit l'ordre complet dans le store. */
+function onPagesChange(evt: { moved?: { oldIndex: number; newIndex: number } }) {
+  if (!evt.moved) return
+  const next = [...studio.pages]
+  const [moved] = next.splice(evt.moved.oldIndex, 1)
+  next.splice(evt.moved.newIndex, 0, moved!)
+  studio.reorderPages(next.map((p) => p.id))
+}
+
 // ─── Add page modal ──────────────────────────────────────────────────────────
 
 const showAddModal = ref(false)
@@ -118,12 +201,6 @@ function confirmAddPage() {
   const page = studio.addPage(newPageTitle.value.trim(), { seedSection: true })
   if (newPageSlug.value) studio.updatePage(page.id, { slug: newPageSlug.value })
   showAddModal.value = false
-}
-
-function publish() {
-  const id = studio.content?.id
-  if (!id || id === 'demo') return
-  emit('publish')
 }
 
 // ─── Document title ──────────────────────────────────────────────────────────
@@ -174,6 +251,9 @@ function onDocMousedown(e: MouseEvent) {
   if (pagesDropdownRef.value && !pagesDropdownRef.value.contains(e.target as Node)) {
     pagesOpen.value = false
     if (editingPageId.value) commitRename(editingPageId.value)
+  }
+  if (shareDropdownRef.value && !shareDropdownRef.value.contains(e.target as Node)) {
+    shareOpen.value = false
   }
 }
 
@@ -277,13 +357,29 @@ const saveDotClass = computed(() => {
           <div class="px-2.5 pb-[7px] pt-2 text-[10px] font-extrabold uppercase tracking-[0.07em] text-[var(--studio-faint)]">
             Pages de ce contenu
           </div>
-          <div class="flex max-h-[290px] flex-col gap-0.5 overflow-auto">
+          <draggable
+            :model-value="studio.pages"
+            item-key="id"
+            tag="div"
+            class="flex max-h-[290px] flex-col gap-0.5 overflow-auto"
+            handle=".page-drag-handle"
+            ghost-class="opacity-30"
+            animation="150"
+            @change="onPagesChange"
+          >
+            <template #item="{ element: page, index: pageIndex }">
             <div
-              v-for="(page, pageIndex) in studio.pages"
-              :key="page.id"
-              class="group grid grid-cols-[34px_1fr_auto] items-center gap-2.5 rounded-[10px] px-2.5 py-[9px] transition-colors"
+              class="group grid grid-cols-[14px_34px_1fr_auto] items-center gap-2 rounded-[10px] px-2.5 py-[9px] transition-colors"
               :class="studio.currentPageId === page.id ? 'bg-[var(--studio-accent-wash)]' : 'hover:bg-[var(--studio-wash)]'"
             >
+              <span
+                class="page-drag-handle hidden shrink-0 cursor-grab items-center justify-center text-[var(--studio-faint)] hover:text-[var(--studio-ink)] active:cursor-grabbing group-hover:flex"
+                title="Glisser pour réordonner"
+              >
+                <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M7 2a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM7 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM7 14a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM13 2a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM13 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM13 14a2 2 0 1 1-4 0 2 2 0 0 1 4 0z" />
+                </svg>
+              </span>
               <span class="rounded-[5px] py-[3px] text-center font-mono text-[9px] font-semibold" :class="pageKind(page).cls">
                 {{ pageKind(page).tag }}
               </span>
@@ -335,7 +431,8 @@ const saveDotClass = computed(() => {
                 </template>
               </span>
             </div>
-          </div>
+            </template>
+          </draggable>
           <button
             class="mt-1.5 w-full border-t border-[var(--studio-line)] p-[11px] text-center text-[12.5px] font-bold text-[var(--color-primary)]"
             @click="openAddModal"
@@ -383,20 +480,6 @@ const saveDotClass = computed(() => {
         </svg>
       </button>
 
-      <a
-        v-if="publicPath"
-        :href="publicPath"
-        target="_blank"
-        rel="noopener"
-        class="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--studio-muted)] transition-colors hover:bg-[var(--studio-wash)]"
-        title="Voir sur la page publique"
-      >
-        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-        </svg>
-      </a>
-
       <RouterLink
         v-if="settingsPath"
         :to="settingsPath"
@@ -421,14 +504,103 @@ const saveDotClass = computed(() => {
         {{ studio.isPreview ? 'Éditer' : 'Aperçu' }}
       </button>
 
-      <button
-        type="button"
-        class="studio-gradient rounded-full px-5 py-[11px] text-[12.5px] font-extrabold tracking-[0.08em] text-white disabled:opacity-50"
-        :disabled="publishing"
-        @click="publish"
-      >
-        {{ publishLabel }}
-      </button>
+      <!-- Partager dropdown -->
+      <div ref="shareDropdownRef" class="relative">
+        <button
+          type="button"
+          class="studio-gradient flex items-center gap-1.5 rounded-full px-5 py-[11px] text-[12.5px] font-extrabold tracking-[0.06em] text-white"
+          :class="shareOpen ? 'opacity-90' : ''"
+          @click="toggleShare"
+        >
+          Partager
+          <span class="text-[9px] opacity-80">{{ shareOpen ? '▴' : '▾' }}</span>
+        </button>
+
+        <div
+          v-if="shareOpen"
+          class="absolute right-0 top-12 z-[120] w-[320px] rounded-[15px] border border-[var(--studio-line)] bg-white p-3 shadow-[var(--studio-shadow-pop)]"
+        >
+          <button
+            type="button"
+            class="studio-gradient w-full rounded-full px-4 py-3 text-[12.5px] font-extrabold tracking-[0.06em] text-white disabled:opacity-50"
+            :disabled="publishing"
+            @click="publish"
+          >
+            {{ publishLabel }}
+          </button>
+
+          <a
+            v-if="publicPath"
+            :href="publicPath"
+            target="_blank"
+            rel="noopener"
+            class="mt-2 flex w-full items-center justify-between gap-2 rounded-[10px] px-3 py-2.5 text-[13px] font-semibold text-[var(--studio-ink)] transition-colors hover:bg-[var(--studio-wash)]"
+            :class="!isPublished ? 'opacity-60' : ''"
+            @click="shareOpen = false"
+          >
+            <span class="flex items-center gap-2">
+              <svg class="h-4 w-4 text-[var(--studio-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+              </svg>
+              Voir la page publique
+            </span>
+            <span class="text-[11px] text-[var(--studio-faint)]">↗</span>
+          </a>
+          <p
+            v-else
+            class="mt-2 px-3 py-2 text-[12px] text-[var(--studio-faint)]"
+          >
+            Enregistrez le contenu pour obtenir un lien public.
+          </p>
+
+          <div v-if="showAccessSection" class="mt-3 border-t border-[var(--studio-line)] pt-3">
+            <p class="mb-2 px-1 text-[10px] font-extrabold uppercase tracking-[0.07em] text-[var(--studio-faint)]">
+              Accès édition
+            </p>
+
+            <div v-if="collaboratorsLoading" class="space-y-2 px-1 py-1">
+              <div class="h-9 animate-pulse rounded-lg bg-[var(--studio-wash)]" />
+              <div class="h-9 animate-pulse rounded-lg bg-[var(--studio-wash)]" />
+            </div>
+            <template v-else>
+              <p
+                v-if="!collaborators.length"
+                class="px-1 py-1.5 text-[12.5px] text-[var(--studio-muted)]"
+              >
+                Aucun collaborateur pour l’instant.
+              </p>
+              <div v-else class="mb-2 flex max-h-[160px] flex-col gap-0.5 overflow-y-auto">
+                <div
+                  v-for="collab in collaborators"
+                  :key="collab.user_id"
+                  class="flex items-center gap-2.5 rounded-[10px] px-2 py-2"
+                >
+                  <AppAvatar
+                    :src="collab.avatar ?? undefined"
+                    :initials="getNameInitials(collab.name)"
+                    size="sm"
+                    background="linear-gradient(135deg, var(--color-primary), var(--color-accent))"
+                  />
+                  <div class="min-w-0 flex-1">
+                    <p class="truncate text-[12.5px] font-bold text-[var(--studio-ink)]">{{ collab.name }}</p>
+                    <p class="truncate text-[11px] text-[var(--studio-faint)]">{{ collab.email }}</p>
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <RouterLink
+              v-if="accesPath"
+              :to="accesPath"
+              class="mt-1 flex w-full items-center justify-center rounded-full border-[1.5px] border-[var(--studio-line-strong)] px-4 py-2.5 text-[12.5px] font-bold text-[var(--studio-ink)] transition-colors hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+              @click="shareOpen = false"
+            >
+              Inviter
+            </RouterLink>
+          </div>
+        </div>
+      </div>
     </div>
   </header>
 

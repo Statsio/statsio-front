@@ -8,12 +8,15 @@ interface MediaLibraryState {
   mode: MediaLibraryMode
   /** Répertoire de destination des uploads faits depuis la modale. */
   directory: string
+  /** Si défini, uploads/listages au nom du propriétaire du contenu. */
+  studioContentSlug: string | null
 }
 
 interface OpenOpts {
   /** `pick` (défaut) : on peut sélectionner une image ; `browse` : simple gestion. */
   mode?: MediaLibraryMode
   directory?: string
+  studioContentSlug?: string
   /** Appelé quand l'utilisateur choisit une image (mode `pick`). */
   onSelect?: (media: MediaItem) => void
 }
@@ -22,6 +25,7 @@ const state = reactive<MediaLibraryState>({
   open: false,
   mode: 'pick',
   directory: 'studio/images',
+  studioContentSlug: null,
 })
 
 let onSelect: ((media: MediaItem) => void) | null = null
@@ -35,6 +39,7 @@ export function useMediaLibrary() {
     onSelect = opts.onSelect ?? null
     state.mode = opts.mode ?? (opts.onSelect ? 'pick' : 'browse')
     state.directory = opts.directory ?? 'studio/images'
+    state.studioContentSlug = opts.studioContentSlug ?? null
     state.open = true
   }
 
@@ -46,6 +51,7 @@ export function useMediaLibrary() {
   function close() {
     state.open = false
     onSelect = null
+    state.studioContentSlug = null
   }
 
   return { state, open, select, close }

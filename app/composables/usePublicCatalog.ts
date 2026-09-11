@@ -182,7 +182,9 @@ export function usePublicCatalog(options: {
 }
 
 function parseSort(raw: unknown): CatalogSort {
-  return raw === 'recent' || raw === 'views' || raw === 'trend' || raw === 'votes' ? raw : 'trend'
+  return raw === 'recent' || raw === 'created' || raw === 'views' || raw === 'trend' || raw === 'votes'
+    ? raw
+    : 'trend'
 }
 
 function parseSurveyKind(raw: unknown): SurveyKind | '' {

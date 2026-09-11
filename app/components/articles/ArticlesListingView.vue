@@ -42,10 +42,10 @@ const {
   key: 'articles-catalog',
 })
 
-const sortOptions: { value: 'trend' | 'recent' | 'views'; label: string }[] = [
-  { value: 'trend', label: 'Tendance' },
-  { value: 'recent', label: 'Récents' },
-  { value: 'views', label: 'Les plus lus' },
+const sortOptions: { value: 'trend' | 'created' | 'recent'; label: string }[] = [
+  { value: 'trend', label: 'Popularité' },
+  { value: 'created', label: 'Date de création' },
+  { value: 'recent', label: 'Date de modification' },
 ]
 
 const crumbs = computed(() => [
@@ -70,9 +70,12 @@ const formatFacets = computed(() => {
 const countLine = computed(
   () => `${catalog.value.meta.total} articles · ${catalog.value.meta.shown} affichés`,
 )
-const contextLine = computed(() =>
-  anyFilter.value ? 'Filtres actifs' : 'Classés par tendance',
-)
+const contextLine = computed(() => {
+  if (anyFilter.value) return 'Filtres actifs'
+  if (sort.value === 'created') return 'Classés par date de création'
+  if (sort.value === 'recent') return 'Classés par date de modification'
+  return 'Classés par popularité'
+})
 const moreCount = computed(() =>
   Math.min(6, Math.max(0, catalog.value.meta.total - catalog.value.meta.shown)),
 )

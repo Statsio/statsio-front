@@ -5,6 +5,7 @@ import AppSidebarNavItem from '@/components/ui/AppSidebarNavItem.vue'
 import DashboardUpgradeCard from '@/components/offers/DashboardUpgradeCard.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useContentDashboard } from '@/composables/useContentDashboard'
+import { canAccessResource, type ContentAccessResource } from '@/api/studio'
 import { formatShortDate } from '@/lib/format'
 
 const emit = defineEmits<{ navigate: [] }>()
@@ -15,6 +16,9 @@ const authStore = useAuthStore()
 
 const { content, contentType, statusMeta, typeLabel, studioPath, publicPath, propertiesBase } =
   useContentDashboard()
+
+const access = computed(() => content.value?.access)
+const isOwner = computed(() => access.value?.is_owner === true)
 
 async function handleLogout() {
   await authStore.logout()
@@ -29,43 +33,70 @@ const savedLabel = computed(() => {
   return date ? `Brouillon · modifié le ${formatShortDate(date)}` : 'Brouillon'
 })
 
-type NavItem = { to: string; label: string; icon: string; exact?: boolean; count?: string }
+type NavItem = {
+  to: string
+  label: string
+  icon: string
+  exact?: boolean
+  count?: string
+  resource?: ContentAccessResource | 'acces'
+}
 
-const navItems = computed<NavItem[]>(() => [
-  {
-    to: propertiesBase.value,
-    label: 'Contenu',
-    exact: true,
-    icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
-  },
-  {
-    to: `${propertiesBase.value}/publication`,
-    label: 'Publication',
-    icon: 'M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7',
-  },
-  // Les sources de données ne concernent que les Statsdata (les articles et
-  // sondages n'alimentent pas de blocs par jeu de données).
-  ...(contentType.value === 'statsdata'
-    ? [
-        {
-          to: `${propertiesBase.value}/sources`,
-          label: 'Sources de données',
-          icon: 'M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125',
-          count: content.value?.datasets?.length ? String(content.value.datasets.length) : undefined,
-        },
-      ]
-    : []),
-  {
-    to: `${propertiesBase.value}/acces`,
-    label: 'Accès & partage',
-    icon: 'M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244',
-  },
-  {
+const navItems = computed<NavItem[]>(() => {
+  const items: NavItem[] = [
+    {
+      to: propertiesBase.value,
+      label: 'Contenu',
+      exact: true,
+      resource: 'contenu',
+      icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
+    },
+    {
+      to: `${propertiesBase.value}/publication`,
+      label: 'Publication',
+      resource: 'publication',
+      icon: 'M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7',
+    },
+  ]
+
+  if (contentType.value === 'statsdata') {
+    items.push({
+      to: `${propertiesBase.value}/sources`,
+      label: 'Sources de données',
+      resource: 'sources',
+      icon: 'M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125',
+      count: content.value?.datasets?.length ? String(content.value.datasets.length) : undefined,
+    })
+  }
+
+  if (isOwner.value) {
+    items.push({
+      to: `${propertiesBase.value}/acces`,
+      label: 'Accès & partage',
+      resource: 'acces',
+      icon: 'M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244',
+    })
+  }
+
+  items.push({
     to: `${propertiesBase.value}/historique`,
     label: 'Historique',
+    resource: 'historique',
     icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
-  },
-])
+  })
+
+  return items.filter((item) => {
+    if (!item.resource || item.resource === 'acces') return true
+    // Tant que access n'est pas chargé (owner historique), afficher tout.
+    if (!access.value) return true
+    return canAccessResource(access.value, item.resource, 'read')
+  })
+})
+
+const canOpenStudio = computed(() => {
+  if (!access.value) return true
+  return canAccessResource(access.value, 'studio', 'read')
+})
 
 function isActive(item: NavItem) {
   return item.exact ? route.path === item.to : route.path.startsWith(item.to)
@@ -135,6 +166,7 @@ function isActive(item: NavItem) {
       <div class="mx-1.5 my-3 h-px bg-slate-100" />
 
       <AppSidebarNavItem
+        v-if="canOpenStudio"
         :to="studioPath"
         label="Ouvrir dans le Studio"
         icon="M16.862 4.487l1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z"

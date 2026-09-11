@@ -93,7 +93,7 @@ function branchPasses(branch: IfBranch, i: number): boolean {
         />
       </div>
       <div v-else-if="childrenOf(activeIndex).length" class="flex flex-col gap-3 sm:gap-4">
-        <BlockCard v-for="child in childrenOf(activeIndex)" :key="child.id" :block="child" :scope="scope">
+        <BlockCard v-for="child in childrenOf(activeIndex)" :key="child.id" :block="child" :scope="scope" :readonly="true">
           <BlockRenderer :block="child" :readonly="true" :scope="scope" />
         </BlockCard>
       </div>

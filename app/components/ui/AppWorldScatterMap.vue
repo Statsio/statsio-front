@@ -94,7 +94,8 @@ function renderMarkers() {
 }
 
 onMounted(async () => {
-  const { Map, NavigationControl, AttributionControl, Marker, Popup, LngLatBounds } = await import('maplibre-gl')
+  const { Map, NavigationControl, AttributionControl, GeolocateControl, Marker, Popup, LngLatBounds } =
+    await import('maplibre-gl')
   MarkerCtor = Marker
   PopupCtor = Popup
   LngLatBoundsCtor = LngLatBounds
@@ -108,6 +109,10 @@ onMounted(async () => {
     attributionControl: false,
   })
   map.addControl(new NavigationControl({ showCompass: false }), 'top-right')
+  map.addControl(
+    new GeolocateControl({ positionOptions: { enableHighAccuracy: true }, trackUserLocation: true }),
+    'top-right',
+  )
   map.addControl(new AttributionControl({ compact: true }))
   map.on('load', renderMarkers)
 })

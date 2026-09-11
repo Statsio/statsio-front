@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { usePublicCatalog } from '@/composables/usePublicCatalog'
 import { useContentBasePath } from '@/composables/useContentBasePath'
 import { formatCatalogCount, formatRelativePublished } from '@/lib/catalog-format'
@@ -21,7 +21,6 @@ defineProps<{
 }>()
 
 const basePath = useContentBasePath()
-const sortMode = ref<'trend' | 'recent' | 'rows'>('trend')
 const withCharts = ref(false)
 const withMultiSources = ref(false)
 const recentlyUpdated = ref(false)
@@ -44,14 +43,10 @@ const {
   key: 'statsdata-catalog',
 })
 
-watch(sortMode, (v) => {
-  sort.value = v === 'rows' ? 'recent' : v
-}, { immediate: true })
-
-const sortOptions: { value: 'trend' | 'recent' | 'rows'; label: string }[] = [
-  { value: 'trend', label: 'Tendance' },
-  { value: 'recent', label: 'Récents' },
-  { value: 'rows', label: 'Volume' },
+const sortOptions: { value: 'trend' | 'created' | 'recent'; label: string }[] = [
+  { value: 'trend', label: 'Popularité' },
+  { value: 'created', label: 'Date de création' },
+  { value: 'recent', label: 'Date de modification' },
 ]
 
 const crumbs = computed(() => [
@@ -68,11 +63,7 @@ const heroStats = computed(() => [
 
 const categoryFacets = computed(() => catalog.value.facets.categories)
 
-function rowCountOf(item: { linked_datasets_count?: number; charts_count?: number; views_count?: number }) {
-  return (item.linked_datasets_count ?? 0) * 1000 + (item.charts_count ?? 0) * 12 + (item.views_count ?? 0)
-}
-
-const sortedData = computed(() => {
+const filteredData = computed(() => {
   const arr = [...catalog.value.data]
   if (withCharts.value) {
     for (let i = arr.length - 1; i >= 0; i--) if (!(arr[i]!.charts_count > 0)) arr.splice(i, 1)
@@ -87,41 +78,38 @@ const sortedData = computed(() => {
       if (t < week) arr.splice(i, 1)
     }
   }
-  if (sortMode.value === 'rows') {
-    // Les contenus « à la une » restent épinglés en tête même sur un tri client.
-    arr.sort(
-      (a, b) => Number(Boolean(b.is_featured)) - Number(Boolean(a.is_featured)) || rowCountOf(b) - rowCountOf(a),
-    )
-  }
   return arr
 })
 
-const sortedTotal = computed(() => sortedData.value.length)
-const shownCount = computed(() => Math.min(catalog.value.meta.shown, sortedTotal.value))
+const filteredTotal = computed(() => filteredData.value.length)
+const shownCount = computed(() => Math.min(catalog.value.meta.shown, filteredTotal.value))
 
 const countLine = computed(
-  () => `${sortedTotal.value} dataset${sortedTotal.value > 1 ? 's' : ''} · ${shownCount.value} affiché${shownCount.value > 1 ? 's' : ''}`,
+  () => `${filteredTotal.value} dataset${filteredTotal.value > 1 ? 's' : ''} · ${shownCount.value} affiché${shownCount.value > 1 ? 's' : ''}`,
 )
-const hasClientFilter = computed(() => withCharts.value || withMultiSources.value || recentlyUpdated.value || sortMode.value === 'rows')
-const contextLine = computed(() =>
-  anyFilter.value || hasClientFilter.value ? 'Filtres actifs' : 'Classés par tendance',
-)
+const hasClientFilter = computed(() => withCharts.value || withMultiSources.value || recentlyUpdated.value)
+const contextLine = computed(() => {
+  if (anyFilter.value || hasClientFilter.value) return 'Filtres actifs'
+  if (sort.value === 'created') return 'Classés par date de création'
+  if (sort.value === 'recent') return 'Classés par date de modification'
+  return 'Classés par popularité'
+})
 const moreCount = computed(() =>
-  Math.min(6, Math.max(0, sortedTotal.value - shownCount.value)),
+  Math.min(6, Math.max(0, filteredTotal.value - shownCount.value)),
 )
 const showFeatured = computed(() => view.value === 'grid' && !anyFilter.value && !hasClientFilter.value && Boolean(catalog.value.featured))
 const gridItems = computed(() => {
-  const items = sortedData.value
+  const items = filteredData.value
   if (!showFeatured.value || !catalog.value.featured) return items
   return items.filter((item) => item.id !== catalog.value.featured?.id)
 })
-const canLoadMore = computed(() => catalog.value.meta.has_more || shownCount.value < sortedTotal.value)
+const canLoadMore = computed(() => catalog.value.meta.has_more || shownCount.value < filteredTotal.value)
 
 function resetAll() {
   withCharts.value = false
   withMultiSources.value = false
   recentlyUpdated.value = false
-  sortMode.value = 'trend'
+  sort.value = 'trend'
   resetFilters()
 }
 </script>
@@ -150,7 +138,7 @@ function resetAll() {
         <CatalogSearchField v-model="qInput" placeholder="Rechercher un dataset, une source, un indicateur…" />
       </template>
       <template #sort>
-        <CatalogSortPills v-model="sortMode" :options="sortOptions" />
+        <CatalogSortPills v-model="sort" :options="sortOptions" />
       </template>
       <template #view>
         <CatalogViewToggle v-model="view" />
@@ -187,7 +175,7 @@ function resetAll() {
         <div v-for="i in 6" :key="i" class="h-72 animate-pulse rounded-[18px] bg-white" />
       </div>
 
-      <template v-else-if="sortedTotal > 0">
+      <template v-else-if="filteredTotal > 0">
         <StatsDataCard v-if="showFeatured && catalog.featured" :item="catalog.featured" format="row" feature class="mb-[22px]" />
 
         <div v-if="view === 'grid'" class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -212,7 +200,7 @@ function resetAll() {
           </div>
           <div class="min-w-[720px]">
             <StatsDataCard
-              v-for="item in sortedData"
+              v-for="item in filteredData"
               :key="item.id"
               :item="item"
               format="row"

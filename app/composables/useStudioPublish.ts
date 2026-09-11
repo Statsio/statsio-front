@@ -1,6 +1,7 @@
 import { computed, ref } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { publishStudioContent } from '@/api/studio'
+import type { StudioContent } from '@/types/studio'
 
 /**
  * Orchestration du bouton « Publier » du Studio :
@@ -16,8 +17,10 @@ export function useStudioPublish(saveNow: () => Promise<void> | void) {
   const isPublishing = ref(false)
 
   const alreadyPublishedOnce = computed(() => !!studio.content?.first_published_at)
-  /** 'author' = 1re publication (choix du profil), 'confirm' = re-publication. */
-  const mode = computed<'author' | 'confirm'>(() => (alreadyPublishedOnce.value ? 'confirm' : 'author'))
+  /** 'author' = 1re publication (choix du profil), 'confirm' = re-publication / déjà programmé. */
+  const mode = computed<'author' | 'confirm'>(() =>
+    alreadyPublishedOnce.value || studio.content?.status === 'scheduled' ? 'confirm' : 'author',
+  )
   const nextVersion = computed(() => (studio.content?.published_version ?? 0) + 1)
   /** slug (ou id en repli) transmis à la modale pour charger dossiers & suggestions. */
   const documentId = computed(() => studio.content?.slug ?? String(studio.content?.id ?? ''))
@@ -38,19 +41,30 @@ export function useStudioPublish(saveNow: () => Promise<void> | void) {
   }
 
   async function confirm(
-    opts: { publishedAs?: 'user' | 'channel'; channelId?: number | null; dossierIds?: number[] } = {},
+    opts: {
+      publishedAs?: 'user' | 'channel'
+      channelId?: number | null
+      dossierIds?: number[]
+      immediate?: boolean
+    } = {},
   ) {
     const id = studio.content?.id
     if (!id || id === 'demo') return
     isPublishing.value = true
     try {
-      const updated = await publishStudioContent(id, opts)
+      const updated = await publishStudioContent(id, {
+        ...opts,
+        // Depuis le Studio, un contenu déjà programmé se publie tout de suite.
+        immediate: opts.immediate ?? studio.content?.status === 'scheduled',
+      })
       if (studio.content) {
-        studio.content.status = 'published'
+        studio.content.status = (updated.status as StudioContent['status']) ?? 'published'
         studio.content.published_version = updated.published_version ?? nextVersion.value
-        studio.content.first_published_at = updated.first_published_at ?? new Date().toISOString()
+        studio.content.first_published_at =
+          updated.first_published_at ?? studio.content.first_published_at
         studio.content.published_as = updated.published_as ?? studio.content.published_as
         studio.content.channel_id = updated.channel_id ?? studio.content.channel_id
+        studio.content.scheduled_publish_at = updated.scheduled_publish_at ?? null
       }
       isOpen.value = false
     } finally {

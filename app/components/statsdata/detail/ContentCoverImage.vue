@@ -5,11 +5,14 @@ import AppMediaImage from '@/components/ui/AppMediaImage.vue'
 
 const props = defineProps<{ doc: StatsDataDocument }>()
 
-const src = computed(() => props.doc.thumbnail_url ?? null)
+const src = computed(() => props.doc.thumbnail_url?.trim() || null)
 </script>
 
 <template>
-  <div class="flex min-h-[260px] overflow-hidden rounded-[18px] border border-[var(--studio-line)] bg-white lg:h-full">
+  <div
+    v-if="src"
+    class="flex min-h-[260px] overflow-hidden rounded-[18px] border border-[var(--studio-line)] bg-white lg:h-full"
+  >
     <AppMediaImage :src="src" :alt="doc.title" class="flex-1" mark-class="max-w-[96px]" />
   </div>
 </template>

@@ -1,6 +1,6 @@
 import { apiHttp } from '@/lib/http'
 
-export type ContactReason = 'general' | 'partenariat' | 'presse' | 'commercial'
+export type ContactReason = 'general' | 'support' | 'partenariat' | 'presse' | 'commercial'
 
 export interface ContactMessagePayload {
   reason: ContactReason

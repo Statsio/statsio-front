@@ -1,5 +1,6 @@
-import { apiHttp, publicHttp } from '@/lib/http'
+import { apiHttp, publicHttp, getApiBaseUrl } from '@/lib/http'
 import { STATSIO_API } from './statsio-endpoints'
+import { slugify } from '@/lib/slug'
 import type { DatasetColumn, DatasetMeta, DatasetWithSchema, BlockQueryResult, StudioBlock } from '@/types/studio'
 import type { ContentType, ContentCoverage } from '@/types/content-creation'
 
@@ -176,6 +177,32 @@ export async function fetchPublicBlockData(
     totalRows: data.data?.total_rows ?? 0,
     columnMap: data.data?.column_map ?? undefined,
   }
+}
+
+/**
+ * Télécharge le fichier parquet d'un dataset exposé sur une page StatsData publique.
+ * Utilise `fetch` nu (binaire) plutôt que `publicHttp` (JSON).
+ */
+export async function downloadPublicDatasetParquet(
+  docSlug: string,
+  dataset: { id: string; name: string },
+): Promise<void> {
+  if (typeof document === 'undefined') return
+  const path = STATSIO_API.studioContent.publicDatasetDownload(docSlug, dataset.id)
+  const res = await fetch(`${getApiBaseUrl()}${path}`, { headers: { Accept: '*/*' } })
+  if (!res.ok) {
+    throw new Error(res.status === 404 ? 'Fichier parquet introuvable.' : 'Téléchargement impossible.')
+  }
+  const blob = await res.blob()
+  const fileName = `${slugify(dataset.name) || 'dataset'}.parquet`
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 0)
 }
 
 export interface DistinctSourceCtx {
@@ -408,6 +435,10 @@ export interface ContentDataset {
   id: string
   name: string
   row_count?: number
+  /** Libellé de provenance (ex. « data.gouv.fr ») — null si non renseigné. */
+  provenance?: string | null
+  /** True si un fichier parquet snapshot est téléchargeable (sources live exclues). */
+  downloadable?: boolean
   is_live?: boolean
   last_refreshed_at?: string | null
   next_refresh_at?: string | null
@@ -430,6 +461,14 @@ export interface StatsDataDocument {
   /** ISO — 1re publication. Présent ⇒ l'auteur (profil/chaîne) est verrouillé. */
   first_published_at?: string | null
   last_published_at?: string | null
+  /** ISO — mise en ligne programmée. Null = publier immédiatement au prochain « Publier ». */
+  scheduled_publish_at?: string | null
+  /** Les lecteurs peuvent commenter sous le contenu publié. Défaut true. */
+  comments_enabled?: boolean
+  /** Les lecteurs peuvent télécharger les données (parquet / CSV). Défaut true. */
+  download_enabled?: boolean
+  /** Autoriser l’intégration iframe du contenu / des blocs. Défaut true. */
+  embed_enabled?: boolean
   /** Only present when published_as === 'channel' — the channel's name + custom brand colors. */
   channel?: ContentChannel | null
   author?: { name: string }
@@ -461,6 +500,148 @@ export interface StatsDataDocument {
   can_edit?: boolean
   /** Only present on `fetchPublicStatsDataDocument` — true if the current viewer favorited this content. */
   is_favorited?: boolean
+  /** Présent sur les endpoints privés (show / index) — droits du viewer courant. */
+  access?: ContentAccessPayload
+  /** True si le viewer est collaborateur (pas propriétaire). */
+  is_shared?: boolean
+}
+
+export type ContentAccessResource = 'contenu' | 'publication' | 'sources' | 'historique' | 'studio'
+export type ContentAccessLevel = 'none' | 'read' | 'write'
+
+export interface ContentAccessPayload {
+  is_owner: boolean
+  permissions: Record<ContentAccessResource, ContentAccessLevel>
+}
+
+export interface ContentCollaborator {
+  id: number
+  user_id: number
+  email: string
+  name: string
+  avatar?: string | null
+  permissions: Record<ContentAccessResource, ContentAccessLevel>
+  created_at?: string
+}
+
+export interface ContentInvitation {
+  id: number
+  email: string
+  permissions: Record<ContentAccessResource, ContentAccessLevel>
+  invited_by_name?: string | null
+  expires_at?: string
+  created_at: string
+}
+
+export interface ContentAccessCatalog {
+  resources: { key: ContentAccessResource; label: string; description: string }[]
+  levels: { key: ContentAccessLevel; label: string }[]
+}
+
+export interface InviteContentCollaboratorsResult {
+  created: string[]
+  resent: string[]
+  skipped: { email: string; reason: string }[]
+}
+
+export async function getContentAccessCatalog(): Promise<ContentAccessCatalog> {
+  const { data } = await apiHttp.get<{ success: boolean; data: ContentAccessCatalog }>(
+    STATSIO_API.studioContent.accessPermissions,
+  )
+  return data.data
+}
+
+export async function getContentCollaborators(slug: string): Promise<ContentCollaborator[]> {
+  const { data } = await apiHttp.get<{ success: boolean; data: ContentCollaborator[] }>(
+    STATSIO_API.studioContent.collaborators(slug),
+  )
+  return data.data ?? []
+}
+
+export async function updateContentCollaborator(
+  slug: string,
+  userId: number,
+  permissions: Record<ContentAccessResource, ContentAccessLevel>,
+): Promise<ContentCollaborator> {
+  const { data } = await apiHttp.patch<{ success: boolean; data: ContentCollaborator }>(
+    STATSIO_API.studioContent.collaborator(slug, userId),
+    { permissions },
+  )
+  return data.data
+}
+
+export async function removeContentCollaborator(slug: string, userId: number): Promise<void> {
+  await apiHttp.delete(STATSIO_API.studioContent.collaborator(slug, userId))
+}
+
+export async function getContentInvitations(slug: string): Promise<ContentInvitation[]> {
+  const { data } = await apiHttp.get<{ success: boolean; data: ContentInvitation[] }>(
+    STATSIO_API.studioContent.invitations(slug),
+  )
+  return data.data ?? []
+}
+
+export async function inviteContentCollaborators(
+  slug: string,
+  payload: { emails: string[]; permissions: Record<ContentAccessResource, ContentAccessLevel> },
+): Promise<InviteContentCollaboratorsResult> {
+  const { data } = await apiHttp.post<{ success: boolean; data: InviteContentCollaboratorsResult }>(
+    STATSIO_API.studioContent.invitations(slug),
+    payload,
+  )
+  return data.data
+}
+
+export async function revokeContentInvitation(slug: string, invitationId: number): Promise<void> {
+  await apiHttp.delete(STATSIO_API.studioContent.invitation(slug, invitationId))
+}
+
+export interface ContentInvitationDetails {
+  email: string
+  status: string
+  expired: boolean
+  expires_at?: string
+  content_title?: string
+  content_slug?: string
+  content_type?: string
+  permissions: Record<ContentAccessResource, ContentAccessLevel>
+  inviter_name: string
+}
+
+export async function getContentInvitationByToken(token: string): Promise<ContentInvitationDetails> {
+  const { data } = await publicHttp.get<{ success: boolean; data: ContentInvitationDetails }>(
+    STATSIO_API.studioContent.invitationByToken(token),
+  )
+  return data.data
+}
+
+export async function acceptContentInvitation(token: string): Promise<{ slug: string; content_id: number }> {
+  const { data } = await apiHttp.post<{ success: boolean; data: { slug: string; content_id: number } }>(
+    STATSIO_API.studioContent.acceptInvitation(token),
+  )
+  return data.data
+}
+
+export function emptyContentPermissions(): Record<ContentAccessResource, ContentAccessLevel> {
+  return {
+    contenu: 'none',
+    publication: 'none',
+    sources: 'none',
+    historique: 'none',
+    studio: 'none',
+  }
+}
+
+export function canAccessResource(
+  access: ContentAccessPayload | undefined | null,
+  resource: ContentAccessResource,
+  level: 'read' | 'write' = 'read',
+): boolean {
+  if (!access) return false
+  if (access.is_owner) return true
+  const current = access.permissions?.[resource] ?? 'none'
+  if (level === 'read') return current === 'read' || current === 'write'
+  return current === 'write'
 }
 
 export async function fetchUserStudioContents(type?: ContentType, channelId?: number): Promise<StatsDataDocument[]> {
@@ -683,6 +864,14 @@ export interface SaveStatsDataDocumentPayload {
   /** Bloc graphique du mini-graphe de la carte. Null = automatique (premier graphique). */
   card_block_id?: string | null
   response_deadline?: string | null
+  /** Date (YYYY-MM-DD) ou null pour publier immédiatement. */
+  scheduled_publish_at?: string | null
+  /** Activer / désactiver les commentaires lecteurs. */
+  comments_enabled?: boolean
+  /** Activer / désactiver le téléchargement des données. */
+  download_enabled?: boolean
+  /** Activer / désactiver l’intégration iframe. */
+  embed_enabled?: boolean
   /** `type === 'survey'` uniquement — format de la consultation. */
   survey_kind?: import('@/types/content-creation').SurveyKind
   /** `type === 'survey'` uniquement — exiger la vérification d'identité des répondants. */
@@ -727,12 +916,15 @@ export async function publishStudioContent(
     channelId?: number | null
     /** Ranger le contenu dans ces dossiers éditoriaux (omis = placement inchangé). */
     dossierIds?: number[]
+    /** Ignore `scheduled_publish_at` et met en ligne tout de suite. */
+    immediate?: boolean
   } = {},
 ): Promise<StatsDataDocument> {
   const { data } = await apiHttp.post<Envelope<StatsDataDocument>>(STATSIO_API.studioContent.publish(documentId), {
     ...(opts.publishedAs ? { published_as: opts.publishedAs } : {}),
     ...(opts.channelId != null ? { channel_id: opts.channelId } : {}),
     ...(opts.dossierIds ? { dossier_ids: opts.dossierIds } : {}),
+    ...(opts.immediate ? { immediate: true } : {}),
   })
   return data.data
 }
@@ -795,6 +987,35 @@ type RawContentDataSource = {
   refresh_frequency: string | null
   used_by_count: number
   used_by: import('@/api/channels').ChannelDataSourceUsage[]
+}
+
+// ─── Commentaires lecteurs ────────────────────────────────────────────────────
+
+export interface ContentComment {
+  id: number
+  body: string
+  created_at: string | null
+  author: { id: number; name: string; initials: string }
+  can_delete: boolean
+}
+
+export async function fetchContentComments(slug: string): Promise<ContentComment[]> {
+  const { data } = await publicHttp.get<Envelope<ContentComment[]>>(
+    STATSIO_API.studioContent.publicComments(slug),
+  )
+  return data.data ?? []
+}
+
+export async function postContentComment(slug: string, body: string): Promise<ContentComment> {
+  const { data } = await apiHttp.post<Envelope<ContentComment>>(
+    STATSIO_API.studioContent.publicComments(slug),
+    { body },
+  )
+  return data.data
+}
+
+export async function deleteContentComment(slug: string, commentId: number): Promise<void> {
+  await apiHttp.delete(STATSIO_API.studioContent.publicComment(slug, commentId))
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

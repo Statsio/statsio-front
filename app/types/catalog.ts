@@ -1,4 +1,4 @@
-export type CatalogSort = 'trend' | 'recent' | 'views' | 'votes'
+export type CatalogSort = 'trend' | 'recent' | 'created' | 'views' | 'votes'
 export type CatalogView = 'grid' | 'list'
 export type CatalogContentType = 'article' | 'statsdata' | 'survey'
 export type CatalogFormat = 'enquete' | 'decryptage' | 'dossier' | 'breve'

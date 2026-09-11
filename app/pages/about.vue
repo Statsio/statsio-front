@@ -104,7 +104,7 @@ const moreCards = [
   {
     title: "Centre d'aide",
     desc: 'Guides pas à pas pour lancer votre première StatsData ou votre premier article.',
-    cta: null,
+    cta: { label: 'Explorer', to: '/aide' },
     color: 'var(--color-primary)',
     shape: 'rounded-[4px]',
   },

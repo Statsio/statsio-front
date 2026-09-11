@@ -1,15 +1,17 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useBlockData, rowKey } from '@/composables/useBlockData'
+import { computed, ref, watch } from 'vue'
+import { useBlockData, rowKey, resolveBlockFilters } from '@/composables/useBlockData'
+import { useAggregateValues } from '@/composables/useResolvedTokens'
+import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import { primarySourceId, columnRefLabel, valueLabel } from '@/lib/studio-columns'
-import { formatNumber } from '@/lib/studio-expression'
+import { formatNumber, type AggregateRef } from '@/lib/studio-expression'
 import { formatDisplayValue, toNumericOrNull } from '@/utils/statsDataFormat'
 import { parseLatLng } from '@/lib/geo-point'
 import { basemapStyle } from '@/lib/map-basemaps'
-import { cellRuleBounds, rowRuleColor } from '@/lib/studio-cell-rules'
+import { cellRuleBounds, rowRuleColor, rowRuleSize, ruleAggregateRefs } from '@/lib/studio-cell-rules'
 import AppWorldScatterMap, { type WorldScatterPoint } from '@/components/ui/AppWorldScatterMap.vue'
-import type { StudioBlock } from '@/types/studio'
+import type { StudioBlock, TableColumnFormat } from '@/types/studio'
 
 /**
  * Carte MapLibre pilotée par les données : un point par ligne du dataset, depuis
@@ -18,6 +20,7 @@ import type { StudioBlock } from '@/types/studio'
  * par une colonne.
  */
 const props = defineProps<{ block: StudioBlock; readonly?: boolean; scope?: Record<string, string> }>()
+const studio = useStudioStore()
 const datasets = useStudioDatasetsStore()
 
 const CHART_COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899', '#f97316']
@@ -78,6 +81,20 @@ function formatValue(col: string, value: unknown): string {
   return formatDisplayValue(value)
 }
 
+function columnFormat(col: string): TableColumnFormat {
+  return fm.value.columnFormats?.[col] ?? {}
+}
+
+/** Style (gras / italique / souligné) appliqué à la valeur d'une colonne dans la fiche. */
+function valueStyle(col: string): Record<string, string> {
+  const f = columnFormat(col)
+  const style: Record<string, string> = {}
+  if (f.bold) style.fontWeight = '700'
+  if (f.italic) style.fontStyle = 'italic'
+  if (f.underline) style.textDecoration = 'underline'
+  return style
+}
+
 /** Résout une réf de colonne (nue ou `col@source`) en clé réelle de ligne. */
 const keyFor = (ref?: string | null) => (ref ? rowKey(data.value, ref) : '')
 
@@ -97,7 +114,30 @@ const cardColumns = computed<string[]>(() => {
   return (data.value?.columns ?? []).filter((c) => !geometry.has(c))
 })
 
+/** Sous-ensemble de `cardColumns` affiché dans la fiche au survol (case décochée = exclue). */
+const hoverColumns = computed(() => cardColumns.value.filter((c) => columnFormat(c).showOnHover !== false))
+
 const rows = computed<Record<string, unknown>[]>(() => data.value?.rows ?? [])
+
+/** Point sélectionné (clic sur un marqueur) — affiché dans la fiche latérale. */
+const selected = ref<{ title: string; row: Record<string, unknown> } | null>(null)
+watch(data, () => { selected.value = null })
+
+/** Agrégats référencés par les valeurs "expression" des règles couleur / taille (ex. `AVG(prix)`). */
+const aggRefs = computed<AggregateRef[]>(() => {
+  const map = new Map<string, AggregateRef>()
+  for (const r of ruleAggregateRefs(fm.value.cellRules)) map.set(r.key, r)
+  for (const r of ruleAggregateRefs(fm.value.mapSizeRules)) map.set(r.key, r)
+  return [...map.values()]
+})
+
+const { values: aggValues } = useAggregateValues({
+  refs: () => aggRefs.value,
+  block: () => props.block,
+  readonly: () => props.readonly ?? false,
+  docSlug: () => studio.content?.slug,
+  extraFilters: () => resolveBlockFilters(props.block.filters ?? [], { ...studio.pageParams, ...props.scope }),
+})
 
 /** Bornes numériques de la colonne de taille, sur les lignes chargées. */
 const sizeBounds = computed<{ min: number; max: number } | null>(() => {
@@ -112,6 +152,11 @@ const sizeBounds = computed<{ min: number; max: number } | null>(() => {
 /** Bornes des colonnes visées par une règle `top` / `bottom`, sur les lignes chargées. */
 const ruleBounds = computed(() =>
   cellRuleBounds(fm.value.cellRules, rows.value, (row, col) => row[keyFor(col)]),
+)
+
+/** Bornes des colonnes visées par une règle de taille `top` / `bottom`, sur les lignes chargées. */
+const sizeRuleBounds = computed(() =>
+  cellRuleBounds(fm.value.mapSizeRules, rows.value, (row, col) => row[keyFor(col)]),
 )
 
 /** Couleur par valeur distincte de la colonne de couleur. */
@@ -156,7 +201,7 @@ const points = computed<WorldScatterPoint[]>(() => {
     let fill = baseColor
     if (fm.value.mapColorColumn) fill = colorScale.value.get(String(row[colorK] ?? '')) ?? baseColor
     // Les règles de mise en forme conditionnelle priment sur la couleur catégorielle.
-    const ruleColor = rowRuleColor(fm.value.cellRules, (col) => row[keyFor(col)], ruleBounds.value)
+    const ruleColor = rowRuleColor(fm.value.cellRules, (col) => row[keyFor(col)], ruleBounds.value, aggValues.value)
     if (ruleColor) fill = ruleColor
 
     let r = 6
@@ -164,6 +209,9 @@ const points = computed<WorldScatterPoint[]>(() => {
       const n = toNum(row[sizeK])
       if (n !== null) r = 5 + ((n - bounds.min) / (bounds.max - bounds.min)) * 11
     }
+    // Les règles de taille conditionnelle priment sur le dégradé de la colonne de taille.
+    const ruleSize = rowRuleSize(fm.value.mapSizeRules, (col) => row[keyFor(col)], sizeRuleBounds.value, aggValues.value)
+    if (ruleSize !== null) r = ruleSize
 
     return [{
       lat,
@@ -173,21 +221,33 @@ const points = computed<WorldScatterPoint[]>(() => {
       stroke: '#ffffff',
       label: title || undefined,
       popupHtml: buildPopup(title, row),
+      onClick: () => { selected.value = { title, row } },
     }]
   })
 })
+
+/** Sérialise un style de valeur (gras / italique / souligné) pour l'attribut `style` du popup HTML. */
+function styleAttr(col: string): string {
+  const f = columnFormat(col)
+  const decls: string[] = []
+  if (f.bold) decls.push('font-weight:700')
+  if (f.italic) decls.push('font-style:italic')
+  if (f.underline) decls.push('text-decoration:underline')
+  return decls.join(';')
+}
 
 function buildPopup(title: string, row: Record<string, unknown>): string | undefined {
   const parts: string[] = []
   if (title && title !== '—') {
     parts.push(`<div style="font-weight:700;font-size:13px;margin-bottom:4px;color:#111">${escapeHtml(title)}</div>`)
   }
-  for (const col of cardColumns.value) {
+  for (const col of hoverColumns.value) {
     const k = keyFor(col)
     const label = escapeHtml(columnRefLabel(col, props.block, datasets))
     const value = escapeHtml(formatValue(col, row[k]))
+    const style = styleAttr(col)
     parts.push(
-      `<div style="font-size:12px;line-height:1.5;color:#374151"><span style="color:#6b7280">${label} : </span>${value}</div>`,
+      `<div style="font-size:12px;line-height:1.5;color:#374151"><span style="color:#6b7280">${label} : </span><span${style ? ` style="${style}"` : ''}>${value}</span></div>`,
     )
   }
   if (!parts.length) return undefined
@@ -220,12 +280,39 @@ const mapStyle = computed(() => basemapStyle(cfg.value.mapBasemap))
       <span class="text-sm text-[var(--studio-faint)]">Aucun point géolocalisé.</span>
     </div>
 
-    <AppWorldScatterMap
-      v-else
-      :points="points"
-      :height="mapHeight"
-      :fit-bounds="autoFit"
-      :map-style="mapStyle"
-    />
+    <div v-else class="flex flex-col gap-3 sm:flex-row sm:items-start">
+      <div class="min-w-0 flex-1">
+        <AppWorldScatterMap
+          :points="points"
+          :height="mapHeight"
+          :fit-bounds="autoFit"
+          :map-style="mapStyle"
+        />
+      </div>
+
+      <aside
+        v-if="selected"
+        class="w-full shrink-0 rounded-2xl border border-[var(--studio-line-strong)] bg-[var(--studio-surface)] p-4 sm:w-[260px]"
+        :style="{ maxHeight: `${mapHeight}px`, overflowY: 'auto' }"
+      >
+        <div class="mb-2 flex items-start justify-between gap-2">
+          <h3 v-if="selected.title && selected.title !== '—'" class="text-sm font-bold text-[var(--studio-ink)]">
+            {{ selected.title }}
+          </h3>
+          <span v-else />
+          <button
+            type="button"
+            class="shrink-0 text-[13px] leading-none text-[var(--studio-faint)] hover:text-[var(--color-error)]"
+            @click="selected = null"
+          >✕</button>
+        </div>
+        <dl class="flex flex-col gap-1.5">
+          <div v-for="col in cardColumns" :key="col" class="text-[12px] leading-relaxed">
+            <dt class="inline text-[var(--studio-faint)]">{{ columnRefLabel(col, block, datasets) }} : </dt>
+            <dd class="inline font-medium text-[var(--studio-ink)]" :style="valueStyle(col)">{{ formatValue(col, selected.row[keyFor(col)]) }}</dd>
+          </div>
+        </dl>
+      </aside>
+    </div>
   </div>
 </template>
