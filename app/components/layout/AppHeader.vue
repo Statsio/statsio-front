@@ -32,6 +32,7 @@ const brandMenuRef = ref<HTMLElement | null>(null)
 const isUserMenuOpen = ref(false)
 const userMenuRef = ref<HTMLElement | null>(null)
 const isSearchOpen = ref(false)
+const expandedMobileItem = ref<string | null>(null)
 const { reducedMotion } = storeToRefs(usePrefsStore())
 
 // Dossiers épinglés depuis le back-office (toggle « Épinglé dans le header »).
@@ -146,6 +147,11 @@ const toggleMobileMenu = () => {
 
 const closeMobileMenu = () => {
   isMobileMenuOpen.value = false
+  expandedMobileItem.value = null
+}
+
+const toggleMobileItem = (label: string) => {
+  expandedMobileItem.value = expandedMobileItem.value === label ? null : label
 }
 
 const openSearch = () => {
@@ -593,33 +599,53 @@ onBeforeUnmount(() => {
         <div class="flex-1 space-y-3 overflow-y-auto p-4">
           <AppHeaderSearch layout="block" @open="openSearch" />
 
-          <div v-for="item in mobileNavItems" :key="item.label" class="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-            <component
-              :is="item.href.startsWith('/') ? RouterLink : 'a'"
-              :to="item.href.startsWith('/') ? item.href : undefined"
-              :href="item.href.startsWith('/') ? undefined : item.href"
-              class="group mb-3 flex items-center gap-3"
-              @click="closeMobileMenu"
-            >
-              <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white">
-                <AppNavIcon :kind="item.icon" class="h-[20px] w-[20px]" />
-              </span>
-              <span class="min-w-0">
-                <span class="block text-sm font-semibold text-slate-900 transition group-hover:text-primary [.router-link-active_&]:text-primary [.router-link-active_&]:underline [.router-link-active_&]:underline-offset-4">{{ item.label }}</span>
-                <span class="block text-xs font-medium uppercase tracking-[0.16em] text-slate-400">{{ item.eyebrow }}</span>
-              </span>
-            </component>
-            <div class="flex flex-wrap gap-2">
-              <a
-                v-for="link in item.links"
-                :key="link"
-                href="#"
-                class="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 transition hover:border-primary/25 hover:bg-primary/5 hover:text-primary"
+          <div v-for="item in mobileNavItems" :key="item.label" class="overflow-hidden rounded-2xl border border-slate-100 bg-slate-50">
+            <div class="flex items-center gap-3 p-4">
+              <component
+                :is="item.href.startsWith('/') ? RouterLink : 'a'"
+                :to="item.href.startsWith('/') ? item.href : undefined"
+                :href="item.href.startsWith('/') ? undefined : item.href"
+                class="group flex min-w-0 flex-1 items-center gap-3"
                 @click="closeMobileMenu"
               >
-                {{ link }}
-              </a>
+                <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white">
+                  <AppNavIcon :kind="item.icon" class="h-[20px] w-[20px]" />
+                </span>
+                <span class="min-w-0">
+                  <span class="block text-sm font-semibold text-slate-900 transition group-hover:text-primary [.router-link-active_&]:text-primary [.router-link-active_&]:underline [.router-link-active_&]:underline-offset-4">{{ item.label }}</span>
+                  <span class="block text-xs font-medium uppercase tracking-[0.16em] text-slate-400">{{ item.eyebrow }}</span>
+                </span>
+              </component>
+              <button
+                type="button"
+                class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                :aria-expanded="expandedMobileItem === item.label"
+                :aria-label="`Afficher le sous-menu ${item.label}`"
+                @click="toggleMobileItem(item.label)"
+              >
+                <svg viewBox="0 0 20 20" class="h-4 w-4 shrink-0 transition"
+                  :class="expandedMobileItem === item.label ? 'rotate-180' : ''" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                    stroke-linejoin="round" />
+                </svg>
+              </button>
             </div>
+            <Transition
+              enter-active-class="transition duration-150 ease-out"
+              enter-from-class="opacity-0"
+              enter-to-class="opacity-100"
+              leave-active-class="transition duration-100 ease-in"
+              leave-from-class="opacity-100"
+              leave-to-class="opacity-0"
+            >
+              <div
+                v-if="expandedMobileItem === item.label"
+                class="border-t border-slate-100 bg-white px-3 py-4"
+                @click="closeMobileMenu"
+              >
+                <AppHeaderMegaMenu :item="item" dense />
+              </div>
+            </Transition>
           </div>
         </div>
 

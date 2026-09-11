@@ -16,6 +16,7 @@ function makeCategory(overrides: Partial<PromoCategory> = {}): PromoCategory {
     info_duration_seconds: 5,
     always_visible: false,
     position: 0,
+    sub_brand: 'all',
     ...overrides,
   }
 }

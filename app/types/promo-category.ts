@@ -1,3 +1,5 @@
+import type { CategorySubBrand } from '@/types/sub-brand'
+
 export type PromoCategoryInfo = {
   title: string
   description?: string | null
@@ -26,4 +28,5 @@ export type PromoCategory = {
   info_duration_seconds: number
   always_visible: boolean
   position: number
+  sub_brand: CategorySubBrand
 }

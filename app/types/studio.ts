@@ -5,6 +5,8 @@ export type ContentType = 'statsdata' | 'article' | 'survey'
 export interface StudioContent {
   id: string
   type: ContentType
+  /** `type === 'survey'` uniquement — pétition, question unique, questionnaire long. */
+  survey_kind?: import('@/types/content-creation').SurveyKind | null
   title: string
   slug?: string
   status?: 'draft' | 'published' | 'scheduled'
