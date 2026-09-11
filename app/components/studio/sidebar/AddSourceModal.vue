@@ -144,7 +144,7 @@ async function submitFile() {
 
 /** @returns true si la source créée est en direct (live). */
 async function submitApi(): Promise<boolean> {
-  const payload = buildApiPayload()
+  const payload: Record<string, unknown> = buildApiPayload()
   const contentSlug = studio.content?.slug
   if (contentSlug) payload.studio_content_slug = contentSlug
   const created = await createApiDataSource(payload)
