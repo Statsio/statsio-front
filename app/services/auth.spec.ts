@@ -28,6 +28,9 @@ const user: AuthUser = {
   profile: { first_name: 'Marie', last_name: 'Curie', birthday: null },
 }
 
+/** Réponse `http` factice (le mock ci-dessus ne type que get/post, pas `HttpResponse` complet). */
+const ok = <T,>(data: T) => ({ data, status: 200, statusText: 'OK', headers: new Headers() })
+
 describe('services/auth', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -35,9 +38,9 @@ describe('services/auth', () => {
 
   describe('loginRequest', () => {
     it('posts credentials and normalizes the session', async () => {
-      vi.mocked(http.post).mockResolvedValue({
-        data: { success: true, message: 'ok', data: { access_token: 'tok', type: 'Bearer', expires_in: 3600, user } },
-      })
+      vi.mocked(http.post).mockResolvedValue(
+        ok({ success: true, message: 'ok', data: { access_token: 'tok', type: 'Bearer', expires_in: 3600, user } }),
+      )
 
       const session = await loginRequest({ email: user.email, password: 'secret', turnstile_token: 'test-token' })
 
@@ -50,9 +53,9 @@ describe('services/auth', () => {
     })
 
     it('falls back to the legacy "token" field when access_token is absent', async () => {
-      vi.mocked(http.post).mockResolvedValue({
-        data: { success: true, message: 'ok', data: { token: 'legacy-tok', type: 'Bearer', user } },
-      })
+      vi.mocked(http.post).mockResolvedValue(
+        ok({ success: true, message: 'ok', data: { token: 'legacy-tok', type: 'Bearer', user } }),
+      )
 
       const session = await loginRequest({ email: user.email, password: 'secret', turnstile_token: 'test-token' })
 
@@ -62,9 +65,9 @@ describe('services/auth', () => {
 
   describe('registerRequest', () => {
     it('posts the registration payload and returns the pending data', async () => {
-      vi.mocked(http.post).mockResolvedValue({
-        data: { success: true, message: 'ok', data: { email: user.email } },
-      })
+      vi.mocked(http.post).mockResolvedValue(
+        ok({ success: true, message: 'ok', data: { email: user.email } }),
+      )
 
       const result = await registerRequest({
         first_name: 'Marie',
@@ -82,9 +85,9 @@ describe('services/auth', () => {
 
   describe('verifyEmailRequest', () => {
     it('posts the code and normalizes the returned session', async () => {
-      vi.mocked(http.post).mockResolvedValue({
-        data: { success: true, message: 'ok', data: { access_token: 'tok', type: 'Bearer', user } },
-      })
+      vi.mocked(http.post).mockResolvedValue(
+        ok({ success: true, message: 'ok', data: { access_token: 'tok', type: 'Bearer', user } }),
+      )
 
       const session = await verifyEmailRequest({ email: user.email, code: '123456' })
 
@@ -95,26 +98,26 @@ describe('services/auth', () => {
 
   describe('fire-and-forget requests', () => {
     it('resendVerificationRequest posts to /verify-email/resend', async () => {
-      vi.mocked(http.post).mockResolvedValue({ data: {} })
+      vi.mocked(http.post).mockResolvedValue(ok({}))
       await resendVerificationRequest({ email: user.email })
       expect(http.post).toHaveBeenCalledWith('/verify-email/resend', { email: user.email })
     })
 
     it('forgotPasswordRequest posts to /forgot-password', async () => {
-      vi.mocked(http.post).mockResolvedValue({ data: {} })
+      vi.mocked(http.post).mockResolvedValue(ok({}))
       await forgotPasswordRequest({ email: user.email })
       expect(http.post).toHaveBeenCalledWith('/forgot-password', { email: user.email })
     })
 
     it('resetPasswordRequest posts to /reset-password', async () => {
-      vi.mocked(http.post).mockResolvedValue({ data: {} })
+      vi.mocked(http.post).mockResolvedValue(ok({}))
       const payload = { token: 't', email: user.email, password: 'new', password_confirmation: 'new' }
       await resetPasswordRequest(payload)
       expect(http.post).toHaveBeenCalledWith('/reset-password', payload)
     })
 
     it('logoutRequest posts to /logout with no body', async () => {
-      vi.mocked(http.post).mockResolvedValue({ data: {} })
+      vi.mocked(http.post).mockResolvedValue(ok({}))
       await logoutRequest()
       expect(http.post).toHaveBeenCalledWith('/logout')
     })
@@ -122,9 +125,9 @@ describe('services/auth', () => {
 
   describe('googleAuthRequest', () => {
     it('posts the id token and normalizes the session', async () => {
-      vi.mocked(http.post).mockResolvedValue({
-        data: { success: true, message: 'ok', data: { access_token: 'tok', type: 'Bearer', user } },
-      })
+      vi.mocked(http.post).mockResolvedValue(
+        ok({ success: true, message: 'ok', data: { access_token: 'tok', type: 'Bearer', user } }),
+      )
 
       const session = await googleAuthRequest({ id_token: 'g-token' })
 
@@ -135,9 +138,9 @@ describe('services/auth', () => {
 
   describe('refreshTokenRequest', () => {
     it('posts the refresh token and normalizes the session', async () => {
-      vi.mocked(http.post).mockResolvedValue({
-        data: { success: true, message: 'ok', data: { access_token: 'new-tok', type: 'Bearer', user } },
-      })
+      vi.mocked(http.post).mockResolvedValue(
+        ok({ success: true, message: 'ok', data: { access_token: 'new-tok', type: 'Bearer', user } }),
+      )
 
       const session = await refreshTokenRequest('old-refresh-token')
 
@@ -148,13 +151,13 @@ describe('services/auth', () => {
 
   describe('meRequest', () => {
     it('unwraps a raw user payload', async () => {
-      vi.mocked(http.get).mockResolvedValue({ data: user })
+      vi.mocked(http.get).mockResolvedValue(ok(user))
 
       expect(await meRequest()).toEqual(user)
     })
 
     it('unwraps an enveloppe with a nested user field', async () => {
-      vi.mocked(http.get).mockResolvedValue({ data: { success: true, message: 'ok', data: { user } } })
+      vi.mocked(http.get).mockResolvedValue(ok({ success: true, message: 'ok', data: { user } }))
 
       expect(await meRequest()).toEqual(user)
     })
