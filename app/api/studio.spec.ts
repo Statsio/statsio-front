@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import AxiosMockAdapter from 'axios-mock-adapter'
-import { apiHttp, publicHttp } from '@/lib/http'
+import { createFetchMock, type FetchMock } from '#test/mock-fetch'
 import {
   fetchDatasets,
   fetchBlockData,
@@ -19,12 +18,12 @@ import {
 import { STATSIO_API } from './statsio-endpoints'
 
 describe('app/api/studio', () => {
-  let apiMock: AxiosMockAdapter
-  let publicMock: AxiosMockAdapter
+  let apiMock: FetchMock
+  let publicMock: FetchMock
 
   beforeEach(() => {
-    apiMock = new AxiosMockAdapter(apiHttp)
-    publicMock = new AxiosMockAdapter(publicHttp)
+    apiMock = createFetchMock()
+    publicMock = createFetchMock()
   })
 
   afterEach(() => {
@@ -106,8 +105,7 @@ describe('app/api/studio', () => {
     it('sends complex filters/joins through the paramsSerializer', async () => {
       let capturedQuery = ''
       apiMock.onGet(STATSIO_API.datasets.query('42')).reply((config) => {
-        const serializer = config.paramsSerializer as { serialize: (p: unknown) => string }
-        capturedQuery = serializer.serialize(config.params)
+        capturedQuery = config.url.split('?')[1] ?? ''
         return [200, { data: { columns: [], rows: [], total_rows: 0 } }]
       })
 
@@ -137,8 +135,7 @@ describe('app/api/studio', () => {
     it('serializes calc columns (id + operands op/column/value)', async () => {
       let capturedQuery = ''
       apiMock.onGet(STATSIO_API.datasets.query('42')).reply((config) => {
-        const s = config.paramsSerializer as { serialize: (p: unknown) => string }
-        capturedQuery = s.serialize(config.params)
+        capturedQuery = config.url.split('?')[1] ?? ''
         return [200, { data: { columns: [], rows: [], total_rows: 0 } }]
       })
 
@@ -179,8 +176,7 @@ describe('app/api/studio', () => {
     it('serializes facet params (facet, offset, limit, search, filters, sources) and unwraps the result', async () => {
       let capturedQuery = ''
       apiMock.onGet(STATSIO_API.datasets.query('42')).reply((config) => {
-        const s = config.paramsSerializer as unknown as (() => string) | { serialize: () => string }
-        capturedQuery = typeof s === 'function' ? s() : s.serialize()
+        capturedQuery = config.url.split('?')[1] ?? ''
         return [
           200,
           {
@@ -255,8 +251,7 @@ describe('app/api/studio', () => {
     it('sends an aggregate query with no group_by and unwraps the single value', async () => {
       let capturedQuery = ''
       apiMock.onGet(STATSIO_API.datasets.query('42')).reply((config) => {
-        const serializer = config.paramsSerializer as { serialize: (p: unknown) => string }
-        capturedQuery = serializer.serialize(config.params)
+        capturedQuery = config.url.split('?')[1] ?? ''
         return [200, { data: { columns: ['prix'], rows: [{ prix: 1.712 }], total_rows: 1 } }]
       })
 
@@ -389,7 +384,7 @@ describe('app/api/studio', () => {
   describe('saveStatsDataDocument', () => {
     it('PATCHes with a plain JSON payload when no thumbnail is provided', async () => {
       apiMock.onPatch(STATSIO_API.studioContent.one('doc-1')).reply((config) => {
-        expect(JSON.parse(config.data)).toEqual({ title: 'New title' })
+        expect(JSON.parse(config.data as string)).toEqual({ title: 'New title' })
         return [200, { data: { id: 'doc-1', title: 'New title' } }]
       })
 
@@ -400,7 +395,7 @@ describe('app/api/studio', () => {
 
     it('PATCHes with thumbnail_media_id when a library media is chosen', async () => {
       apiMock.onPatch(STATSIO_API.studioContent.one('doc-1')).reply((config) => {
-        expect(JSON.parse(config.data)).toEqual({ title: 'With thumbnail', thumbnail_media_id: 42 })
+        expect(JSON.parse(config.data as string)).toEqual({ title: 'With thumbnail', thumbnail_media_id: 42 })
         return [200, { data: { id: 'doc-1', title: 'With thumbnail' } }]
       })
 
@@ -411,7 +406,7 @@ describe('app/api/studio', () => {
 
     it('PATCHes with remove_thumbnail when the thumbnail is cleared', async () => {
       apiMock.onPatch(STATSIO_API.studioContent.one('doc-1')).reply((config) => {
-        expect(JSON.parse(config.data)).toEqual({ title: 'No thumbnail', remove_thumbnail: true })
+        expect(JSON.parse(config.data as string)).toEqual({ title: 'No thumbnail', remove_thumbnail: true })
         return [200, { data: { id: 'doc-1', title: 'No thumbnail' } }]
       })
 

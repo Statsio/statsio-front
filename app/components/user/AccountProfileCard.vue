@@ -46,21 +46,21 @@ const inputClass =
 </script>
 
 <template>
-  <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_3px_rgba(20,20,30,0.05)] sm:p-7">
-    <div class="mb-3 text-xs font-bold uppercase tracking-[0.04em] text-slate-400">Informations personnelles</div>
+  <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_1px_3px_rgba(20,20,30,0.05)] sm:p-5">
+    <div class="mb-2 text-[11px] font-bold uppercase tracking-[0.04em] text-slate-400">Informations personnelles</div>
 
     <AccountAvatarUploader />
 
-    <form v-if="isEditingName" class="flex flex-col gap-4 pt-4" @submit.prevent="save">
-      <label class="flex flex-col gap-2">
-        <span class="text-sm font-semibold text-slate-700">Prénom</span>
+    <form v-if="isEditingName" class="flex flex-col gap-3 pt-3" @submit.prevent="save">
+      <label class="flex flex-col gap-1.5">
+        <span class="text-[13px] font-semibold text-slate-700">Prénom</span>
         <input v-model="form.first_name" type="text" :class="inputClass" placeholder="Votre prénom" />
       </label>
-      <label class="flex flex-col gap-2">
-        <span class="text-sm font-semibold text-slate-700">Nom</span>
+      <label class="flex flex-col gap-1.5">
+        <span class="text-[13px] font-semibold text-slate-700">Nom</span>
         <input v-model="form.last_name" type="text" :class="inputClass" placeholder="Votre nom" />
       </label>
-      <div class="flex gap-3">
+      <div class="flex gap-2">
         <AppButton type="submit" variant="primary" size="md" :disabled="isSaving">
           {{ isSaving ? 'Enregistrement…' : 'Enregistrer' }}
         </AppButton>
@@ -69,25 +69,25 @@ const inputClass =
     </form>
 
     <template v-else>
-      <div class="flex items-center justify-between border-b border-slate-100 py-4">
+      <div class="flex items-center justify-between border-b border-slate-100 py-3">
         <div>
-          <div class="mb-0.5 text-xs text-slate-400">Nom complet</div>
-          <div class="text-[14.5px] font-semibold text-slate-950">{{ authStore.displayName }}</div>
+          <div class="mb-0.5 text-[11px] text-slate-400">Nom complet</div>
+          <div class="text-[13px] font-semibold text-slate-950">{{ authStore.displayName }}</div>
         </div>
-        <button type="button" class="text-[13px] font-semibold text-primary" @click="startEdit">Modifier</button>
+        <button type="button" class="text-[12px] font-semibold text-primary" @click="startEdit">Modifier</button>
       </div>
-      <div class="flex items-center justify-between border-b border-slate-100 py-4">
+      <div class="flex items-center justify-between border-b border-slate-100 py-3">
         <div>
-          <div class="mb-0.5 text-xs text-slate-400">Adresse e-mail</div>
-          <div class="text-[14.5px] font-semibold text-slate-950">{{ authStore.user?.email }}</div>
+          <div class="mb-0.5 text-[11px] text-slate-400">Adresse e-mail</div>
+          <div class="text-[13px] font-semibold text-slate-950">{{ authStore.user?.email }}</div>
         </div>
       </div>
-      <div class="flex items-center justify-between py-4">
+      <div class="flex items-center justify-between py-3">
         <div>
-          <div class="mb-0.5 text-xs text-slate-400">Mot de passe</div>
-          <div class="text-[14.5px] font-semibold text-slate-950">••••••••••</div>
+          <div class="mb-0.5 text-[11px] text-slate-400">Mot de passe</div>
+          <div class="text-[13px] font-semibold text-slate-950">••••••••••</div>
         </div>
-        <RouterLink to="/forgot-password" class="text-[13px] font-semibold text-primary">Modifier</RouterLink>
+        <RouterLink to="/forgot-password" class="text-[12px] font-semibold text-primary">Modifier</RouterLink>
       </div>
     </template>
   </section>

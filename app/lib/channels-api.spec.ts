@@ -7,6 +7,9 @@ vi.mock('@/lib/http', () => ({
 import { apiHttp } from '@/lib/http'
 import { fetchAllChannels, fetchChannelByHandle, fetchChannelById } from './channels-api'
 
+/** Réponse `apiHttp` factice (le mock ci-dessus ne type que `get`, pas `HttpResponse` complet). */
+const ok = <T,>(data: T) => ({ data, status: 200, statusText: 'OK', headers: new Headers() })
+
 const apiChannel = (overrides: Record<string, unknown> = {}) => ({
   id: 1,
   status: 'active',
@@ -44,9 +47,9 @@ describe('fetchAllChannels', () => {
   })
 
   it('maps the paginated API payload to ChannelEntry objects', async () => {
-    vi.mocked(apiHttp.get).mockResolvedValue({
-      data: { success: true, data: { current_page: 1, last_page: 1, per_page: 100, total: 1, data: [apiChannel()] } },
-    })
+    vi.mocked(apiHttp.get).mockResolvedValue(
+      ok({ success: true, data: { current_page: 1, last_page: 1, per_page: 100, total: 1, data: [apiChannel()] } }),
+    )
 
     const channels = await fetchAllChannels()
 
@@ -64,9 +67,9 @@ describe('fetchAllChannels', () => {
   })
 
   it('adds the @ prefix only when the stored handle lacks it', async () => {
-    vi.mocked(apiHttp.get).mockResolvedValue({
-      data: { success: true, data: { current_page: 1, last_page: 1, per_page: 100, total: 1, data: [apiChannel({ handle: '@already' })] } },
-    })
+    vi.mocked(apiHttp.get).mockResolvedValue(
+      ok({ success: true, data: { current_page: 1, last_page: 1, per_page: 100, total: 1, data: [apiChannel({ handle: '@already' })] } }),
+    )
 
     const [channel] = await fetchAllChannels()
 
@@ -74,8 +77,8 @@ describe('fetchAllChannels', () => {
   })
 
   it('falls back to sane defaults when the profile is missing', async () => {
-    vi.mocked(apiHttp.get).mockResolvedValue({
-      data: {
+    vi.mocked(apiHttp.get).mockResolvedValue(
+      ok({
         success: true,
         data: {
           current_page: 1,
@@ -84,8 +87,8 @@ describe('fetchAllChannels', () => {
           total: 1,
           data: [{ id: 2, status: 'active', suspended_until: null, anonymized_at: null, created_at: 'x', updated_at: 'x', profile: null }],
         },
-      },
-    })
+      }),
+    )
 
     const [channel] = await fetchAllChannels()
 
@@ -100,10 +103,10 @@ describe('fetchChannelByHandle', () => {
 
   it('finds the channel whose normalized handle matches', async () => {
     vi.mocked(apiHttp.get)
-      .mockResolvedValueOnce({
-        data: { success: true, data: { current_page: 1, last_page: 1, per_page: 100, total: 1, data: [apiChannel()] } },
-      })
-      .mockResolvedValueOnce({ data: { success: true, data: apiChannel() } })
+      .mockResolvedValueOnce(
+        ok({ success: true, data: { current_page: 1, last_page: 1, per_page: 100, total: 1, data: [apiChannel()] } }),
+      )
+      .mockResolvedValueOnce(ok({ success: true, data: apiChannel() }))
 
     const channel = await fetchChannelByHandle('datajourn')
 
@@ -111,9 +114,9 @@ describe('fetchChannelByHandle', () => {
   })
 
   it('returns undefined when no channel matches', async () => {
-    vi.mocked(apiHttp.get).mockResolvedValue({
-      data: { success: true, data: { current_page: 1, last_page: 1, per_page: 100, total: 1, data: [apiChannel()] } },
-    })
+    vi.mocked(apiHttp.get).mockResolvedValue(
+      ok({ success: true, data: { current_page: 1, last_page: 1, per_page: 100, total: 1, data: [apiChannel()] } }),
+    )
 
     expect(await fetchChannelByHandle('inconnu')).toBeUndefined()
   })
@@ -125,7 +128,7 @@ describe('fetchChannelById', () => {
   })
 
   it('maps a successful envelope to a ChannelEntry', async () => {
-    vi.mocked(apiHttp.get).mockResolvedValue({ data: { success: true, data: apiChannel() } })
+    vi.mocked(apiHttp.get).mockResolvedValue(ok({ success: true, data: apiChannel() }))
 
     const channel = await fetchChannelById(1)
 
@@ -134,7 +137,7 @@ describe('fetchChannelById', () => {
   })
 
   it('returns undefined when the envelope reports failure', async () => {
-    vi.mocked(apiHttp.get).mockResolvedValue({ data: { success: false, data: apiChannel() } })
+    vi.mocked(apiHttp.get).mockResolvedValue(ok({ success: false, data: apiChannel() }))
 
     expect(await fetchChannelById(1)).toBeUndefined()
   })

@@ -70,12 +70,43 @@ const compLoading = ref(false)
 
 const compCol = computed(() => props.block.fieldMapping.comparisonColumn || valueCol.value)
 
+// Valeur de comparaison : combinaison d'agrégats (`comparisonValue`, comme `kpiValue`)
+// prioritaire, sinon legacy (colonne unique + même agrégat que la valeur principale).
+const compTerms = computed(() => props.block.fieldMapping.comparisonValue)
+const compExpr = computed(() => {
+  const terms = compTerms.value
+  return terms?.length ? aggTermsToExpression(terms) : ''
+})
+
+// Résolution via l'API d'agrégats scalaires — mêmes filtres que la comparaison legacy
+// (`comparisonFilters` sinon `filters` du bloc), même mécanisme que la valeur principale.
+const { text: compExprValue, pending: compExprPending } = useResolvedTokens({
+  raw: () => (compExpr.value ? `{{ ${compExpr.value} }}` : ''),
+  tokenMap: () => ({ ...studio.pageParams, ...props.scope }),
+  block: () => props.block,
+  datasetId: () => props.block.datasetId,
+  readonly: () => props.readonly ?? false,
+  docSlug: () => studio.content?.slug,
+  extraFilters: () => resolveBlockFilters(
+    (props.block.comparisonFilters?.length ? props.block.comparisonFilters : props.block.filters) ?? [],
+    { ...studio.pageParams, ...props.scope },
+  ),
+})
+
 const hasComparisonSetup = computed(() =>
   !!(props.block.fieldMapping.comparisonColumn) ||
+  (compTerms.value?.length ?? 0) > 0 ||
   (props.block.comparisonFilters?.length ?? 0) > 0,
 )
 
 async function loadComparison() {
+  // La combinaison d'agrégats (`comparisonValue`) passe par le résolveur d'expressions
+  // ci-dessus, pas par ce fetch legacy (colonne unique + même agrégat que la valeur).
+  if (compExpr.value) {
+    compData.value  = null
+    compError.value = null
+    return
+  }
   const sp = blockSourceParams(props.block)
   const urlDatasetId = sp.urlDatasetId
   if (!urlDatasetId || !hasComparisonSetup.value) {
@@ -125,6 +156,7 @@ watch(
     () => JSON.stringify(props.block.sources ?? []),
     () => JSON.stringify(props.block.joins ?? []),
     () => props.block.fieldMapping.comparisonColumn,
+    () => JSON.stringify(props.block.fieldMapping.comparisonValue ?? []),
     () => props.block.fieldMapping.aggregate,
     () => JSON.stringify(props.block.fieldMapping.aggregates ?? []),
     () => JSON.stringify(props.block.comparisonFilters ?? []),
@@ -138,6 +170,10 @@ watch(
 
 const previousValue = computed(() => {
   if (!hasComparisonSetup.value) return null
+  if (compExpr.value) {
+    if (compExprPending.value) return null
+    return toNumericOrNull(compExprValue.value.replace(/\s/g, '').replace(',', '.'))
+  }
   const col = compCol.value
   if (!col) return null
   // `compData` porte la valeur de comparaison (colonne dédiée OU même métrique filtrée
@@ -224,7 +260,7 @@ const { text: resolvedComparisonLabel } = useResolvedTokens({ raw: () => props.b
         <span v-if="resolvedComparisonLabel" class="font-medium text-[var(--studio-muted)]">{{ resolvedComparisonLabel }}</span>
         <span v-if="resolvedDescription" class="font-medium text-[var(--studio-muted)]">· {{ resolvedDescription }}</span>
       </div>
-      <div v-else-if="hasComparisonSetup && compLoading" class="mt-[7px] animate-pulse text-[11.5px] text-[var(--studio-faint)]">…</div>
+      <div v-else-if="hasComparisonSetup && (compLoading || (compExpr && compExprPending))" class="mt-[7px] animate-pulse text-[11.5px] text-[var(--studio-faint)]">…</div>
       <div v-else-if="hasComparisonSetup && compError" class="mt-[7px] text-[11.5px] text-red-400">Comparaison indisponible</div>
       <div v-else-if="resolvedDescription" class="mt-[7px] text-[11.5px] text-[var(--studio-muted)]">{{ resolvedDescription }}</div>
     </template>

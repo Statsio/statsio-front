@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import AxiosMockAdapter from 'axios-mock-adapter'
-import { apiHttp } from '@/lib/http'
+import { createFetchMock, type FetchMock } from '#test/mock-fetch'
 import {
   createChannel,
   getMyChannels,
@@ -52,10 +51,10 @@ function makeChannel(overrides: Partial<Channel> = {}): Channel {
 }
 
 describe('app/api/channels', () => {
-  let apiMock: AxiosMockAdapter
+  let apiMock: FetchMock
 
   beforeEach(() => {
-    apiMock = new AxiosMockAdapter(apiHttp)
+    apiMock = createFetchMock()
   })
 
   afterEach(() => {
@@ -65,7 +64,6 @@ describe('app/api/channels', () => {
   describe('createChannel', () => {
     it('only appends optional fields that are present in the payload', async () => {
       apiMock.onPost('/channels').reply((config) => {
-        expect(config.headers?.['Content-Type']).toBe('multipart/form-data')
         const form = config.data as FormData
         expect(form.get('name')).toBe('x')
         expect(form.get('handle')).toBe('x-handle')

@@ -1,14 +1,7 @@
-import type { AxiosResponse } from 'axios'
 import { describe, expect, it } from 'vitest'
 import { unwrapStatsioResponseData } from './api-envelope'
 
-const makeResponse = (data: unknown): AxiosResponse<unknown> => ({
-  data,
-  status: 200,
-  statusText: 'OK',
-  headers: {},
-  config: {} as AxiosResponse['config'],
-})
+const makeResponse = (data: unknown) => ({ data })
 
 describe('unwrapStatsioResponseData', () => {
   it('returns the data field of the envelope', () => {

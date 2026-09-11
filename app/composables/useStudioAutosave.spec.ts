@@ -4,6 +4,7 @@ import { setActivePinia, createPinia } from 'pinia'
 import { useStudioStore } from '@/stores/studio'
 import { useStudioAutosave } from './useStudioAutosave'
 import { saveStatsDataDocument } from '@/api/studio'
+import { HttpError } from '@/lib/http'
 
 vi.mock('@/api/studio', () => ({
   saveStatsDataDocument: vi.fn<typeof saveStatsDataDocument>(),
@@ -140,7 +141,7 @@ describe('useStudioAutosave', () => {
     const studio = useStudioStore()
     studio.content = { id: 'diplomes-par-etablissement', type: 'statsdata', title: 't' }
     vi.mocked(saveStatsDataDocument).mockRejectedValue(
-      Object.assign(new Error('not found'), { isAxiosError: true, response: { status: 404 } }),
+      new HttpError('not found', { url: '/x', method: 'PATCH' }, { status: 404, statusText: '', data: undefined, headers: new Headers() }),
     )
     useStudioAutosave()
 

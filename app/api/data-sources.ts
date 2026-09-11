@@ -2,6 +2,11 @@ import { apiHttp } from '@/lib/http'
 import { STATSIO_API } from './statsio-endpoints'
 import type { AuthType, HttpMethod } from '@/composables/useAddSourceWizard'
 
+/** Enveloppe Laravel générique `{ data: T }` — pour typer les réponses passées à mapDataSource. */
+interface Envelope<T> {
+  data: T
+}
+
 export type RefreshFrequency = 'none' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly'
 export type PaginationStyle = 'none' | 'offset' | 'page' | 'cursor' | 'next_link'
 export type Materialization = 'snapshot' | 'live'
@@ -254,7 +259,7 @@ export interface DetectStructureResult {
  * les filtres exploitables — pour pré-remplir la configuration au lieu de la saisir à la main.
  */
 export async function detectApiStructure(url: string, headers: Record<string, string>): Promise<DetectStructureResult> {
-  const { data } = await apiHttp.post(STATSIO_API.sourceApi.detectStructure, { url, headers })
+  const { data } = await apiHttp.post<Record<string, unknown>>(STATSIO_API.sourceApi.detectStructure, { url, headers })
 
   return {
     partial: data.partial === true,
@@ -262,8 +267,8 @@ export async function detectApiStructure(url: string, headers: Record<string, st
     message: data.message ? String(data.message) : undefined,
     method: (data.method as HttpMethod) ?? 'GET',
     dataPath: data.data_path ? String(data.data_path) : null,
-    pagination: mapPaginationFromApi(data.pagination),
-    queryMapping: mapQueryMappingFromApi(data.query_mapping),
+    pagination: mapPaginationFromApi(data.pagination as Record<string, unknown> | undefined),
+    queryMapping: mapQueryMappingFromApi(data.query_mapping as Record<string, unknown> | null | undefined),
     schema: Array.isArray(data.schema)
       ? data.schema.map((c: Record<string, unknown>) => ({
         name: String(c.name),
@@ -274,7 +279,7 @@ export async function detectApiStructure(url: string, headers: Record<string, st
       : [],
     sampleRows: Array.isArray(data.sample_rows) ? data.sample_rows : [],
     rowCountHint: data.row_count_hint != null ? Number(data.row_count_hint) : null,
-    capabilities: mapCapabilitiesFromApi(data.capabilities),
+    capabilities: mapCapabilitiesFromApi(data.capabilities as Record<string, unknown> | undefined),
   }
 }
 
@@ -316,7 +321,7 @@ function mapDataSource(raw: Record<string, unknown>): DataSourceDetail {
 }
 
 export async function fetchDataSource(id: string): Promise<DataSourceDetail> {
-  const { data } = await apiHttp.get(STATSIO_API.dataSources.one(id))
+  const { data } = await apiHttp.get<Envelope<Record<string, unknown>>>(STATSIO_API.dataSources.one(id))
   return mapDataSource(data.data)
 }
 
@@ -333,13 +338,15 @@ export async function previewSpreadsheet(file: File, sheetName?: string): Promis
   form.append('file', file)
   if (sheetName) form.append('sheet_name', sheetName)
 
-  const { data } = await apiHttp.post(STATSIO_API.dataSources.previewSpreadsheet, form, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
+  const { data } = await apiHttp.post<Envelope<{ sheets?: string[]; sheet_name?: string; rows?: Array<Array<string | null>>; suggested_header_row?: number | null }>>(
+    STATSIO_API.dataSources.previewSpreadsheet,
+    form,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  )
 
   return {
     sheets: data.data.sheets ?? [],
-    sheetName: data.data.sheet_name,
+    sheetName: data.data.sheet_name ?? sheetName ?? '',
     rows: data.data.rows ?? [],
     suggestedHeaderRow: data.data.suggested_header_row ?? null,
   }
@@ -347,7 +354,7 @@ export async function previewSpreadsheet(file: File, sheetName?: string): Promis
 
 /** Crée une source API (snapshot ou live selon `payload.materialization`). */
 export async function createApiDataSource(payload: Record<string, unknown>): Promise<DataSourceDetail> {
-  const { data } = await apiHttp.post(STATSIO_API.apiSources.collection, payload)
+  const { data } = await apiHttp.post<Envelope<Record<string, unknown>>>(STATSIO_API.apiSources.collection, payload)
   return mapDataSource(data.data)
 }
 
@@ -374,7 +381,7 @@ export interface UpdateDataSourcePayload {
 
 /** Relance immédiatement le fetch d'une source API, sans changer sa configuration. */
 export async function refreshDataSource(id: string): Promise<DataSourceDetail> {
-  const { data } = await apiHttp.post(STATSIO_API.dataSources.refresh(id))
+  const { data } = await apiHttp.post<Envelope<Record<string, unknown>>>(STATSIO_API.dataSources.refresh(id))
   return mapDataSource(data.data)
 }
 
@@ -390,13 +397,13 @@ export async function updateDataSource(
     form.append('file', file)
     appendPayload(form, payload)
 
-    const { data } = await apiHttp.post(STATSIO_API.dataSources.one(id), form, {
+    const { data } = await apiHttp.post<Envelope<Record<string, unknown>>>(STATSIO_API.dataSources.one(id), form, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
     return mapDataSource(data.data)
   }
 
-  const { data } = await apiHttp.patch(STATSIO_API.dataSources.one(id), payload)
+  const { data } = await apiHttp.patch<Envelope<Record<string, unknown>>>(STATSIO_API.dataSources.one(id), payload)
   return mapDataSource(data.data)
 }
 
