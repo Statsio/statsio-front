@@ -615,6 +615,24 @@ function moveSegment(i: number, dir: -1 | 1) {
         :model-value="cfg.format ?? 'number'"
         @update:model-value="setConfig({ format: $event })"
       />
+      <StudioField label="Préfixe / suffixe" hint="Autour de la valeur">
+        <div class="flex items-center gap-2">
+          <input
+            type="text"
+            class="studio-input min-w-0 flex-1 !py-2 !text-[12px]"
+            placeholder="Préfixe (ex. ≈)"
+            :value="cfg.prefix ?? ''"
+            @input="setConfig({ prefix: ($event.target as HTMLInputElement).value || undefined })"
+          />
+          <input
+            type="text"
+            class="studio-input min-w-0 flex-1 !py-2 !text-[12px]"
+            placeholder="Suffixe (ex. /an)"
+            :value="cfg.suffix ?? ''"
+            @input="setConfig({ suffix: ($event.target as HTMLInputElement).value || undefined })"
+          />
+        </div>
+      </StudioField>
     </template>
   </div>
 </template>

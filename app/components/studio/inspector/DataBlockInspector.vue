@@ -14,6 +14,7 @@ import { useSourceDrillIn } from '@/composables/useSourceDrillIn'
 import BlockFiltersField from '@/components/studio/fields/BlockFiltersField.vue'
 import ChartMappingField from '@/components/studio/fields/ChartMappingField.vue'
 import TableColumnsField from '@/components/studio/fields/TableColumnsField.vue'
+import AggValueField from '@/components/studio/fields/AggValueField.vue'
 
 const props = defineProps<{ block: StudioBlock; activeTab: string }>()
 const studio = useStudioStore()
@@ -35,7 +36,7 @@ watch(() => props.block.id, () => { openSections.value = new Set<string>() })
 
 // ─── Config / mapping ────────────────────────────────────────────────────────
 function updateConfig(key: string, value: unknown) { studio.updateBlockConfig(props.block.id, { [key]: value }) }
-function updateMapping(key: string, value: string) { studio.updateBlockFieldMapping(props.block.id, { [key]: value }) }
+function updateMapping(key: string, value: unknown) { studio.updateBlockFieldMapping(props.block.id, { [key]: value }) }
 function inputVal(e: Event) { return (e.target as HTMLInputElement).value }
 
 // ─── Couleur de marque conditionnelle (bar / progress) — Phase 5 ─────────────
@@ -265,23 +266,20 @@ const sourceSummary = computed(() => {
           <div v-if="!block.datasetId" class="p-4 text-xs text-[var(--studio-faint)] text-center">Connectez d'abord une source dans l'onglet Données.</div>
           <template v-else>
 
-            <!-- Colonne de référence -->
+            <!-- Valeur de comparaison -->
             <div class="accordion-item">
-              <button class="accordion-header" @click="toggle('comp-ref')">
-                <span>Colonne de référence</span>
-                <svg class="chevron" :class="open('comp-ref') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <button class="accordion-header" @click="toggle('comp-value')">
+                <span>Valeur de comparaison</span>
+                <svg class="chevron" :class="open('comp-value') ? 'rotate-0' : '-rotate-90'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                   <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                 </svg>
               </button>
-              <div v-show="open('comp-ref')" class="accordion-body">
-                <p class="text-[11px] text-[var(--studio-faint)] mb-2 leading-relaxed">Par défaut, même colonne que la valeur principale.</p>
-                <FieldColumns
-                  :groups="columnGroups"
-                  :primary-source-id="primaryId"
-                  :selected="block.fieldMapping.comparisonColumn ?? null"
-                  none-label="Même que la valeur"
-                  @pick="updateMapping('comparisonColumn', $event)"
-                  @none="updateMapping('comparisonColumn', '')"
+              <div v-show="open('comp-value')" class="accordion-body">
+                <p class="text-[11px] text-[var(--studio-faint)] mb-2 leading-relaxed">Par défaut, même agrégat que la valeur principale, sur la même colonne.</p>
+                <AggValueField
+                  :block="block"
+                  :model-value="block.fieldMapping.comparisonValue ?? []"
+                  @update:model-value="updateMapping('comparisonValue', $event)"
                 />
               </div>
             </div>

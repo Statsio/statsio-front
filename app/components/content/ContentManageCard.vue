@@ -71,12 +71,21 @@ const ownerInitials = computed(() => props.item.publisher.initials || getNameIni
         {{ typeMeta.label }}
       </span>
 
-      <NuxtLink
-        :to="manage.studioPath"
-        class="u-card-title my-[7px] mb-auto block text-[14.5px] font-bold leading-[1.35] text-[#18181f] text-pretty hover:text-primary"
-      >
-        {{ item.title }}
-      </NuxtLink>
+      <div class="mb-auto">
+        <NuxtLink
+          :to="manage.studioPath"
+          class="u-card-title mt-[7px] block text-[14.5px] font-bold leading-[1.35] text-[#18181f] text-pretty hover:text-primary"
+        >
+          {{ item.title }}
+        </NuxtLink>
+
+        <p
+          v-if="item.description"
+          class="mt-1.5 line-clamp-2 text-[12px] leading-[1.45] text-[rgba(24,24,31,0.55)]"
+        >
+          {{ item.description }}
+        </p>
+      </div>
 
       <div v-if="!hideOwner" class="mt-3 flex items-center gap-2">
         <span

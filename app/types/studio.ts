@@ -307,7 +307,10 @@ export interface FieldMapping {
   /** Carte : colonne (numérique) pilotant le rayon des marqueurs. */
   mapSizeColumn?: string
   valueColumn?: string
+  /** @deprecated Legacy : colonne de comparaison seule (même agrégat que la valeur principale). Remplacé par `comparisonValue`. */
   comparisonColumn?: string
+  /** KPI : valeur de comparaison = combinaison d'agrégats, comme `kpiValue`. Prioritaire sur `comparisonColumn`. */
+  comparisonValue?: AggTerm[]
   /** Legacy : fonction d'agrégation unique appliquée à toutes les colonnes de valeur. Fallback de migration vers `aggregates`. */
   aggregate?: AggregateFunction
   /** Agrégats par colonne (kpi/pie/bar/line), regroupés par xAxis/label/series. */

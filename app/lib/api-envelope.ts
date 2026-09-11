@@ -1,10 +1,10 @@
-import type { AxiosResponse } from 'axios'
+import type { HttpResponse } from '@/lib/http'
 
 /**
  * Déballage des réponses Laravel / Statsio alignées sur la collection Postman :
- * corps JSON `{ success?: boolean, data: T }` (axios place ce corps dans `response.data`).
+ * corps JSON `{ success?: boolean, data: T }` (placé dans `response.data`).
  */
-export function unwrapStatsioResponseData<T>(response: AxiosResponse<unknown>): T {
+export function unwrapStatsioResponseData<T>(response: Pick<HttpResponse<unknown>, 'data'>): T {
   const body = response.data
   if (typeof body !== 'object' || body === null) {
     throw new Error('Réponse API invalide')

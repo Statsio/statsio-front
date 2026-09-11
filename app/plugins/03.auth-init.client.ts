@@ -1,4 +1,4 @@
-import axios from 'axios'
+import { isHttpError } from '@/lib/http'
 
 export default defineNuxtPlugin(async () => {
   const authStore = useAuthStore()
@@ -8,7 +8,7 @@ export default defineNuxtPlugin(async () => {
   try {
     await authStore.initialize()
   } catch (error) {
-    const isNetworkError = axios.isAxiosError(error) && !error.response
+    const isNetworkError = isHttpError(error) && !error.response
     const { setBootstrapError } = await import('@/lib/app-bootstrap')
     setBootstrapError({
       title: 'Connexion au serveur impossible',

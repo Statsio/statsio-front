@@ -1,6 +1,5 @@
-import axios from 'axios'
-import AxiosMockAdapter from 'axios-mock-adapter'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createFetchMock, type FetchMock } from '#test/mock-fetch'
 import { AUTH_REDIRECT_KEY } from './auth-storage'
 
 vi.mock('./auth-storage', async (importOriginal) => {
@@ -37,10 +36,10 @@ const stubLocation = (pathname = '/dashboard') => {
 describe('app/lib/http', () => {
   let authStorage: typeof import('./auth-storage')
   let httpModule: typeof import('./http')
-  let httpMock: AxiosMockAdapter
-  let apiHttpMock: AxiosMockAdapter
-  let publicHttpMock: AxiosMockAdapter
-  let axiosMock: AxiosMockAdapter
+  let httpMock: FetchMock
+  let apiHttpMock: FetchMock
+  let publicHttpMock: FetchMock
+  let refreshMock: FetchMock
 
   beforeEach(async () => {
     vi.resetModules()
@@ -52,17 +51,17 @@ describe('app/lib/http', () => {
     httpModule = await import('./http')
     httpModule.initHttpClients(AUTH_API_BASE, API_BASE)
 
-    httpMock = new AxiosMockAdapter(httpModule.http)
-    apiHttpMock = new AxiosMockAdapter(httpModule.apiHttp)
-    publicHttpMock = new AxiosMockAdapter(httpModule.publicHttp)
-    axiosMock = new AxiosMockAdapter(axios)
+    httpMock = createFetchMock()
+    apiHttpMock = createFetchMock()
+    publicHttpMock = createFetchMock()
+    refreshMock = createFetchMock()
   })
 
   afterEach(() => {
     httpMock.restore()
     apiHttpMock.restore()
     publicHttpMock.restore()
-    axiosMock.restore()
+    refreshMock.restore()
     vi.clearAllMocks()
   })
 
@@ -79,7 +78,7 @@ describe('app/lib/http', () => {
   }
 
   const mockSuccessfulRefresh = () => {
-    axiosMock.onPost(REFRESH_URL).reply(200, {
+    refreshMock.onPost(REFRESH_URL).reply(200, {
       success: true,
       message: 'ok',
       data: { access_token: 'new-token', type: 'Bearer', user: {} },
@@ -133,8 +132,7 @@ describe('app/lib/http', () => {
 
       await Promise.all([httpModule.apiHttp.get('/a'), httpModule.apiHttp.get('/b')])
 
-      const refreshCalls = axiosMock.history.post?.filter((r) => r.url === REFRESH_URL) ?? []
-      expect(refreshCalls).toHaveLength(1)
+      expect(refreshMock.history.post).toHaveLength(1)
     })
 
     it('does not retry a second time when the retried request still returns 401', async () => {
@@ -144,14 +142,13 @@ describe('app/lib/http', () => {
 
       await expect(httpModule.apiHttp.get('/secret')).rejects.toBeTruthy()
 
-      const refreshCalls = axiosMock.history.post?.filter((r) => r.url === REFRESH_URL) ?? []
-      expect(refreshCalls).toHaveLength(1)
+      expect(refreshMock.history.post).toHaveLength(1)
     })
 
     it('clears the session and redirects to /login when the refresh call itself fails', async () => {
       withStoredToken()
       apiHttpMock.onGet('/secret').reply(401)
-      axiosMock.onPost(REFRESH_URL).reply(500)
+      refreshMock.onPost(REFRESH_URL).reply(500)
 
       await expect(httpModule.apiHttp.get('/secret')).rejects.toBeTruthy()
 
@@ -167,8 +164,7 @@ describe('app/lib/http', () => {
 
       expect(authStorage.clearStoredToken).toHaveBeenCalled()
       expect(window.location.assign).toHaveBeenCalledWith('/login')
-      const refreshCalls = axiosMock.history.post?.filter((r) => r.url === REFRESH_URL) ?? []
-      expect(refreshCalls).toHaveLength(0)
+      expect(refreshMock.history.post).toHaveLength(0)
     })
 
     it('rejects without clearing the session or redirecting for authless endpoints', async () => {

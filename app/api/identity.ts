@@ -22,13 +22,13 @@ export interface IdentityStartResult {
  * la vérification.
  */
 export async function startIdentityVerification(returnPath?: string): Promise<IdentityStartResult> {
-  const { data } = await apiHttp.post(STATSIO_API.identity.verificationStart, {
+  const { data } = await apiHttp.post<{ data: IdentityStartResult }>(STATSIO_API.identity.verificationStart, {
     return_path: returnPath ?? null,
   })
-  return data.data as IdentityStartResult
+  return data.data
 }
 
 export async function fetchIdentityStatus(): Promise<IdentityStatus> {
-  const { data } = await apiHttp.get(STATSIO_API.identity.verificationStatus)
-  return data.data as IdentityStatus
+  const { data } = await apiHttp.get<{ data: IdentityStatus }>(STATSIO_API.identity.verificationStatus)
+  return data.data
 }
