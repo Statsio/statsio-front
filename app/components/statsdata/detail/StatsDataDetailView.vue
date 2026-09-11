@@ -14,6 +14,7 @@ import StatsDataHero from './StatsDataHero.vue'
 import StatsDataSubHeader from './StatsDataSubHeader.vue'
 import StatsDataToc from './StatsDataToc.vue'
 import StatsDataSourceCard from './StatsDataSourceCard.vue'
+import AppModal from '@/components/ui/AppModal.vue'
 import StatsDataUsefulBar from './StatsDataUsefulBar.vue'
 import ContentOwnerBar from './ContentOwnerBar.vue'
 import StatsDataEmbedModal from './StatsDataEmbedModal.vue'
@@ -54,6 +55,7 @@ const {
 } = useStatsDataChrome(doc)
 
 const showEmbedModal = ref(false)
+const showSourcesModal = ref(false)
 const canEmbed = computed(() => doc.value?.embed_enabled !== false)
 
 const auth = useAuthStore()
@@ -286,12 +288,24 @@ async function goToAction(action: HeroAction) {
 
         <div class="mx-auto max-w-[1180px] px-4 sm:px-6">
           <div class="grid grid-cols-1 gap-10 pt-8 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start">
-            <aside class="flex flex-col gap-5 lg:sticky lg:top-40">
+            <aside class="hidden lg:flex lg:flex-col lg:gap-5 lg:sticky lg:top-40">
               <StatsDataToc />
               <StatsDataSourceCard :datasets="datasets" :doc-slug="docSlug" @reuse="openReuseSource" />
             </aside>
 
             <main class="flex min-w-0 flex-col gap-4 pb-24">
+              <button
+                v-if="datasets.length > 0"
+                type="button"
+                class="flex items-center gap-2 self-start rounded-full border border-[var(--studio-line-strong)] bg-white px-4 py-2 text-[12px] font-semibold text-[var(--studio-ink)] transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]/30 lg:hidden"
+                @click="showSourcesModal = true"
+              >
+                <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 1.657 3.582 3 8 3s8-1.343 8-3V7M4 7c0 1.657 3.582 3 8 3s8-1.343 8-3M4 7c0-1.657 3.582-3 8-3s8 1.343 8 3" />
+                </svg>
+                Sources de données
+              </button>
+
               <StatsDataContent :items="canvasItems" />
 
               <StatsDataUsefulBar
@@ -324,6 +338,14 @@ async function goToAction(action: HeroAction) {
           :snippet="embedSnippet"
           :preview-url="embedUrl"
         />
+        <AppModal
+          v-if="datasets.length > 0"
+          v-model:open="showSourcesModal"
+          title="Sources de données"
+          size="sm"
+        >
+          <StatsDataSourceCard :datasets="datasets" :doc-slug="docSlug" hide-heading @reuse="openReuseSource" />
+        </AppModal>
         <CreateContentModal
           v-if="createModalOpen"
           :open="createModalOpen"
