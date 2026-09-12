@@ -25,8 +25,8 @@ const { data } = useAsyncData('medistats-header-nav', () =>
     loadMaladiesMenu(categoryPalette),
     loadMedicamentsMenu(categoryPalette),
     loadSoinsMenu(categoryPalette),
-    loadDossiersMenu(categoryPalette, 'medistats'),
-    loadChannelsMenu(categoryPalette, 'medistats'),
+    loadDossiersMenu(categoryPalette, 'medistats', '/medistats'),
+    loadChannelsMenu(categoryPalette, 'medistats', '/medistats'),
   ]),
 )
 

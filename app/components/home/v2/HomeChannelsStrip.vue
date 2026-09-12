@@ -6,6 +6,7 @@ import { useContentDomain } from '@/composables/useContentDomain'
 import { useContentBasePath } from '@/composables/useContentBasePath'
 import { formatCompactNumber } from '@/lib/format'
 import { channelBannerStyle, resolveChannelColors } from '@/lib/channel-brand'
+import { publicChannelPath } from '@/lib/content-display'
 import type { ChannelCatalogItem } from '@/types/channel-catalog'
 
 const props = defineProps<{
@@ -60,7 +61,7 @@ const chips = computed(() =>
       <RouterLink
         v-for="chip in chips"
         :key="chip.id"
-        :to="`/channels/${encodeURIComponent(chip.handle)}`"
+        :to="publicChannelPath(chip.handle, basePath)"
         class="flex items-center gap-3 rounded-[14px] border-[1.5px] border-slate-200/70 bg-white px-4 py-3 shadow-[0_1px_3px_rgba(20,20,30,0.06)] transition hover:border-primary/40"
       >
         <span

@@ -2,6 +2,8 @@
 import { computed } from 'vue'
 import { catalogThemeStyle } from '@/lib/catalog-theme'
 import { formatRelativePublished } from '@/lib/catalog-format'
+import { useContentBasePath } from '@/composables/useContentBasePath'
+import { publicDossierPath } from '@/lib/content-display'
 import type { DossierCatalogItem } from '@/types/dossier'
 import AppMediaImage from '@/components/ui/AppMediaImage.vue'
 
@@ -12,6 +14,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{ follow: [] }>()
 
+const basePath = useContentBasePath()
+const to = computed(() => publicDossierPath(props.item.slug, basePath.value))
 const style = computed(() => catalogThemeStyle(props.item.category?.slug))
 const countLabel = computed(
   () => `${props.item.content_count} contenu${props.item.content_count === 1 ? '' : 's'}`,
@@ -20,7 +24,7 @@ const countLabel = computed(
 
 <template>
   <NuxtLink
-    :to="`/dossiers/${item.slug}`"
+    :to="to"
     class="u-card group flex flex-col overflow-hidden rounded-[18px] border-[1.5px] border-slate-950/[0.06] bg-white shadow-[0_1px_3px_rgba(20,20,30,0.06)] hover:-translate-y-0.5"
   >
     <div class="relative flex h-[130px] items-center justify-center">

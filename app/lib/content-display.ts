@@ -35,6 +35,22 @@ export function publicContentListPath(type: ContentType, basePath = ''): string 
   return `${basePath}/statsdata`
 }
 
+export function publicDossierPath(slug: string, basePath = ''): string {
+  return `${basePath}/dossiers/${slug}`
+}
+
+export function publicDossierListPath(basePath = ''): string {
+  return `${basePath}/dossiers`
+}
+
+export function publicChannelPath(handle: string, basePath = ''): string {
+  return `${basePath}/channels/${encodeURIComponent(handle)}`
+}
+
+export function publicChannelListPath(basePath = ''): string {
+  return `${basePath}/chaines`
+}
+
 /** Préfixes de sous-marque susceptibles d'apparaître devant une route de contenu partagé. */
 const BRAND_PREFIX_RE = /^\/(tvstats|medistats)(?=\/|$)/
 

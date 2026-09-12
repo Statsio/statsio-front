@@ -3,6 +3,8 @@ import { computed } from 'vue'
 import type { ChannelCatalogItem } from '@/types/channel-catalog'
 import { formatCompactNumber, getNameInitials } from '@/lib/format'
 import { CHANNEL_KIND_STYLE, CHANNEL_PACE_STYLE } from '@/lib/channel-catalog-display'
+import { useContentBasePath } from '@/composables/useContentBasePath'
+import { publicChannelPath } from '@/lib/content-display'
 
 const props = defineProps<{
   item: ChannelCatalogItem
@@ -12,7 +14,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{ follow: [] }>()
 
-const to = computed(() => `/channels/${encodeURIComponent(props.item.handle)}`)
+const basePath = useContentBasePath()
+const to = computed(() => publicChannelPath(props.item.handle, basePath.value))
 const kindStyle = computed(() => CHANNEL_KIND_STYLE[props.item.kind])
 const paceStyle = computed(() => CHANNEL_PACE_STYLE[props.item.pace])
 const initials = computed(() => getNameInitials(props.item.name))
