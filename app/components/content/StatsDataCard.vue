@@ -118,7 +118,7 @@ const fPubMeta = computed(
         </span>
       </span>
       <span class="u-card-title block text-[27px] font-extrabold leading-[1.14] tracking-[-0.025em] text-pretty lg:text-[30px]">{{ item.title }}</span>
-      <span v-if="item.description" class="mt-3 block max-w-[54ch] text-[14.5px] leading-[1.6] text-slate-500">{{ item.description }}</span>
+      <span v-if="item.description" class="mt-3 block max-w-[54ch] line-clamp-2 text-[14.5px] leading-[1.6] text-slate-500">{{ item.description }}</span>
       <span class="mt-[22px] flex flex-wrap gap-[26px] border-t border-slate-950/[0.08] pt-[18px]">
         <span v-for="s in fStats" :key="s.label" class="block">
           <span class="block text-[9px] font-extrabold tracking-[0.08em] uppercase text-slate-400">{{ s.label }}</span>
@@ -262,7 +262,7 @@ const fPubMeta = computed(
       >
         {{ item.title }}
       </NuxtLink>
-      <p v-if="item.description" class="mt-2.5 text-[13px] leading-[1.55] text-slate-600">{{ item.description }}</p>
+      <p v-if="item.description" class="mt-2.5 line-clamp-2 text-[13px] leading-[1.55] text-slate-600">{{ item.description }}</p>
 
       <!-- Aucun bloc graphique → on n'affiche aucune viz (pas de graphe factice). -->
       <template v-if="hasChart">
@@ -270,7 +270,7 @@ const fPubMeta = computed(
         <div v-else-if="hasImage" class="mt-3.5">
           <AppSparkline v-if="!isManage" :points="sparklinePoints" :color="visual.color" :height="26" />
         </div>
-        <div v-else class="my-4 rounded-[14px] bg-[#faf9fd] p-3.5">
+        <div v-else class="rounded-[14px] bg-[#faf9fd] p-3.5">
           <AppSparkline :points="sparklinePoints" :color="visual.color" :height="44" />
         </div>
       </template>

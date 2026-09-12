@@ -9,9 +9,9 @@ import {
   type AggregateRef,
 } from '@/lib/studio-expression'
 import { fetchScalarAggregate, fetchPublicScalarAggregate } from '@/api/studio'
-import { blockSourceParams } from '@/composables/useBlockData'
+import { blockSourceParams, type ResolvedFilterSet } from '@/composables/useBlockData'
 import { makeColumnRef, parseColumnRef } from '@/lib/studio-columns'
-import type { StudioBlock, BlockSource, BlockJoin, BlockFilter } from '@/types/studio'
+import type { StudioBlock, BlockSource, BlockJoin, FilterGroup } from '@/types/studio'
 
 interface Options {
   /** Texte brut (peut contenir des `{{ }}`). */
@@ -25,8 +25,8 @@ interface Options {
   /** Vue publiée → passe par les endpoints publics. */
   readonly?: () => boolean
   docSlug?: () => string | undefined
-  /** Filtres du bloc à cumuler avec ceux de l'expression (déjà résolus : jetons interpolés). */
-  extraFilters?: () => BlockFilter[]
+  /** Groupes de filtres du bloc à cumuler avec ceux de l'expression (déjà résolus : jetons interpolés). */
+  extraFilters?: () => ResolvedFilterSet
 }
 
 // Cache de session : les agrégats bougent peu, un rechargement de page suffit à vider.
@@ -38,7 +38,7 @@ export function clearAggregateCache(): void {
 }
 
 /** Clé de dépendance : dataset + sources + jointures + filtres du bloc appelant (pour les `watch`). */
-function blockCtxKey(opts: { block?: () => StudioBlock | null; datasetId?: () => string | undefined; extraFilters?: () => BlockFilter[] }): string {
+function blockCtxKey(opts: { block?: () => StudioBlock | null; datasetId?: () => string | undefined; extraFilters?: () => ResolvedFilterSet }): string {
   const b = opts.block?.()
   const base = b
     ? `${b.datasetId ?? ''}|${JSON.stringify(b.sources ?? [])}|${b.primarySourceId ?? ''}|${JSON.stringify(b.joins ?? [])}`
@@ -67,16 +67,23 @@ function resolveAggregate(ref: AggregateRef, opts: AggregateContext): Promise<nu
   let column = ref.column === '*' ? (ref.filters[0]?.column ?? '') : ref.column
   let multi: { sources: BlockSource[]; primarySourceId: string; joins: BlockJoin[] } | undefined
 
-  const filters = [...(opts.extraFilters?.() ?? []), ...ref.filters].filter((f) => f.value !== '')
+  const extra = opts.extraFilters?.()
+  const inlineConditions = ref.filters.filter((f) => f.value !== '')
+  // Les filtres inline de l'expression (`AVG(col | a=b)`) s'ajoutent comme un groupe ET
+  // implicite en plus des groupes du bloc appelant (`extraFilters`).
+  const groups: FilterGroup[] = [
+    ...(extra?.groups ?? []),
+    ...(inlineConditions.length ? [{ conditions: inlineConditions, match: 'all' as const }] : []),
+  ]
 
   if (blockSource && sp) {
     // `@X` = une source du bloc. Colonne qualifiée si source non primaire.
     column = makeColumnRef(column, at ?? null, sp.primarySourceId)
     urlDatasetId = sp.urlDatasetId
-    const filterTouchesOther = filters.some((f) => {
+    const filterTouchesOther = groups.some((g) => g.conditions.some((f) => {
       const { sourceId } = parseColumnRef(f.column)
       return sourceId && sourceId !== sp.primarySourceId && sp.sources.some((s) => s.id === sourceId)
-    })
+    }))
     if (sp.sources.length > 1 && (at !== sp.primarySourceId || filterTouchesOther)) {
       multi = { sources: sp.sources, primarySourceId: sp.primarySourceId, joins: sp.joins }
     }
@@ -93,11 +100,18 @@ function resolveAggregate(ref: AggregateRef, opts: AggregateContext): Promise<nu
   const docSlug = opts.docSlug?.()
   // Colonne calculée (`calc:<id>`) : transmettre les définitions du bloc.
   const calcColumns = column.startsWith('calc:') ? (block?.fieldMapping.calcColumns ?? []) : undefined
-  const cacheKey = `${readonly ? `pub:${docSlug}` : 'priv'}|${urlDatasetId}|${JSON.stringify(multi ?? null)}|${ref.key}|${JSON.stringify(opts.extraFilters?.() ?? [])}|${JSON.stringify(calcColumns ?? null)}`
+  const cacheKey = `${readonly ? `pub:${docSlug}` : 'priv'}|${urlDatasetId}|${JSON.stringify(multi ?? null)}|${ref.key}|${JSON.stringify(groups)}|${extra?.match ?? 'all'}|${JSON.stringify(calcColumns ?? null)}`
 
   let hit = aggCache.get(cacheKey)
   if (!hit) {
-    const params = { fn: ref.fn, column, filters, ...multi, calcColumns }
+    const params = {
+      fn: ref.fn,
+      column,
+      filterGroups: groups.length ? groups : undefined,
+      filtersMatch: extra?.match,
+      ...multi,
+      calcColumns,
+    }
     hit = (readonly && docSlug
       ? fetchPublicScalarAggregate(docSlug, urlDatasetId, params)
       : fetchScalarAggregate(urlDatasetId, params)

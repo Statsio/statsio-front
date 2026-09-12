@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { useBlockData, resolveAggregationParams, resolveBlockFilters, blockSourceParams, rowKey } from '@/composables/useBlockData'
+import { useBlockData, resolveAggregationParams, resolveBlockFilterGroups, resolveFilterGroupsForTokenMap, blockSourceParams, rowKey } from '@/composables/useBlockData'
 import { fetchBlockData, fetchPublicBlockData } from '@/api/studio'
-import { interpolateTokens } from '@/lib/studio-tokens'
 import { aggTermsToExpression } from '@/lib/studio-aggregates'
 import { useResolvedTokens } from '@/composables/useResolvedTokens'
 import { useStudioStore } from '@/stores/studio'
 import { valueLabel } from '@/lib/studio-columns'
 import { formatDisplayValue, parseNumericValue, toNumericOrNull } from '@/utils/statsDataFormat'
-import type { StudioBlock, BlockQueryResult, BlockFilter } from '@/types/studio'
+import { readFilterGroups, readFiltersMatch } from '@/lib/studio-filter-groups'
+import type { StudioBlock, BlockQueryResult, FilterGroup } from '@/types/studio'
 
 const props = defineProps<{ block: StudioBlock; readonly?: boolean; scope?: Record<string, string> }>()
 const studio = useStudioStore()
@@ -32,7 +32,7 @@ const { text: exprValue, pending: exprPending } = useResolvedTokens({
   datasetId: () => props.block.datasetId,
   readonly: () => props.readonly ?? false,
   docSlug: () => studio.content?.slug,
-  extraFilters: () => resolveBlockFilters(props.block.filters ?? [], { ...studio.pageParams, ...props.scope }),
+  extraFilters: () => resolveBlockFilterGroups(props.block, 'primary', { ...studio.pageParams, ...props.scope }),
 })
 
 const rawValue = computed(() => {
@@ -78,8 +78,20 @@ const compExpr = computed(() => {
   return terms?.length ? aggTermsToExpression(terms) : ''
 })
 
+// Groupes de filtres de comparaison → autres lignes, même métrique (ex. l'an dernier).
+// Sinon groupes primaires → mêmes lignes (donc mêmes filtres que la valeur principale).
+function comparisonOrPrimaryGroups(block: StudioBlock): FilterGroup[] {
+  const comp = readFilterGroups(block, 'comparison')
+  return comp.length ? comp : readFilterGroups(block, 'primary')
+}
+function comparisonOrPrimaryMatch(block: StudioBlock): 'all' | 'any' {
+  return readFilterGroups(block, 'comparison').length
+    ? readFiltersMatch(block, 'comparison')
+    : readFiltersMatch(block, 'primary')
+}
+
 // Résolution via l'API d'agrégats scalaires — mêmes filtres que la comparaison legacy
-// (`comparisonFilters` sinon `filters` du bloc), même mécanisme que la valeur principale.
+// (groupes de comparaison sinon groupes primaires du bloc), même mécanisme que la valeur principale.
 const { text: compExprValue, pending: compExprPending } = useResolvedTokens({
   raw: () => (compExpr.value ? `{{ ${compExpr.value} }}` : ''),
   tokenMap: () => ({ ...studio.pageParams, ...props.scope }),
@@ -87,16 +99,16 @@ const { text: compExprValue, pending: compExprPending } = useResolvedTokens({
   datasetId: () => props.block.datasetId,
   readonly: () => props.readonly ?? false,
   docSlug: () => studio.content?.slug,
-  extraFilters: () => resolveBlockFilters(
-    (props.block.comparisonFilters?.length ? props.block.comparisonFilters : props.block.filters) ?? [],
-    { ...studio.pageParams, ...props.scope },
-  ),
+  extraFilters: () => ({
+    groups: resolveFilterGroupsForTokenMap(comparisonOrPrimaryGroups(props.block), { ...studio.pageParams, ...props.scope }),
+    match: comparisonOrPrimaryMatch(props.block),
+  }),
 })
 
 const hasComparisonSetup = computed(() =>
   !!(props.block.fieldMapping.comparisonColumn) ||
   (compTerms.value?.length ?? 0) > 0 ||
-  (props.block.comparisonFilters?.length ?? 0) > 0,
+  readFilterGroups(props.block, 'comparison').length > 0,
 )
 
 async function loadComparison() {
@@ -120,15 +132,11 @@ async function loadComparison() {
   compLoading.value = true
   compError.value   = null
   try {
-    const resolve = (list: BlockFilter[]) => list
-      .filter((f) => f.column && f.value)
-      .map((f) => ({ ...f, value: interpolateTokens(f.value, { ...studio.pageParams, ...props.scope }) }))
-    // `comparisonFilters` → autres lignes, même métrique (ex. l'an dernier).
-    // Sinon `comparisonColumn` → mêmes lignes (donc mêmes filtres que la valeur
-    // principale), colonne différente.
-    const filters = (props.block.comparisonFilters?.length ?? 0) > 0
-      ? resolve(props.block.comparisonFilters ?? [])
-      : resolve(props.block.filters ?? [])
+    const filterGroups = resolveFilterGroupsForTokenMap(
+      comparisonOrPrimaryGroups(props.block),
+      { ...studio.pageParams, ...props.scope },
+    )
+    const filtersMatch = comparisonOrPrimaryMatch(props.block)
     // Reuse the same aggregation as the main value (resolveAggregationParams), just
     // pointed at the comparison column instead of valueColumn.
     const agg = resolveAggregationParams(props.block)
@@ -140,8 +148,8 @@ async function loadComparison() {
     const sourceParams = { sources: sp.sources, primarySourceId: sp.primarySourceId, joins: sp.joins }
     const docSlug = studio.content?.slug
     compData.value = props.readonly && docSlug
-      ? await fetchPublicBlockData(docSlug, urlDatasetId, { columns: [col], limit: 500, filters, ...sourceParams, ...params })
-      : await fetchBlockData(urlDatasetId, { columns: [col], limit: 500, filters, ...sourceParams, ...params })
+      ? await fetchPublicBlockData(docSlug, urlDatasetId, { columns: [col], limit: 500, filterGroups, filtersMatch, ...sourceParams, ...params })
+      : await fetchBlockData(urlDatasetId, { columns: [col], limit: 500, filterGroups, filtersMatch, ...sourceParams, ...params })
   } catch {
     compError.value = 'Erreur de chargement'
     compData.value  = null
@@ -159,8 +167,10 @@ watch(
     () => JSON.stringify(props.block.fieldMapping.comparisonValue ?? []),
     () => props.block.fieldMapping.aggregate,
     () => JSON.stringify(props.block.fieldMapping.aggregates ?? []),
-    () => JSON.stringify(props.block.comparisonFilters ?? []),
-    () => JSON.stringify(props.block.filters ?? []),
+    () => JSON.stringify(readFilterGroups(props.block, 'comparison')),
+    () => readFiltersMatch(props.block, 'comparison'),
+    () => JSON.stringify(readFilterGroups(props.block, 'primary')),
+    () => readFiltersMatch(props.block, 'primary'),
     () => JSON.stringify(studio.pageParams),
     () => props.scope,
   ],

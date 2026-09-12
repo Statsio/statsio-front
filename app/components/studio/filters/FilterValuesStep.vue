@@ -5,6 +5,7 @@ import { blockSourceParams } from '@/composables/useBlockData'
 import { columnRefLabel } from '@/lib/studio-columns'
 import { BLOCK_FILTER_OPERATORS, type BlockFilter, type ColumnFacet, type StudioBlock } from '@/types/studio'
 import { useFilterDrillIn } from '@/composables/useFilterDrillIn'
+import { readFilterGroups } from '@/lib/studio-filter-groups'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import VariableButton from '@/components/studio/fields/VariableButton.vue'
 import FieldNote from '@/components/studio/fields/FieldNote.vue'
@@ -36,8 +37,10 @@ const LIMIT = 50
 let debounceId: ReturnType<typeof setTimeout> | undefined
 
 function otherFilters(): BlockFilter[] {
-  const all = (drillIn.state.mode === 'comparison' ? props.block.comparisonFilters : props.block.filters) ?? []
-  return all.filter((_, i) => i !== drillIn.state.editIndex)
+  const gi = drillIn.state.groupIndex
+  if (gi == null) return []
+  const conditions = readFilterGroups(props.block, drillIn.state.mode)[gi]?.conditions ?? []
+  return conditions.filter((_, i) => i !== drillIn.state.editIndex)
 }
 
 async function load(append = false) {

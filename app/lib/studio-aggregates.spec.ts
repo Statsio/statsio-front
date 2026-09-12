@@ -53,6 +53,12 @@ describe('aggTermsToExpression', () => {
     expect(aggTermsToExpression([{ fn: 'sum', column: 'calc:x' }, { op: '+', fn: 'sum', column: '' }]))
       .toBe('SUM("calc:x")')
   })
+  it('keeps a joined-source suffix (@sourceId) outside the quotes', () => {
+    // Sinon le parseur d'expression avale le `@17` dans le nom de colonne (voir
+    // studio-expression.ts) et perd la référence à la source jointe.
+    expect(aggTermsToExpression([{ fn: 'sum', column: 'refugie@17' }]))
+      .toBe('SUM("refugie"@17)')
+  })
 })
 
 describe('expressionToAggTerms', () => {

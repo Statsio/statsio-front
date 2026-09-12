@@ -73,7 +73,7 @@ const hasImage = computed(() => Boolean(props.item.thumbnail_url))
         </template>
       </span>
       <span class="u-card-title block text-[1.7rem] font-extrabold leading-[1.14] tracking-[-0.025em] text-pretty lg:text-[31px]">{{ item.title }}</span>
-      <span v-if="item.description" class="mt-3.5 block max-w-[52ch] text-[15px] leading-[1.62] text-slate-500">{{ item.description }}</span>
+      <span v-if="item.description" class="mt-3.5 block max-w-[52ch] line-clamp-2 text-[15px] leading-[1.62] text-slate-500">{{ item.description }}</span>
       <span class="mt-6 flex items-center gap-2.5">
         <span class="flex h-[38px] w-[38px] shrink-0 items-center justify-center overflow-hidden rounded-[11px] border border-slate-200 bg-white text-xs font-extrabold text-slate-900">
           <img v-if="item.publisher.logo_url" :src="item.publisher.logo_url" :alt="item.publisher.name" class="h-full w-full object-cover" />
@@ -204,7 +204,7 @@ const hasImage = computed(() => Boolean(props.item.thumbnail_url))
       >
         {{ item.title }}
       </NuxtLink>
-      <p v-if="item.description" class="mt-2 text-[13px] leading-relaxed text-slate-500">{{ item.description }}</p>
+      <p v-if="item.description" class="mt-2 line-clamp-2 text-[13px] leading-relaxed text-slate-500">{{ item.description }}</p>
 
       <slot name="cta" />
 

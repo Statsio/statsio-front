@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { useBlockData, rowKey, resolveBlockFilters } from '@/composables/useBlockData'
+import { useBlockData, rowKey, resolveBlockFilterGroups } from '@/composables/useBlockData'
 import { useAggregateValues } from '@/composables/useResolvedTokens'
 import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
@@ -136,7 +136,7 @@ const { values: aggValues } = useAggregateValues({
   block: () => props.block,
   readonly: () => props.readonly ?? false,
   docSlug: () => studio.content?.slug,
-  extraFilters: () => resolveBlockFilters(props.block.filters ?? [], { ...studio.pageParams, ...props.scope }),
+  extraFilters: () => resolveBlockFilterGroups(props.block, 'primary', { ...studio.pageParams, ...props.scope }),
 })
 
 /** Bornes numériques de la colonne de taille, sur les lignes chargées. */
