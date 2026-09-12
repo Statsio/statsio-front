@@ -247,6 +247,8 @@ function onSelect(result: SearchResult) {
           .filter(([k, val]) => !k.startsWith('__') && val !== null && val !== undefined && val !== '')
           .map(([k, val]) => [k, String(val)]),
       )
+  // Conservé pour reconstruire le titre/description de la sélection (chip).
+  if (sourceId) rowParams.__source_id = sourceId
 
   const param = fanParam.value
   const page = blockPage.value
@@ -296,8 +298,30 @@ const isSelected = computed(() => {
   })
 })
 
+/** Source d'origine de la sélection courante (tag ou premier jeu d'identité complet). */
+function activeSelectedSourceId(): string {
+  const tagged = studio.pageParams.__source_id
+  if (typeof tagged === 'string' && tagged) return tagged
+  if (!isUnionBlock(props.block)) {
+    return primarySourceId(props.block) || props.block.sources?.[0]?.id || ''
+  }
+  return unionSourceIds(props.block).find((sid) => {
+    const cols = identityBareNamesForSource(props.block, sid)
+    return cols.length > 0 && cols.every((c) => {
+      const v = studio.pageParams[c]
+      return v != null && v !== ''
+    })
+  }) || primarySourceId(props.block) || ''
+}
+
 /** Même construction que les résultats de la liste — à partir des pageParams. */
-const selectedTitle = computed(() => (isSelected.value ? buildTitle(studio.pageParams) : ''))
+const selectedTitle = computed(() => {
+  if (!isSelected.value) return ''
+  const row: Record<string, unknown> = { ...studio.pageParams }
+  const sid = activeSelectedSourceId()
+  if (sid) row.__source_id = sid
+  return buildTitle(row)
+})
 
 function clearSelection() {
   const param = fanParam.value
@@ -334,6 +358,7 @@ function clearSelection() {
     delete next[param.name]
     delete next[fanOutSlugKey(param)]
   }
+  delete next.__source_id
   studio.setPageParams(next)
   query.value = ''
   results.value = []
