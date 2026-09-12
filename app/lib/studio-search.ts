@@ -93,7 +93,7 @@ interface LegacySearchJoin {
   leftColumn: string
   rightColumn: string
   columns?: string[]
-  type?: 'inner' | 'left'
+  type?: 'inner' | 'left' | 'union' | 'union_all'
 }
 
 function qualifyLegacyRef(
@@ -157,7 +157,7 @@ export function migrateSearchBlock(block: StudioBlock): StudioBlock {
         leftColumn: j.leftColumn ?? '',
         rightSourceId: rightId,
         rightColumn: j.rightColumn ?? '',
-        type: j.type === 'inner' ? 'inner' : 'left',
+        type: j.type === 'inner' || j.type === 'union' || j.type === 'union_all' ? j.type : 'left',
       })
       for (const c of j.columns ?? []) colToSource.set(c, rightId)
     }

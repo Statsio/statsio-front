@@ -4,7 +4,7 @@ import { fetchPublicStatsDataDocument, fetchPublicBlockData, fetchPublicDistinct
 import type { StatsDataDocument } from '@/api/studio'
 import { useStudioStore } from '@/stores/studio'
 import type { PageParam, StudioBlock, StudioDocumentPage } from '@/types/studio'
-import { buildFanOutSegment, fanOutSegmentKeys, fanOutSlugKey, resolveSegment } from '@/lib/statsdata-fanout'
+import { buildFanOutSegment, fanOutSegmentKeys, fanOutSlugKey, resolveSegments } from '@/lib/statsdata-fanout'
 import { blockSourceParams } from '@/composables/useBlockData'
 import { slugify } from '@/lib/slug'
 
@@ -23,7 +23,10 @@ export function useStatsDataDetail() {
   const studio = useStudioStore()
 
   const docSlug = computed(() => String(route.params.slug ?? ''))
+  /** Segment unique : slug de page (onglet) ou valeur fan-out courte. */
   const segment = computed(() => route.params.pageSlug as string | undefined)
+  /** Valeur fan-out scoped : `/statsdata/{slug}/{pageSlug}/{fanOut}`. */
+  const fanOutSegment = computed(() => route.params.fanOut as string | undefined)
 
   const doc = ref<StatsDataDocument | null>(null)
   const loading = ref(true)
@@ -38,7 +41,9 @@ export function useStatsDataDetail() {
   const fanOutHydrated = ref<boolean | null>(null)
 
   const activePage = computed(() =>
-    studio.pages.length ? resolveSegment(segment.value, studio.pages).page : null,
+    studio.pages.length
+      ? resolveSegments(segment.value, fanOutSegment.value, studio.pages).page
+      : null,
   )
   // La barre d'onglets montre toutes les pages du document.
   const allPages = computed(() => studio.pages)
@@ -108,7 +113,7 @@ export function useStatsDataDetail() {
   /** Applique la résolution du segment courant à l'état du store. */
   function applySegment() {
     if (!studio.pages.length) return
-    const { page, fanOut } = resolveSegment(segment.value, studio.pages)
+    const { page, fanOut } = resolveSegments(segment.value, fanOutSegment.value, studio.pages)
     if (!page) return
 
     const urlParams = queryToParams(route.query)
@@ -128,7 +133,7 @@ export function useStatsDataDetail() {
     for (const [k, v] of Object.entries(urlParams)) studio.setPageParam(k, v)
   }
 
-  watch(segment, () => applySegment())
+  watch([segment, fanOutSegment], () => applySegment())
 
   // Un paramètre d'URL (`?commune=…`) change sans changer de page : on propage.
   watch(() => route.query, (q: import('vue-router').LocationQuery) => {
@@ -168,7 +173,7 @@ export function useStatsDataDetail() {
         data.sections, data.blocks, data.pages,
       )
 
-      const { page, fanOut } = resolveSegment(segment.value, studio.pages)
+      const { page, fanOut } = resolveSegments(segment.value, fanOutSegment.value, studio.pages)
       if (!page) return
 
       const urlParams = queryToParams(route.query)
