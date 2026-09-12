@@ -4,9 +4,9 @@ import { useRoute, useRouter } from 'vue-router'
 import { fetchBlockData, fetchPublicBlockData } from '@/api/studio'
 import { useStudioStore } from '@/stores/studio'
 import { blockSourceParams, resolveBlockFilterGroups } from '@/composables/useBlockData'
-import { bareNames } from '@/lib/studio-search'
+import { bareNames, fanOutColumnsForSource, identityBareNamesForSource, isUnionBlock, pageParamsFromUnionRow, unionSourceIds } from '@/lib/studio-search'
 import { buildFanOutHref, buildFanOutSegment, fanOutSlugKey } from '@/lib/statsdata-fanout'
-import { isCalcRef, parseColumnRef } from '@/lib/studio-columns'
+import { isCalcRef, parseColumnRef, primarySourceId } from '@/lib/studio-columns'
 import { STUDIO_EMBED_CONTEXT, type StudioEmbedContext } from '@/composables/studioEmbedContext'
 import type { BlockQueryResult, ResultPart, StudioBlock, StudioDocumentPage, PageParam } from '@/types/studio'
 
@@ -61,31 +61,6 @@ interface SearchResult {
   row: Record<string, unknown>
 }
 
-/** Colonnes de recherche + parties de titre/description effectives pour un groupe de résultats. */
-interface SearchGroupCtx {
-  searchCols: string[]
-  titleParts: ResultPart[]
-  descParts: ResultPart[]
-}
-
-const primaryGroupCtx = computed<SearchGroupCtx>(() => ({
-  searchCols: searchCols.value,
-  titleParts: titleParts.value,
-  descParts: descParts.value,
-}))
-
-/**
- * Groupe d'une ligne de résultat : 0 = source principale, i>0 = i-ème source
- * additionnelle (`block.searchUnionGroups`, sans lien avec la principale — voir
- * `SearchUnionGroup`). Ces groupes n'ont pas de titre/description personnalisés :
- * toujours le repli automatique (1re colonne de recherche trouvée).
- */
-function groupCtxFor(searchGroupIndex: number): SearchGroupCtx {
-  if (!searchGroupIndex) return primaryGroupCtx.value
-  const g = props.block.searchUnionGroups?.[searchGroupIndex - 1]
-  return { searchCols: bareNames(g?.searchColumns), titleParts: [], descParts: [] }
-}
-
 const query       = ref('')
 const results     = ref<SearchResult[]>([])
 const isLoading   = ref(false)
@@ -123,30 +98,44 @@ function partLabel(part: ResultPart): string {
   return part.label || (isCalcRef(part.ref) ? 'Valeur' : parseColumnRef(part.ref).name)
 }
 
-function buildTitle(row: Record<string, unknown>, columnMap?: Record<string, string>, group: SearchGroupCtx = primaryGroupCtx.value): string {
-  if (!group.titleParts.length) {
+function rowSourceId(row: Record<string, unknown>): string {
+  const tagged = row.__source_id
+  if (typeof tagged === 'string' && tagged) return tagged
+  return primarySourceId(props.block) || props.block.sources?.[0]?.id || ''
+}
+
+function buildTitle(row: Record<string, unknown>, columnMap?: Record<string, string>): string {
+  if (!titleParts.value.length) {
     // Repli : 1re colonne recherchée qui contient la requête, sinon la 1re.
     const q = query.value.toLowerCase()
-    const hit = group.searchCols.find((c) => String(row[c] ?? '').toLowerCase().includes(q))
-    return String(row[hit ?? group.searchCols[0] ?? ''] ?? '')
+    const sourceId = rowSourceId(row)
+    const cols = (isUnionBlock(props.block) && sourceId)
+      ? fanOutColumnsForSource(props.block, sourceId, row)
+      : searchCols.value
+    const hit = cols.find((c) => String(row[c] ?? '').toLowerCase().includes(q))
+    return String(row[hit ?? cols[0] ?? ''] ?? '')
   }
-  return group.titleParts
+  return titleParts.value
     .map((p) => `${p.prefix ?? ''}${cellValue(row, p.ref, columnMap)}${p.suffix ?? ''}`)
     .join(titleSeparator.value)
     .trim()
 }
 
-function buildSubValues(row: Record<string, unknown>, columnMap?: Record<string, string>, group: SearchGroupCtx = primaryGroupCtx.value) {
-  if (group.descParts.length) {
-    return group.descParts
+function buildSubValues(row: Record<string, unknown>, columnMap?: Record<string, string>) {
+  if (descParts.value.length) {
+    return descParts.value
       .map((p) => ({ label: partLabel(p), value: cellValue(row, p.ref, columnMap) }))
       .filter((s) => s.value !== '')
   }
   // Repli : colonnes recherchées non utilisées dans le titre.
-  const titleCols = new Set(group.titleParts.map((p) => parseColumnRef(p.ref).name))
-  return group.searchCols
-    .filter((c) => !titleCols.has(c) && row[c] != null && row[c] !== '')
-    .map((c) => ({ label: c, value: String(row[c]) }))
+  const sourceId = rowSourceId(row)
+  const cols = (isUnionBlock(props.block) && sourceId)
+    ? fanOutColumnsForSource(props.block, sourceId, row)
+    : searchCols.value
+  const titleCols = new Set(titleParts.value.map((p) => parseColumnRef(p.ref).name))
+  return cols
+    .filter((c) => !titleCols.has(parseColumnRef(c).name) && row[c] != null && row[c] !== '')
+    .map((c) => ({ label: parseColumnRef(c).name, value: String(row[c]) }))
 }
 
 // ─── Search logic ─────────────────────────────────────────────────────────────
@@ -173,9 +162,6 @@ async function doSearch(q: string) {
   if (!sp.urlDatasetId) return
   const calcColumns = fm.value.calcColumns?.length ? fm.value.calcColumns : undefined
   const filters = resolveBlockFilterGroups(props.block, 'primary', studio.pageParams)
-  // Sources additionnelles sans lien avec la principale (pas de jointure possible) :
-  // interrogées séparément côté API puis empilées sous les résultats principaux.
-  const unionGroups = (props.block.searchUnionGroups ?? []).filter((g) => g.source.datasetId && g.searchColumns.length)
   const params = {
     sources: sp.sources,
     primarySourceId: sp.primarySourceId,
@@ -183,7 +169,6 @@ async function doSearch(q: string) {
     searchQ: q,
     searchColumns: searchRefs.value,
     searchAltColumns: searchAltRefs.value,
-    unionGroups: unionGroups.length ? unionGroups : undefined,
     calcColumns,
     filterGroups: filters.groups.length ? filters.groups : undefined,
     filtersMatch: filters.match,
@@ -197,20 +182,20 @@ async function doSearch(q: string) {
 
     const seen = new Set<string>()
     const out: SearchResult[] = []
-    for (const raw of res.rows) {
-      // `__search_group` (0 = principale, i>0 = i-ème source additionnelle) tague
-      // l'origine d'une ligne empilée côté API — jamais un vrai champ de données.
-      const { __search_group: searchGroupIndex, ...row } = raw as Record<string, unknown> & { __search_group?: number }
-      const group = groupCtxFor(typeof searchGroupIndex === 'number' ? searchGroupIndex : 0)
-      const title = buildTitle(row, res.columnMap, group)
+    for (const row of res.rows) {
+      const title = buildTitle(row, res.columnMap)
       if (!title) continue
-      // Dédoublonnage sur l'identité complète (colonnes recherchées du groupe) —
-      // deux résultats peuvent partager le même titre (ex. deux communes « Grigny »).
-      const identity = group.searchCols.map((c) => String(row[c] ?? '')).join(' | ')
+      // Dédoublonnage sur l'identité complète (colonnes recherchées) — deux
+      // résultats peuvent partager le même titre (ex. deux communes « Grigny »).
+      const sourceId = rowSourceId(row)
+      const identityCols = (isUnionBlock(props.block) && sourceId)
+        ? fanOutColumnsForSource(props.block, sourceId, row)
+        : searchCols.value
+      const identity = identityCols.map((c) => String(row[c] ?? '')).join(' | ')
       const dedupeKey = `${title} | ${identity}`
       if (seen.has(dedupeKey)) continue
       seen.add(dedupeKey)
-      out.push({ key: dedupeKey, title, subValues: buildSubValues(row, res.columnMap, group), row })
+      out.push({ key: dedupeKey, title, subValues: buildSubValues(row, res.columnMap), row })
     }
     results.value = out
   } catch (e: unknown) {
@@ -240,15 +225,24 @@ function onSelect(result: SearchResult) {
   query.value = result.title
   isOpen.value = false
 
-  // Toutes les colonnes de la ligne choisie (résolvent les jetons `{{col}}`).
-  const rowParams: Record<string, string> = {}
-  for (const [col, val] of Object.entries(result.row)) {
-    if (val !== null && val !== undefined && val !== '') rowParams[col] = String(val)
-  }
+  const sourceId = rowSourceId(result.row)
+  const union = isUnionBlock(props.block)
+
+  // UNION : uniquement les params de la source d'origine. Sinon : toute la ligne.
+  const rowParams: Record<string, string> = union && sourceId
+    ? pageParamsFromUnionRow(props.block, sourceId, result.row)
+    : Object.fromEntries(
+        Object.entries(result.row)
+          .filter(([k, val]) => !k.startsWith('__') && val !== null && val !== undefined && val !== '')
+          .map(([k, val]) => [k, String(val)]),
+      )
 
   const param = fanParam.value
   const page = blockPage.value
-  const seg = param ? buildFanOutSegment(param, result.row) : ''
+  const segParam = (param && union && sourceId)
+    ? { ...param, columns: fanOutColumnsForSource(props.block, sourceId, result.row) }
+    : param
+  const seg = segParam ? buildFanOutSegment(segParam, result.row) : ''
   const href = (seg && page)
     ? buildFanOutHref(docSlug.value, page, seg, availablePages.value)
     : (docSlug.value ? `/statsdata/${docSlug.value}` : '')
@@ -273,23 +267,56 @@ function onSelect(result: SearchResult) {
 // ─── Option déjà sélectionnée (choisie, ou déduite des pageParams/URL) ───────
 
 /** Une valeur pour chaque colonne d'identité est déjà posée dans les pageParams. */
-const isSelected = computed(() =>
-  isConfigured.value && searchCols.value.every((c) => {
-    const v = studio.pageParams[c]
-    return v != null && v !== ''
-  }),
-)
+const isSelected = computed(() => {
+  if (!isConfigured.value) return false
+  if (!isUnionBlock(props.block)) {
+    return searchCols.value.every((c) => {
+      const v = studio.pageParams[c]
+      return v != null && v !== ''
+    })
+  }
+  // UNION : au moins un jeu d'identité de source est complet.
+  return unionSourceIds(props.block).some((sid) => {
+    const cols = identityBareNamesForSource(props.block, sid)
+    return cols.length > 0 && cols.every((c) => {
+      const v = studio.pageParams[c]
+      return v != null && v !== ''
+    })
+  })
+})
 
 /** Même construction que les résultats de la liste — à partir des pageParams. */
 const selectedTitle = computed(() => (isSelected.value ? buildTitle(studio.pageParams) : ''))
 
 function clearSelection() {
   const param = fanParam.value
-  const currentSeg = param ? buildFanOutSegment(param, studio.pageParams) : ''
+  // UNION : reconstruire le segment avec les colonnes de la source active si possible.
+  let currentSeg = ''
+  if (param) {
+    if (isUnionBlock(props.block)) {
+      const activeSource = unionSourceIds(props.block).find((sid) => {
+        const cols = identityBareNamesForSource(props.block, sid)
+        return cols.length > 0 && cols.every((c) => studio.pageParams[c] != null && studio.pageParams[c] !== '')
+      })
+      if (activeSource) {
+        const cols = fanOutColumnsForSource(props.block, activeSource, studio.pageParams)
+        currentSeg = buildFanOutSegment({ ...param, columns: cols }, studio.pageParams)
+      } else {
+        currentSeg = buildFanOutSegment(param, studio.pageParams)
+      }
+    } else {
+      currentSeg = buildFanOutSegment(param, studio.pageParams)
+    }
+  }
   const onFanOutUrl = Boolean(docSlug.value) && String(route.params.pageSlug ?? '') === currentSeg && currentSeg !== ''
 
   const next = { ...studio.pageParams }
   for (const c of searchCols.value) delete next[c]
+  if (isUnionBlock(props.block)) {
+    for (const sid of unionSourceIds(props.block)) {
+      for (const c of identityBareNamesForSource(props.block, sid)) delete next[c]
+    }
+  }
   for (const p of titleParts.value) delete next[parseColumnRef(p.ref).name]
   for (const p of descParts.value) delete next[parseColumnRef(p.ref).name]
   if (param) {

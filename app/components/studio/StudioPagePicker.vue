@@ -145,29 +145,31 @@ onUnmounted(() => document.removeEventListener('mousedown', onDocMousedown))
       >
         <template #item="{ element: page, index: pageIndex }">
         <div
-          class="group grid grid-cols-[14px_34px_1fr_auto] items-center gap-2 rounded-[10px] px-2.5 py-[9px] transition-colors"
+          class="group flex items-center gap-2 rounded-[10px] px-2.5 py-[9px] transition-colors"
           :class="studio.currentPageId === page.id ? 'bg-[var(--studio-accent-wash)]' : 'hover:bg-[var(--studio-wash)]'"
         >
+          <!-- opacity (pas display:none) pour ne pas décaler les colonnes CSS grid / flex au survol -->
           <span
-            class="page-drag-handle hidden shrink-0 cursor-grab items-center justify-center text-[var(--studio-faint)] hover:text-[var(--studio-ink)] active:cursor-grabbing group-hover:flex"
+            class="page-drag-handle flex w-3.5 shrink-0 cursor-grab items-center justify-center text-[var(--studio-faint)] opacity-0 hover:text-[var(--studio-ink)] active:cursor-grabbing group-hover:opacity-100"
             title="Glisser pour réordonner"
           >
             <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
               <path d="M7 2a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM7 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM7 14a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM13 2a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM13 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM13 14a2 2 0 1 1-4 0 2 2 0 0 1 4 0z" />
             </svg>
           </span>
-          <span class="rounded-[5px] py-[3px] text-center font-mono text-[9px] font-semibold" :class="pageKind(page).cls">
+          <span class="shrink-0 rounded-[5px] px-1.5 py-[3px] font-mono text-[9px] font-semibold" :class="pageKind(page).cls">
             {{ pageKind(page).tag }}
           </span>
           <button
             v-if="editingPageId !== page.id"
-            class="block w-full min-w-0 text-left"
+            type="button"
+            class="min-w-0 flex-1 text-left"
             @click="studio.switchPage(page.id); pagesOpen = false"
           >
-            <span class="line-clamp-2 break-words text-[12.5px] font-bold leading-snug text-[var(--studio-ink)]" :title="page.title">{{ page.title }}</span>
+            <span class="block truncate text-[12.5px] font-bold text-[var(--studio-ink)]" :title="page.title">{{ page.title }}</span>
             <span class="mt-0.5 block truncate font-mono text-[10px] text-[var(--studio-faint)]">{{ page.slug ? '/' + page.slug : '—' }}</span>
           </button>
-          <div v-else class="relative min-w-0">
+          <div v-else class="relative min-w-0 flex-1">
             <input
               :id="`hdr-rename-${page.id}`"
               v-model="editingPageTitle"
@@ -185,22 +187,24 @@ onUnmounted(() => document.removeEventListener('mousedown', onDocMousedown))
               @click.stop
             >{ }</button>
           </div>
-          <span class="flex items-center justify-end gap-0.5 text-[11px] text-[var(--color-primary)]">
+          <span class="flex w-16 shrink-0 items-center justify-end gap-0.5 text-[11px] text-[var(--color-primary)]">
             <span class="hidden items-center gap-0.5 group-hover:flex">
               <button
+                type="button"
                 class="text-[var(--studio-faint)] hover:text-[var(--studio-ink)] disabled:opacity-30 disabled:hover:text-[var(--studio-faint)]"
                 title="Monter"
                 :disabled="pageIndex === 0"
                 @click.stop="studio.movePage(page.id, -1)"
               >▲</button>
               <button
+                type="button"
                 class="text-[var(--studio-faint)] hover:text-[var(--studio-ink)] disabled:opacity-30 disabled:hover:text-[var(--studio-faint)]"
                 title="Descendre"
                 :disabled="pageIndex === studio.pages.length - 1"
                 @click.stop="studio.movePage(page.id, 1)"
               >▼</button>
-              <button class="text-[var(--studio-faint)] hover:text-[var(--studio-ink)]" title="Renommer" @click.stop="startRename(page.id, page.title)">✎</button>
-              <button v-if="canRemovePage" class="text-[var(--studio-faint)] hover:text-[var(--color-error)]" title="Supprimer" @click.stop="removePage(page.id, page.title)">✕</button>
+              <button type="button" class="text-[var(--studio-faint)] hover:text-[var(--studio-ink)]" title="Renommer" @click.stop="startRename(page.id, page.title)">✎</button>
+              <button v-if="canRemovePage" type="button" class="text-[var(--studio-faint)] hover:text-[var(--color-error)]" title="Supprimer" @click.stop="removePage(page.id, page.title)">✕</button>
             </span>
             <template v-if="studio.currentPageId === page.id && editingPageId !== page.id">
               <span class="group-hover:hidden">✓</span>
