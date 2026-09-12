@@ -6,7 +6,9 @@ import { columnRefLabel, primarySourceId } from '@/lib/studio-columns'
 import { blockDatasetIds } from '@/lib/studio-block-sources'
 import {
   isUnionBlock,
+  mergeResultPartsForSource,
   mergeSearchColumnsForSource,
+  resultPartsForSource,
   searchColumnsForSource,
   unionSourceIds,
 } from '@/lib/studio-search'
@@ -26,8 +28,9 @@ const searchAltColumns = computed<string[]>(() => fm.value.searchAltColumns ?? [
 const titleParts = computed<ResultPart[]>(() => fm.value.resultTitleParts ?? [])
 const descParts = computed<ResultPart[]>(() => fm.value.resultDescParts ?? [])
 const separator = computed(() => props.block.config.resultTitleSeparator ?? ' ')
+const primaryId = computed(() => primarySourceId(props.block))
 
-const hasSource = computed(() => Boolean(primarySourceId(props.block)))
+const hasSource = computed(() => Boolean(primaryId.value))
 const unionMode = computed(() => isUnionBlock(props.block))
 const unionSources = computed(() => {
   const byId = new Map((props.block.sources ?? []).map((s) => [s.id, s]))
@@ -52,8 +55,7 @@ function setSearchColumns(refs: string[]) {
   studio.updateBlockFieldMapping(props.block.id, { searchColumns: refs.length ? refs : undefined })
 }
 function setSearchColumnsForSource(sourceId: string, refs: string[]) {
-  const primary = primarySourceId(props.block)
-  setSearchColumns(mergeSearchColumnsForSource(searchColumns.value, sourceId, refs, primary))
+  setSearchColumns(mergeSearchColumnsForSource(searchColumns.value, sourceId, refs, primaryId.value))
 }
 function setSearchAltColumns(refs: string[]) {
   studio.updateBlockFieldMapping(props.block.id, { searchAltColumns: refs.length ? refs : undefined })
@@ -62,19 +64,27 @@ function setSearchAltColumns(refs: string[]) {
 function setTitleParts(parts: ResultPart[]) {
   studio.updateBlockFieldMapping(props.block.id, { resultTitleParts: parts.length ? parts : undefined })
 }
+function setTitlePartsForSource(sourceId: string, parts: ResultPart[]) {
+  setTitleParts(mergeResultPartsForSource(titleParts.value, sourceId, parts, primaryId.value))
+}
 function setDescParts(parts: ResultPart[]) {
   studio.updateBlockFieldMapping(props.block.id, { resultDescParts: parts.length ? parts : undefined })
+}
+function setDescPartsForSource(sourceId: string, parts: ResultPart[]) {
+  setDescParts(mergeResultPartsForSource(descParts.value, sourceId, parts, primaryId.value))
 }
 function setSeparator(v: string) {
   studio.updateBlockConfig(props.block.id, { resultTitleSeparator: v === ' ' ? undefined : v })
 }
 
-const titlePreview = computed(() => {
-  if (!titleParts.value.length) return searchColumns.value.length ? `‹ ${label(searchColumns.value[0]!)} ›` : '‹ colonne ›'
-  return titleParts.value
+function titlePreviewFor(parts: ResultPart[], fallbackRefs: string[]): string {
+  if (!parts.length) return fallbackRefs.length ? `‹ ${label(fallbackRefs[0]!)} ›` : '‹ colonne ›'
+  return parts
     .map((p) => `${p.prefix ?? ''}${label(p.ref) || '…'}${p.suffix ?? ''}`)
     .join(separator.value)
-})
+}
+
+const titlePreview = computed(() => titlePreviewFor(titleParts.value, searchColumns.value))
 
 const SEP_OPTS = [
   { value: ' ', label: 'espace' },
@@ -95,8 +105,8 @@ const SEP_OPTS = [
       <div class="flex flex-col gap-2.5">
         <template v-if="unionMode">
           <p class="text-[11px] leading-relaxed text-[var(--studio-faint)]">
-            Mode UNION : choisissez les colonnes d'identité (et d'URL) pour chaque source.
-            Au clic sur un résultat, seuls les paramètres de sa source d'origine sont posés.
+            Mode UNION : colonnes d'identité, titre et description se configurent par source.
+            Au clic, seuls les paramètres de la source d'origine sont posés.
           </p>
           <SearchColumnsPicker
             v-for="s in unionSources"
@@ -148,38 +158,88 @@ const SEP_OPTS = [
         </SearchColumnsPicker>
       </div>
 
-      <StudioField label="Titre du résultat">
-        <div class="flex flex-col gap-2">
+      <template v-if="unionMode">
+        <div
+          v-for="s in unionSources"
+          :key="`display-${s.id}`"
+          class="flex flex-col gap-3 rounded-xl border border-[var(--studio-line)] p-3"
+        >
+          <span class="text-[12px] font-extrabold text-[var(--studio-ink)]">{{ sourceLabel(s) }}</span>
+          <StudioField :label="`Titre — ${sourceLabel(s)}`">
+            <div class="flex flex-col gap-2">
+              <ResultPartsField
+                :block="block"
+                :source-id="s.id"
+                :model-value="resultPartsForSource(titleParts, s.id, primaryId)"
+                mode="title"
+                @update:model-value="setTitlePartsForSource(s.id, $event)"
+              />
+              <div
+                v-if="resultPartsForSource(titleParts, s.id, primaryId).length > 1"
+                class="flex items-center gap-2"
+              >
+                <span class="w-[78px] shrink-0 text-[12px] font-semibold text-[var(--studio-muted)]">Séparateur</span>
+                <select
+                  class="studio-input min-w-0 flex-1 !py-1.5 !text-[12px]"
+                  :value="separator"
+                  @change="setSeparator(($event.target as HTMLSelectElement).value)"
+                >
+                  <option v-for="o in SEP_OPTS" :key="o.value" :value="o.value">{{ o.label }}</option>
+                </select>
+              </div>
+              <p class="rounded-lg bg-[var(--studio-note)] px-2.5 py-1.5 text-[11.5px] text-[var(--studio-faint)]">
+                Aperçu :
+                <span class="font-semibold text-[var(--studio-muted)]">
+                  {{ titlePreviewFor(resultPartsForSource(titleParts, s.id, primaryId), searchColumnsForSource(block, s.id)) }}
+                </span>
+              </p>
+            </div>
+          </StudioField>
+          <StudioField :label="`Description — ${sourceLabel(s)}`" hint="sous le titre">
+            <ResultPartsField
+              :block="block"
+              :source-id="s.id"
+              :model-value="resultPartsForSource(descParts, s.id, primaryId)"
+              mode="desc"
+              @update:model-value="setDescPartsForSource(s.id, $event)"
+            />
+          </StudioField>
+        </div>
+      </template>
+      <template v-else>
+        <StudioField label="Titre du résultat">
+          <div class="flex flex-col gap-2">
+            <ResultPartsField
+              :block="block"
+              :model-value="titleParts"
+              mode="title"
+              @update:model-value="setTitleParts"
+            />
+            <div v-if="titleParts.length > 1" class="flex items-center gap-2">
+              <span class="w-[78px] shrink-0 text-[12px] font-semibold text-[var(--studio-muted)]">Séparateur</span>
+              <select
+                class="studio-input min-w-0 flex-1 !py-1.5 !text-[12px]"
+                :value="separator"
+                @change="setSeparator(($event.target as HTMLSelectElement).value)"
+              >
+                <option v-for="o in SEP_OPTS" :key="o.value" :value="o.value">{{ o.label }}</option>
+              </select>
+            </div>
+            <p class="rounded-lg bg-[var(--studio-note)] px-2.5 py-1.5 text-[11.5px] text-[var(--studio-faint)]">
+              Aperçu : <span class="font-semibold text-[var(--studio-muted)]">{{ titlePreview }}</span>
+            </p>
+          </div>
+        </StudioField>
+
+        <StudioField label="Description" hint="sous le titre">
           <ResultPartsField
             :block="block"
-            :model-value="titleParts"
-            mode="title"
-            @update:model-value="setTitleParts"
+            :model-value="descParts"
+            mode="desc"
+            @update:model-value="setDescParts"
           />
-          <div v-if="titleParts.length > 1" class="flex items-center gap-2">
-            <span class="w-[78px] shrink-0 text-[12px] font-semibold text-[var(--studio-muted)]">Séparateur</span>
-            <select
-              class="studio-input min-w-0 flex-1 !py-1.5 !text-[12px]"
-              :value="separator"
-              @change="setSeparator(($event.target as HTMLSelectElement).value)"
-            >
-              <option v-for="o in SEP_OPTS" :key="o.value" :value="o.value">{{ o.label }}</option>
-            </select>
-          </div>
-          <p class="rounded-lg bg-[var(--studio-note)] px-2.5 py-1.5 text-[11.5px] text-[var(--studio-faint)]">
-            Aperçu : <span class="font-semibold text-[var(--studio-muted)]">{{ titlePreview }}</span>
-          </p>
-        </div>
-      </StudioField>
-
-      <StudioField label="Description" hint="sous le titre">
-        <ResultPartsField
-          :block="block"
-          :model-value="descParts"
-          mode="desc"
-          @update:model-value="setDescParts"
-        />
-      </StudioField>
+        </StudioField>
+      </template>
     </template>
   </div>
 </template>

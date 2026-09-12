@@ -1,5 +1,5 @@
 import type { BlockJoin, BlockSource, PageParam, ResultPart, StudioBlock } from '@/types/studio'
-import { makeColumnRef, parseColumnRef } from '@/lib/studio-columns'
+import { isCalcRef, makeColumnRef, parseColumnRef } from '@/lib/studio-columns'
 
 /**
  * Migration & helpers du bloc « Recherche ».
@@ -117,6 +117,37 @@ export function mergeSearchColumnsForSource(
 ): string[] {
   const kept = allRefs.filter((ref) => {
     const { sourceId: sid } = parseColumnRef(ref)
+    return (sid ?? primarySourceId) !== sourceId
+  })
+  return [...kept, ...nextForSource]
+}
+
+/** Parties titre/description dont la colonne appartient à une source donnée. */
+export function resultPartsForSource(
+  parts: readonly ResultPart[] | undefined,
+  sourceId: string,
+  primarySourceId: string | undefined,
+): ResultPart[] {
+  return (parts ?? []).filter((p) => {
+    if (isCalcRef(p.ref)) return sourceId === primarySourceId
+    const { sourceId: sid } = parseColumnRef(p.ref)
+    return (sid ?? primarySourceId) === sourceId
+  })
+}
+
+/**
+ * Remplace les parties titre/description d'une source dans la liste plate,
+ * en conservant l'ordre relatif des autres sources.
+ */
+export function mergeResultPartsForSource(
+  allParts: readonly ResultPart[],
+  sourceId: string,
+  nextForSource: readonly ResultPart[],
+  primarySourceId: string | undefined,
+): ResultPart[] {
+  const kept = allParts.filter((p) => {
+    if (isCalcRef(p.ref)) return sourceId !== primarySourceId
+    const { sourceId: sid } = parseColumnRef(p.ref)
     return (sid ?? primarySourceId) !== sourceId
   })
   return [...kept, ...nextForSource]

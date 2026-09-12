@@ -7,10 +7,12 @@ import {
   desiredSearchPageParam,
   identityBareNamesForSource,
   isUnionBlock,
+  mergeResultPartsForSource,
   mergeSearchColumnsForSource,
   migrateSearchBlock,
   pageParamsFromUnionRow,
   fanOutColumnsForSource,
+  resultPartsForSource,
   sameSearchPageParam,
   searchColumnsForSource,
   unionSourceIds,
@@ -198,5 +200,25 @@ describe('isUnionBlock / unionSourceIds / mergeSearchColumnsForSource', () => {
       raison: 'Acme',
       siret: '123',
     })
+  })
+})
+
+describe('resultPartsForSource / mergeResultPartsForSource', () => {
+  const primary = 'c'
+  const parts = [
+    { ref: 'nom@c', prefix: '' },
+    { ref: 'raison@e', label: 'Entreprise' },
+    { ref: 'code@c' },
+  ]
+
+  it('filters parts by source', () => {
+    expect(resultPartsForSource(parts, 'c', primary).map((p) => p.ref)).toEqual(['nom@c', 'code@c'])
+    expect(resultPartsForSource(parts, 'e', primary).map((p) => p.ref)).toEqual(['raison@e'])
+  })
+
+  it('merges parts for one source without touching the others', () => {
+    expect(
+      mergeResultPartsForSource(parts, 'e', [{ ref: 'siret@e', label: 'SIRET' }], primary).map((p) => p.ref),
+    ).toEqual(['nom@c', 'code@c', 'siret@e'])
   })
 })
