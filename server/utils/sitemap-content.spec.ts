@@ -115,6 +115,37 @@ describe('fetchPublicContentEntries', () => {
     expect(entries.length).toBeGreaterThan(1)
   })
 
+  it('scopes secondary fan-out pages under their page slug', async () => {
+    stubFetch((url) => {
+      if (url === `${API}/studio/content/public`) {
+        return { data: [{
+          slug: 'annuaire', visibility: 'public', updated_at: '2026-09-01T00:00:00Z',
+          pages: [
+            {
+              slug: 'commune',
+              params: [{ name: 'code', slugColumn: 'nom', datasetId: '1', fanOut: true }],
+            },
+            {
+              slug: 'personne',
+              params: [{ name: 'q', columns: ['prenom', 'nom'], datasetId: '3', fanOut: true, hidden: true }],
+            },
+          ],
+        }] }
+      }
+      if (url.includes('/datasets/1/query')) {
+        return { data: { rows: [{ nom: 'Lyon' }] } }
+      }
+      return { data: { rows: [{ prenom: 'Jean', nom: 'Dupond' }] } }
+    })
+
+    const entries = await fetchPublicContentEntries(API, 'statsdata', '')
+    expect(entries.map((e) => e.loc)).toEqual([
+      '/statsdata/annuaire',
+      '/statsdata/annuaire/lyon',
+      '/statsdata/annuaire/personne/jean-dupond',
+    ])
+  })
+
   it('does not expand fan-out for non-statsdata types', async () => {
     stubFetch(() => ({ data: [{ slug: 's', visibility: 'public', pages: [{ params: [{ name: 'x', column: 'x', datasetId: '1', fanOut: true }] }] }] }))
     const entries = await fetchPublicContentEntries(API, 'survey', '')

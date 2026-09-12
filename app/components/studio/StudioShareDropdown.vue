@@ -12,11 +12,14 @@ const emit = defineEmits<{ publish: [] }>()
 const studio = useStudioStore()
 
 const isPublished = computed(() => studio.content?.status === 'published')
-/** Rien à publier : déjà en ligne et aucune modification depuis. */
-const upToDate = computed(() => isPublished.value && !studio.isDirty)
+/** Rien à publier : déjà en ligne et aucune modification depuis (y compris brouillon autosavé). */
+const upToDate = computed(() =>
+  isPublished.value && !studio.isDirty && !studio.hasUnpublishedChanges,
+)
 const publishLabel = computed(() => {
   if (publishing) return 'Publication…'
-  return upToDate.value ? 'Publié' : 'Publier'
+  if (!isPublished.value) return 'Publier'
+  return upToDate.value ? 'Publié' : 'Mettre à jour'
 })
 
 const settingsPath = computed(() => {

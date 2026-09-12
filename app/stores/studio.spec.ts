@@ -1331,4 +1331,39 @@ describe('useStudioStore', () => {
       expect(store.sections[0]!.pageId).toBe(store.pages[0]!.id)
     })
   })
+
+  describe('hasUnpublishedChanges', () => {
+    it('stays true after save when the document is already published', () => {
+      const store = useStudioStore()
+      store.initPage({ id: 'c1', type: 'statsdata', title: 'Doc', status: 'published' })
+      expect(store.hasUnpublishedChanges).toBe(false)
+      store.setTitle('Modifié')
+      expect(store.hasUnpublishedChanges).toBe(true)
+      store.setSaveStatus('saved')
+      expect(store.isDirty).toBe(false)
+      expect(store.hasUnpublishedChanges).toBe(true)
+    })
+
+    it('initializes from updated_at ahead of last_published_at', () => {
+      const store = useStudioStore()
+      store.initPage({
+        id: 'c1',
+        type: 'statsdata',
+        title: 'Doc',
+        status: 'published',
+        last_published_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-02T00:00:00Z',
+      })
+      expect(store.hasUnpublishedChanges).toBe(true)
+    })
+
+    it('clears after markPublished', () => {
+      const store = useStudioStore()
+      store.initPage({ id: 'c1', type: 'statsdata', title: 'Doc', status: 'published' })
+      store.setTitle('Modifié')
+      store.markPublished({ published_version: 2, last_published_at: '2026-01-03T00:00:00Z' })
+      expect(store.hasUnpublishedChanges).toBe(false)
+      expect(store.content?.published_version).toBe(2)
+    })
+  })
 })

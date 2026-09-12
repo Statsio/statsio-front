@@ -15,6 +15,10 @@ export interface StudioContent {
   published_version?: number | null
   /** ISO — 1re publication. Présent ⇒ l'auteur (profil/chaîne) est verrouillé. */
   first_published_at?: string | null
+  /** ISO — dernière mise en ligne. Sert à détecter un brouillon en avance sur le public. */
+  last_published_at?: string | null
+  /** ISO — dernière sauvegarde du brouillon. */
+  updated_at?: string | null
   /** ISO — mise en ligne programmée. Null = publier immédiatement au prochain « Publier ». */
   scheduled_publish_at?: string | null
   published_as?: 'user' | 'channel' | null
@@ -684,13 +688,17 @@ export interface BlockSource {
   alias?: string
 }
 
-/** Jointure entre deux sources du bloc (graphe : chaînage + self-join possibles). */
+/** Mode de combinaison entre deux sources du bloc. */
+export type BlockJoinType = 'inner' | 'left' | 'union' | 'union_all'
+
+/** Jointure / empilement entre deux sources du bloc (graphe : chaînage + self-join possibles). */
 export interface BlockJoin {
   leftSourceId: string
   leftColumn: string
   rightSourceId: string
   rightColumn: string
-  type: 'inner' | 'left'
+  /** `inner`/`left` = jointure sur clé ; `union`/`union_all` = empilement (pas de clé). */
+  type: BlockJoinType
 }
 
 /**

@@ -27,7 +27,19 @@ onMounted(async () => {
     try {
       const doc = await fetchStatsDataDocument(documentId)
       studio.initPage(
-        { id: doc.id, type: 'statsdata', title: doc.title, status: doc.status as 'draft' | 'published', slug: doc.slug },
+        {
+          id: doc.id,
+          type: 'statsdata',
+          title: doc.title,
+          status: doc.status as 'draft' | 'published',
+          slug: doc.slug,
+          published_version: doc.published_version ?? null,
+          first_published_at: doc.first_published_at ?? null,
+          last_published_at: doc.last_published_at ?? null,
+          updated_at: doc.updated_at ?? null,
+          published_as: doc.published_as ?? null,
+          channel_id: doc.channel_id ?? null,
+        },
         doc.sections,
         doc.blocks,
         doc.pages,
