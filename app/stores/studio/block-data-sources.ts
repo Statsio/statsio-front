@@ -4,10 +4,6 @@ import { scriptIdFromZone, scriptZoneId, scriptZoneBranch } from '@/types/studio
 import { pruneBlockColumnRefs } from '@/lib/studio-block-sources'
 import { getColCount } from '@/stores/studio/canvas'
 
-function uid(): string {
-  return Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
-}
-
 export function useStudioBlockDataSources(deps: {
   blocks: Ref<StudioBlock[]>
   syncAutoPageParam: (blockId: string) => void
