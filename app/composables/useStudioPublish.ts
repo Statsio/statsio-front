@@ -57,15 +57,16 @@ export function useStudioPublish(saveNow: () => Promise<void> | void) {
         // Depuis le Studio, un contenu déjà programmé se publie tout de suite.
         immediate: opts.immediate ?? studio.content?.status === 'scheduled',
       })
-      if (studio.content) {
-        studio.content.status = (updated.status as StudioContent['status']) ?? 'published'
-        studio.content.published_version = updated.published_version ?? nextVersion.value
-        studio.content.first_published_at =
-          updated.first_published_at ?? studio.content.first_published_at
-        studio.content.published_as = updated.published_as ?? studio.content.published_as
-        studio.content.channel_id = updated.channel_id ?? studio.content.channel_id
-        studio.content.scheduled_publish_at = updated.scheduled_publish_at ?? null
-      }
+      studio.markPublished({
+        status: (updated.status as StudioContent['status']) ?? 'published',
+        published_version: updated.published_version ?? nextVersion.value,
+        first_published_at:
+          updated.first_published_at ?? studio.content?.first_published_at ?? new Date().toISOString(),
+        last_published_at: updated.last_published_at ?? new Date().toISOString(),
+        published_as: updated.published_as ?? studio.content?.published_as,
+        channel_id: updated.channel_id ?? studio.content?.channel_id,
+        scheduled_publish_at: updated.scheduled_publish_at ?? null,
+      })
       isOpen.value = false
     } finally {
       isPublishing.value = false

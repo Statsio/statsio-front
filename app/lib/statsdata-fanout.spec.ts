@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { PageParam, StudioDocumentPage } from '@/types/studio'
-import { buildFanOutSegment, fanOutSegmentKeys, findFanOutTarget, fanOutSlugKey, resolveSegment } from './statsdata-fanout'
+import { buildFanOutHref, buildFanOutSegment, fanOutSegmentKeys, findFanOutTarget, fanOutSlugKey, resolveSegment, resolveSegments } from './statsdata-fanout'
 
 const main: StudioDocumentPage = { id: 'main', title: 'National', slug: 'national' }
 const commune: StudioDocumentPage = {
@@ -8,6 +8,12 @@ const commune: StudioDocumentPage = {
   params: [{ name: 'code_commune', column: 'code_commune', slugColumn: 'nom_commune', datasetId: '7', fanOut: true }],
 }
 const pages = [main, commune]
+
+const personne: StudioDocumentPage = {
+  id: 'pers', title: 'Personne', slug: 'personne',
+  params: [{ name: 'q', columns: ['prenom', 'nom'], fanOut: true, hidden: true, searchBlockId: 'b1' }],
+}
+const multiFanOut = [commune, personne]
 
 describe('findFanOutTarget', () => {
   it('returns the first page carrying a fanOut param', () => {
@@ -68,5 +74,28 @@ describe('resolveSegment', () => {
 
   it('returns null page for an empty document', () => {
     expect(resolveSegment('x', [])).toEqual({ page: null, fanOut: null })
+  })
+})
+
+describe('buildFanOutHref / resolveSegments', () => {
+  it('keeps a short URL for the primary fan-out page', () => {
+    expect(buildFanOutHref('doc', commune, 'lyon', multiFanOut)).toBe('/statsdata/doc/lyon')
+  })
+
+  it('scopes secondary fan-out pages under their page slug', () => {
+    expect(buildFanOutHref('doc', personne, 'jean-dupond', multiFanOut))
+      .toBe('/statsdata/doc/personne/jean-dupond')
+  })
+
+  it('resolves a scoped fan-out URL to the matching page', () => {
+    const r = resolveSegments('personne', 'jean-dupond', multiFanOut)
+    expect(r.page?.id).toBe('pers')
+    expect(r.fanOut).toEqual({ param: personne.params![0], segment: 'jean-dupond' })
+  })
+
+  it('still resolves short URLs to the primary fan-out page', () => {
+    const r = resolveSegments('lyon', undefined, multiFanOut)
+    expect(r.page?.id).toBe('com')
+    expect(r.fanOut?.segment).toBe('lyon')
   })
 })

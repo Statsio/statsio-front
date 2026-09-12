@@ -5,7 +5,7 @@ import { useBlockData, rowKey } from '@/composables/useBlockData'
 import { useStudioStore } from '@/stores/studio'
 import { valueLabel } from '@/lib/studio-columns'
 import { formatDisplayValue } from '@/utils/statsDataFormat'
-import { buildFanOutSegment, findFanOutTarget } from '@/lib/statsdata-fanout'
+import { buildFanOutHref, buildFanOutSegment, findFanOutTarget, pageFanOutParam } from '@/lib/statsdata-fanout'
 import { slugify } from '@/lib/slug'
 import type { StudioBlock } from '@/types/studio'
 
@@ -29,7 +29,14 @@ const cols = computed(() => props.block.fieldMapping.columns ?? [])
 const labelCol = computed(() => cols.value[0] ?? '')
 const valueCol = computed(() => cols.value[1] ?? '')
 
-const fanOut = computed(() => findFanOutTarget(studio.pages))
+/** Fan-out de la page du bloc (sinon première page fan-out du document). */
+const fanOut = computed(() => {
+  const pid = studio.pageIdOfBlock(props.block.id)
+  const page = studio.pages.find((p) => p.id === pid)
+  const param = page ? pageFanOutParam(page) : undefined
+  if (page && param) return { page, param }
+  return findFanOutTarget(studio.pages)
+})
 const docSlug = computed(() => String(route.params.slug ?? studio.content?.slug ?? ''))
 
 const items = computed(() => {
@@ -40,7 +47,7 @@ const items = computed(() => {
     let href: string | undefined
     if (fanOut.value && docSlug.value) {
       const seg = buildFanOutSegment(fanOut.value.param, r) || slugify(String(r[labelKey] ?? ''))
-      if (seg) href = `/statsdata/${docSlug.value}/${seg}`
+      if (seg) href = buildFanOutHref(docSlug.value, fanOut.value.page, seg, studio.pages)
     }
     const value = valueKey
       ? (valueLabel(valueCol.value, r[valueKey], props.block) ?? formatDisplayValue(r[valueKey], ''))

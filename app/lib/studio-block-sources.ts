@@ -12,7 +12,7 @@ interface LegacyBlockJoin {
   leftColumn: string
   rightColumn: string
   columns?: string[]
-  type?: 'inner' | 'left'
+  type?: 'inner' | 'left' | 'union' | 'union_all'
 }
 
 function legacyJoinsOf(block: StudioBlock): LegacyBlockJoin[] {
@@ -100,7 +100,7 @@ export function normalizeBlockSources(block: StudioBlock): StudioBlock {
       leftColumn: lj.leftColumn ?? '',
       rightSourceId: sid,
       rightColumn: lj.rightColumn ?? '',
-      type: lj.type === 'inner' ? 'inner' : 'left',
+      type: lj.type === 'inner' || lj.type === 'union' || lj.type === 'union_all' ? lj.type : 'left',
     })
     for (const c of lj.columns ?? []) colToSource.set(c, sid)
   }

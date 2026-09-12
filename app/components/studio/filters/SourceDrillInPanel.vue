@@ -48,9 +48,22 @@ function columnsForSource(id: string): string[] {
 function attachOptions(j: BlockJoin): BlockSource[] {
   return sources.value.filter((s) => s.id !== j.rightSourceId)
 }
-function joinComplete(j: BlockJoin): boolean {
-  return Boolean(j.leftColumn && j.rightColumn && j.leftSourceId && j.rightSourceId)
+function isUnionType(t: BlockJoin['type']): boolean {
+  return t === 'union' || t === 'union_all'
 }
+function joinComplete(j: BlockJoin): boolean {
+  if (!j.leftSourceId || !j.rightSourceId) return false
+  // UNION / UNION ALL empilent les lignes : pas de clé commune requise.
+  if (isUnionType(j.type)) return true
+  return Boolean(j.leftColumn && j.rightColumn)
+}
+
+const JOIN_TYPE_OPTIONS = [
+  { v: 'left', l: 'Garder toutes les lignes de gauche (LEFT)' },
+  { v: 'inner', l: 'Seulement les correspondances (INNER)' },
+  { v: 'union_all', l: 'UNION ALL → empile toutes les lignes, y compris les doublons' },
+  { v: 'union', l: 'UNION → empile les lignes mais supprime les doublons' },
+] as const
 
 function badge(ds: DatasetMeta): string {
   if (ds.sourceKind === 'api') return ds.materialization === 'live' ? 'LIVE' : 'API'
@@ -179,7 +192,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown, true))
               <span
                 class="rounded-full px-2 py-0.5 text-[10px] font-bold"
                 :class="joinComplete(j) ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'"
-              >{{ joinComplete(j) ? '✓ clé définie' : '⚠ à compléter' }}</span>
+              >{{ joinComplete(j)
+                ? (isUnionType(j.type) ? '✓ empilement' : '✓ clé définie')
+                : '⚠ à compléter' }}</span>
             </div>
 
             <div v-if="sources.length > 2" class="mb-2.5">
@@ -193,7 +208,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown, true))
               </select>
             </div>
 
-            <div class="flex items-end gap-2">
+            <div v-if="!isUnionType(j.type)" class="flex items-end gap-2">
               <div class="min-w-0 flex-1">
                 <label class="mb-1 block truncate text-[10.5px] font-semibold text-[var(--studio-muted)]">{{ labelForId(j.leftSourceId) }}</label>
                 <select
@@ -221,12 +236,17 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown, true))
 
             <div class="mt-3 flex flex-col gap-1.5">
               <label
-                v-for="t in ([{ v: 'left', l: 'Garder toutes les lignes de gauche (LEFT)' }, { v: 'inner', l: 'Seulement les correspondances (INNER)' }] as const)"
+                v-for="t in JOIN_TYPE_OPTIONS"
                 :key="t.v"
                 class="flex cursor-pointer items-center gap-2 text-[11.5px]"
                 :class="j.type === t.v ? 'font-bold text-[var(--studio-ink)]' : 'text-[var(--studio-muted)]'"
               >
-                <input type="radio" :checked="j.type === t.v" class="accent-[var(--color-primary)]" @change="drill.patchJoin(ji, { type: t.v })" />
+                <input
+                  type="radio"
+                  :checked="j.type === t.v"
+                  class="accent-[var(--color-primary)]"
+                  @change="drill.patchJoin(ji, isUnionType(t.v) ? { type: t.v, leftColumn: '', rightColumn: '' } : { type: t.v })"
+                />
                 {{ t.l }}
               </label>
             </div>

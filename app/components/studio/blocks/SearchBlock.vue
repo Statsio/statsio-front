@@ -5,7 +5,7 @@ import { fetchBlockData, fetchPublicBlockData } from '@/api/studio'
 import { useStudioStore } from '@/stores/studio'
 import { blockSourceParams, resolveBlockFilterGroups } from '@/composables/useBlockData'
 import { bareNames } from '@/lib/studio-search'
-import { buildFanOutSegment, fanOutSlugKey } from '@/lib/statsdata-fanout'
+import { buildFanOutHref, buildFanOutSegment, fanOutSlugKey } from '@/lib/statsdata-fanout'
 import { isCalcRef, parseColumnRef } from '@/lib/studio-columns'
 import { STUDIO_EMBED_CONTEXT, type StudioEmbedContext } from '@/composables/studioEmbedContext'
 import type { BlockQueryResult, ResultPart, StudioBlock, StudioDocumentPage, PageParam } from '@/types/studio'
@@ -247,19 +247,22 @@ function onSelect(result: SearchResult) {
   }
 
   const param = fanParam.value
+  const page = blockPage.value
   const seg = param ? buildFanOutSegment(param, result.row) : ''
+  const href = (seg && page)
+    ? buildFanOutHref(docSlug.value, page, seg, availablePages.value)
+    : (docSlug.value ? `/statsdata/${docSlug.value}` : '')
 
   // Recherche embarquée dans un article : on quitte l'article pour le Statsdata source.
   if (embed && docSlug.value) {
-    if (seg) router.push(`/statsdata/${docSlug.value}/${seg}`)
-    else router.push(`/statsdata/${docSlug.value}`)
+    if (href) router.push(href)
     return
   }
 
-  // Rendu public : URL indexable /statsdata/{slug}/{segment}.
-  if (props.readonly && docSlug.value && seg) {
+  // Rendu public : URL indexable (courte pour la 1re page fan-out, scoped sinon).
+  if (props.readonly && docSlug.value && seg && href) {
     studio.setPageParams({ ...studio.pageParams, ...rowParams })
-    router.push(`/statsdata/${docSlug.value}/${seg}`)
+    router.push(href)
     return
   }
 

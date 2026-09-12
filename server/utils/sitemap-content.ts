@@ -64,8 +64,11 @@ async function fanOutEntries(
 ): Promise<SitemapUrlEntry[]> {
   const out: SitemapUrlEntry[] = []
   const seen = new Set<string>()
+  const pages = item.pages ?? []
+  const primaryIdx = pages.findIndex((p) => (p.params ?? []).some((x) => x.fanOut && x.name))
 
-  for (const page of item.pages ?? []) {
+  for (let i = 0; i < pages.length; i++) {
+    const page = pages[i]!
     const param = (page.params ?? []).find((p) => p.fanOut && p.name)
     if (!param) continue
     const datasetId = param.datasetId
@@ -73,6 +76,9 @@ async function fanOutEntries(
       ? param.columns
       : [param.slugColumn || param.column].filter((c): c is string => Boolean(c))
     if (!datasetId || !keys.length) continue
+
+    const pageSeg = page.slug || page.id
+    const useShortUrl = i === primaryIdx
 
     try {
       const qs =
@@ -84,10 +90,14 @@ async function fanOutEntries(
       )
       for (const row of res.data?.rows ?? []) {
         const seg = keys.map((k) => slugify(row[k])).filter(Boolean).join('-')
-        if (!seg || seen.has(seg)) continue
+        if (!seg) continue
+        const loc = useShortUrl || !pageSeg
+          ? `${basePath}/statsdata/${item.slug}/${seg}`
+          : `${basePath}/statsdata/${item.slug}/${pageSeg}/${seg}`
+        if (seen.has(loc)) continue
         if (seen.size >= FANOUT_URL_CAP) break
-        seen.add(seg)
-        out.push({ loc: `${basePath}/statsdata/${item.slug}/${seg}`, lastmod: item.updated_at })
+        seen.add(loc)
+        out.push({ loc, lastmod: item.updated_at })
       }
     } catch {
       // best effort — une source injoignable ne casse pas le sitemap

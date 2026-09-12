@@ -46,7 +46,7 @@ export const useStudioStore = defineStore('studio', () => {
   // `fallbackZoneId` → `addSection`) : liaison tardive via deux `let` assignés
   // juste après construction, résolus uniquement à l'appel (jamais pendant le setup).
 
-  const saveStatusApi = useStudioSaveStatus()
+  const saveStatusApi = useStudioSaveStatus({ content })
   const premiumApi = useStudioPremium({ content, blocks })
   const mobileSheetApi = useStudioMobileSheet()
   const historyApi = useStudioHistory({
@@ -174,7 +174,7 @@ export const useStudioStore = defineStore('studio', () => {
 
     selectedBlockId.value = null
     selectedSectionId.value = null
-    saveStatusApi.resetSaveStatus()
+    saveStatusApi.resetSaveStatus(pageContent)
     historyApi.resetHistory()
   }
 
@@ -242,6 +242,7 @@ export const useStudioStore = defineStore('studio', () => {
     saveErrorStatus: saveStatusApi.saveErrorStatus,
     isDirty: saveStatusApi.isDirty,
     dirtyVersion: saveStatusApi.dirtyVersion,
+    hasUnpublishedChanges: saveStatusApi.hasUnpublishedChanges,
     isPreview,
     premiumBlockTypes: premiumApi.premiumBlockTypes,
     premiumBlockOffers: premiumApi.premiumBlockOffers,
@@ -327,6 +328,7 @@ export const useStudioStore = defineStore('studio', () => {
     setSaveStatus: saveStatusApi.setSaveStatus,
     setSaveError: saveStatusApi.setSaveError,
     markDirty: saveStatusApi.markDirty,
+    markPublished: saveStatusApi.markPublished,
     beginBatch: historyApi.beginBatch,
     endBatch: historyApi.endBatch,
     undo: historyApi.undo,
