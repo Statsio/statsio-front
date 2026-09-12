@@ -3,8 +3,12 @@ import {
   CONTENT_TYPE_META,
   canonicalContentPath,
   getStatusMeta,
+  publicChannelListPath,
+  publicChannelPath,
   publicContentListPath,
   publicContentPath,
+  publicDossierListPath,
+  publicDossierPath,
 } from './content-display'
 
 describe('CONTENT_TYPE_META', () => {
@@ -61,6 +65,40 @@ describe('publicContentListPath', () => {
 
   it('prefixes the path with a base path when provided', () => {
     expect(publicContentListPath('article', '/tvstats')).toBe('/tvstats/articles')
+  })
+})
+
+describe('publicDossierPath', () => {
+  it('builds the dossier detail path', () => {
+    expect(publicDossierPath('guerre-en-ukraine')).toBe('/dossiers/guerre-en-ukraine')
+  })
+
+  it('prefixes the path with a base path when provided', () => {
+    expect(publicDossierPath('guerre-en-ukraine', '/tvstats')).toBe('/tvstats/dossiers/guerre-en-ukraine')
+  })
+})
+
+describe('publicDossierListPath', () => {
+  it('builds the dossier list path', () => {
+    expect(publicDossierListPath()).toBe('/dossiers')
+    expect(publicDossierListPath('/medistats')).toBe('/medistats/dossiers')
+  })
+})
+
+describe('publicChannelPath', () => {
+  it('builds the channel detail path', () => {
+    expect(publicChannelPath('@statsio')).toBe('/channels/%40statsio')
+  })
+
+  it('prefixes the path with a base path when provided', () => {
+    expect(publicChannelPath('tf1', '/tvstats')).toBe('/tvstats/channels/tf1')
+  })
+})
+
+describe('publicChannelListPath', () => {
+  it('builds the channel list path', () => {
+    expect(publicChannelListPath()).toBe('/chaines')
+    expect(publicChannelListPath('/medistats')).toBe('/medistats/chaines')
   })
 })
 

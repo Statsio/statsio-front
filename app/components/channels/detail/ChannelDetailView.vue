@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useChannelProfile } from '@/composables/useChannelProfile'
+import { useContentBasePath } from '@/composables/useContentBasePath'
+import { publicChannelListPath, publicChannelPath } from '@/lib/content-display'
 import { breadcrumbNode, channelNode } from '@/lib/structured-data'
 import type { CatalogSort } from '@/types/catalog'
 import ArticleCard from '@/components/content/ArticleCard.vue'
@@ -36,9 +38,14 @@ const {
   isFavorited,
 } = useChannelProfile()
 
+const basePath = useContentBasePath()
 const requestUrl = useRequestURL()
+const listPath = computed(() => publicChannelListPath(basePath.value))
+const canonicalPath = computed(() =>
+  channel.value ? publicChannelPath(channel.value.handle) : undefined,
+)
 const channelUrl = computed(() =>
-  channel.value ? `${requestUrl.origin}/channels/${channel.value.handle}` : requestUrl.origin,
+  canonicalPath.value ? `${requestUrl.origin}${canonicalPath.value}` : requestUrl.origin,
 )
 
 usePageSeo({
@@ -46,16 +53,16 @@ usePageSeo({
   description: computed(() => channel.value?.description),
   image: computed(() => channel.value?.logoUrl ?? undefined),
   type: 'profile',
-  canonical: computed(() => (channel.value ? `/channels/${channel.value.handle}` : undefined)),
+  canonical: canonicalPath,
   jsonLd: computed(() => {
     const c = channel.value
-    if (!c) return []
+    if (!c || !canonicalPath.value) return []
     return [
       breadcrumbNode(
         [
           { name: 'Accueil', path: '/' },
           { name: 'Chaînes', path: '/chaines' },
-          { name: c.name, path: `/channels/${c.handle}` },
+          { name: c.name, path: canonicalPath.value },
         ],
         requestUrl.origin,
       ),
@@ -108,6 +115,7 @@ const hasAnyContent = computed(
         :articles-count="counts.articles"
         :stats-data-count="counts.statsdata"
         :surveys-count="counts.surveys"
+        :list-path="listPath"
         @toggle-follow="toggleFollow"
       />
 

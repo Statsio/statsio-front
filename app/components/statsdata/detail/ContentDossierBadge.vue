@@ -1,19 +1,26 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
+import { useContentBasePath } from '@/composables/useContentBasePath'
+import { publicDossierPath } from '@/lib/content-display'
 
 type Dossier = { slug: string; name: string }
 
 const props = defineProps<{ dossiers?: (Dossier | null | undefined)[] | null }>()
 
-const list = computed(() => (props.dossiers ?? []).filter((d): d is Dossier => Boolean(d?.slug && d?.name)))
+const basePath = useContentBasePath()
+const list = computed(() =>
+  (props.dossiers ?? [])
+    .filter((d): d is Dossier => Boolean(d?.slug && d?.name))
+    .map((d) => ({ ...d, to: publicDossierPath(d.slug, basePath.value) })),
+)
 </script>
 
 <template>
   <RouterLink
     v-for="dossier in list"
     :key="dossier.slug"
-    :to="`/dossiers/${dossier.slug}`"
+    :to="dossier.to"
     :title="`Dossier : ${dossier.name}`"
     class="inline-flex max-w-full items-center gap-1.5 rounded-full border border-[var(--color-primary)]/20 bg-[var(--color-primary)]/[0.06] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-primary)] transition hover:border-[var(--color-primary)]/40 hover:bg-[var(--color-primary)]/10"
   >

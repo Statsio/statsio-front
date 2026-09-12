@@ -1,6 +1,10 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { mount, RouterLinkStub } from '@vue/test-utils'
 import ContentDossierBadge from './ContentDossierBadge.vue'
+
+vi.mock('@/composables/useContentBasePath', () => ({
+  useContentBasePath: () => ({ value: '' }),
+}))
 
 const global = { stubs: { RouterLink: RouterLinkStub } }
 

@@ -1,8 +1,12 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { mount, RouterLinkStub } from '@vue/test-utils'
 import ContentCardDossierTag from './ContentCardDossierTag.vue'
 
-const global = { stubs: { NuxtLink: RouterLinkStub } }
+vi.mock('@/composables/useContentBasePath', () => ({
+  useContentBasePath: () => ({ value: '' }),
+}))
+
+const global = { stubs: { NuxtLink: RouterLinkStub, AppIcon: true } }
 
 describe('ContentCardDossierTag', () => {
   it('renders the dossier name when a dossier is linked', () => {

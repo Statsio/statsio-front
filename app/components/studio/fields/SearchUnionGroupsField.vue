@@ -119,9 +119,12 @@ function toggleColumn(group: SearchUnionGroup, columnName: string, alt: boolean)
       <FieldNote>
         Ces sources n'ont pas besoin de colonne commune avec la source principale :
         chaque source est cherchée séparément et les résultats sont empilés dans la
-        même liste. Le titre/la description d'un résultat de ces sources suit
-        automatiquement la première colonne de recherche trouvée (pas de mise en
-        forme personnalisée, contrairement à la source principale).
+        même liste (équivalent d'un
+        <strong>UNION ALL</strong> → empile toutes les lignes, y compris les doublons ;
+        un <strong>UNION</strong> empilerait les lignes mais supprimerait les doublons).
+        Le titre/la description d'un résultat de ces sources suit automatiquement la
+        première colonne de recherche trouvée (pas de mise en forme personnalisée,
+        contrairement à la source principale).
       </FieldNote>
     </div>
   </StudioField>
