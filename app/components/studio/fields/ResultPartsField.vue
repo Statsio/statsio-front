@@ -4,7 +4,13 @@ import { columnRefLabel } from '@/lib/studio-columns'
 import { useColumnDrillIn } from '@/composables/useColumnDrillIn'
 import type { ResultPart, StudioBlock } from '@/types/studio'
 
-const props = defineProps<{ block: StudioBlock; modelValue: ResultPart[]; mode: 'title' | 'desc' }>()
+const props = defineProps<{
+  block: StudioBlock
+  modelValue: ResultPart[]
+  mode: 'title' | 'desc'
+  /** Verrouille le choix de colonne sur une source (mode UNION). */
+  sourceId?: string
+}>()
 const emit = defineEmits<{ (e: 'update:modelValue', v: ResultPart[]): void }>()
 
 const datasets = useStudioDatasetsStore()
@@ -33,6 +39,7 @@ function pickColumn(i: number) {
     block: props.block,
     title: props.mode === 'title' ? 'Colonne du titre' : 'Colonne de la description',
     selected: parts()[i]?.ref ? [parts()[i]!.ref] : [],
+    sourceId: props.sourceId,
     onCommit: (refs) => { if (refs[0]) update(i, { ref: refs[0] }) },
   })
 }
@@ -41,6 +48,7 @@ function addPart() {
     block: props.block,
     title: props.mode === 'title' ? 'Colonne du titre' : 'Colonne de la description',
     selected: [],
+    sourceId: props.sourceId,
     onCommit: (refs) => { if (refs[0]) write([...parts(), { ref: refs[0] }]) },
   })
 }
