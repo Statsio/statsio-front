@@ -12,6 +12,8 @@ updates:
         patterns: ["nuxt", "vue", "@nuxt/*", "@vue/*"]
       tiptap:
         patterns: ["@tiptap/*"]
+      oxlint:
+        patterns: ["oxlint", "eslint-plugin-oxlint"]
     labels: ["dependencies", "js"]
 
   - package-ecosystem: "github-actions"
