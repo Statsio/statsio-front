@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { fetchBlockData, fetchPublicBlockData } from '@/api/studio'
 import { useStudioStore } from '@/stores/studio'
 import { blockSourceParams, resolveBlockFilterGroups } from '@/composables/useBlockData'
-import { bareNames, fanOutColumnsForSource, identityBareNamesForSource, isUnionBlock, pageParamsFromUnionRow, unionSourceIds } from '@/lib/studio-search'
+import { bareNames, fanOutColumnsForSource, identityBareNamesForSource, isUnionBlock, pageParamsFromUnionRow, resultPartsForSource, unionSourceIds } from '@/lib/studio-search'
 import { buildFanOutHref, buildFanOutSegment, fanOutSlugKey } from '@/lib/statsdata-fanout'
 import { isCalcRef, parseColumnRef, primarySourceId } from '@/lib/studio-columns'
 import { STUDIO_EMBED_CONTEXT, type StudioEmbedContext } from '@/composables/studioEmbedContext'
@@ -105,34 +105,45 @@ function rowSourceId(row: Record<string, unknown>): string {
 }
 
 function buildTitle(row: Record<string, unknown>, columnMap?: Record<string, string>): string {
-  if (!titleParts.value.length) {
+  const sourceId = rowSourceId(row)
+  const parts = (isUnionBlock(props.block) && sourceId)
+    ? resultPartsForSource(titleParts.value, sourceId, primarySourceId(props.block))
+    : titleParts.value
+
+  if (!parts.length) {
     // Repli : 1re colonne recherchée qui contient la requête, sinon la 1re.
     const q = query.value.toLowerCase()
-    const sourceId = rowSourceId(row)
     const cols = (isUnionBlock(props.block) && sourceId)
       ? fanOutColumnsForSource(props.block, sourceId, row)
       : searchCols.value
     const hit = cols.find((c) => String(row[c] ?? '').toLowerCase().includes(q))
     return String(row[hit ?? cols[0] ?? ''] ?? '')
   }
-  return titleParts.value
+  return parts
     .map((p) => `${p.prefix ?? ''}${cellValue(row, p.ref, columnMap)}${p.suffix ?? ''}`)
     .join(titleSeparator.value)
     .trim()
 }
 
 function buildSubValues(row: Record<string, unknown>, columnMap?: Record<string, string>) {
-  if (descParts.value.length) {
-    return descParts.value
+  const sourceId = rowSourceId(row)
+  const parts = (isUnionBlock(props.block) && sourceId)
+    ? resultPartsForSource(descParts.value, sourceId, primarySourceId(props.block))
+    : descParts.value
+
+  if (parts.length) {
+    return parts
       .map((p) => ({ label: partLabel(p), value: cellValue(row, p.ref, columnMap) }))
       .filter((s) => s.value !== '')
   }
   // Repli : colonnes recherchées non utilisées dans le titre.
-  const sourceId = rowSourceId(row)
+  const titleForSource = (isUnionBlock(props.block) && sourceId)
+    ? resultPartsForSource(titleParts.value, sourceId, primarySourceId(props.block))
+    : titleParts.value
   const cols = (isUnionBlock(props.block) && sourceId)
     ? fanOutColumnsForSource(props.block, sourceId, row)
     : searchCols.value
-  const titleCols = new Set(titleParts.value.map((p) => parseColumnRef(p.ref).name))
+  const titleCols = new Set(titleForSource.map((p) => parseColumnRef(p.ref).name))
   return cols
     .filter((c) => !titleCols.has(parseColumnRef(c).name) && row[c] != null && row[c] !== '')
     .map((c) => ({ label: parseColumnRef(c).name, value: String(row[c]) }))
