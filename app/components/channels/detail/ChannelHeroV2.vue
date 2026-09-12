@@ -15,6 +15,7 @@ const props = defineProps<{
   articlesCount: number
   statsDataCount: number
   surveysCount: number
+  listPath?: string
 }>()
 
 const emit = defineEmits<{ 'toggle-follow': [] }>()
@@ -41,7 +42,7 @@ const isShareOpen = ref(false)
   <section class="relative overflow-hidden text-white" :style="{ background: heroGradient }">
     <div class="relative mx-auto max-w-[1240px] px-4 pt-4 sm:px-6 lg:px-8">
       <nav class="mb-4 flex flex-wrap items-center gap-2 text-[12.5px] font-semibold" aria-label="Fil d'Ariane">
-        <NuxtLink to="/chaines" class="text-white/70 transition-colors hover:text-white">Chaînes</NuxtLink>
+        <NuxtLink :to="listPath || '/chaines'" class="text-white/70 transition-colors hover:text-white">Chaînes</NuxtLink>
         <span class="text-white/40" aria-hidden="true">/</span>
         <span class="min-w-0 truncate text-white">{{ channel.name }}</span>
       </nav>

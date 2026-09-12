@@ -5,6 +5,7 @@ import { useDossierFollows } from '@/composables/useDossierFollows'
 import { useContentBasePath } from '@/composables/useContentBasePath'
 import { catalogThemeStyle } from '@/lib/catalog-theme'
 import { formatCatalogCount, formatRelativePublished } from '@/lib/catalog-format'
+import { publicDossierPath } from '@/lib/content-display'
 import CatalogHero from '@/components/listing/CatalogHero.vue'
 import CatalogToolbar from '@/components/listing/CatalogToolbar.vue'
 import CatalogSearchField from '@/components/listing/CatalogSearchField.vue'
@@ -128,7 +129,7 @@ const featuredStyle = computed(() => catalogThemeStyle(featured.value?.category?
       <template v-else-if="catalog.meta.total > 0">
         <NuxtLink
           v-if="featured"
-          :to="`/dossiers/${featured.slug}`"
+          :to="publicDossierPath(featured.slug, basePath)"
           class="group mb-[22px] grid overflow-hidden rounded-[22px] border-[1.5px] border-slate-950/[0.06] bg-white shadow-[0_1px_3px_rgba(20,20,30,0.06)] transition hover:border-[#c4b5fd] md:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]"
         >
           <span class="relative block min-h-[240px]">

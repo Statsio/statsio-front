@@ -23,8 +23,8 @@ const { data } = useAsyncData('tvstats-header-nav', () =>
   Promise.all([
     loadAudiencesMenu(categoryPalette),
     loadProgrammeTvMenu(categoryPalette),
-    loadDossiersMenu(categoryPalette, 'tvstats'),
-    loadChannelsMenu(categoryPalette, 'tvstats'),
+    loadDossiersMenu(categoryPalette, 'tvstats', '/tvstats'),
+    loadChannelsMenu(categoryPalette, 'tvstats', '/tvstats'),
   ]),
 )
 

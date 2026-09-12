@@ -4,6 +4,8 @@ import type { ChannelCatalogItem } from '@/types/channel-catalog'
 import { formatCompactNumber, getNameInitials } from '@/lib/format'
 import { channelBannerStyle, resolveChannelColors } from '@/lib/channel-brand'
 import { CHANNEL_KIND_STYLE, CHANNEL_PACE_STYLE } from '@/lib/channel-catalog-display'
+import { useContentBasePath } from '@/composables/useContentBasePath'
+import { publicChannelPath } from '@/lib/content-display'
 
 const props = defineProps<{
   item: ChannelCatalogItem
@@ -16,7 +18,8 @@ const emit = defineEmits<{
   'select-tag': [string]
 }>()
 
-const to = computed(() => `/channels/${encodeURIComponent(props.item.handle)}`)
+const basePath = useContentBasePath()
+const to = computed(() => publicChannelPath(props.item.handle, basePath.value))
 
 const colors = computed(() =>
   resolveChannelColors(

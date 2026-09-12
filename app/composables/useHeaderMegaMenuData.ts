@@ -20,7 +20,7 @@ import { CATALOG_FORMAT_STYLE, catalogThemeStyle } from '@/lib/catalog-theme'
 import { getSurveyKindMeta } from '@/lib/poll-visuals'
 import { surveyCardMeta } from '@/lib/survey-card'
 import { resolveChannelColors } from '@/lib/channel-brand'
-import { publicContentListPath, publicContentPath } from '@/lib/content-display'
+import { publicChannelListPath, publicChannelPath, publicContentListPath, publicContentPath, publicDossierListPath, publicDossierPath } from '@/lib/content-display'
 import type {
   MegaMenuCategory,
   MegaMenuContent,
@@ -226,14 +226,14 @@ export async function loadSurveyMenu(
   }
 }
 
-export async function loadChannelsMenu(palette: string[], subBrand?: SubBrand): Promise<HeaderMenuData> {
+export async function loadChannelsMenu(palette: string[], subBrand?: SubBrand, basePath = ''): Promise<HeaderMenuData> {
   try {
     const res = await fetchChannelCatalog({ sort: 'trend', per_page: 3, ...(subBrand ? { sub_brand: subBrand } : {}) })
     const categories: MegaMenuCategory[] = res.facets.themes.slice(0, 6).map((facet, index) => ({
       name: facet.label,
       color: paletteColor(palette, index),
       count: facet.count,
-      href: `/chaines?category=${encodeURIComponent(facet.value)}`,
+      href: `${publicChannelListPath(basePath)}?category=${encodeURIComponent(facet.value)}`,
     }))
     const cards: MegaMenuChannelCard[] = res.data.map((channel) => {
       const colors = resolveChannelColors(
@@ -255,7 +255,7 @@ export async function loadChannelsMenu(palette: string[], subBrand?: SubBrand): 
         logoUrl: channel.logo_url ?? null,
         avatarPrimary: colors.primary,
         avatarSecondary: colors.secondary,
-        href: `/channels/${encodeURIComponent(channel.handle)}`,
+        href: publicChannelPath(channel.handle, basePath),
       }
     })
     return withLinks(categories, { variant: 'plane', cards })
@@ -264,7 +264,7 @@ export async function loadChannelsMenu(palette: string[], subBrand?: SubBrand): 
   }
 }
 
-export async function loadDossiersMenu(palette: string[], subBrand?: SubBrand): Promise<HeaderMenuData> {
+export async function loadDossiersMenu(palette: string[], subBrand?: SubBrand, basePath = ''): Promise<HeaderMenuData> {
   try {
     const res = await fetchDossierCatalog({ sort: 'maj', per_page: 3, ...(subBrand ? { sub_brand: subBrand } : {}) })
     const categories: MegaMenuCategory[] = res.facets.categories
@@ -274,7 +274,7 @@ export async function loadDossiersMenu(palette: string[], subBrand?: SubBrand): 
         name: facet.label,
         color: paletteColor(palette, index),
         count: facet.count,
-        href: `/dossiers?cat=${encodeURIComponent(facet.value)}`,
+        href: `${publicDossierListPath(basePath)}?cat=${encodeURIComponent(facet.value)}`,
       }))
     const pool = [res.featured, ...res.data].filter((d): d is DossierCatalogItem => !!d)
     const seen = new Set<string>()
@@ -290,7 +290,7 @@ export async function loadDossiersMenu(palette: string[], subBrand?: SubBrand): 
         logoUrl: dossier.image_url ?? null,
         avatarPrimary: style.dot,
         avatarSecondary: style.fg,
-        href: `/dossiers/${dossier.slug}`,
+        href: publicDossierPath(dossier.slug, basePath),
       })
       if (cards.length >= 3) break
     }

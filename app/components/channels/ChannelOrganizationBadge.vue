@@ -3,15 +3,18 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import AppTooltip from '@/components/ui/AppTooltip.vue'
 import type { ChannelOrganization } from '@/api/channels'
+import { useContentBasePath } from '@/composables/useContentBasePath'
+import { publicChannelPath } from '@/lib/content-display'
 
 const props = withDefaults(defineProps<{ organization: ChannelOrganization; size?: 'sm' | 'md' }>(), { size: 'md' })
 
 const router = useRouter()
+const basePath = useContentBasePath()
 
 const logoUrl = computed(() => props.organization.principal_channel?.profile?.logo_url ?? null)
 const principalHandle = computed(() => props.organization.principal_channel?.profile?.handle ?? null)
 const principalPath = computed(() =>
-  principalHandle.value ? `/channels/${encodeURIComponent(principalHandle.value)}` : null,
+  principalHandle.value ? publicChannelPath(principalHandle.value, basePath.value) : null,
 )
 
 // Le badge est souvent imbriqué dans un RouterLink (carte de chaîne) : on utilise un

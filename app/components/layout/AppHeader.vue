@@ -16,6 +16,7 @@ import { getErrorMessage } from '@/lib/http-errors'
 import { useAuthStore } from '@/stores/auth'
 import { useClickOutside } from '@/composables/useClickOutside'
 import { fetchPinnedDossiers } from '@/api/dossiers'
+import { publicDossierPath } from '@/lib/content-display'
 import { storeToRefs } from 'pinia'
 import { usePrefsStore } from '@/stores/prefs'
 
@@ -43,7 +44,7 @@ const adminUrl = useRuntimeConfig().public.adminUrl
 const currentBrand = computed(() => getBrandFromPath(route.path))
 
 // Dossiers épinglés depuis le back-office (toggle « Épinglé dans le header »).
-// Affichés en badges après les rubriques ; chaque badge pointe vers /dossiers/{slug}.
+// Affichés en badges après les rubriques ; chaque badge pointe vers {base}/dossiers/{slug}.
 // Scopés à la marque courante pour ne pas mélanger les dossiers Statsio/TVStats/Medistats.
 const { data: pinnedDossiers } = useAsyncData(
   'header-pinned-dossiers',
@@ -370,7 +371,7 @@ onBeforeUnmount(() => {
             <RouterLink
               v-for="entry in trackDossiers"
               :key="entry.key"
-              :to="`/dossiers/${entry.dossier.slug}`"
+              :to="publicDossierPath(entry.dossier.slug, currentBrand.contentBasePath)"
               :aria-hidden="entry.clone ? 'true' : undefined"
               :tabindex="entry.clone ? -1 : undefined"
               class="dossier-item group inline-flex shrink-0 items-center gap-1.5 rounded-full border border-primary/20 bg-primary/[0.06] px-2.5 py-1 text-[12px] font-bold text-primary transition hover:border-primary/40 hover:bg-primary/10"
