@@ -32,6 +32,8 @@ interface OpenOpts {
   allowNone?: boolean
   noneLabel?: string
   selected?: string[]
+  /** Verrouille le drill-in sur une source (saute l'étape « choisir la source »). */
+  sourceId?: string
   onCommit: (refs: string[]) => void
 }
 
@@ -77,6 +79,9 @@ export function useColumnDrillIn() {
   function open(opts: OpenOpts) {
     // Le groupe « Calculées » n'a pas de sourceId → ne compte pas pour l'étape source.
     const realSources = blockColumnGroups(opts.block, datasets).filter((g) => g.sourceId)
+    const locked = opts.sourceId && realSources.some((g) => g.sourceId === opts.sourceId)
+      ? opts.sourceId
+      : null
     onCommit = opts.onCommit
     Object.assign(state, {
       open: true,
@@ -87,9 +92,9 @@ export function useColumnDrillIn() {
       title: opts.title,
       selected: [...(opts.selected ?? [])],
       calcDraft: null,
-      skipSource: realSources.length <= 1,
-      sourceId: realSources.length <= 1 ? (realSources[0]?.sourceId ?? primarySourceId(opts.block)) : null,
-      step: realSources.length <= 1 ? 'column' : 'source',
+      skipSource: !!locked || realSources.length <= 1,
+      sourceId: locked ?? (realSources.length <= 1 ? (realSources[0]?.sourceId ?? primarySourceId(opts.block)) : null),
+      step: locked || realSources.length <= 1 ? 'column' : 'source',
     })
   }
 

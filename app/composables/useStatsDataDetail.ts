@@ -6,6 +6,8 @@ import { useStudioStore } from '@/stores/studio'
 import type { PageParam, StudioBlock, StudioDocumentPage } from '@/types/studio'
 import { buildFanOutSegment, fanOutSegmentKeys, fanOutSlugKey, resolveSegments } from '@/lib/statsdata-fanout'
 import { blockSourceParams } from '@/composables/useBlockData'
+import { fanOutColumnsForSource, isUnionBlock, pageParamsFromUnionRow } from '@/lib/studio-search'
+import { primarySourceId } from '@/lib/studio-columns'
 import { slugify } from '@/lib/slug'
 
 function queryToParams(q: import('vue-router').LocationQuery): Record<string, string> {
@@ -81,12 +83,25 @@ export function useStatsDataDetail() {
             searchColumns: searchRefs,
             limit: 30,
           })
-          const match = res.rows.find((row) => buildFanOutSegment(param, row) === seg)
-          if (match) {
-            const rowParams: Record<string, string> = {}
-            for (const [col, val] of Object.entries(match)) {
-              if (val !== null && val !== undefined && val !== '') rowParams[col] = String(val)
+          const match = res.rows.find((row) => {
+            if (isUnionBlock(searchBlock)) {
+              const sourceId = String(row.__source_id ?? primarySourceId(searchBlock) ?? '')
+              if (!sourceId) return false
+              const cols = fanOutColumnsForSource(searchBlock, sourceId, row)
+              if (!cols.length) return false
+              return buildFanOutSegment({ ...param, columns: cols }, row) === seg
             }
+            return buildFanOutSegment(param, row) === seg
+          })
+          if (match) {
+            const sourceId = String(match.__source_id ?? primarySourceId(searchBlock) ?? '')
+            const rowParams = (isUnionBlock(searchBlock) && sourceId)
+              ? pageParamsFromUnionRow(searchBlock, sourceId, match)
+              : Object.fromEntries(
+                  Object.entries(match)
+                    .filter(([k, val]) => !k.startsWith('__') && val !== null && val !== undefined && val !== '')
+                    .map(([k, val]) => [k, String(val)]),
+                )
             studio.setPageParams(rowParams)
             fanOutHydrated.value = true
             return

@@ -34,6 +34,94 @@ export function searchColumnsForSource(block: StudioBlock, sourceId: string): st
   })
 }
 
+/** Le graphe du bloc empile des sources (UNION / UNION ALL) plutôt que de les joindre. */
+export function isUnionBlock(block: StudioBlock): boolean {
+  return (block.joins ?? []).some((j) => j.type === 'union' || j.type === 'union_all')
+}
+
+/**
+ * Sources du graphe en mode UNION : primaire d'abord, puis les autres dans
+ * l'ordre de `sources[]` (stable pour l'UI).
+ */
+export function unionSourceIds(block: StudioBlock): string[] {
+  const sources = block.sources ?? []
+  if (!sources.length) return []
+  const primary = block.primarySourceId ?? sources[0]!.id
+  const rest = sources.map((s) => s.id).filter((id) => id !== primary)
+  return [primary, ...rest]
+}
+
+/** Noms nus des colonnes d'identité d'une source (pour le segment fan-out). */
+export function identityBareNamesForSource(block: StudioBlock, sourceId: string): string[] {
+  return bareNames(searchColumnsForSource(block, sourceId))
+}
+
+/**
+ * Clés de ligne à utiliser pour le segment fan-out d'une source : préfère
+ * `name@sourceId` si présent sur la ligne (collision de noms), sinon le nom nu.
+ */
+export function fanOutColumnsForSource(
+  block: StudioBlock,
+  sourceId: string,
+  row: Record<string, unknown>,
+): string[] {
+  return searchColumnsForSource(block, sourceId).map((ref) => {
+    const { name } = parseColumnRef(ref)
+    const qualified = `${name}@${sourceId}`
+    if (row[qualified] != null && row[qualified] !== '') return qualified
+    if (row[ref] != null && row[ref] !== '') return ref
+    return name
+  })
+}
+
+/**
+ * pageParams issus d'une ligne UNION : uniquement les valeurs non vides de la
+ * source d'origine (+ noms nus d'identité pour les jetons / l'URL).
+ */
+export function pageParamsFromUnionRow(
+  block: StudioBlock,
+  sourceId: string,
+  row: Record<string, unknown>,
+): Record<string, string> {
+  const params: Record<string, string> = {}
+  for (const [k, v] of Object.entries(row)) {
+    if (k.startsWith('__')) continue
+    if (v == null || v === '') continue
+    if (k.includes('@')) {
+      const { name, sourceId: sid } = parseColumnRef(k)
+      if (sid && sid !== sourceId) continue
+      params[k] = String(v)
+      if (name && params[name] == null) params[name] = String(v)
+      continue
+    }
+    params[k] = String(v)
+  }
+  for (const ref of searchColumnsForSource(block, sourceId)) {
+    const { name } = parseColumnRef(ref)
+    const qualified = `${name}@${sourceId}`
+    const val = row[qualified] ?? row[ref] ?? row[name]
+    if (val != null && val !== '') params[name] = String(val)
+  }
+  return params
+}
+
+/**
+ * Remplace les colonnes de recherche d'une source dans la liste plate, en
+ * conservant l'ordre relatif des autres sources.
+ */
+export function mergeSearchColumnsForSource(
+  allRefs: readonly string[],
+  sourceId: string,
+  nextForSource: readonly string[],
+  primarySourceId: string | undefined,
+): string[] {
+  const kept = allRefs.filter((ref) => {
+    const { sourceId: sid } = parseColumnRef(ref)
+    return (sid ?? primarySourceId) !== sourceId
+  })
+  return [...kept, ...nextForSource]
+}
+
 /**
  * Nom du paramètre point-barre auto-déclaré : `q`, ou `q_<id>` si `q` est déjà
  * pris par un vrai paramètre / une colonne de la page.

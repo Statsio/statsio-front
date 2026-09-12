@@ -4,7 +4,13 @@ import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import { columnRefLabel, primarySourceId } from '@/lib/studio-columns'
 import { blockDatasetIds } from '@/lib/studio-block-sources'
-import type { ResultPart, StudioBlock } from '@/types/studio'
+import {
+  isUnionBlock,
+  mergeSearchColumnsForSource,
+  searchColumnsForSource,
+  unionSourceIds,
+} from '@/lib/studio-search'
+import type { BlockSource, ResultPart, StudioBlock } from '@/types/studio'
 import StudioField from './StudioField.vue'
 import ResultPartsField from './ResultPartsField.vue'
 import SearchColumnsPicker from './SearchColumnsPicker.vue'
@@ -22,6 +28,13 @@ const descParts = computed<ResultPart[]>(() => fm.value.resultDescParts ?? [])
 const separator = computed(() => props.block.config.resultTitleSeparator ?? ' ')
 
 const hasSource = computed(() => Boolean(primarySourceId(props.block)))
+const unionMode = computed(() => isUnionBlock(props.block))
+const unionSources = computed(() => {
+  const byId = new Map((props.block.sources ?? []).map((s) => [s.id, s]))
+  return unionSourceIds(props.block)
+    .map((id) => byId.get(id))
+    .filter((s): s is BlockSource => Boolean(s))
+})
 
 watch(
   () => [props.block.id, JSON.stringify(props.block.sources ?? []), JSON.stringify(props.block.joins ?? [])].join('|'),
@@ -31,8 +44,16 @@ watch(
 
 const label = (ref: string) => columnRefLabel(ref, props.block, datasets)
 
+function sourceLabel(s: BlockSource): string {
+  return s.alias || datasets.readyDatasets.find((d) => d.id === s.datasetId)?.name || s.id
+}
+
 function setSearchColumns(refs: string[]) {
   studio.updateBlockFieldMapping(props.block.id, { searchColumns: refs.length ? refs : undefined })
+}
+function setSearchColumnsForSource(sourceId: string, refs: string[]) {
+  const primary = primarySourceId(props.block)
+  setSearchColumns(mergeSearchColumnsForSource(searchColumns.value, sourceId, refs, primary))
 }
 function setSearchAltColumns(refs: string[]) {
   studio.updateBlockFieldMapping(props.block.id, { searchAltColumns: refs.length ? refs : undefined })
@@ -72,7 +93,25 @@ const SEP_OPTS = [
 
     <template v-else>
       <div class="flex flex-col gap-2.5">
+        <template v-if="unionMode">
+          <p class="text-[11px] leading-relaxed text-[var(--studio-faint)]">
+            Mode UNION : choisissez les colonnes d'identité (et d'URL) pour chaque source.
+            Au clic sur un résultat, seuls les paramètres de sa source d'origine sont posés.
+          </p>
+          <SearchColumnsPicker
+            v-for="s in unionSources"
+            :key="s.id"
+            :block="block"
+            :source-id="s.id"
+            :model-value="searchColumnsForSource(block, s.id)"
+            :label="`Colonnes de recherche — ${sourceLabel(s)}`"
+            hint="forme l'URL de cette source"
+            add-label="+ Choisir les colonnes"
+            @update:model-value="setSearchColumnsForSource(s.id, $event)"
+          />
+        </template>
         <SearchColumnsPicker
+          v-else
           :block="block"
           :model-value="searchColumns"
           label="Colonnes de recherche"
