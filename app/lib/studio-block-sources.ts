@@ -173,12 +173,11 @@ export function pruneBlockColumnRefs(block: StudioBlock, dropBareRefs = false): 
   block.comparisonFilterGroups = pruneGroups(block.comparisonFilterGroups)
 }
 
-/** Datasets référencés par un bloc (sources + fallback legacy + groupes de recherche additionnels). Pour précharger les schémas. */
+/** Datasets référencés par un bloc (sources + fallback legacy). Pour précharger les schémas. */
 export function blockDatasetIds(block: StudioBlock): string[] {
   const ids = new Set<string>()
   if (block.datasetId) ids.add(block.datasetId)
   for (const s of block.sources ?? []) if (s.datasetId) ids.add(s.datasetId)
-  for (const g of block.searchUnionGroups ?? []) if (g.source.datasetId) ids.add(g.source.datasetId)
   return [...ids]
 }
 

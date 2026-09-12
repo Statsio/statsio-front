@@ -701,25 +701,6 @@ export interface BlockJoin {
   type: BlockJoinType
 }
 
-/**
- * Bloc recherche : groupe de recherche additionnel, sur une source indépendante
- * de la source principale — sans clé commune, donc pas de jointure possible.
- * Chaque groupe est interrogé séparément puis ses résultats sont empilés sous
- * ceux de la source principale (UNION ALL applicatif, voir `resolveUnionGroupRows`
- * côté API), plutôt que jointés. Contrairement à la source principale, le titre
- * et la description d'un résultat suivent toujours le repli automatique (1re
- * colonne de recherche trouvée) — pas de `resultTitleParts`/`resultDescParts`
- * dédiées pour rester simple.
- */
-export interface SearchUnionGroup {
-  id: string
-  source: BlockSource
-  /** Réfs qualifiées `col@<source.id>` — au moins une pour que le groupe soit actif. */
-  searchColumns: string[]
-  /** Colonnes secondaires (« OU »), comme `fieldMapping.searchAltColumns`. */
-  searchAltColumns?: string[]
-}
-
 export interface StudioBlock {
   id: string
   type: BlockType
@@ -743,8 +724,6 @@ export interface StudioBlock {
   comparisonFiltersMatch?: 'all' | 'any'
   /** Graphe de jointures entre `sources`. */
   joins?: BlockJoin[]
-  /** Bloc recherche : sources additionnelles sans lien avec la source principale — voir {@link SearchUnionGroup}. */
-  searchUnionGroups?: SearchUnionGroup[]
   /** Non-removable via the block toolbar (still draggable/configurable) — used for the auto-provisioned search block on param pages. */
   locked?: boolean
 }

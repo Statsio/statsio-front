@@ -5,9 +5,15 @@ import {
   bareNames,
   datasetOfPrimarySource,
   desiredSearchPageParam,
+  identityBareNamesForSource,
+  isUnionBlock,
+  mergeSearchColumnsForSource,
   migrateSearchBlock,
+  pageParamsFromUnionRow,
+  fanOutColumnsForSource,
   sameSearchPageParam,
   searchColumnsForSource,
+  unionSourceIds,
 } from './studio-search'
 
 function search(overrides: Partial<StudioBlock> = {}): StudioBlock {
@@ -141,5 +147,56 @@ describe('datasetOfPrimarySource / searchColumnsForSource', () => {
   it('filters search columns by source', () => {
     expect(searchColumnsForSource(block, '5')).toEqual(['prenom'])
     expect(searchColumnsForSource(block, '9')).toEqual(['ville@9'])
+  })
+})
+
+describe('isUnionBlock / unionSourceIds / mergeSearchColumnsForSource', () => {
+  const unionBlock = search({
+    sources: [
+      { id: 'c', datasetId: '1' },
+      { id: 'e', datasetId: '2' },
+    ],
+    primarySourceId: 'c',
+    joins: [{ leftSourceId: 'c', leftColumn: '', rightSourceId: 'e', rightColumn: '', type: 'union_all' }],
+    fieldMapping: { searchColumns: ['nom@c', 'raison@e'] },
+  })
+
+  it('detects UNION joins', () => {
+    expect(isUnionBlock(unionBlock)).toBe(true)
+    expect(isUnionBlock(search({ joins: [{ leftSourceId: 'a', leftColumn: 'x', rightSourceId: 'b', rightColumn: 'y', type: 'left' }] }))).toBe(false)
+  })
+
+  it('lists sources with primary first', () => {
+    expect(unionSourceIds(unionBlock)).toEqual(['c', 'e'])
+  })
+
+  it('merges search columns for one source without touching the others', () => {
+    expect(mergeSearchColumnsForSource(['nom@c', 'raison@e'], 'e', ['siret@e'], 'c')).toEqual([
+      'nom@c',
+      'siret@e',
+    ])
+  })
+
+  it('exposes bare identity names for a source', () => {
+    expect(identityBareNamesForSource(unionBlock, 'c')).toEqual(['nom'])
+    expect(identityBareNamesForSource(unionBlock, 'e')).toEqual(['raison'])
+  })
+
+  it('picks fan-out row keys preferring qualified names on collision', () => {
+    expect(fanOutColumnsForSource(unionBlock, 'e', { 'raison@e': 'Acme', raison: null })).toEqual(['raison@e'])
+    expect(fanOutColumnsForSource(unionBlock, 'c', { nom: 'Paris' })).toEqual(['nom'])
+  })
+
+  it('builds pageParams only from the origin source', () => {
+    expect(pageParamsFromUnionRow(unionBlock, 'e', {
+      __source_id: 'e',
+      nom: null,
+      'raison@e': 'Acme',
+      siret: '123',
+    })).toEqual({
+      'raison@e': 'Acme',
+      raison: 'Acme',
+      siret: '123',
+    })
   })
 })

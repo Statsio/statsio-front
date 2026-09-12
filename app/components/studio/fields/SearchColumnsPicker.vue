@@ -14,6 +14,8 @@ const props = defineProps<{
   /** Réfs à exclure du choix (ex. déjà dans l'autre groupe). */
   exclude?: string[]
   addLabel?: string
+  /** Verrouille le choix sur une source (mode UNION). */
+  sourceId?: string
 }>()
 const emit = defineEmits<{ (e: 'update:modelValue', v: string[]): void }>()
 
@@ -36,6 +38,7 @@ function pick() {
     title: props.label,
     multi: true,
     selected: [...refs.value],
+    sourceId: props.sourceId,
     onCommit: (picked) => write(picked),
   })
 }

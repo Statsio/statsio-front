@@ -1,5 +1,5 @@
 import type { Ref } from 'vue'
-import type { BlockSource, SearchUnionGroup, SectionLayout, StudioBlock } from '@/types/studio'
+import type { BlockSource, SectionLayout, StudioBlock } from '@/types/studio'
 import { scriptIdFromZone, scriptZoneId, scriptZoneBranch } from '@/types/studio'
 import { pruneBlockColumnRefs } from '@/lib/studio-block-sources'
 import { getColCount } from '@/stores/studio/canvas'
@@ -107,75 +107,24 @@ export function useStudioBlockDataSources(deps: {
     markDirty()
   }
 
-  // ─── Bloc recherche : groupes de sources additionnelles (UNION ALL, sans jointure) ──
-
-  function addSearchUnionGroup(blockId: string): string | undefined {
-    snapshot()
-    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
-    if (!block) return
-    const group: SearchUnionGroup = { id: uid(), source: { id: uid(), datasetId: '' }, searchColumns: [] }
-    block.searchUnionGroups = [...(block.searchUnionGroups ?? []), group]
-    markDirty()
-    return group.id
-  }
-
-  function removeSearchUnionGroup(blockId: string, groupId: string) {
-    snapshot()
-    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
-    if (!block?.searchUnionGroups) return
-    block.searchUnionGroups = block.searchUnionGroups.filter((g) => g.id !== groupId)
-    markDirty()
-  }
-
-  function setSearchUnionGroupDataset(blockId: string, groupId: string, datasetId: string) {
-    snapshot()
-    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
-    const group = block?.searchUnionGroups?.find((g) => g.id === groupId)
-    if (!group) return
-    // Changer de dataset invalide les colonnes déjà choisies (autre schéma).
-    group.source = { ...group.source, datasetId }
-    group.searchColumns = []
-    group.searchAltColumns = undefined
-    markDirty()
-  }
-
-  function setSearchUnionGroupColumns(blockId: string, groupId: string, columns: string[]) {
-    snapshot()
-    const group = blocks.value.find((b: StudioBlock) => b.id === blockId)?.searchUnionGroups?.find((g) => g.id === groupId)
-    if (!group) return
-    group.searchColumns = columns
-    markDirty()
-  }
-
-  function setSearchUnionGroupAltColumns(blockId: string, groupId: string, columns: string[]) {
-    snapshot()
-    const group = blocks.value.find((b: StudioBlock) => b.id === blockId)?.searchUnionGroups?.find((g) => g.id === groupId)
-    if (!group) return
-    group.searchAltColumns = columns.length ? columns : undefined
-    markDirty()
-  }
+  // ─── Purge dataset ──────────────────────────────────────────────────────────
 
   /**
    * Une source (dataset) a été supprimée du document : on la retire de la
-   * configuration de TOUS les blocs — entrée `sources`, jointures, groupes de
-   * recherche additionnels, et toutes les refs de colonnes qui en dépendaient
-   * (refs `col@<id>` de cette source + refs nues quand c'était la source
-   * primaire du bloc). Un bloc qui perd sa dernière source est remis à zéro
-   * côté données (il reste sur le canevas, à reconfigurer).
+   * configuration de TOUS les blocs — entrée `sources`, jointures, et toutes les
+   * refs de colonnes qui en dépendaient (refs `col@<id>` de cette source + refs
+   * nues quand c'était la source primaire du bloc). Un bloc qui perd sa dernière
+   * source est remis à zéro côté données (il reste sur le canevas, à reconfigurer).
    */
   function purgeDataset(datasetId: string) {
     const affected = blocks.value.filter(
       (b: StudioBlock) =>
         (b.sources ?? []).some((s) => s.datasetId === datasetId) ||
-        ((b.sources ?? []).length === 0 && b.datasetId === datasetId) ||
-        (b.searchUnionGroups ?? []).some((g) => g.source.datasetId === datasetId),
+        ((b.sources ?? []).length === 0 && b.datasetId === datasetId),
     )
     if (affected.length === 0) return
     snapshot()
     for (const block of affected) {
-      if (block.searchUnionGroups?.some((g) => g.source.datasetId === datasetId)) {
-        block.searchUnionGroups = block.searchUnionGroups.filter((g) => g.source.datasetId !== datasetId)
-      }
       const sources = block.sources ?? []
       const deadIds = new Set(sources.filter((s) => s.datasetId === datasetId).map((s) => s.id))
       const primaryId = block.primarySourceId ?? sources[0]?.id
@@ -212,10 +161,5 @@ export function useStudioBlockDataSources(deps: {
     removeBlockSource,
     setPrimarySource,
     purgeDataset,
-    addSearchUnionGroup,
-    removeSearchUnionGroup,
-    setSearchUnionGroupDataset,
-    setSearchUnionGroupColumns,
-    setSearchUnionGroupAltColumns,
   }
 }

@@ -107,13 +107,6 @@ type BlockQueryParams = {
   searchColumns?: string[]
   /** Bloc recherche : colonnes secondaires (« OU ») — match alternatif de toute la requête. */
   searchAltColumns?: string[]
-  /**
-   * Bloc recherche : groupes de sources additionnelles sans lien avec la source
-   * principale (voir `SearchUnionGroup`). Chacun est interrogé séparément côté
-   * API puis empilé sous les résultats de la source principale (UNION ALL
-   * applicatif) — pas de jointure, pas de clé commune requise.
-   */
-  unionGroups?: import('@/types/studio').SearchUnionGroup[]
 }
 
 function buildParamsSerializer(p: BlockQueryParams): string {
@@ -127,14 +120,6 @@ function buildParamsSerializer(p: BlockQueryParams): string {
     parts.push(`search_q=${encodeURIComponent(p.searchQ)}`)
     ;(p.searchColumns ?? []).forEach((c) => parts.push(`search_columns[]=${encodeURIComponent(c)}`))
     ;(p.searchAltColumns ?? []).forEach((c) => parts.push(`search_alt_columns[]=${encodeURIComponent(c)}`))
-    ;(p.unionGroups ?? []).forEach((g, gi) => {
-      if (!g.source.datasetId || !g.searchColumns.length) return
-      parts.push(`union_groups[${gi}][sources][0][id]=${encodeURIComponent(g.source.id)}`)
-      parts.push(`union_groups[${gi}][sources][0][dataset_id]=${encodeURIComponent(g.source.datasetId)}`)
-      parts.push(`union_groups[${gi}][sources][0][primary]=1`)
-      g.searchColumns.forEach((c) => parts.push(`union_groups[${gi}][search_columns][]=${encodeURIComponent(c)}`))
-      ;(g.searchAltColumns ?? []).forEach((c) => parts.push(`union_groups[${gi}][search_alt_columns][]=${encodeURIComponent(c)}`))
-    })
   }
   if (p.distinctColumn) parts.push(`distinct_column=${encodeURIComponent(p.distinctColumn)}`)
   if (p.sortColumn) parts.push(`sort_column=${encodeURIComponent(p.sortColumn)}`)
