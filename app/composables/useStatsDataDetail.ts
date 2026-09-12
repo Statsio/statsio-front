@@ -102,6 +102,7 @@ export function useStatsDataDetail() {
                     .filter(([k, val]) => !k.startsWith('__') && val !== null && val !== undefined && val !== '')
                     .map(([k, val]) => [k, String(val)]),
                 )
+            if (sourceId) rowParams.__source_id = sourceId
             studio.setPageParams(rowParams)
             fanOutHydrated.value = true
             return
