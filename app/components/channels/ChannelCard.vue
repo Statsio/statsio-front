@@ -7,6 +7,8 @@ import { formatCompactNumber, formatShortDate } from '@/lib/format'
 import { channelBannerStyle, resolveChannelColors } from '@/lib/channel-brand'
 import { useAuthStore } from '@/stores/auth'
 import { AUTH_REDIRECT_KEY } from '@/lib/auth-storage'
+import { useContentBasePath } from '@/composables/useContentBasePath'
+import { publicChannelPath } from '@/lib/content-display'
 
 const props = withDefaults(
   defineProps<{
@@ -19,6 +21,7 @@ const props = withDefaults(
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const basePath = useContentBasePath()
 
 const profile = computed(() => props.channel.profile)
 
@@ -43,7 +46,7 @@ const initials = computed(() =>
 )
 
 const handle = computed(() => profile.value?.handle ?? '')
-const detailPath = computed(() => `/channels/${encodeURIComponent(handle.value)}`)
+const detailPath = computed(() => publicChannelPath(handle.value, basePath.value))
 const managePath = computed(() => `/channels/${props.channel.id}/dashboard`)
 
 const colors = computed(() =>

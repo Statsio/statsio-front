@@ -3,7 +3,7 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useContentBasePath } from '@/composables/useContentBasePath'
 import { useGlobalSearch } from '@/composables/useGlobalSearch'
-import { CONTENT_TYPE_META, publicContentListPath, publicContentPath } from '@/lib/content-display'
+import { CONTENT_TYPE_META, publicChannelListPath, publicChannelPath, publicContentListPath, publicContentPath } from '@/lib/content-display'
 import type { CatalogItem } from '@/types/catalog'
 import type { GlobalSearchChannel } from '@/types/search'
 
@@ -51,12 +51,12 @@ const displayRows = computed<DisplayRow[]>(() => {
           kind: 'channel',
           key: `c:${channel.id}`,
           navIndex: navIndex++,
-          to: channel.handle ? `/channels/${encodeURIComponent(channel.handle)}` : '/chaines',
+          to: channel.handle ? publicChannelPath(channel.handle, basePath.value) : publicChannelListPath(basePath.value),
           channel,
         })
       }
       if (group.total > group.items.length) {
-        rows.push({ kind: 'more', key: `m:${group.type}`, navIndex: navIndex++, to: `/chaines?q=${q}`, label: group.label, total: group.total })
+        rows.push({ kind: 'more', key: `m:${group.type}`, navIndex: navIndex++, to: `${publicChannelListPath(basePath.value)}?q=${q}`, label: group.label, total: group.total })
       }
       continue
     }

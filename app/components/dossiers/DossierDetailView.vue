@@ -7,7 +7,12 @@ import { useContentBasePath } from '@/composables/useContentBasePath'
 import { catalogThemeStyle } from '@/lib/catalog-theme'
 import { formatRelativePublished } from '@/lib/catalog-format'
 import { formatShortDate } from '@/lib/format'
-import { canonicalContentPath, publicContentPath } from '@/lib/content-display'
+import {
+  canonicalContentPath,
+  publicContentPath,
+  publicDossierListPath,
+  publicDossierPath,
+} from '@/lib/content-display'
 import { breadcrumbNode, collectionNode } from '@/lib/structured-data'
 import ContentCard from '@/components/content/ContentCard.vue'
 import CatalogEmpty from '@/components/listing/CatalogEmpty.vue'
@@ -62,6 +67,8 @@ const hero = computed(() => {
 const { isFollowing, toggle } = useDossierFollows()
 const following = computed(() => isFollowing(slug.value))
 
+const homePath = computed(() => basePath.value || '/')
+const listPath = computed(() => publicDossierListPath(basePath.value))
 const canonicalPath = computed(() => canonicalContentPath(route.path))
 
 usePageSeo({
@@ -205,9 +212,9 @@ async function share() {
 
       <div class="absolute left-0 right-0 top-5 mx-auto max-w-[1240px] px-4 sm:px-6 lg:px-8">
         <nav class="flex flex-wrap items-center gap-2 text-[12.5px] font-semibold">
-          <NuxtLink to="/" :class="hero.crumbLink">Accueil</NuxtLink>
+          <NuxtLink :to="homePath" :class="hero.crumbLink">Accueil</NuxtLink>
           <span :class="hero.crumbSep">/</span>
-          <NuxtLink to="/dossiers" :class="hero.crumbLink">Dossiers</NuxtLink>
+          <NuxtLink :to="listPath" :class="hero.crumbLink">Dossiers</NuxtLink>
           <span v-if="dossier.category" :class="hero.crumbSep">/</span>
           <span v-if="dossier.category" :class="hero.crumbCurrent">{{ dossier.category.label }}</span>
         </nav>
@@ -382,7 +389,7 @@ async function share() {
             <NuxtLink
               v-for="r in detail.related"
               :key="r.slug"
-              :to="`/dossiers/${r.slug}`"
+              :to="publicDossierPath(r.slug, basePath)"
               class="group flex items-center gap-3 text-slate-950"
             >
               <span class="h-[42px] w-[42px] shrink-0 overflow-hidden rounded-[10px]">

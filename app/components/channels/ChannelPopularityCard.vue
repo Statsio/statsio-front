@@ -4,11 +4,15 @@ import { RouterLink } from 'vue-router'
 import ChannelBadgeList from '@/components/channels/ChannelBadgeList.vue'
 import type { Channel } from '@/api/channels'
 import { formatCompactNumber } from '@/lib/format'
+import { useContentBasePath } from '@/composables/useContentBasePath'
+import { publicChannelPath } from '@/lib/content-display'
 
 const props = defineProps<{
   channel: Channel
 }>()
 
+const basePath = useContentBasePath()
+const to = computed(() => publicChannelPath(props.channel.profile.handle, basePath.value))
 const initials = computed(() =>
   (props.channel.profile.name ?? '')
     .split(' ')
@@ -22,7 +26,7 @@ const initials = computed(() =>
 
 <template>
   <RouterLink
-    :to="`/channels/${encodeURIComponent(channel.profile.handle)}`"
+    :to="to"
     class="u-hover flex flex-1 items-center gap-3 rounded-2xl bg-slate-50 p-4 transition hover:bg-slate-100"
   >
     <span

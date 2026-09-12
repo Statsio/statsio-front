@@ -2,6 +2,8 @@
 import { computed } from 'vue'
 import type { StatsDataDocument } from '@/api/studio'
 import StatsDataActionButton from './StatsDataActionButton.vue'
+import { useContentBasePath } from '@/composables/useContentBasePath'
+import { publicChannelPath } from '@/lib/content-display'
 
 const props = defineProps<{
   doc: StatsDataDocument
@@ -11,6 +13,7 @@ const props = defineProps<{
 
 defineEmits<{ 'toggle-follow': [] }>()
 
+const basePath = useContentBasePath()
 const isChannel = computed(() => props.doc.published_as === 'channel' && !!props.doc.channel)
 const name = computed(() => (isChannel.value ? props.doc.channel?.name : props.doc.author?.name) || 'Anonyme')
 const handle = computed(() =>
@@ -33,9 +36,11 @@ const stats = computed(() => {
   return out
 })
 
-const profileHref = computed(() =>
-  isChannel.value && props.doc.channel?.id ? `/channels/${props.doc.channel.id}` : null,
-)
+const profileHref = computed(() => {
+  if (!isChannel.value) return null
+  if (props.doc.channel?.handle) return publicChannelPath(props.doc.channel.handle, basePath.value)
+  return props.doc.channel?.id ? `/channels/${props.doc.channel.id}` : null
+})
 </script>
 
 <template>
