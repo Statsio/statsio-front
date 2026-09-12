@@ -173,8 +173,8 @@ watch([currentTitleLines, phase], () => {
  * Mesure via un clone invisible en position absolue (n'influe pas sur la
  * largeur du conteneur flex) comparé à la largeur réellement rendue.
  */
-const FLASH_INFO_MARQUEE_SPEED_PX_S = 70
-const FLASH_INFO_MARQUEE_MIN_DURATION = 6
+const FLASH_INFO_MARQUEE_SPEED_PX_S = 40
+const FLASH_INFO_MARQUEE_MIN_DURATION = 8
 
 const flashInfoViewportEl = ref<HTMLElement | null>(null)
 const flashInfoContentEl = ref<HTMLElement | null>(null)
@@ -496,6 +496,8 @@ const surveyLeadPct = (options: { pct: number; lead: boolean }[]) =>
 
 .promo-flash-marquee-track {
   animation: promo-marquee linear infinite;
+  animation-delay: 1s;
+  animation-fill-mode: backwards;
 }
 
 .promo-flash-marquee:hover .promo-flash-marquee-track,

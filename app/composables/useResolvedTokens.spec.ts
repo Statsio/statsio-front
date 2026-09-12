@@ -110,7 +110,7 @@ describe('useResolvedTokens', () => {
     map.value = { y: '2021' }
     await settle()
     expect(scalar).toHaveBeenLastCalledWith('1', expect.objectContaining({
-      filters: [{ column: 'annee', operator: '=', value: '2021' }],
+      filterGroups: [{ conditions: [{ column: 'annee', operator: '=', value: '2021' }], match: 'all' }],
     }))
   })
 

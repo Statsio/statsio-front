@@ -75,8 +75,9 @@ describe('useFilterDrillIn', () => {
     const block = makeBlock({ filters: [{ column: 'region', operator: '=', value: 'Bretagne' }] })
     const drillIn = useFilterDrillIn()
 
-    drillIn.openEdit(block, 'primary', 0)
+    drillIn.openEdit(block, 'primary', 0, 0)
 
+    expect(drillIn.state.groupIndex).toBe(0)
     expect(drillIn.state.editIndex).toBe(0)
     expect(drillIn.state.step).toBe('values')
     expect(drillIn.state.draft.column).toBe('region')
@@ -88,7 +89,7 @@ describe('useFilterDrillIn', () => {
     const block = makeBlock({ filters: [{ column: 'annee', operator: 'in', value: '["2024","2025"]' }] })
     const drillIn = useFilterDrillIn()
 
-    drillIn.openEdit(block, 'primary', 0)
+    drillIn.openEdit(block, 'primary', 0, 0)
 
     expect(drillIn.state.draft.operator).toBe('in')
     expect(drillIn.state.draft.values).toEqual(['2024', '2025'])
@@ -98,13 +99,13 @@ describe('useFilterDrillIn', () => {
     const block = makeBlock({ filters: [{ column: 'region', operator: '=', value: '{{region}}' }] })
     const drillIn = useFilterDrillIn()
 
-    drillIn.openEdit(block, 'primary', 0)
+    drillIn.openEdit(block, 'primary', 0, 0)
 
     expect(drillIn.state.draft.dynamicValue).toBe('{{region}}')
     expect(drillIn.state.draft.values).toEqual([])
   })
 
-  it('commit adds a scalar filter for a single value', () => {
+  it('commit adds a new group with a scalar filter for a single value', () => {
     const block = makeBlock()
     const store = useStudioStore()
     const drillIn = useFilterDrillIn()
@@ -114,7 +115,9 @@ describe('useFilterDrillIn', () => {
     drillIn.state.draft.values = ['Bretagne']
     drillIn.commit()
 
-    expect(store.selectedBlock!.filters).toEqual([{ column: 'region', operator: '=', value: 'Bretagne' }])
+    expect(store.selectedBlock!.filterGroups).toEqual([
+      { conditions: [{ column: 'region', operator: '=', value: 'Bretagne' }], match: 'all' },
+    ])
     expect(drillIn.state.open).toBe(false)
   })
 
@@ -129,10 +132,12 @@ describe('useFilterDrillIn', () => {
     drillIn.state.draft.values = ['2024', '2025']
     drillIn.commit()
 
-    expect(store.selectedBlock!.filters).toEqual([{ column: 'annee', operator: 'in', value: '["2024","2025"]' }])
+    expect(store.selectedBlock!.filterGroups).toEqual([
+      { conditions: [{ column: 'annee', operator: 'in', value: '["2024","2025"]' }], match: 'all' },
+    ])
   })
 
-  it('commit on edit replaces the filter in place', () => {
+  it('commit on edit replaces the condition in place, within its group', () => {
     const block = makeBlock({
       filters: [
         { column: 'a', operator: '=', value: '1' },
@@ -142,17 +147,43 @@ describe('useFilterDrillIn', () => {
     const store = useStudioStore()
     const drillIn = useFilterDrillIn()
 
-    drillIn.openEdit(block, 'primary', 1)
+    drillIn.openEdit(block, 'primary', 0, 1)
     drillIn.state.draft.values = ['Normandie']
     drillIn.commit()
 
-    expect(store.selectedBlock!.filters).toEqual([
-      { column: 'a', operator: '=', value: '1' },
-      { column: 'region', operator: '=', value: 'Normandie' },
+    expect(store.selectedBlock!.filterGroups).toEqual([
+      {
+        conditions: [
+          { column: 'a', operator: '=', value: '1' },
+          { column: 'region', operator: '=', value: 'Normandie' },
+        ],
+        match: 'all',
+      },
     ])
   })
 
-  it('commit in comparison mode writes comparisonFilters', () => {
+  it('commit adding a condition to an existing group keeps it in that group', () => {
+    const block = makeBlock({ filters: [{ column: 'a', operator: '=', value: '1' }] })
+    const store = useStudioStore()
+    const drillIn = useFilterDrillIn()
+
+    drillIn.openAdd(block, 'primary', 0)
+    drillIn.goToValues('region')
+    drillIn.state.draft.values = ['Bretagne']
+    drillIn.commit()
+
+    expect(store.selectedBlock!.filterGroups).toEqual([
+      {
+        conditions: [
+          { column: 'a', operator: '=', value: '1' },
+          { column: 'region', operator: '=', value: 'Bretagne' },
+        ],
+        match: 'all',
+      },
+    ])
+  })
+
+  it('commit in comparison mode writes comparisonFilterGroups', () => {
     const block = makeBlock()
     const store = useStudioStore()
     const drillIn = useFilterDrillIn()
@@ -162,8 +193,10 @@ describe('useFilterDrillIn', () => {
     drillIn.state.draft.values = ['Bretagne']
     drillIn.commit()
 
-    expect(store.selectedBlock!.comparisonFilters).toEqual([{ column: 'region', operator: '=', value: 'Bretagne' }])
-    expect(store.selectedBlock!.filters ?? []).toEqual([])
+    expect(store.selectedBlock!.comparisonFilterGroups).toEqual([
+      { conditions: [{ column: 'region', operator: '=', value: 'Bretagne' }], match: 'all' },
+    ])
+    expect(store.selectedBlock!.filterGroups ?? []).toEqual([])
   })
 
   it('goBack walks values → column → source, then closes', () => {

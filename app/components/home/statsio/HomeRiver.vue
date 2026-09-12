@@ -35,7 +35,7 @@ function themeOf(item: CatalogItem) {
       />
 
       <div class="flex flex-col divide-y divide-slate-200/80">
-        <article v-for="item in river" :key="item.id" class="u-hover flex gap-4 py-5 first:pt-0 sm:gap-5">
+        <article v-for="item in river" :key="item.id" class="u-hover flex items-center gap-4 py-5 first:pt-0 sm:gap-5">
           <RouterLink
             :to="pathOf(item)"
             class="relative block h-[86px] w-[130px] shrink-0 overflow-hidden rounded-[12px] sm:h-[104px] sm:w-[164px]"

@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { fetchDistinctValues, fetchPublicDistinctValues } from '@/api/studio'
-import { blockSourceParams, resolveBlockFilters } from '@/composables/useBlockData'
+import { blockSourceParams, resolveBlockFilterGroups } from '@/composables/useBlockData'
 import type { StudioBlock } from '@/types/studio'
 
 /**
@@ -25,7 +25,7 @@ const isConfigured = computed(() => Boolean(datasetId.value && column.value && p
 
 // Filtres du bloc (jetons `{{param}}` / boucle résolus) — restreignent les valeurs proposées.
 const resolvedFilters = computed(() =>
-  resolveBlockFilters(props.block.filters ?? [], { ...studio.pageParams, ...props.scope }),
+  resolveBlockFilterGroups(props.block, 'primary', { ...studio.pageParams, ...props.scope }),
 )
 
 const values = ref<string[]>([])
@@ -41,12 +41,15 @@ async function loadValues() {
   isLoading.value = true
   loadError.value = null
   try {
-    const ctx = { sources: sp.sources, primarySourceId: sp.primarySourceId, joins: sp.joins }
-    const docSlug = studio.content?.slug
     const f = resolvedFilters.value
+    const ctx = {
+      sources: sp.sources, primarySourceId: sp.primarySourceId, joins: sp.joins,
+      filterGroups: f.groups, filtersMatch: f.match,
+    }
+    const docSlug = studio.content?.slug
     values.value = props.readonly && docSlug
-      ? await fetchPublicDistinctValues(docSlug, sp.urlDatasetId, column.value, '', f, ctx)
-      : await fetchDistinctValues(sp.urlDatasetId, column.value, '', f, ctx)
+      ? await fetchPublicDistinctValues(docSlug, sp.urlDatasetId, column.value, '', [], ctx)
+      : await fetchDistinctValues(sp.urlDatasetId, column.value, '', [], ctx)
   } catch {
     loadError.value = 'Valeurs indisponibles'
     values.value = []

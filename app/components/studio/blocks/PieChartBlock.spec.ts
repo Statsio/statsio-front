@@ -75,8 +75,8 @@ describe('PieChartBlock — parts calculées', () => {
 
     expect(fetchScalarAggregate).toHaveBeenCalled()
     const [, params] = vi.mocked(fetchScalarAggregate).mock.calls[0]!
-    expect((params as { filters: unknown[] }).filters).toEqual([
-      { column: 'Session', operator: '=', value: '2021' },
+    expect((params as { filterGroups: unknown[] }).filterGroups).toEqual([
+      { conditions: [{ column: 'Session', operator: '=', value: '2021' }], match: 'all' },
     ])
   })
 

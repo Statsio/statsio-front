@@ -35,11 +35,21 @@ const isSearchOpen = ref(false)
 const expandedMobileItem = ref<string | null>(null)
 const { reducedMotion } = storeToRefs(usePrefsStore())
 
+const route = useRoute()
+const router = useRouter()
+const authStore = useAuthStore()
+const adminUrl = useRuntimeConfig().public.adminUrl
+
+const currentBrand = computed(() => getBrandFromPath(route.path))
+
 // Dossiers épinglés depuis le back-office (toggle « Épinglé dans le header »).
 // Affichés en badges après les rubriques ; chaque badge pointe vers /dossiers/{slug}.
-const { data: pinnedDossiers } = useAsyncData('header-pinned-dossiers', () => fetchPinnedDossiers(), {
-  default: () => [],
-})
+// Scopés à la marque courante pour ne pas mélanger les dossiers Statsio/TVStats/Medistats.
+const { data: pinnedDossiers } = useAsyncData(
+  'header-pinned-dossiers',
+  () => fetchPinnedDossiers(currentBrand.value.id),
+  { default: () => [], watch: [() => currentBrand.value.id] },
+)
 
 // Refs pour détecter si le contenu dépasse
 const marqueeRef = ref<HTMLElement | null>(null)
@@ -102,12 +112,6 @@ const trackDossiers = computed(() => {
   return out
 })
 
-const route = useRoute()
-const router = useRouter()
-const authStore = useAuthStore()
-const adminUrl = useRuntimeConfig().public.adminUrl
-
-const currentBrand = computed(() => getBrandFromPath(route.path))
 const universeBrands = computed(() =>
   getBrandSwitcherList().map((brand) => ({
     ...brand,

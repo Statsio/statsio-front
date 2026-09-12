@@ -2,10 +2,10 @@
 import { computed, ref, watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { fetchDistinctValues, fetchPublicDistinctValues } from '@/api/studio'
-import { blockSourceParams } from '@/composables/useBlockData'
-import { interpolateTokens } from '@/lib/studio-tokens'
+import { blockSourceParams, resolveBlockFilterGroups } from '@/composables/useBlockData'
+import { readFilterGroups, readFiltersMatch } from '@/lib/studio-filter-groups'
 import { loopZoneId, isPageZone } from '@/types/studio'
-import type { StudioBlock, BlockFilter, Section } from '@/types/studio'
+import type { StudioBlock, Section } from '@/types/studio'
 import BlockRenderer from './BlockRenderer.vue'
 import BlockCard from './BlockCard.vue'
 import CanvasZone from '@/components/studio/canvas/CanvasZone.vue'
@@ -53,14 +53,15 @@ async function loadValues() {
   isLoading.value = true
   error.value = null
   try {
-    const filters = (props.block.filters ?? [])
-      .filter((f: BlockFilter) => f.column && f.value !== '')
-      .map((f: BlockFilter) => ({ ...f, value: interpolateTokens(f.value, { ...studio.pageParams, ...props.scope }) }))
-    const ctx = { sources: sp.sources, primarySourceId: sp.primarySourceId, joins: sp.joins }
+    const filters = resolveBlockFilterGroups(props.block, 'primary', { ...studio.pageParams, ...props.scope })
+    const ctx = {
+      sources: sp.sources, primarySourceId: sp.primarySourceId, joins: sp.joins,
+      filterGroups: filters.groups, filtersMatch: filters.match,
+    }
     const docSlug = studio.content?.slug
     values.value = props.readonly && docSlug
-      ? await fetchPublicDistinctValues(docSlug, sp.urlDatasetId, col, '', filters, ctx)
-      : await fetchDistinctValues(sp.urlDatasetId, col, '', filters, ctx)
+      ? await fetchPublicDistinctValues(docSlug, sp.urlDatasetId, col, '', [], ctx)
+      : await fetchDistinctValues(sp.urlDatasetId, col, '', [], ctx)
   } catch {
     error.value = 'Impossible de charger les valeurs de la boucle.'
     values.value = []
@@ -73,7 +74,8 @@ watch(
   () => [
     props.block.datasetId,
     loopColumn.value,
-    JSON.stringify(props.block.filters ?? []),
+    JSON.stringify(readFilterGroups(props.block, 'primary')),
+    readFiltersMatch(props.block, 'primary'),
     JSON.stringify(props.scope ?? null),
     JSON.stringify(studio.pageParams),
   ].join('|'),

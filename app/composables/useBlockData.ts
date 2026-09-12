@@ -1,12 +1,24 @@
 import { ref, watch, computed, inject } from 'vue'
 import { fetchBlockData, fetchPublicBlockData } from '@/api/studio'
-import type { StudioBlock, BlockFilter, BlockQueryResult, BlockAggregate } from '@/types/studio'
+import type { StudioBlock, FilterGroup, BlockQueryResult, BlockAggregate } from '@/types/studio'
 import { useStudioStore } from '@/stores/studio'
 import { getErrorMessage } from '@/lib/http-errors'
 import { interpolateTokens } from '@/lib/studio-tokens'
 import { primarySourceId } from '@/lib/studio-columns'
+import {
+  readFilterGroups,
+  readFiltersMatch,
+  resolveFilterGroupsSync,
+  resolveFilterGroupsAsync,
+  type FilterDrillInBlockMode,
+} from '@/lib/studio-filter-groups'
 import { STUDIO_EMBED_CONTEXT, type StudioEmbedContext } from '@/composables/studioEmbedContext'
 import { resolveFilterValue } from '@/composables/useResolvedTokens'
+
+export interface ResolvedFilterSet {
+  groups: FilterGroup[]
+  match: 'all' | 'any'
+}
 
 export interface BlockDataOverrides {
   /** Tri interactif (clic sur un en-tête de tableau) — remplace `config.sortColumn`. */
@@ -40,15 +52,26 @@ export function rowKey(result: BlockQueryResult | null, ref: string): string {
 }
 
 /**
- * Résout les filtres d'un bloc pour un appel API : interpole les jetons (`{{param}}`,
- * variable de boucle) et écarte les filtres dont un jeton reste non résolu (plutôt
- * que de renvoyer 0 ligne). `tokenMap` = `pageParams` + scope éventuel.
+ * Résout les groupes de filtres d'un bloc pour un appel API : interpole les jetons
+ * (`{{param}}`, variable de boucle) et écarte les conditions dont un jeton reste non
+ * résolu (plutôt que de renvoyer 0 ligne) — un groupe devenu vide est retiré entièrement
+ * (voir studio-filter-groups.ts). `tokenMap` = `pageParams` + scope éventuel.
  */
-export function resolveBlockFilters(filters: BlockFilter[], tokenMap: Record<string, string>): BlockFilter[] {
-  return filters
-    .filter((f) => f.column && f.value)
-    .map((f) => ({ ...f, value: interpolateTokens(f.value, tokenMap) }))
-    .filter((f) => !/\{\{.+\}\}/.test(f.value))
+/** Interpole les jetons `{{param}}` de groupes de conditions déjà lus (voir aussi {@link resolveBlockFilterGroups}). */
+export function resolveFilterGroupsForTokenMap(groups: FilterGroup[], tokenMap: Record<string, string>): FilterGroup[] {
+  return resolveFilterGroupsSync(groups, (f) => {
+    if (!f.column || !f.value) return null
+    const value = interpolateTokens(f.value, tokenMap)
+    return /\{\{.+\}\}/.test(value) ? null : { ...f, value }
+  })
+}
+
+export function resolveBlockFilterGroups(
+  block: StudioBlock,
+  mode: FilterDrillInBlockMode,
+  tokenMap: Record<string, string>,
+): ResolvedFilterSet {
+  return { groups: resolveFilterGroupsForTokenMap(readFilterGroups(block, mode), tokenMap), match: readFiltersMatch(block, mode) }
 }
 
 export function useBlockData(
@@ -73,23 +96,21 @@ export function useBlockData(
    * Interpole les jetons `{{param}}` (synchrone) puis résout les jetons "expression"
    * (`{{ AVG(prix) }}`…, insérés via le sélecteur de variable en mode « valeur
    * calculée ») via l'agrégat serveur — permet un filtre comme `prix > {{ AVG(prix) }}`.
-   * Écarte les filtres dont un jeton reste non résolu, plutôt que de renvoyer 0 ligne.
+   * Écarte les conditions dont un jeton reste non résolu (et les groupes devenus vides),
+   * plutôt que de renvoyer 0 ligne.
    */
-  async function resolveFilters(filters: BlockFilter[], b: StudioBlock): Promise<BlockFilter[]> {
+  async function resolveFilterGroups(groups: FilterGroup[], b: StudioBlock): Promise<FilterGroup[]> {
     // scope (variable de boucle) prioritaire sur les paramètres de page, eux-mêmes prioritaires sur l'embed.
     const tokenMap = { ...embed?.params, ...studio.pageParams, ...scope?.() }
-    const withValue = filters.filter((f) => f.column && f.value)
-    const resolved = await Promise.all(
-      withValue.map(async (f) => ({
-        ...f,
-        value: await resolveFilterValue(f.value, tokenMap, {
-          block: () => b,
-          readonly: () => readonly,
-          docSlug: () => embed?.docSlug ?? studio.content?.slug,
-        }),
-      })),
-    )
-    return resolved.filter((f) => f.value !== '' && !/\{\{.+\}\}/.test(f.value))
+    return resolveFilterGroupsAsync(groups, async (f) => {
+      if (!f.column || !f.value) return null
+      const value = await resolveFilterValue(f.value, tokenMap, {
+        block: () => b,
+        readonly: () => readonly,
+        docSlug: () => embed?.docSlug ?? studio.content?.slug,
+      })
+      return value !== '' && !/\{\{.+\}\}/.test(value) ? { ...f, value } : null
+    })
   }
 
   async function load() {
@@ -121,7 +142,7 @@ export function useBlockData(
     const clientSideSeriesGrouping = (b.type === 'bar' || b.type === 'line') && Boolean(b.fieldMapping.series)
     const fetchLimit = clientSideSeriesGrouping ? Math.min(groupLimit * 100, 5000) : (ov.limit ?? groupLimit)
     const aggregationParams = resolveAggregationParams(b)
-    const resolvedFilters = await resolveFilters(b.filters ?? [], b)
+    const resolvedGroups = await resolveFilterGroups(readFilterGroups(b, 'primary'), b)
     const params = {
       columns,
       limit: fetchLimit,
@@ -133,7 +154,8 @@ export function useBlockData(
       distinctColumn: aggregationParams.aggregates ? undefined : (b.config.distinctColumn ?? undefined),
       sortColumn: (ov.sortColumn ?? b.config.sortColumn) ?? undefined,
       sortDirection: (ov.sortColumn !== undefined && ov.sortColumn !== null ? ov.sortDirection : b.config.sortDirection) ?? undefined,
-      filters: resolvedFilters,
+      filterGroups: resolvedGroups,
+      filtersMatch: readFiltersMatch(b, 'primary'),
       sources: sp.sources,
       primarySourceId: sp.primarySourceId,
       joins: sp.joins,
@@ -162,7 +184,7 @@ export function useBlockData(
     (): string | null => {
       const b = block()
       return b
-        ? `${b.datasetId}|${JSON.stringify(b.sources ?? [])}|${b.primarySourceId ?? ''}|${JSON.stringify(b.fieldMapping)}|${JSON.stringify(b.filters ?? [])}|${JSON.stringify(b.joins ?? [])}|${JSON.stringify(studio.pageParams)}|${JSON.stringify(scope?.() ?? null)}|${b.config.rowLimit ?? ''}|${b.config.distinctColumn ?? ''}|${b.config.sortColumn ?? ''}|${b.config.sortDirection ?? ''}|${JSON.stringify(overrides?.() ?? null)}`
+        ? `${b.datasetId}|${JSON.stringify(b.sources ?? [])}|${b.primarySourceId ?? ''}|${JSON.stringify(b.fieldMapping)}|${JSON.stringify(readFilterGroups(b, 'primary'))}|${readFiltersMatch(b, 'primary')}|${JSON.stringify(b.joins ?? [])}|${JSON.stringify(studio.pageParams)}|${JSON.stringify(scope?.() ?? null)}|${b.config.rowLimit ?? ''}|${b.config.distinctColumn ?? ''}|${b.config.sortColumn ?? ''}|${b.config.sortDirection ?? ''}|${JSON.stringify(overrides?.() ?? null)}`
         : null
     },
     (key, prev) => {

@@ -9,6 +9,7 @@ import { rowsToCsv, downloadCsv, csvFileName } from '@/lib/csv'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import { columnRefLabel, valueLabel } from '@/lib/studio-columns'
 import { cellRuleBounds, cellRuleStyle, ruleAggregateRefs } from '@/lib/studio-cell-rules'
+import { readFilterGroups, readFiltersMatch } from '@/lib/studio-filter-groups'
 import type { StudioBlock, TableColumnFormat } from '@/types/studio'
 
 const props = defineProps<{ block: StudioBlock; readonly?: boolean; scope?: Record<string, string> }>()
@@ -40,9 +41,15 @@ function toggleSort(col: string) {
   page.value = 0
 }
 
-watch([() => props.block.datasetId, () => JSON.stringify(props.block.filters), () => JSON.stringify(studio.pageParams)], () => {
-  page.value = 0
-})
+watch(
+  [
+    () => props.block.datasetId,
+    () => JSON.stringify(readFilterGroups(props.block, 'primary')),
+    () => readFiltersMatch(props.block, 'primary'),
+    () => JSON.stringify(studio.pageParams),
+  ],
+  () => { page.value = 0 },
+)
 
 // ─── Colonnes calculées ──────────────────────────────────────────────────────
 

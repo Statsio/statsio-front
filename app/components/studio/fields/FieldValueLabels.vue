@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { fetchColumnFacets } from '@/api/studio'
 import { blockSourceParams } from '@/composables/useBlockData'
+import { readFilterGroups, readFiltersMatch } from '@/lib/studio-filter-groups'
 import { useStudioStore } from '@/stores/studio'
 import type { ColumnFacet, StudioBlock } from '@/types/studio'
 
@@ -43,8 +44,10 @@ async function load(append = false) {
       search: search.value,
       offset: offset.value,
       limit: LIMIT,
-      filters: props.block.filters ?? [],
-      ctx: { sources: sp.sources, primarySourceId: sp.primarySourceId, joins: sp.joins },
+      ctx: {
+        sources: sp.sources, primarySourceId: sp.primarySourceId, joins: sp.joins,
+        filterGroups: readFilterGroups(props.block, 'primary'), filtersMatch: readFiltersMatch(props.block, 'primary'),
+      },
     })
     facets.value = append ? [...facets.value, ...res.values] : res.values
     total.value = res.total

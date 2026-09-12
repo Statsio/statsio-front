@@ -16,9 +16,14 @@ import TextFormatToolbar from '@/components/studio/TextFormatToolbar.vue'
 import StudioSidebarLeft from '@/components/studio/StudioSidebarLeft.vue'
 import StudioSidebarRight from '@/components/studio/StudioSidebarRight.vue'
 import CanvasGrid from '@/components/studio/canvas/CanvasGrid.vue'
+import StudioBottomTabBar from '@/components/studio/mobile/StudioBottomTabBar.vue'
+import StudioBottomSheet from '@/components/studio/mobile/StudioBottomSheet.vue'
+import StudioMobileSheetContent from '@/components/studio/mobile/StudioMobileSheetContent.vue'
+import { useStudioBreakpoint } from '@/composables/useStudioBreakpoint'
 
 const route = useRoute()
 const studio = useStudioStore()
+const { isMobile } = useStudioBreakpoint()
 const datasets = useStudioDatasetsStore()
 const { saveNow } = useStudioAutosave()
 const {
@@ -99,7 +104,7 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- Body -->
-    <div class="flex min-h-0 flex-1 overflow-hidden">
+    <div v-if="!isMobile" class="flex min-h-0 flex-1 overflow-hidden">
       <!-- Icon rail + panel -->
       <StudioSidebarLeft v-if="!studio.isPreview" />
 
@@ -113,6 +118,24 @@ onBeforeUnmount(() => {
 
       <!-- Right config panel (block selected) -->
       <StudioSidebarRight v-if="!studio.isPreview" />
+    </div>
+
+    <!-- Body (mobile) : canvas plein écran + barre d'onglets et bottom sheet en bas -->
+    <div v-else class="flex min-h-0 flex-1 overflow-hidden">
+      <main
+        class="min-w-0 flex-1 overflow-auto"
+        :class="!studio.isPreview && 'pb-16'"
+        @click.self="studio.selectBlock(null)"
+      >
+        <CanvasGrid />
+      </main>
+
+      <template v-if="!studio.isPreview">
+        <StudioBottomTabBar />
+        <StudioBottomSheet>
+          <StudioMobileSheetContent />
+        </StudioBottomSheet>
+      </template>
     </div>
   </div>
 </template>
