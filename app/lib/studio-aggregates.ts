@@ -1,5 +1,6 @@
 import type { ExpressionNode } from '@/lib/studio-expression'
 import { parseExpression } from '@/lib/studio-expression'
+import { parseColumnRef } from '@/lib/studio-columns'
 import type { AggregateFunction, AggTerm, ArithOp, BlockAggregate, FieldMapping, StudioBlock } from '@/types/studio'
 
 export const AGG_OPTIONS: { value: AggregateFunction | ''; label: string }[] = [
@@ -60,11 +61,20 @@ export function withAggregate(
 
 const AGG_FN_SET = new Set<string>(['sum', 'avg', 'count', 'min', 'max'])
 
-/** `[{fn:'max',column:'prix'},{op:'-',fn:'min',column:'prix'}]` → `MAX("prix") - MIN("prix")`. */
+/**
+ * `[{fn:'max',column:'prix'},{op:'-',fn:'min',column:'prix'}]` → `MAX("prix") - MIN("prix")`.
+ * Une colonne qualifiée d'une source jointe (`prix@17`, voir `parseColumnRef`) doit garder
+ * son `@<sourceId>` HORS des guillemets (`MAX("prix"@17)`) — sinon le parseur d'expression
+ * (`studio-expression.ts`) l'avale dans le nom de colonne et perd la source jointe.
+ */
 export function aggTermsToExpression(terms: AggTerm[]): string {
   return terms
     .filter((t) => t.column)
-    .map((t, i) => `${i > 0 ? `${t.op ?? '+'} ` : ''}${t.fn.toUpperCase()}("${t.column.replace(/"/g, '')}")`)
+    .map((t, i) => {
+      const { name, sourceId } = parseColumnRef(t.column)
+      const col = `"${name.replace(/"/g, '')}"${sourceId ? `@${sourceId}` : ''}`
+      return `${i > 0 ? `${t.op ?? '+'} ` : ''}${t.fn.toUpperCase()}(${col})`
+    })
     .join(' ')
     .trim()
 }

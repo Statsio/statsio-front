@@ -99,7 +99,7 @@ const leadTheme = computed(() => themeOf(props.lead))
       <article
         v-for="item in secondary"
         :key="item.id"
-        class="u-hover flex gap-3.5 py-4 first:pt-0 lg:first:pt-0"
+        class="u-hover flex items-center gap-3.5 py-4 lg:first:pt-0"
       >
         <RouterLink
           :to="pathOf(item)"

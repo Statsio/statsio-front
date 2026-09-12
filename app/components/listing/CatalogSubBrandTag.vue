@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { resolveContentSubBrand, subBrandContentPath } from '@/lib/content-subbrand'
+import { useContentDomain } from '@/composables/useContentDomain'
 import type { ContentType } from '@/types/content-creation'
 
 const props = defineProps<{
@@ -11,7 +12,13 @@ const props = defineProps<{
   contentType: ContentType
 }>()
 
-const brand = computed(() => resolveContentSubBrand(props.categories, props.subBrand))
+// La pastille ne sert qu'à renvoyer de Statsio vers une sous-marque : sur
+// /tvstats ou /medistats on est déjà sur la sous-marque, elle n'a pas de sens.
+const currentDomain = useContentDomain()
+
+const brand = computed(() =>
+  currentDomain.value === 'statsio' ? resolveContentSubBrand(props.categories, props.subBrand) : null,
+)
 const to = computed(() => (brand.value ? subBrandContentPath(brand.value, props.contentType) : ''))
 </script>
 

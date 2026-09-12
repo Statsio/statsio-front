@@ -2,7 +2,8 @@ import { effectScope, reactive, watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import { blockColumnGroups, parseColumnRef, primarySourceId } from '@/lib/studio-columns'
-import type { BlockFilter, BlockFilterOperator, StudioBlock } from '@/types/studio'
+import { readFilterGroups, withAddedCondition, withPatchedCondition } from '@/lib/studio-filter-groups'
+import type { BlockFilter, BlockFilterOperator, FilterGroup, StudioBlock } from '@/types/studio'
 
 export type FilterDrillInMode = 'primary' | 'comparison'
 export type FilterDrillInStep = 'source' | 'column' | 'values'
@@ -23,7 +24,9 @@ interface DrillInState {
   open: boolean
   blockId: string | null
   mode: FilterDrillInMode
-  /** null = ajout d'un nouveau filtre. */
+  /** Groupe ciblé. `null` = nouveau groupe, créé au commit (cas « + Ajouter un groupe »). */
+  groupIndex: number | null
+  /** null = ajout d'une nouvelle condition dans le groupe. */
   editIndex: number | null
   /** true quand le bloc n'a qu'une source : l'étape « source » est sautée. */
   skipSource: boolean
@@ -42,6 +45,7 @@ const state = reactive<DrillInState>({
   open: false,
   blockId: null,
   mode: 'primary',
+  groupIndex: null,
   editIndex: null,
   skipSource: false,
   step: 'source',
@@ -50,8 +54,8 @@ const state = reactive<DrillInState>({
 
 let watching = false
 
-function currentFilters(block: StudioBlock, mode: FilterDrillInMode): BlockFilter[] {
-  return (mode === 'comparison' ? block.comparisonFilters : block.filters) ?? []
+function currentGroups(block: StudioBlock, mode: FilterDrillInMode): FilterGroup[] {
+  return readFilterGroups(block, mode)
 }
 
 /**
@@ -89,20 +93,25 @@ export function useFilterDrillIn() {
     }
   }
 
-  function openAdd(block: StudioBlock, mode: FilterDrillInMode = 'primary') {
+  /**
+   * `groupIndex` = groupe ciblé pour la nouvelle condition ; `null` (défaut) = nouveau
+   * groupe, créé au commit (bouton « + Ajouter un groupe » ou premier filtre du bloc).
+   */
+  function openAdd(block: StudioBlock, mode: FilterDrillInMode = 'primary', groupIndex: number | null = null) {
     blockColumnGroups(block, datasets) // no-op, ensures reactivity read
     Object.assign(state, {
       open: true,
       blockId: block.id,
       mode,
+      groupIndex,
       editIndex: null,
       draft: emptyDraft(),
     })
     beginSourceStep(block)
   }
 
-  function openEdit(block: StudioBlock, mode: FilterDrillInMode, index: number) {
-    const existing = currentFilters(block, mode)[index]
+  function openEdit(block: StudioBlock, mode: FilterDrillInMode, groupIndex: number, conditionIndex: number) {
+    const existing = currentGroups(block, mode)[groupIndex]?.conditions[conditionIndex]
     if (!existing) {
       openAdd(block, mode)
       return
@@ -126,7 +135,8 @@ export function useFilterDrillIn() {
       open: true,
       blockId: block.id,
       mode,
-      editIndex: index,
+      groupIndex,
+      editIndex: conditionIndex,
       draft,
     })
     // Colonne connue → on démarre sur les valeurs, mais on garde le fil retour complet.
@@ -167,6 +177,7 @@ export function useFilterDrillIn() {
   function close() {
     state.open = false
     state.blockId = null
+    state.groupIndex = null
     state.editIndex = null
     state.draft = emptyDraft()
     state.step = 'source'
@@ -203,13 +214,16 @@ export function useFilterDrillIn() {
     const block = studio.selectedBlock
     if (!block || block.id !== state.blockId) return
 
-    const next = [...currentFilters(block, state.mode)]
+    const groups = currentGroups(block, state.mode)
     const filter = buildFilter()
-    if (state.editIndex != null && state.editIndex < next.length) next[state.editIndex] = filter
-    else next.push(filter)
+    const next = state.groupIndex == null
+      ? [...groups, { conditions: [filter], match: 'all' as const }]
+      : state.editIndex != null
+        ? withPatchedCondition(groups, state.groupIndex, state.editIndex, filter)
+        : withAddedCondition(groups, state.groupIndex, filter)
 
-    if (state.mode === 'comparison') studio.updateBlockComparisonFilters(block.id, next)
-    else studio.updateBlockFilters(block.id, next)
+    if (state.mode === 'comparison') studio.updateBlockComparisonFilterGroups(block.id, next)
+    else studio.updateBlockFilterGroups(block.id, next)
 
     close()
   }

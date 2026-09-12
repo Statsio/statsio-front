@@ -47,9 +47,12 @@ export async function fetchDossiers(): Promise<Dossier[]> {
 }
 
 /** Dossiers épinglés affichés en badges dans la barre de navigation du header (endpoint public). */
-export async function fetchPinnedDossiers(): Promise<PinnedDossier[]> {
+export async function fetchPinnedDossiers(
+  subBrand?: import('@/types/sub-brand').SubBrand,
+): Promise<PinnedDossier[]> {
   const { data } = await apiHttp.get<{ success: boolean; data: { id: number; slug: string; name: string; icon?: string | null }[] }>(
     STATSIO_API.dossiers.pinned,
+    { params: subBrand ? { sub_brand: subBrand } : {} },
   )
   return (data.data ?? []).map((raw) => ({ id: raw.id, slug: raw.slug, name: raw.name, icon: raw.icon ?? null }))
 }

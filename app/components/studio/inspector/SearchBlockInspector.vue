@@ -11,6 +11,7 @@ import FieldNote from '@/components/studio/fields/FieldNote.vue'
 import { useSourceDrillIn } from '@/composables/useSourceDrillIn'
 import FieldPicker from '@/components/studio/fields/FieldPicker.vue'
 import SearchMappingField from '@/components/studio/fields/SearchMappingField.vue'
+import SearchUnionGroupsField from '@/components/studio/fields/SearchUnionGroupsField.vue'
 import BlockFiltersField from '@/components/studio/fields/BlockFiltersField.vue'
 
 const props = defineProps<{ block: StudioBlock; activeTab: string }>()
@@ -93,6 +94,10 @@ const sourceSummary = computed(() => {
         Une page indexable est générée automatiquement pour chaque résultat
         (<code class="font-mono">/statsdata/…/valeur</code>).
       </FieldNote>
+    </InspectorSection>
+
+    <InspectorSection v-if="hasSource" label="Sources additionnelles">
+      <SearchUnionGroupsField :block="block" />
     </InspectorSection>
   </div>
 </template>

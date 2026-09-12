@@ -88,8 +88,8 @@ describe('useBlockData', () => {
     const { reload } = useBlockData(() => block, false, () => ({ item: 'Gazole' }))
     await reload()
 
-    const params = vi.mocked(fetchBlockData).mock.calls[0]![1] as { filters: { value: string }[] }
-    expect(params.filters[0]!.value).toBe('Gazole')
+    const params = vi.mocked(fetchBlockData).mock.calls[0]![1] as { filterGroups: { conditions: { value: string }[] }[] }
+    expect(params.filterGroups[0]!.conditions[0]!.value).toBe('Gazole')
   })
 
   it('load() resolves an aggregate-expression filter value ({{ AVG(col) }}) to a raw number via the scalar-aggregate API', async () => {
@@ -103,9 +103,9 @@ describe('useBlockData', () => {
     await reload()
 
     expect(fetchScalarAggregate).toHaveBeenCalledWith('dataset-1', expect.objectContaining({ fn: 'avg', column: 'prix' }))
-    const params = vi.mocked(fetchBlockData).mock.calls[0]![1] as { filters: { value: string }[] }
+    const params = vi.mocked(fetchBlockData).mock.calls[0]![1] as { filterGroups: { conditions: { value: string }[] }[] }
     // Valeur brute machine-lisible (point décimal), jamais la mise en forme localisée (« 1 234,5 »).
-    expect(params.filters[0]!.value).toBe('1234.5')
+    expect(params.filterGroups[0]!.conditions[0]!.value).toBe('1234.5')
   })
 
   it('load() drops a filter whose aggregate expression could not be resolved, instead of sending an empty/unparsable value', async () => {
@@ -121,8 +121,12 @@ describe('useBlockData', () => {
     const { reload } = useBlockData(() => block, false)
     await reload()
 
-    const params = vi.mocked(fetchBlockData).mock.calls[0]![1] as { filters: { column: string }[] }
-    expect(params.filters).toEqual([{ column: 'region', operator: '=', value: 'IDF' }])
+    const params = vi.mocked(fetchBlockData).mock.calls[0]![1] as {
+      filterGroups: { conditions: { column: string }[]; match: string }[]
+    }
+    expect(params.filterGroups).toEqual([
+      { conditions: [{ column: 'region', operator: '=', value: 'IDF' }], match: 'all' },
+    ])
   })
 
   it('load() forwards overrides (interactive sort + server pagination) to the query params', async () => {

@@ -1,6 +1,6 @@
 import type { useStudioStore } from '@/stores/studio'
 import type { AgentPatchOp } from '@/api/ai'
-import type { BlockType, FieldMapping, BlockConfig, BlockFilter } from '@/types/studio'
+import type { BlockType, FieldMapping, BlockConfig, BlockFilter, FilterGroup } from '@/types/studio'
 import { loopZoneId } from '@/types/studio'
 
 type StudioStore = ReturnType<typeof useStudioStore>
@@ -156,7 +156,15 @@ function applyAddBlock(
   if (isRecord(op.fieldMapping)) studio.updateBlockFieldMapping(block.id, normalizeFieldMapping(op.fieldMapping))
   if (isRecord(op.config)) studio.updateBlockConfig(block.id, op.config as Partial<BlockConfig>)
   if (Array.isArray(op.filters)) studio.updateBlockFilters(block.id, op.filters as BlockFilter[])
+  if (Array.isArray(op.filterGroups)) studio.updateBlockFilterGroups(block.id, op.filterGroups as FilterGroup[])
+  const match = asMatch(op.filtersMatch)
+  if (match) studio.updateBlockFiltersMatch(block.id, match)
   if (Array.isArray(op.joins)) studio.updateBlockJoins(block.id, op.joins as never[])
+}
+
+/** `op.filtersMatch`/`op.comparisonFiltersMatch` arrivent en JSON non typé — on valide avant de les poser. */
+function asMatch(v: unknown): 'all' | 'any' | undefined {
+  return v === 'all' || v === 'any' ? v : undefined
 }
 
 function applyUpdateBlock(op: AgentPatchOp, studio: StudioStore, resolve: (r: unknown) => string) {
@@ -176,6 +184,14 @@ function applyUpdateBlock(op: AgentPatchOp, studio: StudioStore, resolve: (r: un
   if (Array.isArray(op.comparisonFilters)) {
     studio.updateBlockComparisonFilters(id, op.comparisonFilters as BlockFilter[])
   }
+  if (Array.isArray(op.filterGroups)) studio.updateBlockFilterGroups(id, op.filterGroups as FilterGroup[])
+  if (Array.isArray(op.comparisonFilterGroups)) {
+    studio.updateBlockComparisonFilterGroups(id, op.comparisonFilterGroups as FilterGroup[])
+  }
+  const match = asMatch(op.filtersMatch)
+  if (match) studio.updateBlockFiltersMatch(id, match)
+  const compMatch = asMatch(op.comparisonFiltersMatch)
+  if (compMatch) studio.updateBlockComparisonFiltersMatch(id, compMatch)
   if (Array.isArray(op.joins)) studio.updateBlockJoins(id, op.joins as never[])
 }
 

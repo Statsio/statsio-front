@@ -1,8 +1,29 @@
 import { apiHttp, publicHttp, getApiBaseUrl } from '@/lib/http'
 import { STATSIO_API } from './statsio-endpoints'
 import { slugify } from '@/lib/slug'
-import type { DatasetColumn, DatasetMeta, DatasetWithSchema, BlockQueryResult, StudioBlock } from '@/types/studio'
+import type { DatasetColumn, DatasetMeta, DatasetWithSchema, BlockQueryResult, StudioBlock, FilterGroup } from '@/types/studio'
 import type { ContentType, ContentCoverage } from '@/types/content-creation'
+
+/**
+ * Sérialise des groupes de conditions (`FilterGroup[]`) en `filter_groups[gi][match]` /
+ * `filter_groups[gi][conditions][ci][column|operator|value]` + `filters_match` — le
+ * combinateur ENTRE les groupes. Complète (ne remplace pas) l'ancien `filters[i][...]`
+ * plat, qu'on continue d'accepter pour la compat descendante des appelants existants.
+ */
+function serializeFilterGroups(groups: FilterGroup[] | undefined, match: 'all' | 'any' | undefined): string[] {
+  if (!groups?.length) return []
+  const parts: string[] = []
+  groups.forEach((g, gi) => {
+    parts.push(`filter_groups[${gi}][match]=${g.match}`)
+    g.conditions.forEach((f, ci) => {
+      parts.push(`filter_groups[${gi}][conditions][${ci}][column]=${encodeURIComponent(f.column)}`)
+      parts.push(`filter_groups[${gi}][conditions][${ci}][operator]=${encodeURIComponent(f.operator)}`)
+      parts.push(`filter_groups[${gi}][conditions][${ci}][value]=${encodeURIComponent(f.value)}`)
+    })
+  })
+  if (match) parts.push(`filters_match=${match}`)
+  return parts
+}
 
 /** Enveloppe Laravel générique `{ data: T }` — pour typer les réponses `apiHttp`/`publicHttp`. */
 interface Envelope<T> {
@@ -67,7 +88,11 @@ type BlockQueryParams = {
   distinctColumn?: string | null
   sortColumn?: string | null
   sortDirection?: 'asc' | 'desc' | null
+  /** Legacy : liste plate, ET implicite. Toujours accepté, mais `filterGroups` prime dès qu'il est fourni. */
   filters?: import('@/types/studio').BlockFilter[]
+  /** Groupes de conditions du bloc (ET/OU par groupe + entre les groupes via `filtersMatch`). */
+  filterGroups?: FilterGroup[]
+  filtersMatch?: 'all' | 'any'
   sources?: import('@/types/studio').BlockSource[]
   primarySourceId?: string
   joins?: import('@/types/studio').BlockJoin[]
@@ -82,6 +107,13 @@ type BlockQueryParams = {
   searchColumns?: string[]
   /** Bloc recherche : colonnes secondaires (« OU ») — match alternatif de toute la requête. */
   searchAltColumns?: string[]
+  /**
+   * Bloc recherche : groupes de sources additionnelles sans lien avec la source
+   * principale (voir `SearchUnionGroup`). Chacun est interrogé séparément côté
+   * API puis empilé sous les résultats de la source principale (UNION ALL
+   * applicatif) — pas de jointure, pas de clé commune requise.
+   */
+  unionGroups?: import('@/types/studio').SearchUnionGroup[]
 }
 
 function buildParamsSerializer(p: BlockQueryParams): string {
@@ -95,6 +127,14 @@ function buildParamsSerializer(p: BlockQueryParams): string {
     parts.push(`search_q=${encodeURIComponent(p.searchQ)}`)
     ;(p.searchColumns ?? []).forEach((c) => parts.push(`search_columns[]=${encodeURIComponent(c)}`))
     ;(p.searchAltColumns ?? []).forEach((c) => parts.push(`search_alt_columns[]=${encodeURIComponent(c)}`))
+    ;(p.unionGroups ?? []).forEach((g, gi) => {
+      if (!g.source.datasetId || !g.searchColumns.length) return
+      parts.push(`union_groups[${gi}][sources][0][id]=${encodeURIComponent(g.source.id)}`)
+      parts.push(`union_groups[${gi}][sources][0][dataset_id]=${encodeURIComponent(g.source.datasetId)}`)
+      parts.push(`union_groups[${gi}][sources][0][primary]=1`)
+      g.searchColumns.forEach((c) => parts.push(`union_groups[${gi}][search_columns][]=${encodeURIComponent(c)}`))
+      ;(g.searchAltColumns ?? []).forEach((c) => parts.push(`union_groups[${gi}][search_alt_columns][]=${encodeURIComponent(c)}`))
+    })
   }
   if (p.distinctColumn) parts.push(`distinct_column=${encodeURIComponent(p.distinctColumn)}`)
   if (p.sortColumn) parts.push(`sort_column=${encodeURIComponent(p.sortColumn)}`)
@@ -106,6 +146,7 @@ function buildParamsSerializer(p: BlockQueryParams): string {
       parts.push(`filters[${i}][value]=${encodeURIComponent(f.value)}`)
     })
   }
+  parts.push(...serializeFilterGroups(p.filterGroups, p.filtersMatch))
   // Multi-sources : n'émettre `sources[]` que s'il y a > 1 source (une source unique
   // reste sur le chemin mono-source du back, identique à l'existant).
   if (p.sources && p.sources.length > 1) {
@@ -209,6 +250,9 @@ export interface DistinctSourceCtx {
   sources?: import('@/types/studio').BlockSource[]
   primarySourceId?: string
   joins?: import('@/types/studio').BlockJoin[]
+  /** Groupes de conditions du bloc appelant (en plus de `filters`, le tableau plat legacy). */
+  filterGroups?: FilterGroup[]
+  filtersMatch?: 'all' | 'any'
 }
 
 function distinctParamsSerializer(
@@ -226,6 +270,7 @@ function distinctParamsSerializer(
       qs += `&filters[${i}][operator]=${encodeURIComponent(f.operator)}`
       qs += `&filters[${i}][value]=${encodeURIComponent(f.value)}`
     })
+    serializeFilterGroups(ctx.filterGroups, ctx.filtersMatch).forEach((part) => { qs += `&${part}` })
     if (ctx.sources && ctx.sources.length > 1) {
       ctx.sources.forEach((s, i) => {
         qs += `&sources[${i}][id]=${encodeURIComponent(s.id)}`
@@ -303,6 +348,7 @@ function facetParamsSerializer(column: string, opts: FacetQueryOpts): () => stri
       qs += `&filters[${i}][operator]=${encodeURIComponent(f.operator)}`
       qs += `&filters[${i}][value]=${encodeURIComponent(f.value)}`
     })
+    serializeFilterGroups(ctx.filterGroups, ctx.filtersMatch).forEach((part) => { qs += `&${part}` })
     if (ctx.sources && ctx.sources.length > 1) {
       ctx.sources.forEach((s, i) => {
         qs += `&sources[${i}][id]=${encodeURIComponent(s.id)}`
@@ -376,6 +422,8 @@ export interface ScalarAggregateParams {
   /** Référence de colonne : nue (source primaire), `col@<sourceId>`, ou `calc:<id>`. */
   column: string
   filters?: import('@/types/studio').BlockFilter[]
+  filterGroups?: FilterGroup[]
+  filtersMatch?: 'all' | 'any'
   /** Contexte multi-sources du bloc appelant (nécessaire quand la ref/les filtres visent une source jointe). */
   sources?: import('@/types/studio').BlockSource[]
   primarySourceId?: string
@@ -389,6 +437,8 @@ function scalarAggregateQuery(p: ScalarAggregateParams): BlockQueryParams {
     columns: [p.column],
     limit: 1,
     filters: p.filters,
+    filterGroups: p.filterGroups,
+    filtersMatch: p.filtersMatch,
     sources: p.sources,
     primarySourceId: p.primarySourceId,
     joins: p.joins,

@@ -3,7 +3,7 @@ import { ref, computed, watch, onMounted, onBeforeUnmount, inject } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { fetchBlockData, fetchPublicBlockData } from '@/api/studio'
 import { useStudioStore } from '@/stores/studio'
-import { blockSourceParams, resolveBlockFilters } from '@/composables/useBlockData'
+import { blockSourceParams, resolveBlockFilterGroups } from '@/composables/useBlockData'
 import { bareNames } from '@/lib/studio-search'
 import { buildFanOutSegment, fanOutSlugKey } from '@/lib/statsdata-fanout'
 import { isCalcRef, parseColumnRef } from '@/lib/studio-columns'
@@ -61,6 +61,31 @@ interface SearchResult {
   row: Record<string, unknown>
 }
 
+/** Colonnes de recherche + parties de titre/description effectives pour un groupe de résultats. */
+interface SearchGroupCtx {
+  searchCols: string[]
+  titleParts: ResultPart[]
+  descParts: ResultPart[]
+}
+
+const primaryGroupCtx = computed<SearchGroupCtx>(() => ({
+  searchCols: searchCols.value,
+  titleParts: titleParts.value,
+  descParts: descParts.value,
+}))
+
+/**
+ * Groupe d'une ligne de résultat : 0 = source principale, i>0 = i-ème source
+ * additionnelle (`block.searchUnionGroups`, sans lien avec la principale — voir
+ * `SearchUnionGroup`). Ces groupes n'ont pas de titre/description personnalisés :
+ * toujours le repli automatique (1re colonne de recherche trouvée).
+ */
+function groupCtxFor(searchGroupIndex: number): SearchGroupCtx {
+  if (!searchGroupIndex) return primaryGroupCtx.value
+  const g = props.block.searchUnionGroups?.[searchGroupIndex - 1]
+  return { searchCols: bareNames(g?.searchColumns), titleParts: [], descParts: [] }
+}
+
 const query       = ref('')
 const results     = ref<SearchResult[]>([])
 const isLoading   = ref(false)
@@ -98,28 +123,28 @@ function partLabel(part: ResultPart): string {
   return part.label || (isCalcRef(part.ref) ? 'Valeur' : parseColumnRef(part.ref).name)
 }
 
-function buildTitle(row: Record<string, unknown>, columnMap?: Record<string, string>): string {
-  if (!titleParts.value.length) {
+function buildTitle(row: Record<string, unknown>, columnMap?: Record<string, string>, group: SearchGroupCtx = primaryGroupCtx.value): string {
+  if (!group.titleParts.length) {
     // Repli : 1re colonne recherchée qui contient la requête, sinon la 1re.
     const q = query.value.toLowerCase()
-    const hit = searchCols.value.find((c) => String(row[c] ?? '').toLowerCase().includes(q))
-    return String(row[hit ?? searchCols.value[0] ?? ''] ?? '')
+    const hit = group.searchCols.find((c) => String(row[c] ?? '').toLowerCase().includes(q))
+    return String(row[hit ?? group.searchCols[0] ?? ''] ?? '')
   }
-  return titleParts.value
+  return group.titleParts
     .map((p) => `${p.prefix ?? ''}${cellValue(row, p.ref, columnMap)}${p.suffix ?? ''}`)
     .join(titleSeparator.value)
     .trim()
 }
 
-function buildSubValues(row: Record<string, unknown>, columnMap?: Record<string, string>) {
-  if (descParts.value.length) {
-    return descParts.value
+function buildSubValues(row: Record<string, unknown>, columnMap?: Record<string, string>, group: SearchGroupCtx = primaryGroupCtx.value) {
+  if (group.descParts.length) {
+    return group.descParts
       .map((p) => ({ label: partLabel(p), value: cellValue(row, p.ref, columnMap) }))
       .filter((s) => s.value !== '')
   }
   // Repli : colonnes recherchées non utilisées dans le titre.
-  const titleCols = new Set(titleParts.value.map((p) => parseColumnRef(p.ref).name))
-  return searchCols.value
+  const titleCols = new Set(group.titleParts.map((p) => parseColumnRef(p.ref).name))
+  return group.searchCols
     .filter((c) => !titleCols.has(c) && row[c] != null && row[c] !== '')
     .map((c) => ({ label: c, value: String(row[c]) }))
 }
@@ -147,7 +172,10 @@ async function doSearch(q: string) {
   const sp = sourceParams.value
   if (!sp.urlDatasetId) return
   const calcColumns = fm.value.calcColumns?.length ? fm.value.calcColumns : undefined
-  const filters = resolveBlockFilters(props.block.filters ?? [], studio.pageParams)
+  const filters = resolveBlockFilterGroups(props.block, 'primary', studio.pageParams)
+  // Sources additionnelles sans lien avec la principale (pas de jointure possible) :
+  // interrogées séparément côté API puis empilées sous les résultats principaux.
+  const unionGroups = (props.block.searchUnionGroups ?? []).filter((g) => g.source.datasetId && g.searchColumns.length)
   const params = {
     sources: sp.sources,
     primarySourceId: sp.primarySourceId,
@@ -155,8 +183,10 @@ async function doSearch(q: string) {
     searchQ: q,
     searchColumns: searchRefs.value,
     searchAltColumns: searchAltRefs.value,
+    unionGroups: unionGroups.length ? unionGroups : undefined,
     calcColumns,
-    filters: filters.length ? filters : undefined,
+    filterGroups: filters.groups.length ? filters.groups : undefined,
+    filtersMatch: filters.match,
     limit: 30,
   }
   try {
@@ -167,16 +197,20 @@ async function doSearch(q: string) {
 
     const seen = new Set<string>()
     const out: SearchResult[] = []
-    for (const row of res.rows) {
-      const title = buildTitle(row, res.columnMap)
+    for (const raw of res.rows) {
+      // `__search_group` (0 = principale, i>0 = i-ème source additionnelle) tague
+      // l'origine d'une ligne empilée côté API — jamais un vrai champ de données.
+      const { __search_group: searchGroupIndex, ...row } = raw as Record<string, unknown> & { __search_group?: number }
+      const group = groupCtxFor(typeof searchGroupIndex === 'number' ? searchGroupIndex : 0)
+      const title = buildTitle(row, res.columnMap, group)
       if (!title) continue
-      // Dédoublonnage sur l'identité complète (colonnes recherchées) — deux
-      // résultats peuvent partager le même titre (ex. deux communes « Grigny »).
-      const identity = searchCols.value.map((c) => String(row[c] ?? '')).join(' | ')
+      // Dédoublonnage sur l'identité complète (colonnes recherchées du groupe) —
+      // deux résultats peuvent partager le même titre (ex. deux communes « Grigny »).
+      const identity = group.searchCols.map((c) => String(row[c] ?? '')).join(' | ')
       const dedupeKey = `${title} | ${identity}`
       if (seen.has(dedupeKey)) continue
       seen.add(dedupeKey)
-      out.push({ key: dedupeKey, title, subValues: buildSubValues(row, res.columnMap), row })
+      out.push({ key: dedupeKey, title, subValues: buildSubValues(row, res.columnMap, group), row })
     }
     results.value = out
   } catch (e: unknown) {

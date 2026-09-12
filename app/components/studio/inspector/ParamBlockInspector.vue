@@ -4,6 +4,7 @@ import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import { fetchDistinctValues } from '@/api/studio'
 import { blockSourceParams } from '@/composables/useBlockData'
+import { readFilterGroups, readFiltersMatch } from '@/lib/studio-filter-groups'
 import type { DatasetMeta, StudioBlock } from '@/types/studio'
 import { parseColumnRef } from '@/lib/studio-columns'
 import { useColumnDrillIn } from '@/composables/useColumnDrillIn'
@@ -34,21 +35,25 @@ const datasetName = computed(() =>
 )
 const column = computed(() => props.block.fieldMapping.paramColumn ?? '')
 const paramName = computed(() => props.block.fieldMapping.paramName || column.value)
-const filters = computed(() => (props.block.filters ?? []).filter((f) => f.column && f.value !== ''))
+const filterGroups = computed(() => readFilterGroups(props.block, 'primary'))
+const filtersMatch = computed(() => readFiltersMatch(props.block, 'primary'))
 
 // ─── Valeurs distinctes (aperçu + choix de la valeur par défaut) ──────────────
 const values = ref<string[]>([])
 const loadingValues = ref(false)
 
 watch(
-  () => [props.block.datasetId, JSON.stringify(props.block.sources ?? []), JSON.stringify(props.block.joins ?? []), column.value, JSON.stringify(filters.value)].join('|'),
+  () => [props.block.datasetId, JSON.stringify(props.block.sources ?? []), JSON.stringify(props.block.joins ?? []), column.value, JSON.stringify(filterGroups.value), filtersMatch.value].join('|'),
   async () => {
     values.value = []
     const sp = blockSourceParams(props.block)
     if (!sp.urlDatasetId || !column.value) return
     loadingValues.value = true
     try {
-      values.value = await fetchDistinctValues(sp.urlDatasetId, column.value, '', filters.value, { sources: sp.sources, primarySourceId: sp.primarySourceId, joins: sp.joins })
+      values.value = await fetchDistinctValues(sp.urlDatasetId, column.value, '', [], {
+        sources: sp.sources, primarySourceId: sp.primarySourceId, joins: sp.joins,
+        filterGroups: filterGroups.value, filtersMatch: filtersMatch.value,
+      })
     } catch {
       values.value = []
     } finally {

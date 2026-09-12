@@ -4,6 +4,8 @@ import { useStudioStore } from '@/stores/studio'
 import { useStudioAgentStore } from '@/stores/studio-agent'
 import MentionPicker from '@/components/studio/assistant/MentionPicker.vue'
 import { fetchStatsDataEmbeddableBlocks, type ContentMention } from '@/api/studio'
+import { renderChatMarkdown } from '@/lib/chat-markdown'
+import 'katex/dist/katex.min.css'
 
 const studio = useStudioStore()
 const agent = useStudioAgentStore()
@@ -313,7 +315,7 @@ async function removeConversation(id: number) {
         :class="m.role === 'user' ? 'items-end' : 'items-start'"
       >
         <div
-          class="max-w-[85%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm"
+          class="max-w-[85%] rounded-2xl px-3 py-2 text-sm"
           :class="[
             m.role === 'user' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-800',
             m.pending ? 'assistant-thinking' : '',
@@ -323,7 +325,8 @@ async function removeConversation(id: number) {
             <span class="thinking-dots" aria-hidden="true"><i /><i /><i /></span>
             <span class="thinking-text">L’assistant réfléchit</span>
           </span>
-          <span v-else>{{ m.text }}</span>
+          <div v-else-if="m.role === 'user'" class="whitespace-pre-wrap">{{ m.text }}</div>
+          <div v-else class="chat-md" v-html="renderChatMarkdown(m.text)" />
         </div>
 
         <button
@@ -395,6 +398,41 @@ async function removeConversation(id: number) {
 </template>
 
 <style scoped>
+/* ─── Rendu enrichi des messages assistant (code / LaTeX) ─────────────────── */
+.chat-md {
+  line-height: 1.5;
+}
+
+.chat-md :deep(.chat-code) {
+  margin: 0.4rem 0;
+  overflow-x: auto;
+  border-radius: 0.6rem;
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 0.6rem 0.75rem;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.chat-md :deep(.chat-code code) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre;
+}
+
+.chat-md :deep(.chat-inline-code) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  background: rgba(15, 23, 42, 0.08);
+  border-radius: 0.3rem;
+  padding: 0.05rem 0.35rem;
+  font-size: 0.85em;
+}
+
+.chat-md :deep(.katex-display) {
+  margin: 0.5rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
 /* ─── Indicateur « l'assistant réfléchit » ────────────────────────────────── */
 .thinking {
   display: inline-flex;

@@ -1,5 +1,6 @@
-import type { BlockJoin, BlockSource, DatasetColumn, FieldMapping, StudioBlock } from '@/types/studio'
+import type { BlockJoin, BlockSource, DatasetColumn, FieldMapping, FilterGroup, StudioBlock } from '@/types/studio'
 import { migrateSearchBlock } from '@/lib/studio-search'
+import { parseColumnRef } from '@/lib/studio-columns'
 
 /**
  * Ancien format de jointure d'un bloc data (rattachée à la source primaire) :
@@ -113,11 +114,71 @@ export function normalizeBlockSources(block: StudioBlock): StudioBlock {
   }
 }
 
-/** Datasets référencés par un bloc (sources + fallback legacy). Pour précharger les schémas. */
+/**
+ * Retire des `fieldMapping` / `config` / `filters` toute ref `col@<sourceId>`
+ * dont la source n'existe plus. Avec `dropBareRefs`, retire AUSSI les refs nues
+ * (`col` sans `@`) : elles pointaient sur l'ancienne source primaire, disparue.
+ */
+export function pruneBlockColumnRefs(block: StudioBlock, dropBareRefs = false): void {
+  const ids = new Set((block.sources ?? []).map((s) => s.id))
+  const ok = (ref?: string | null): boolean => {
+    if (!ref) return true
+    const { sourceId } = parseColumnRef(ref)
+    if (!sourceId) return !dropBareRefs
+    return ids.has(sourceId)
+  }
+  const keepArr = (a?: string[]) => a?.filter(ok)
+  const keepKeys = <T>(rec?: Record<string, T>) =>
+    rec ? Object.fromEntries(Object.entries(rec).filter(([k]) => ok(k))) : rec
+  const fm = block.fieldMapping
+  block.fieldMapping = {
+    ...fm,
+    xAxis: ok(fm.xAxis) ? fm.xAxis : undefined,
+    yAxis: ok(fm.yAxis) ? fm.yAxis : undefined,
+    yAxes: keepArr(fm.yAxes),
+    label: ok(fm.label) ? fm.label : undefined,
+    value: ok(fm.value) ? fm.value : undefined,
+    series: ok(fm.series) ? fm.series : undefined,
+    columns: keepArr(fm.columns),
+    columnLabels: keepKeys(fm.columnLabels),
+    valueLabels: keepKeys(fm.valueLabels),
+    columnFormats: keepKeys(fm.columnFormats),
+    cellRules: fm.cellRules?.filter((c) => ok(c.column)),
+    recordTitleColumn: ok(fm.recordTitleColumn) ? fm.recordTitleColumn : undefined,
+    latColumn: ok(fm.latColumn) ? fm.latColumn : undefined,
+    lngColumn: ok(fm.lngColumn) ? fm.lngColumn : undefined,
+    mapPointColumn: ok(fm.mapPointColumn) ? fm.mapPointColumn : undefined,
+    mapTitleColumn: ok(fm.mapTitleColumn) ? fm.mapTitleColumn : undefined,
+    mapColorColumn: ok(fm.mapColorColumn) ? fm.mapColorColumn : undefined,
+    mapSizeColumn: ok(fm.mapSizeColumn) ? fm.mapSizeColumn : undefined,
+    valueColumn: ok(fm.valueColumn) ? fm.valueColumn : undefined,
+    comparisonColumn: ok(fm.comparisonColumn) ? fm.comparisonColumn : undefined,
+    aggregates: fm.aggregates?.filter((a) => ok(a.column)),
+    loopColumn: ok(fm.loopColumn) ? fm.loopColumn : undefined,
+    paramColumn: ok(fm.paramColumn) ? fm.paramColumn : undefined,
+    searchColumns: keepArr(fm.searchColumns),
+    searchAltColumns: keepArr(fm.searchAltColumns),
+    resultTitleParts: fm.resultTitleParts?.filter((p) => ok(p.ref)),
+    resultDescParts: fm.resultDescParts?.filter((p) => ok(p.ref)),
+  }
+  if (block.config.distinctColumn && !ok(block.config.distinctColumn)) block.config = { ...block.config, distinctColumn: null }
+  if (block.config.sortColumn && !ok(block.config.sortColumn)) block.config = { ...block.config, sortColumn: null }
+  block.filters = block.filters?.filter((f) => ok(f.column))
+  block.comparisonFilters = block.comparisonFilters?.filter((f) => ok(f.column))
+  const pruneGroups = (groups?: FilterGroup[]) =>
+    groups
+      ?.map((g) => ({ ...g, conditions: g.conditions.filter((f) => ok(f.column)) }))
+      .filter((g) => g.conditions.length > 0)
+  block.filterGroups = pruneGroups(block.filterGroups)
+  block.comparisonFilterGroups = pruneGroups(block.comparisonFilterGroups)
+}
+
+/** Datasets référencés par un bloc (sources + fallback legacy + groupes de recherche additionnels). Pour précharger les schémas. */
 export function blockDatasetIds(block: StudioBlock): string[] {
   const ids = new Set<string>()
   if (block.datasetId) ids.add(block.datasetId)
   for (const s of block.sources ?? []) if (s.datasetId) ids.add(s.datasetId)
+  for (const g of block.searchUnionGroups ?? []) if (g.source.datasetId) ids.add(g.source.datasetId)
   return [...ids]
 }
 

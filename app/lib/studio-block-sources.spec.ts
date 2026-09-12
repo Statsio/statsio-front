@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeBlockSources, blockDatasetIds, suggestJoinKeys } from './studio-block-sources'
+import { normalizeBlockSources, blockDatasetIds, suggestJoinKeys, pruneBlockColumnRefs } from './studio-block-sources'
 import type { StudioBlock } from '@/types/studio'
 
 function block(overrides: Partial<StudioBlock> = {}): StudioBlock {
@@ -97,5 +97,38 @@ describe('blockDatasetIds', () => {
   it('collects source + legacy datasetIds', () => {
     const b = block({ datasetId: '1', sources: [{ id: '1', datasetId: '1' }, { id: '2', datasetId: '2' }] })
     expect(blockDatasetIds(b).sort()).toEqual(['1', '2'])
+  })
+})
+
+describe('pruneBlockColumnRefs', () => {
+  it('drops dangling col@sourceId refs whose source is gone', () => {
+    const b = block({
+      sources: [{ id: '1', datasetId: '1' }],
+      fieldMapping: { xAxis: 'ville', yAxis: 'montant@2' },
+    })
+    pruneBlockColumnRefs(b)
+    expect(b.fieldMapping.xAxis).toBe('ville')
+    expect(b.fieldMapping.yAxis).toBeUndefined()
+  })
+
+  it('keeps bare refs by default, drops them with dropBareRefs', () => {
+    const b1 = block({ sources: [{ id: '1', datasetId: '1' }], fieldMapping: { xAxis: 'ville' } })
+    pruneBlockColumnRefs(b1)
+    expect(b1.fieldMapping.xAxis).toBe('ville')
+
+    const b2 = block({ sources: [{ id: '1', datasetId: '1' }], fieldMapping: { xAxis: 'ville' } })
+    pruneBlockColumnRefs(b2, true)
+    expect(b2.fieldMapping.xAxis).toBeUndefined()
+  })
+
+  it('prunes filters and filterGroups referencing a dropped source', () => {
+    const b = block({
+      sources: [{ id: '1', datasetId: '1' }],
+      filters: [{ column: 'ville', operator: 'eq', value: 'Paris' }, { column: 'x@2', operator: 'eq', value: '1' }] as never,
+      filterGroups: [{ match: 'all', conditions: [{ column: 'x@2', operator: 'eq', value: '1' }] }] as never,
+    })
+    pruneBlockColumnRefs(b)
+    expect(b.filters).toEqual([{ column: 'ville', operator: 'eq', value: 'Paris' }])
+    expect(b.filterGroups).toEqual([])
   })
 })
