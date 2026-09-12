@@ -1,64 +1,28 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-import type {
-  StudioBlock,
-  StudioContent,
-  StudioDocumentPage,
-  PageParam,
-  BlockType,
-  FieldMapping,
-  BlockConfig,
-  SaveStatus,
-  SidebarLeftTab,
-  Section,
-  SectionLayout,
-} from '@/types/studio'
-import { SECTION_LAYOUT_DEFINITIONS, scriptZoneId, scriptIdFromZone, scriptZoneBranch, pageZoneId, isPageZone, pageIdFromZone, isScriptBlock, isContainerBlock, FORM_BLOCK_TYPES } from '@/types/studio'
-import type { CanvasItemRef } from '@/types/studio'
-import { readIfBranches, withAddedBranch, withRemovedBranch } from '@/lib/studio-if'
+import { ref } from 'vue'
+import type { StudioBlock, StudioContent, StudioDocumentPage, SidebarLeftTab, Section } from '@/types/studio'
 import { normalizeBlockSources } from '@/lib/studio-block-sources'
-import { desiredSearchPageParam, sameSearchPageParam } from '@/lib/studio-search'
-import { desiredParamBlockPageParam, sameParamBlockPageParam } from '@/lib/studio-param'
-import { parseColumnRef } from '@/lib/studio-columns'
-import type { BlockSource, BlockJoin } from '@/types/studio'
-import { fetchBlockGates, type RequiredOffer } from '@/api/studio-block-gates'
-import { useAuthStore } from '@/stores/auth'
+import { useStudioSaveStatus } from '@/stores/studio/save-status'
+import { useStudioPremium } from '@/stores/studio/premium'
+import { useStudioMobileSheet } from '@/stores/studio/mobile-sheet'
+import { useStudioHistory } from '@/stores/studio/history'
+import { useStudioCanvas } from '@/stores/studio/canvas'
+import { useStudioPageParams, defaultParamsForPage } from '@/stores/studio/page-params'
+import { useStudioSections } from '@/stores/studio/sections'
+import { useStudioBlocks } from '@/stores/studio/blocks'
+import { useStudioPages } from '@/stores/studio/pages'
+import { useStudioBlockDataSources } from '@/stores/studio/block-data-sources'
+import { useStudioIfBranches } from '@/stores/studio/if-branches'
+import { useStudioBlockFilters } from '@/stores/studio/block-filters'
+import { migrateLegacyTemplatePages, migrateMultiColumnSections } from '@/stores/studio/migrations'
+import { useStudioSerialization } from '@/stores/studio/serialization'
 
 function uid(): string {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
 }
 
-function getColCount(layout: SectionLayout): number {
-  return SECTION_LAYOUT_DEFINITIONS.find((d) => d.type === layout)?.cols ?? 1
-}
-
-/**
- * Valeurs initiales de `pageParams` pour une page : la `defaultValue` de chaque
- * paramètre déclaré qui en porte une. Une page sans paramètre → `{}` (comportement
- * historique inchangé).
- */
-function defaultParamsForPage(page: StudioDocumentPage | undefined): Record<string, string> {
-  const out: Record<string, string> = {}
-  for (const p of page?.params ?? []) {
-    if (p.name && p.defaultValue != null && p.defaultValue !== '') out[p.name] = p.defaultValue
-  }
-  return out
-}
-
-interface HistoryEntry {
-  pages: StudioDocumentPage[]
-  sections: Section[]
-  blocks: StudioBlock[]
-}
-
-function deepClone<T>(val: T): T {
-  return JSON.parse(JSON.stringify(val))
-}
-
-const MAX_HISTORY = 50
-
 export const useStudioStore = defineStore('studio', () => {
-  // ─── State ──────────────────────────────────────────────────────────────────
+  // ─── Core state (partagé par (quasi) tous les composables ci-dessous) ────────
 
   const content = ref<StudioContent | null>(null)
   const pages = ref<StudioDocumentPage[]>([{ id: 'default', title: 'Page 1' }])
@@ -68,376 +32,98 @@ export const useStudioStore = defineStore('studio', () => {
   const blocks = ref<StudioBlock[]>([])
 
   const selectedBlockId = ref<string | null>(null)
-  const saveStatus = ref<SaveStatus>('idle')
-  /** Statut HTTP de la dernière sauvegarde en échec définitif (404 supprimé, 403 accès révoqué) ; null sinon. */
-  const saveErrorStatus = ref<number | null>(null)
+  const selectedSectionId = ref<string | null>(null)
   const activeLeftTab = ref<SidebarLeftTab>('blocks')
   const isPanelOpen = ref(false)
   const isSidebarRightOpen = ref(false)
-  const isDirty = ref(false)
-  const dirtyVersion = ref(0)
   /** Aperçu : canevas en lecture seule, chrome d'édition masqué. */
   const isPreview = ref(false)
 
-  // ─── Premium ─────────────────────────────────────────────────────────────────
+  // ─── Composables internes ─────────────────────────────────────────────────────
+  // Chacun ferme sur un sous-ensemble du state ci-dessus (+ `snapshot`/`markDirty`
+  // pour l'historique/dirty-tracking) — voir app/stores/studio/*.ts. `sections` et
+  // `blocks` se référencent mutuellement (`addPageBlock` → `addBlock`,
+  // `fallbackZoneId` → `addSection`) : liaison tardive via deux `let` assignés
+  // juste après construction, résolus uniquement à l'appel (jamais pendant le setup).
 
-  const authStore = useAuthStore()
-  /** Types de blocs réservés à une offre payante (classification back-office) — voir /offres. */
-  const premiumBlockTypes = ref<BlockType[]>([])
-  /** Offre réelle (CRUD Offres) qui débloque chaque bloc premium — pour l'affichage, pas de libellé codé en dur. */
-  const premiumBlockOffers = ref<Partial<Record<BlockType, RequiredOffer>>>({})
-  const premiumGatesLoaded = ref(false)
-  /** Type de bloc dont l'ajout vient d'être bloqué → pilote la modale d'upsell. */
-  const premiumUpsellBlockType = ref<BlockType | null>(null)
-
-  function isBlockPremium(type: BlockType): boolean {
-    return premiumBlockTypes.value.includes(type)
-  }
-
-  /** Nom de l'offre réelle qui débloque ce bloc — undefined tant que non chargé/configuré. */
-  function requiredOfferForBlock(type: BlockType): RequiredOffer | undefined {
-    return premiumBlockOffers.value[type]
-  }
-
-  /** L'utilisateur peut-il utiliser ce type de bloc ? Le back reste la source de vérité. */
-  function canUseBlock(type: BlockType): boolean {
-    return !isBlockPremium(type) || authStore.isPremium
-  }
-
-  function requestPremiumUpsell(type: BlockType) {
-    premiumUpsellBlockType.value = type
-  }
-
-  /**
-   * Un sondage « question unique » (`survey_kind === 'single_question'`) ne peut
-   * contenir qu'un seul bloc de formulaire — vrai dès qu'un bloc formulaire existe
-   * déjà et que `type` en est un lui aussi.
-   */
-  function isFormBlockLimitReached(type: BlockType): boolean {
-    if (!FORM_BLOCK_TYPES.includes(type)) return false
-    if (content.value?.type !== 'survey' || content.value?.survey_kind !== 'single_question') return false
-    return blocks.value.some((b) => FORM_BLOCK_TYPES.includes(b.type))
-  }
-
-  function dismissPremiumUpsell() {
-    premiumUpsellBlockType.value = null
-  }
-
-  /** Chargé une seule fois par session d'édition (données globales, pas par document). */
-  async function loadPremiumBlockGates() {
-    if (premiumGatesLoaded.value) return
-    premiumGatesLoaded.value = true
-    try {
-      const gates = await fetchBlockGates()
-      premiumBlockTypes.value = gates.types
-      premiumBlockOffers.value = gates.offerByType
-    } catch {
-      // Best-effort : sans cette liste, aucune pastille n'est affichée mais le
-      // back refuse toujours l'enregistrement d'un bloc premium (source de vérité).
-    }
-  }
-
-  // ─── History (undo/redo) ─────────────────────────────────────────────────────
-
-  const past = ref<HistoryEntry[]>([])
-  const future = ref<HistoryEntry[]>([])
-
-  const canUndo = computed(() => past.value.length > 0)
-  const canRedo = computed(() => future.value.length > 0)
-
-  // Batch : coalesce plusieurs mutations (ex. un run de l'assistant IA) en une
-  // seule entrée d'historique → « Annuler ces changements » = un seul Ctrl+Z.
-  let batchDepth = 0
-  let batchSnapshotTaken = false
-
-  function beginBatch() {
-    batchDepth++
-    batchSnapshotTaken = false
-  }
-
-  function endBatch() {
-    batchDepth = Math.max(0, batchDepth - 1)
-  }
-
-  // Call BEFORE applying a mutation to save the current state
-  function snapshot() {
-    if (batchDepth > 0) {
-      if (batchSnapshotTaken) return
-      batchSnapshotTaken = true
-    }
-    past.value = [
-      ...past.value.slice(-(MAX_HISTORY - 1)),
-      { pages: deepClone(pages.value), sections: deepClone(sections.value), blocks: deepClone(blocks.value) },
-    ]
-    future.value = []
-  }
-
-  function undo() {
-    const prev = past.value[past.value.length - 1]
-    if (!prev) return
-    future.value = [
-      ...future.value,
-      { pages: deepClone(pages.value), sections: deepClone(sections.value), blocks: deepClone(blocks.value) },
-    ]
-    past.value = past.value.slice(0, -1)
-    pages.value = prev.pages
-    sections.value = prev.sections
-    blocks.value = prev.blocks
-    if (!pages.value.find((p: StudioDocumentPage) => p.id === currentPageId.value)) {
-      currentPageId.value = pages.value[0]?.id ?? 'default'
-    }
-    selectedBlockId.value = null
-    selectedSectionId.value = null
-    isSidebarRightOpen.value = false
-    markDirty()
-  }
-
-  function redo() {
-    const next = future.value[future.value.length - 1]
-    if (!next) return
-    past.value = [
-      ...past.value.slice(-(MAX_HISTORY - 1)),
-      { pages: deepClone(pages.value), sections: deepClone(sections.value), blocks: deepClone(blocks.value) },
-    ]
-    future.value = future.value.slice(0, -1)
-    pages.value = next.pages
-    sections.value = next.sections
-    blocks.value = next.blocks
-    if (!pages.value.find((p: StudioDocumentPage) => p.id === currentPageId.value)) {
-      currentPageId.value = pages.value[0]?.id ?? 'default'
-    }
-    selectedBlockId.value = null
-    selectedSectionId.value = null
-    isSidebarRightOpen.value = false
-    markDirty()
-  }
-
-  // ─── Computed ────────────────────────────────────────────────────────────────
-
-  /**
-   * Le multi-pages (sélecteur de pages, fan-out d'URL, blocs de page) n'existe
-   * que pour les StatsData. Les articles et sondages restent sur une page unique
-   * implicite (`default`).
-   */
-  const supportsPages = computed(() => content.value?.type === 'statsdata')
-
-  const currentPage = computed<StudioDocumentPage | undefined>(
-    () => pages.value.find((p: StudioDocumentPage) => p.id === currentPageId.value),
-  )
-
-  const currentPageSections = computed<Section[]>(
-    () => sections.value.filter((s: Section) => (s.pageId ?? 'default') === currentPageId.value),
-  )
-
-  /** Sections racine de la page courante (pas nichées dans la zone d'un bloc de script de page). */
-  const currentPageTopLevelSections = computed<Section[]>(
-    () => currentPageSections.value.filter((s: Section) => !s.zoneId),
-  )
-
-  /** Sections nichées dans une zone de bloc de script (`scriptZoneId(blockId, branch)`), dans l'ordre du tableau. */
-  function sectionsInZone(zoneId: string): Section[] {
-    return sections.value.filter((s: Section) => s.zoneId === zoneId)
-  }
-
-  /**
-   * Éléments de premier niveau du flux de la page courante — sections racine +
-   * blocs `loop`/`if` posés au niveau page — dans l'ordre de `currentPage.canvas`.
-   * Repli sur l'ordre des sections racine quand `canvas` est absent ; complète en
-   * fin toute section / bloc de page manquant (robustesse + docs existants).
-   */
-  const currentPageCanvasItems = computed<Array<{ ref: CanvasItemRef; section?: Section; block?: StudioBlock }>>(() => {
-    const rootSections = currentPageTopLevelSections.value
-    const zone = pageZoneId(currentPageId.value)
-    const pageBlocks = blocks.value.filter((b: StudioBlock) => b.zoneId === zone)
-    const bySection = new Map(rootSections.map((s) => [s.id, s]))
-    const byBlock = new Map(pageBlocks.map((b) => [b.id, b]))
-
-    const out: Array<{ ref: CanvasItemRef; section?: Section; block?: StudioBlock }> = []
-    const seen = new Set<string>()
-    for (const ref of currentPage.value?.canvas ?? []) {
-      const key = `${ref.kind}:${ref.id}`
-      if (seen.has(key)) continue
-      if (ref.kind === 'section' && bySection.has(ref.id)) {
-        out.push({ ref, section: bySection.get(ref.id) }); seen.add(key)
-      } else if (ref.kind === 'block' && byBlock.has(ref.id)) {
-        out.push({ ref, block: byBlock.get(ref.id) }); seen.add(key)
-      }
-    }
-    for (const s of rootSections) {
-      if (!seen.has(`section:${s.id}`)) out.push({ ref: { kind: 'section', id: s.id }, section: s })
-    }
-    for (const b of pageBlocks) {
-      if (!seen.has(`block:${b.id}`)) out.push({ ref: { kind: 'block', id: b.id }, block: b })
-    }
-    return out
+  const saveStatusApi = useStudioSaveStatus()
+  const premiumApi = useStudioPremium({ content, blocks })
+  const mobileSheetApi = useStudioMobileSheet()
+  const historyApi = useStudioHistory({
+    pages, sections, blocks, currentPageId, selectedBlockId, selectedSectionId, isSidebarRightOpen,
+    markDirty: saveStatusApi.markDirty,
+  })
+  const canvasApi = useStudioCanvas({
+    content, pages, sections, blocks, currentPageId, selectedBlockId, selectedSectionId, isSidebarRightOpen,
+    snapshot: historyApi.snapshot, markDirty: saveStatusApi.markDirty,
+  })
+  const pageParamsApi = useStudioPageParams({
+    pages, sections, blocks, currentPageId, pageParams, currentPage: canvasApi.currentPage,
+    snapshot: historyApi.snapshot, markDirty: saveStatusApi.markDirty,
   })
 
-  const selectedBlock = computed<StudioBlock | null>(() => {
-    if (!selectedBlockId.value) return null
-    return blocks.value.find((b: StudioBlock) => b.id === selectedBlockId.value) ?? null
+  // `blocksApi` et `sectionsApi` se référencent mutuellement (`addPageBlock` →
+  // `addBlock`, `fallbackZoneId` → `addSection`). `blocksApi` est construit en
+  // premier ; sa dépendance vers `addSection` ne peut donc pas encore fermer sur
+  // une variable `sectionsApi` — on la range dans un holder mutable, rempli juste
+  // après construction. L'appel réel n'a lieu qu'à l'usage (jamais pendant le setup).
+  const lateBound: { sections?: ReturnType<typeof useStudioSections> } = {}
+
+  const blocksApi = useStudioBlocks({
+    blocks, sections, pages, currentPageId, selectedBlockId, selectedSectionId, isSidebarRightOpen,
+    selectedBlock: canvasApi.selectedBlock,
+    canPlaceInZone: canvasApi.canPlaceInZone,
+    loopChildIds: canvasApi.loopChildIds,
+    dropCanvasRef: canvasApi.dropCanvasRef,
+    addSection: () => lateBound.sections!.addSection(),
+    syncParamBlockPageParam: pageParamsApi.syncParamBlockPageParam,
+    syncAutoPageParam: pageParamsApi.syncAutoPageParam,
+    snapshot: historyApi.snapshot,
+    markDirty: saveStatusApi.markDirty,
   })
 
-  const selectedSectionId = ref<string | null>(null)
-  const selectedSection = computed<Section | null>(
-    () => sections.value.find((s: Section) => s.id === selectedSectionId.value) ?? null,
-  )
+  const sectionsApi = useStudioSections({
+    sections, blocks, currentPageId, selectedBlockId, selectedSectionId, isSidebarRightOpen,
+    currentPage: canvasApi.currentPage,
+    currentPageCanvasItems: canvasApi.currentPageCanvasItems,
+    sectionsInZone: canvasApi.sectionsInZone,
+    insertCanvasRef: canvasApi.insertCanvasRef,
+    dropCanvasRef: canvasApi.dropCanvasRef,
+    loopChildIds: canvasApi.loopChildIds,
+    addBlock: (type, zoneId, atIndex, locked) => blocksApi.addBlock(type, zoneId, atIndex, locked),
+    snapshot: historyApi.snapshot,
+    markDirty: saveStatusApi.markDirty,
+  })
+  lateBound.sections = sectionsApi
 
-  function selectSection(sectionId: string | null) {
-    selectedSectionId.value = sectionId
-    if (sectionId) selectedBlockId.value = null
-    isSidebarRightOpen.value = sectionId !== null
-  }
-
-  function updateSection(sectionId: string, patch: Partial<Omit<Section, 'id'>>) {
-    const section = sections.value.find((s: Section) => s.id === sectionId)
-    if (!section) return
-    snapshot()
-    Object.assign(section, patch)
-    markDirty()
-  }
-
-  // Zone IDs derived from sections: `${sectionId}-${colIndex}`
-  // Plus one zone per script block: a `loop` has `loop:${blockId}:0`, an `if` has
-  // one zone per branch (`loop:${blockId}:${branchIndex}`).
-  const blocksByZone = computed<Record<string, StudioBlock[]>>(() => {
-    const map: Record<string, StudioBlock[]> = {}
-    for (const page of pages.value) {
-      // Zone racine de page : accueille les blocs `loop`/`if` posés hors des sections.
-      map[pageZoneId(page.id)] = []
-    }
-    for (const section of sections.value) {
-      const cols = getColCount(section.layout)
-      for (let i = 0; i < cols; i++) {
-        map[`${section.id}-${i}`] = []
-      }
-    }
-    for (const block of blocks.value) {
-      if (block.type === 'if') {
-        const branchCount = Math.max(1, readIfBranches(block.config).length)
-        for (let i = 0; i < branchCount; i++) map[scriptZoneId(block.id, i)] ??= []
-      } else if (block.type === 'layout') {
-        const cols = getColCount(block.config.layoutType ?? '2-cols')
-        for (let i = 0; i < cols; i++) map[scriptZoneId(block.id, i)] ??= []
-      } else if (isScriptBlock(block.type)) {
-        map[scriptZoneId(block.id)] ??= []
-      }
-    }
-    for (const block of blocks.value) {
-      if (!map[block.zoneId]) map[block.zoneId] = []
-      map[block.zoneId]!.push(block)
-    }
-    return map
+  const pagesApi = useStudioPages({
+    pages, sections, blocks, currentPageId, pageParams, selectedBlockId, selectedSectionId, isSidebarRightOpen,
+    loopChildIds: canvasApi.loopChildIds,
+    snapshot: historyApi.snapshot, markDirty: saveStatusApi.markDirty,
   })
 
-  /** Ids des blocs enfants (directs + descendants) d'un bloc de script — toutes branches confondues. */
-  function loopChildIds(scriptBlockId: string): string[] {
-    const out: string[] = []
-    const stack = [scriptBlockId]
-    while (stack.length) {
-      const parentId = stack.pop()!
-      for (const b of blocks.value) {
-        if (scriptIdFromZone(b.zoneId) === parentId) {
-          out.push(b.id)
-          if (isContainerBlock(b.type)) stack.push(b.id)
-        }
-      }
-    }
-    return out
-  }
+  const blockDataSourcesApi = useStudioBlockDataSources({
+    blocks, syncAutoPageParam: pageParamsApi.syncAutoPageParam,
+    snapshot: historyApi.snapshot, markDirty: saveStatusApi.markDirty,
+  })
 
-  /** Blocs de script englobant `blockId`, du plus proche au plus lointain. */
-  function loopAncestors(blockId: string): StudioBlock[] {
-    const out: StudioBlock[] = []
-    let current = blocks.value.find((b: StudioBlock) => b.id === blockId)
-    const guard = new Set<string>()
-    while (current) {
-      const parentId = scriptIdFromZone(current.zoneId)
-      if (!parentId || guard.has(parentId)) break
-      guard.add(parentId)
-      const parent = blocks.value.find((b: StudioBlock) => b.id === parentId && isContainerBlock(b.type))
-      if (!parent) break
-      out.push(parent)
-      current = parent
-    }
-    return out
-  }
+  const ifBranchesApi = useStudioIfBranches({
+    blocks, sections, loopChildIds: canvasApi.loopChildIds,
+    snapshot: historyApi.snapshot, markDirty: saveStatusApi.markDirty,
+  })
 
-  /**
-   * Dans une zone de script (`loop:` / `if:`) on autorise tout SAUF `search`,
-   * `param` et les blocs de formulaire. Le script imbriqué (loop/if dans loop/if)
-   * est permis.
-   */
-  function canPlaceInZone(type: BlockType, zoneId: string): boolean {
-    // Zone racine de page : uniquement des blocs de script (répètent / conditionnent des sections).
-    if (isPageZone(zoneId)) return type === 'loop' || type === 'if'
-    if (!zoneId.startsWith('loop:')) return true
-    return type !== 'search' && type !== 'param' && !FORM_BLOCK_TYPES.includes(type)
-  }
+  const blockFiltersApi = useStudioBlockFilters({
+    blocks, syncAutoPageParam: pageParamsApi.syncAutoPageParam,
+    snapshot: historyApi.snapshot, markDirty: saveStatusApi.markDirty,
+  })
 
-  // ─── Migration : pages « template » → page normale + paramètre ───────────────
-  // Plan Statsdata v2 : plus qu'un seul type de page. Une page `isTemplate` est
-  // convertie en page normale portant un `PageParam` (avec `fanOut` pour la
-  // génération d'URL par valeur — Phase 2). Idempotent, sans effet sur une page
-  // déjà normale.
-
-  function migrateLegacyTemplatePages() {
-    for (const page of pages.value) {
-      if (!page.isTemplate) continue
-
-      // Colonne identifiante legacy : celle qui pilotait les filtres `{{param}}`.
-      // Les pages pilotées par un bloc recherche sont ensuite réconciliées par
-      // `syncAllSearchPageParams` (qui remplace ce param par le param auto-géré).
-      const idColumn = page.paramName
-      if (idColumn && !(page.params ?? []).some((p) => p.name === idColumn)) {
-        const decl: PageParam = {
-          name: idColumn,
-          column: idColumn,
-          fanOut: true,
-          slugColumn: idColumn,
-        }
-        page.params = [decl, ...(page.params ?? [])]
-      }
-
-      page.isTemplate = undefined
-      page.paramName = undefined
-    }
-
-    // Les sections/blocs verrouillés n'existaient que pour la barre de recherche
-    // auto-provisionnée des pages template — plus de raison de les figer.
-    for (const s of sections.value) if (s.locked) s.locked = undefined
-    for (const b of blocks.value) if (b.locked) b.locked = undefined
-  }
-
-  // ─── Migration : sections multi-colonnes → bloc « Disposition » ─────────────
-  // Une section ne porte plus de mise en page en colonnes (toujours `1-col`) : les
-  // anciennes sections `2-cols`/`3-cols`/… sont converties en une section 1-col
-  // contenant un unique bloc `layout` qui reprend l'agencement et les blocs des
-  // anciennes colonnes. Idempotent (ne touche pas les sections déjà `1-col`).
-
-  function migrateMultiColumnSections() {
-    for (const section of sections.value) {
-      if (section.layout === '1-col') continue
-
-      const layoutBlock: StudioBlock = {
-        id: uid(),
-        type: 'layout',
-        zoneId: `${section.id}-0`,
-        fieldMapping: {},
-        config: { title: '', layoutType: section.layout },
-      }
-
-      const prefix = `${section.id}-`
-      for (const b of blocks.value) {
-        if (!b.zoneId.startsWith(prefix)) continue
-        const colIdx = parseInt(b.zoneId.slice(prefix.length), 10)
-        if (Number.isNaN(colIdx)) continue
-        b.zoneId = scriptZoneId(layoutBlock.id, colIdx)
-      }
-
-      blocks.value.push(layoutBlock)
-      section.layout = '1-col'
-    }
-  }
+  const serializationApi = useStudioSerialization({
+    content, pages, sections, blocks, currentPageId, pageParams, selectedBlockId, selectedSectionId,
+    isPanelOpen, isSidebarRightOpen, supportsPages: canvasApi.supportsPages,
+    syncAllSearchPageParams: pageParamsApi.syncAllSearchPageParams,
+    syncAllParamBlockPageParams: pageParamsApi.syncAllParamBlockPageParams,
+    snapshot: historyApi.snapshot, dropLastSnapshot: historyApi.dropLastSnapshot, markDirty: saveStatusApi.markDirty,
+  })
 
   // ─── Page init ───────────────────────────────────────────────────────────────
 
@@ -448,7 +134,7 @@ export const useStudioStore = defineStore('studio', () => {
     documentPages?: StudioDocumentPage[],
     options: { seedEmptySection?: boolean } = {},
   ) {
-    void loadPremiumBlockGates()
+    void premiumApi.loadPremiumBlockGates()
     content.value = pageContent
 
     if (documentPages && documentPages.length > 0) {
@@ -474,1218 +160,28 @@ export const useStudioStore = defineStore('studio', () => {
 
     blocks.value = (pageBlocks ?? []).map(normalizeBlockSources)
 
-    migrateLegacyTemplatePages()
-    migrateMultiColumnSections()
+    migrateLegacyTemplatePages(pages, sections, blocks)
+    migrateMultiColumnSections(sections, blocks)
     // Bloc `param` : le toggle « générer une page » a été retiré (fan-out toujours actif).
     for (const b of blocks.value) {
       if (b.type === 'param' && 'paramFanOut' in b.config) {
         delete (b.config as Record<string, unknown>).paramFanOut
       }
     }
-    syncAllSearchPageParams()
-    syncAllParamBlockPageParams()
+    pageParamsApi.syncAllSearchPageParams()
+    pageParamsApi.syncAllParamBlockPageParams()
     pageParams.value = defaultParamsForPage(pages.value.find((p) => p.id === currentPageId.value))
 
     selectedBlockId.value = null
     selectedSectionId.value = null
-    saveStatus.value = 'idle'
-    saveErrorStatus.value = null
-    isDirty.value = false
-    dirtyVersion.value = 0
-    past.value = []
-    future.value = []
+    saveStatusApi.resetSaveStatus()
+    historyApi.resetHistory()
   }
 
   function setTitle(title: string) {
     if (!content.value) return
     content.value.title = title
-    markDirty()
-  }
-
-  // ─── Sections ────────────────────────────────────────────────────────────────
-
-  /** Refs actuelles du flux de la page courante — sert à matérialiser `page.canvas`. */
-  function currentCanvasRefs(): CanvasItemRef[] {
-    return currentPageCanvasItems.value.map((i) => i.ref)
-  }
-  function insertCanvasRef(ref: CanvasItemRef, atIndex?: number) {
-    const page = currentPage.value
-    if (!page) return
-    // Matérialise depuis l'ordre courant EN EXCLUANT l'élément qu'on insère
-    // (l'auto-complétion de `currentPageCanvasItems` l'a déjà mis en fin).
-    const base = (page.canvas ?? currentCanvasRefs()).filter((r) => !(r.kind === ref.kind && r.id === ref.id))
-    if (atIndex !== undefined && atIndex >= 0 && atIndex <= base.length) base.splice(atIndex, 0, ref)
-    else base.push(ref)
-    page.canvas = base
-  }
-  function dropCanvasRef(kind: CanvasItemRef['kind'], id: string) {
-    const canvas = currentPage.value?.canvas
-    if (canvas) currentPage.value!.canvas = canvas.filter((r) => !(r.kind === kind && r.id === id))
-  }
-
-  /**
-   * `zoneId` : insère la section dans la zone d'un bloc de script de page
-   * (`scriptZoneId(blockId, branch)`) plutôt qu'à la racine — `atIndex` se lit
-   * alors parmi les sections de cette zone (défaut : à la fin). Sans `zoneId`,
-   * insertion au niveau page ; `atIndex` = position dans le tableau `sections.value`
-   * (bas niveau — l'ordre du flux visible passe par `page.canvas`). Toujours
-   * `layout: '1-col'` (colonnes portées par le bloc « Disposition »).
-   */
-  function addSection(atIndex?: number, locked?: boolean, zoneId?: string): Section {
-    snapshot()
-    const section: Section = { id: uid(), layout: '1-col', pageId: currentPageId.value, locked, zoneId }
-    if (zoneId) {
-      const siblings = sectionsInZone(zoneId)
-      const useAt = atIndex !== undefined && atIndex < siblings.length
-      const anchor = useAt ? siblings[atIndex] : siblings[siblings.length - 1]
-      if (anchor) {
-        const at = sections.value.findIndex((s: Section) => s.id === anchor.id)
-        sections.value.splice(useAt ? at : at + 1, 0, section)
-      } else {
-        sections.value.push(section)
-      }
-    } else if (atIndex !== undefined) {
-      sections.value.splice(atIndex, 0, section)
-    } else {
-      sections.value.push(section)
-    }
-    markDirty()
-    return section
-  }
-
-  /** Ajoute une section racine à la position `atIndex` du flux de la page (drag depuis le canevas). */
-  function addSectionInFlow(atIndex?: number): Section {
-    const section = addSection()
-    insertCanvasRef({ kind: 'section', id: section.id }, atIndex)
-    markDirty()
-    return section
-  }
-
-  /**
-   * Ajoute un bloc `loop`/`if` au niveau page (hors des sections) : répète ou
-   * conditionne des sections entières. `atIndex` = position dans le flux de la page.
-   */
-  function addPageBlock(type: 'loop' | 'if', atIndex?: number): StudioBlock {
-    const block = addBlock(type, pageZoneId(currentPageId.value))
-    insertCanvasRef({ kind: 'block', id: block.id }, atIndex)
-    markDirty()
-    return block
-  }
-
-  /** Repositionne le groupe de sections d'une zone dans `sections.value`, dans l'ordre voulu (sans snapshot). */
-  function applyZoneOrder(zoneId: string, orderIds: string[]) {
-    const byId = new Map(sections.value.map((s) => [s.id, s]))
-    const ordered = orderIds.map((id) => byId.get(id)).filter((s): s is Section => !!s).map((s) => ({ ...s, zoneId }))
-    const kept = sections.value.filter((s: Section) => s.zoneId !== zoneId)
-    const firstRemovedIdx = sections.value.findIndex((s: Section) => s.zoneId === zoneId)
-    let at = kept.length
-    if (firstRemovedIdx !== -1) {
-      at = sections.value.slice(0, firstRemovedIdx).filter((s: Section) => s.zoneId !== zoneId).length
-    }
-    kept.splice(at, 0, ...ordered)
-    sections.value = kept
-  }
-
-  /** Réordonne les sections d'une zone de bloc de script (drag & drop interne). */
-  function reorderSectionZone(zoneId: string, newOrder: Section[]) {
-    snapshot()
-    applyZoneOrder(zoneId, newOrder.map((s) => s.id))
-    markDirty()
-  }
-
-  /** Déplace une section (racine ou autre zone) DANS une zone de bloc de script, à l'index voulu. */
-  function moveSectionToZone(sectionId: string, zoneId: string, atIndex: number) {
-    const section = sections.value.find((s: Section) => s.id === sectionId)
-    if (!section || section.zoneId === zoneId) return
-    snapshot()
-    dropCanvasRef('section', sectionId)
-    const others = sectionsInZone(zoneId).filter((s) => s.id !== sectionId).map((s) => s.id)
-    const at = Math.max(0, Math.min(atIndex, others.length))
-    others.splice(at, 0, sectionId)
-    section.zoneId = zoneId
-    applyZoneOrder(zoneId, others)
-    markDirty()
-  }
-
-  /** Sort une section d'une zone de script pour la remettre à la racine de la page, à l'index de flux voulu. */
-  function moveSectionToFlow(sectionId: string, atFlowIndex: number) {
-    const section = sections.value.find((s: Section) => s.id === sectionId)
-    if (!section) return
-    snapshot()
-    section.zoneId = undefined
-    insertCanvasRef({ kind: 'section', id: sectionId }, atFlowIndex)
-    markDirty()
-  }
-
-  /** Réécrit l'ordre du flux de premier niveau de la page courante. */
-  function reorderPageCanvas(newItems: CanvasItemRef[]) {
-    const page = currentPage.value
-    if (!page) return
-    snapshot()
-    page.canvas = [...newItems]
-    markDirty()
-  }
-
-  /** Réordonne les sections racine de la page courante (compat — le canevas passe par `reorderPageCanvas`). */
-  function reorderCurrentPageSections(newTopLevelOrder: Section[]) {
-    snapshot()
-    const otherSections = sections.value.filter((s: Section) => (s.pageId ?? 'default') !== currentPageId.value)
-    const currentPageOriginal = sections.value.filter((s: Section) => (s.pageId ?? 'default') === currentPageId.value)
-    const currentTopOriginal = currentPageOriginal.filter((s: Section) => !s.zoneId)
-    const nested = currentPageOriginal.filter((s: Section) => s.zoneId)
-
-    const currentNonLocked = newTopLevelOrder.filter((s) => !s.locked)
-    const mergedTop: Section[] = []
-    let idx = 0
-    for (const orig of currentTopOriginal) {
-      if (orig.locked) mergedTop.push(orig)
-      else if (idx < currentNonLocked.length) mergedTop.push(currentNonLocked[idx++]!)
-    }
-    while (idx < currentNonLocked.length) mergedTop.push(currentNonLocked[idx++]!)
-
-    sections.value = [...otherSections, ...mergedTop, ...nested]
-    if (currentPage.value?.canvas) {
-      const order = new Map(mergedTop.map((s, i) => [s.id, i]))
-      currentPage.value.canvas = [...currentPage.value.canvas].sort((a, b) => {
-        const av = a.kind === 'section' ? order.get(a.id) ?? Infinity : Infinity
-        const bv = b.kind === 'section' ? order.get(b.id) ?? Infinity : Infinity
-        return av - bv
-      })
-    }
-    markDirty()
-  }
-
-  function removeSection(sectionId: string) {
-    const section = sections.value.find((s: Section) => s.id === sectionId)
-    if (section?.locked) return
-    snapshot()
-    sections.value = sections.value.filter((s: Section) => s.id !== sectionId)
-    dropCanvasRef('section', sectionId)
-    if (selectedSectionId.value === sectionId) {
-      selectedSectionId.value = null
-      isSidebarRightOpen.value = false
-    }
-    const removed = new Set<string>()
-    for (const b of blocks.value) {
-      if (!b.zoneId?.startsWith(`${sectionId}-`)) continue
-      removed.add(b.id)
-      if (isContainerBlock(b.type)) loopChildIds(b.id).forEach((id) => removed.add(id))
-    }
-    blocks.value = blocks.value.filter((b: StudioBlock) => !removed.has(b.id))
-    if (selectedBlockId.value) {
-      const stillExists = blocks.value.find((b: StudioBlock) => b.id === selectedBlockId.value)
-      if (!stillExists) {
-        selectedBlockId.value = null
-        isSidebarRightOpen.value = false
-      }
-    }
-    markDirty()
-  }
-
-  /** Réordonne une section racine dans le flux de la page (flèches ↑/↓ de la barre d'outils de section). */
-  function moveSectionInFlow(sectionId: string, dir: -1 | 1) {
-    const section = sections.value.find((s: Section) => s.id === sectionId)
-    if (!section || section.locked || section.zoneId) return
-    const items = currentPageCanvasItems.value
-    const pos = items.findIndex((i) => i.ref.kind === 'section' && i.ref.id === sectionId)
-    if (pos === -1) return
-    const target = items[pos + dir]
-    if (!target || (target.section?.locked ?? false)) return
-    const refs = items.map((i) => i.ref)
-    ;[refs[pos], refs[pos + dir]] = [refs[pos + dir]!, refs[pos]!]
-    reorderPageCanvas(refs)
-  }
-
-  /** Duplique une section (en-tête + tous ses blocs, scripts imbriqués compris) juste après l'originale. */
-  function duplicateSection(sectionId: string): Section | null {
-    const section = sections.value.find((s: Section) => s.id === sectionId)
-    if (!section || section.locked) return null
-
-    snapshot()
-    const clone: Section = { ...deepClone(section), id: uid(), locked: undefined }
-
-    // Blocs directs de la section (`${sectionId}-N`) + descendants de leurs blocs de script.
-    const ids = new Set<string>()
-    for (const b of blocks.value) {
-      if (!b.zoneId?.startsWith(`${sectionId}-`)) continue
-      ids.add(b.id)
-      if (isContainerBlock(b.type)) loopChildIds(b.id).forEach((id) => ids.add(id))
-    }
-    const toClone = blocks.value.filter((b: StudioBlock) => ids.has(b.id))
-    const idMap = new Map<string, string>()
-    for (const b of toClone) idMap.set(b.id, uid())
-
-    const clones: StudioBlock[] = toClone.map((b) => {
-      let zoneId = b.zoneId
-      if (zoneId.startsWith(`${sectionId}-`)) {
-        zoneId = `${clone.id}-${zoneId.slice(sectionId.length + 1)}`
-      } else {
-        const parentOldId = scriptIdFromZone(zoneId)
-        if (parentOldId && idMap.has(parentOldId)) {
-          zoneId = scriptZoneId(idMap.get(parentOldId)!, scriptZoneBranch(b.zoneId))
-        }
-      }
-      return { ...deepClone(b), id: idMap.get(b.id)!, locked: undefined, zoneId }
-    })
-
-    const origIdx = sections.value.findIndex((s: Section) => s.id === sectionId)
-    sections.value.splice(origIdx + 1, 0, clone)
-    blocks.value.push(...clones)
-
-    if (!section.zoneId) {
-      const items = currentPageCanvasItems.value
-      const pos = items.findIndex((i) => i.ref.kind === 'section' && i.ref.id === sectionId)
-      insertCanvasRef({ kind: 'section', id: clone.id }, pos === -1 ? undefined : pos + 1)
-    }
-
-    selectedSectionId.value = clone.id
-    selectedBlockId.value = null
-    isSidebarRightOpen.value = true
-    markDirty()
-    return clone
-  }
-
-  function reorderSections(newOrder: Section[]) {
-    snapshot()
-    // Keep locked sections in their original relative positions, only reorder non-locked ones
-    const originalLocked = sections.value.filter(s => s.locked)
-    const newNonLocked = newOrder.filter(s => !s.locked)
-    
-    // Create a map of locked section IDs to their original indices
-    const lockedPositions = new Map<string, number>()
-    originalLocked.forEach((s, idx) => lockedPositions.set(s.id, idx))
-    
-    // Merge locked sections (in original order) with non-locked sections (in new order), keeping locked in their original relative positions
-    const result: Section[] = []
-    let nonLockedIndex = 0
-    
-    // Iterate through original sections, inserting locked sections in original place and non-locked in new order
-    for (const originalSection of sections.value) {
-      if (originalSection.locked) {
-        result.push(originalSection)
-      } else if (nonLockedIndex < newNonLocked.length) {
-        result.push(newNonLocked[nonLockedIndex++]!)
-      }
-    }
-    // Add any remaining non-locked sections (shouldn't happen, but just in case)
-    while (nonLockedIndex < newNonLocked.length) {
-      result.push(newNonLocked[nonLockedIndex++]!)
-    }
-    
-    sections.value = result
-    markDirty()
-  }
-
-  // ─── Pages ───────────────────────────────────────────────────────────────────
-
-  function addPage(title: string, options: { isTemplate?: boolean; paramName?: string; description?: string; icon?: string; seedSection?: boolean } = {}): StudioDocumentPage {
-    snapshot()
-    const page: StudioDocumentPage = {
-      id: uid(),
-      title,
-      slug: title.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
-      description: options.description,
-      isTemplate: options.isTemplate,
-      paramName: options.paramName,
-      icon: options.icon,
-    }
-    pages.value.push(page)
-    currentPageId.value = page.id
-    // Une nouvelle page créée depuis l'éditeur démarre avec une section vide
-    // (l'assistant IA, lui, gère ses propres sections → `seedSection` absent).
-    if (options.seedSection) {
-      sections.value.push({ id: uid(), layout: '1-col', pageId: page.id })
-    }
-    pageParams.value = defaultParamsForPage(page)
-    selectedBlockId.value = null
-    selectedSectionId.value = null
-    isSidebarRightOpen.value = false
-    markDirty()
-    return page
-  }
-
-  function updatePage(pageId: string, patch: Partial<Omit<StudioDocumentPage, 'id'>>) {
-    const page = pages.value.find((p: StudioDocumentPage) => p.id === pageId)
-    if (!page) return
-    snapshot()
-    Object.assign(page, patch)
-    markDirty()
-  }
-
-  function switchPage(pageId: string) {
-    const page = pages.value.find((p: StudioDocumentPage) => p.id === pageId)
-    if (!page) return
-    currentPageId.value = pageId
-    pageParams.value = defaultParamsForPage(page)
-    selectedBlockId.value = null
-    selectedSectionId.value = null
-    isSidebarRightOpen.value = false
-  }
-
-  // Like switchPage but keeps existing pageParams (used when URL navigation already set them)
-  function switchPageKeepParams(pageId: string) {
-    if (!pages.value.find((p: StudioDocumentPage) => p.id === pageId)) return
-    currentPageId.value = pageId
-    selectedBlockId.value = null
-    isSidebarRightOpen.value = false
-  }
-
-  function removePage(pageId: string) {
-    if (pages.value.length <= 1) return
-    snapshot()
-    // Remove blocks that belong to sections of this page
-    const pageSectionIds = sections.value
-      .filter((s: Section) => (s.pageId ?? 'default') === pageId)
-      .map((s: Section) => s.id)
-    const removedFromPage = new Set<string>()
-    for (const b of blocks.value) {
-      const sectionId = b.zoneId?.split('-').slice(0, -1).join('-') ?? ''
-      if (!pageSectionIds.includes(sectionId)) continue
-      removedFromPage.add(b.id)
-      if (isContainerBlock(b.type)) loopChildIds(b.id).forEach((id) => removedFromPage.add(id))
-    }
-    blocks.value = blocks.value.filter((b: StudioBlock) => !removedFromPage.has(b.id))
-    sections.value = sections.value.filter((s: Section) => (s.pageId ?? 'default') !== pageId)
-    pages.value = pages.value.filter((p: StudioDocumentPage) => p.id !== pageId)
-    if (currentPageId.value === pageId) {
-      currentPageId.value = pages.value[0]?.id ?? 'default'
-      pageParams.value = defaultParamsForPage(pages.value[0])
-      selectedBlockId.value = null
-      isSidebarRightOpen.value = false
-    }
-    markDirty()
-  }
-
-  /** Déplace une page d'un cran (`-1` = vers le haut, `1` = vers le bas) dans l'ordre du document. */
-  function movePage(pageId: string, direction: -1 | 1) {
-    const index = pages.value.findIndex((p: StudioDocumentPage) => p.id === pageId)
-    if (index === -1) return
-    const target = index + direction
-    if (target < 0 || target >= pages.value.length) return
-    snapshot()
-    const next = [...pages.value]
-    const [moved] = next.splice(index, 1)
-    next.splice(target, 0, moved!)
-    pages.value = next
-    markDirty()
-  }
-
-  /** Réécrit l'ordre complet des pages du document (drag & drop). */
-  function reorderPages(orderedIds: string[]) {
-    const byId = new Map(pages.value.map((p: StudioDocumentPage) => [p.id, p]))
-    const next = orderedIds
-      .map((id) => byId.get(id))
-      .filter((p): p is StudioDocumentPage => !!p)
-    if (next.length !== pages.value.length) return
-    snapshot()
-    pages.value = next
-    markDirty()
-  }
-
-  function setPageParam(name: string, value: string) {
-    pageParams.value = { ...pageParams.value, [name]: value }
-  }
-
-  function setPageParams(params: Record<string, string>) {
-    pageParams.value = { ...params }
-  }
-
-  function clearPageParams() {
-    pageParams.value = {}
-  }
-
-  // ─── Page parameters (déclarations) ──────────────────────────────────────────
-  // Une page porte une liste de `PageParam` (nom + source + valeur par défaut).
-  // Les blocs les référencent via `{{nom}}` ; `pageParams` (les valeurs courantes)
-  // est réamorcé avec les `defaultValue` à chaque `switchPage` / `initPage`.
-
-  const currentPageParamDefs = computed<PageParam[]>(() => currentPage.value?.params ?? [])
-
-  /** Vrai si au moins un paramètre de la page courante a une valeur qui diffère de son défaut. */
-  const hasActivePageFilters = computed(() =>
-    Object.entries(pageParams.value).some(([name, value]) => {
-      if (!value) return false
-      const def = currentPage.value?.params?.find((p) => p.name === name)
-      return value !== (def?.defaultValue ?? '')
-    }),
-  )
-
-  /** Réapplique les valeurs par défaut de la page courante à `pageParams` sans effacer les autres clés. */
-  function seedCurrentPageParamDefaults() {
-    const defaults = defaultParamsForPage(currentPage.value)
-    const next = { ...pageParams.value }
-    for (const [k, v] of Object.entries(defaults)) {
-      if (next[k] == null || next[k] === '') next[k] = v
-    }
-    pageParams.value = next
-  }
-
-  function addPageParam(pageId: string, param: PageParam) {
-    const page = pages.value.find((p: StudioDocumentPage) => p.id === pageId)
-    if (!page || !param.name) return
-    if ((page.params ?? []).some((p) => p.name === param.name)) return
-    snapshot()
-    page.params = [...(page.params ?? []), { ...param }]
-    if (pageId === currentPageId.value) seedCurrentPageParamDefaults()
-    markDirty()
-  }
-
-  function updatePageParam(pageId: string, name: string, patch: Partial<PageParam>) {
-    const page = pages.value.find((p: StudioDocumentPage) => p.id === pageId)
-    const existing = page?.params?.find((p) => p.name === name)
-    if (!page || !existing) return
-    snapshot()
-    const prevDefault = existing.defaultValue
-    page.params = page.params!.map((p) => (p.name === name ? { ...p, ...patch } : p))
-    if (pageId === currentPageId.value) {
-      // Si l'auteur change la valeur par défaut et que le paramètre courant est
-      // encore « au défaut » (jamais changé à la main), on suit la nouvelle valeur.
-      const cur = pageParams.value[name]
-      if ('defaultValue' in patch && (cur == null || cur === '' || cur === prevDefault)) {
-        const next = { ...pageParams.value }
-        if (patch.defaultValue != null && patch.defaultValue !== '') next[name] = patch.defaultValue
-        else delete next[name]
-        pageParams.value = next
-      }
-      seedCurrentPageParamDefaults()
-    }
-    markDirty()
-  }
-
-  function removePageParam(pageId: string, name: string) {
-    const page = pages.value.find((p: StudioDocumentPage) => p.id === pageId)
-    if (!page?.params?.some((p) => p.name === name)) return
-    snapshot()
-    page.params = page.params.filter((p) => p.name !== name)
-    if (pageId === currentPageId.value) {
-      const next = { ...pageParams.value }
-      delete next[name]
-      pageParams.value = next
-    }
-    markDirty()
-  }
-
-  // ─── Bloc recherche : paramètre point-barre auto-géré ────────────────────────
-  // Un bloc recherche déclare toujours, de façon invisible, exactement un
-  // `PageParam` (fan-out) sur sa propre page, dérivé de ses `searchColumns`.
-  // Aucun réglage exposé — voir `desiredSearchPageParam`.
-
-  /** Id de la page à laquelle appartient une zone (remonte sections + zones de script). */
-  function pageIdOfZone(zoneId: string | undefined): string | undefined {
-    if (!zoneId) return undefined
-    if (isPageZone(zoneId)) return pageIdFromZone(zoneId) ?? undefined
-    const scriptId = scriptIdFromZone(zoneId)
-    if (scriptId) {
-      const parent = blocks.value.find((b: StudioBlock) => b.id === scriptId)
-      return parent ? pageIdOfZone(parent.zoneId) : undefined
-    }
-    const sectionId = zoneId.replace(/-\d+$/, '')
-    const section = sections.value.find((s: Section) => s.id === sectionId)
-    if (!section) return undefined
-    return section.zoneId ? pageIdOfZone(section.zoneId) : (section.pageId ?? 'default')
-  }
-
-  function pageIdOfBlock(blockId: string): string | undefined {
-    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
-    return block ? pageIdOfZone(block.zoneId) : undefined
-  }
-
-  /** Réconcilie le `PageParam` géré par un bloc recherche (add / update / remove). */
-  function syncSearchPageParam(blockId: string) {
-    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
-    if (!block || block.type !== 'search') return
-    const targetPageId = pageIdOfBlock(blockId)
-    const ownedByBlock = (p: PageParam) => p.searchBlockId === blockId
-
-    // Retire les déclarations de ce bloc restées sur d'autres pages.
-    for (const page of pages.value) {
-      if (!page.params?.length) continue
-      const keep = page.params.filter((p) => !(ownedByBlock(p) && page.id !== targetPageId))
-      if (keep.length !== page.params.length) page.params = keep.length ? keep : undefined
-    }
-
-    const page = targetPageId ? pages.value.find((p: StudioDocumentPage) => p.id === targetPageId) : undefined
-    if (!page) return
-
-    const existing = (page.params ?? []).find(ownedByBlock)
-    const reserved = new Set<string>()
-    for (const p of page.params ?? []) if (!ownedByBlock(p)) reserved.add(p.name)
-    const desired = desiredSearchPageParam(block, { existingName: existing?.name, reserved })
-
-    if (!desired) {
-      if (existing) {
-        const next = (page.params ?? []).filter((p) => !ownedByBlock(p))
-        page.params = next.length ? next : undefined
-      }
-      return
-    }
-
-    // Sur une page pilotée par un bloc recherche : un seul param fan-out, le sien.
-    // Purge les params fan-out legacy (déclarés sans propriétaire) ; conserve la
-    // déclaration d'un bloc `param` mais lui retire le fan-out (recherche prioritaire).
-    let params = (page.params ?? []).filter(
-      (p) => ownedByBlock(p) || !(p.fanOut && !p.searchBlockId && !p.paramBlockId),
-    )
-    params = params.map((p) =>
-      p.paramBlockId && p.fanOut ? { ...p, fanOut: undefined, slugColumn: undefined } : p,
-    )
-
-    if (!existing) {
-      params = [...params.filter((p) => p.name !== desired.name), desired]
-    } else if (!sameSearchPageParam(existing, desired)) {
-      params = params.map((p) => (ownedByBlock(p) ? desired : p))
-    }
-    page.params = params
-  }
-
-  function syncAllSearchPageParams() {
-    for (const b of blocks.value) if (b.type === 'search') syncSearchPageParam(b.id)
-  }
-
-  // ─── Bloc paramètre : `PageParam` visible auto-géré ──────────────────────────
-  // Comme le bloc recherche, un bloc `param` déclare toujours exactement un
-  // `PageParam` (fan-out) sur sa page — mais visible (contrôle pastilles / liste).
-  // Aucun réglage « générer une page » : le fan-out est automatique.
-
-  /** Réconcilie le `PageParam` géré par un bloc `param` (add / update / remove). */
-  function syncParamBlockPageParam(blockId: string) {
-    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
-    if (!block || block.type !== 'param') return
-    const targetPageId = pageIdOfBlock(blockId)
-    const ownedByBlock = (p: PageParam) => p.paramBlockId === blockId
-
-    // Retire les déclarations de ce bloc restées sur d'autres pages (déplacement).
-    for (const page of pages.value) {
-      if (!page.params?.length) continue
-      const keep = page.params.filter((p) => !(ownedByBlock(p) && page.id !== targetPageId))
-      if (keep.length !== page.params.length) page.params = keep.length ? keep : undefined
-    }
-
-    const page = targetPageId ? pages.value.find((p: StudioDocumentPage) => p.id === targetPageId) : undefined
-    if (!page) return
-
-    const existing = (page.params ?? []).find(ownedByBlock)
-    const pageHasForeignFanOut = (page.params ?? []).some((p) => p.fanOut && p.searchBlockId)
-    const desired = desiredParamBlockPageParam(block, { pageHasForeignFanOut })
-
-    if (!desired) {
-      if (existing) {
-        const next = (page.params ?? []).filter((p) => !ownedByBlock(p))
-        page.params = next.length ? next : undefined
-      }
-      return
-    }
-
-    let params = [...(page.params ?? [])]
-
-    // Adoption d'une déclaration orpheline (ancien `watch` de l'inspecteur, ou
-    // migration legacy `isTemplate`) : même nom, sans propriétaire.
-    const orphanIdx = params.findIndex(
-      (p) => !p.searchBlockId && !p.paramBlockId && p.name === desired.name,
-    )
-    if (!existing && orphanIdx >= 0) {
-      params[orphanIdx] = { ...params[orphanIdx], ...desired }
-    } else if (!existing) {
-      params = [...params.filter((p) => p.name !== desired.name), desired]
-    } else if (!sameParamBlockPageParam(existing, desired)) {
-      params = params.map((p) => (ownedByBlock(p) ? { ...p, ...desired } : p))
-    }
-
-    // Renommage de `paramName` : supprime les déclarations possédées au mauvais nom.
-    params = params.filter((p) => !(ownedByBlock(p) && p.name !== desired.name))
-    if (!params.some(ownedByBlock)) params.push(desired)
-
-    page.params = params
-  }
-
-  function syncAllParamBlockPageParams() {
-    for (const b of blocks.value) if (b.type === 'param') syncParamBlockPageParam(b.id)
-  }
-
-  /** Réconcilie le `PageParam` auto-géré du bloc (recherche ou paramètre). */
-  function syncAutoPageParam(blockId: string) {
-    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
-    if (block?.type === 'search') syncSearchPageParam(blockId)
-    else if (block?.type === 'param') syncParamBlockPageParam(blockId)
-  }
-
-  // ─── Blocks ──────────────────────────────────────────────────────────────────
-
-  const TEXT_DEFAULTS: Partial<Record<BlockType, object>> = {
-    heading:   { content: '<h2></h2>', headingLevel: 2, textAlign: 'left' },
-    paragraph: { content: '<p></p>', textAlign: 'left' },
-    quote:     { content: '<p></p>', textAlign: 'left' },
-    callout:   { content: '<p></p>', textAlign: 'left', calloutColor: '#eff6ff' },
-  }
-
-  const FORM_DEFAULTS: Partial<Record<BlockType, object>> = {
-    choice:     { formOptions: ['Option 1', 'Option 2'] },
-    checkboxes: { formOptions: ['Option 1', 'Option 2'] },
-    dropdown:   { formOptions: ['Option 1', 'Option 2'] },
-    scale:      { scaleMin: 1, scaleMax: 5 },
-    rating:     { ratingMax: 5 },
-    'sd-embed': { showSourceLink: true },
-    layout:     { layoutType: '2-cols' },
-  }
-
-  /** Zone de la première colonne de la dernière section de la page courante (en crée une au besoin). */
-  function fallbackZoneId(): string {
-    const pageSections = sections.value.filter(
-      (s: Section) => (s.pageId ?? 'default') === currentPageId.value && !s.zoneId,
-    )
-    const last = pageSections[pageSections.length - 1]
-    if (last) return `${last.id}-0`
-    return `${addSection().id}-0`
-  }
-
-  function addBlock(type: BlockType, zoneId: string, atIndex?: number, locked?: boolean): StudioBlock {
-    // Zone de boucle : un bloc loop / recherche / formulaire n'y est pas autorisé →
-    // on le place dans une section normale plutôt que de créer un bloc invalide.
-    if (!canPlaceInZone(type, zoneId)) {
-      zoneId = fallbackZoneId()
-      atIndex = undefined
-    }
-    snapshot()
-    const block: StudioBlock = {
-      id: uid(),
-      type,
-      zoneId,
-      locked: locked || undefined,
-      fieldMapping: {},
-      config: { title: '', ...TEXT_DEFAULTS[type], ...FORM_DEFAULTS[type] },
-    }
-
-    if (atIndex !== undefined) {
-      const zoneBlockIds = blocks.value.filter((b: StudioBlock) => b.zoneId === zoneId).map((b: StudioBlock) => b.id)
-      if (atIndex < zoneBlockIds.length) {
-        const flatIdx = blocks.value.findIndex((b: StudioBlock) => b.id === zoneBlockIds[atIndex])
-        if (flatIdx >= 0) {
-          blocks.value.splice(flatIdx, 0, block)
-        } else {
-          blocks.value.push(block)
-        }
-      } else {
-        blocks.value.push(block)
-      }
-    } else {
-      blocks.value.push(block)
-    }
-
-    selectedBlockId.value = block.id
-    isSidebarRightOpen.value = true
-    markDirty()
-    return block
-  }
-
-  /**
-   * Ajoute un bloc sans drag & drop (clic sur une carte du panneau « Éléments »).
-   * Cible : la zone du bloc sélectionné, sinon la première zone de la dernière
-   * section de la page courante, sinon une nouvelle section 1-col.
-   */
-  function addBlockSmart(type: BlockType): StudioBlock {
-    const selected = selectedBlock.value
-    if (selected) return addBlock(type, selected.zoneId)
-
-    const pageSections = sections.value.filter(
-      (s: Section) => (s.pageId ?? 'default') === currentPageId.value && !s.zoneId,
-    )
-    const lastSection = pageSections[pageSections.length - 1]
-    if (lastSection) return addBlock(type, `${lastSection.id}-0`)
-
-    const section = addSection()
-    return addBlock(type, `${section.id}-0`)
-  }
-
-  /**
-   * Descendants d'un bloc conteneur — blocs **et** sections nichées (cas d'un
-   * bloc `loop`/`if` de page dont les zones portent des sections). Marche
-   * récursive blocs↔sections (zones de script + colonnes `${sectionId}-`).
-   */
-  function scriptDescendants(blockId: string): { blocks: Set<string>; sections: Set<string> } {
-    const outBlocks = new Set<string>()
-    const outSections = new Set<string>()
-    const blockStack = [blockId]
-    const sectionStack: string[] = []
-    while (blockStack.length || sectionStack.length) {
-      if (blockStack.length) {
-        const bid = blockStack.pop()!
-        for (const b of blocks.value) {
-          if (scriptIdFromZone(b.zoneId) === bid && !outBlocks.has(b.id)) {
-            outBlocks.add(b.id)
-            if (isContainerBlock(b.type)) blockStack.push(b.id)
-          }
-        }
-        for (const s of sections.value) {
-          if (s.zoneId && scriptIdFromZone(s.zoneId) === bid && !outSections.has(s.id)) {
-            outSections.add(s.id)
-            sectionStack.push(s.id)
-          }
-        }
-      } else {
-        const sid = sectionStack.pop()!
-        for (const b of blocks.value) {
-          if (b.zoneId.startsWith(`${sid}-`) && !outBlocks.has(b.id)) {
-            outBlocks.add(b.id)
-            if (isContainerBlock(b.type)) blockStack.push(b.id)
-          }
-        }
-      }
-    }
-    return { blocks: outBlocks, sections: outSections }
-  }
-
-  function removeBlock(blockId: string) {
-    const target = blocks.value.find((b: StudioBlock) => b.id === blockId)
-    if (target?.locked) return
-    snapshot()
-    const toRemove = new Set<string>([blockId])
-    let sectionsToRemove = new Set<string>()
-    if (target && isContainerBlock(target.type)) {
-      const d = scriptDescendants(blockId)
-      d.blocks.forEach((id) => toRemove.add(id))
-      sectionsToRemove = d.sections
-    }
-    blocks.value = blocks.value.filter((b: StudioBlock) => !toRemove.has(b.id))
-    if (sectionsToRemove.size) sections.value = sections.value.filter((s: Section) => !sectionsToRemove.has(s.id))
-    // Retire les `PageParam` auto-déclarés par les blocs recherche / paramètre supprimés.
-    for (const page of pages.value) {
-      if (!page.params?.length) continue
-      const keep = page.params.filter(
-        (p) =>
-          (!p.searchBlockId || !toRemove.has(p.searchBlockId)) &&
-          (!p.paramBlockId || !toRemove.has(p.paramBlockId)),
-      )
-      if (keep.length !== page.params.length) page.params = keep.length ? keep : undefined
-    }
-    // Un bloc recherche supprimé peut rendre le fan-out à un bloc paramètre resté sur la page.
-    for (const b of blocks.value) if (b.type === 'param') syncParamBlockPageParam(b.id)
-    dropCanvasRef('block', blockId)
-    if (selectedBlockId.value === blockId) {
-      selectedBlockId.value = null
-      isSidebarRightOpen.value = false
-    }
-    markDirty()
-  }
-
-  function duplicateBlock(blockId: string): StudioBlock | null {
-    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
-    if (!block || block.locked) return null
-
-    snapshot()
-    const clone: StudioBlock = { ...deepClone(block), id: uid(), locked: undefined }
-    const originalIdx = blocks.value.findIndex((b: StudioBlock) => b.id === blockId)
-    const inserts: StudioBlock[] = [clone]
-
-    // Bloc conteneur (loop / if / layout) : cloner aussi ses enfants et les rattacher à la zone du clone.
-    if (isContainerBlock(block.type)) {
-      const idMap = new Map<string, string>([[blockId, clone.id]])
-      for (const childId of loopChildIds(blockId)) {
-        const child = blocks.value.find((b: StudioBlock) => b.id === childId)
-        if (!child) continue
-        const newId = uid()
-        idMap.set(childId, newId)
-        const parentOldId = scriptIdFromZone(child.zoneId)!
-        inserts.push({
-          ...deepClone(child),
-          id: newId,
-          locked: undefined,
-          zoneId: scriptZoneId(idMap.get(parentOldId) ?? clone.id, scriptZoneBranch(child.zoneId)),
-        })
-      }
-    }
-
-    blocks.value.splice(originalIdx + 1, 0, ...inserts)
-
-    selectedBlockId.value = clone.id
-    isSidebarRightOpen.value = true
-    markDirty()
-    return clone
-  }
-
-  function selectBlock(blockId: string | null) {
-    selectedBlockId.value = blockId
-    if (blockId) selectedSectionId.value = null
-    isSidebarRightOpen.value = blockId !== null
-  }
-
-  function moveBlock(blockId: string, toZoneId: string) {
-    snapshot()
-    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
-    if (!block) return
-    block.zoneId = toZoneId
-    syncAutoPageParam(blockId)
-    markDirty()
-  }
-
-  /** Réordonne un bloc à l'intérieur de sa zone (flèches ↑/↓ de la barre d'outils du bloc). */
-  function moveBlockWithinZone(blockId: string, dir: -1 | 1) {
-    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
-    if (!block) return
-    const zoneBlocks = blocks.value.filter((b: StudioBlock) => b.zoneId === block.zoneId)
-    const posInZone = zoneBlocks.findIndex((b: StudioBlock) => b.id === blockId)
-    const target = zoneBlocks[posInZone + dir]
-    if (!target) return
-    snapshot()
-    const i = blocks.value.findIndex((b: StudioBlock) => b.id === blockId)
-    const j = blocks.value.findIndex((b: StudioBlock) => b.id === target.id)
-    const next = [...blocks.value]
-    ;[next[i], next[j]] = [next[j]!, next[i]!]
-    blocks.value = next
-    markDirty()
-  }
-
-  function setZoneBlocks(zoneId: string, blockIds: string[]) {
-    // Zone de boucle : ignore les blocs qu'on ne peut pas y placer (loop imbriquée,
-    // recherche, formulaire) — ils gardent leur zone d'origine, le drop est annulé.
-    if (zoneId.startsWith('loop:')) {
-      blockIds = blockIds.filter((id) => {
-        const b = blocks.value.find((x: StudioBlock) => x.id === id)
-        return !b || b.zoneId === zoneId || canPlaceInZone(b.type, zoneId)
-      })
-    }
-    snapshot()
-    for (const block of blocks.value) {
-      if (blockIds.includes(block.id)) {
-        block.zoneId = zoneId
-      }
-    }
-    const zoneBlocks = blockIds
-      .map((id) => blocks.value.find((b: StudioBlock) => b.id === id))
-      .filter(Boolean) as StudioBlock[]
-    const otherBlocks = blocks.value.filter((b: StudioBlock) => !blockIds.includes(b.id) && b.zoneId !== zoneId)
-    blocks.value = [...otherBlocks, ...zoneBlocks]
-    for (const b of zoneBlocks) syncAutoPageParam(b.id)
-    markDirty()
-  }
-
-  function updateBlockConfig(blockId: string, config: Partial<BlockConfig>) {
-    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
-    if (!block) return
-    // Text content changes are handled by Tiptap's internal history — no structural snapshot
-    const isTextOnly = Object.keys(config).length === 1 && 'content' in config
-    if (!isTextOnly) snapshot()
-    block.config = { ...block.config, ...config }
-    if (block.type === 'param') syncParamBlockPageParam(blockId)
-    markDirty()
-  }
-
-  /** Change l'agencement en colonnes d'un bloc « Disposition » — réaffecte les blocs des colonnes retirées vers la dernière colonne restante. */
-  function changeBlockLayout(blockId: string, layoutType: SectionLayout) {
-    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
-    if (!block || block.type !== 'layout') return
-    snapshot()
-    const newCols = getColCount(layoutType)
-    blocks.value = blocks.value.map((b: StudioBlock) => {
-      if (scriptIdFromZone(b.zoneId) !== blockId) return b
-      const colIdx = scriptZoneBranch(b.zoneId)
-      const safeIdx = Math.min(colIdx, newCols - 1)
-      return { ...b, zoneId: scriptZoneId(blockId, safeIdx) }
-    })
-    block.config = { ...block.config, layoutType }
-    markDirty()
-  }
-
-  /**
-   * Compat : « choisir une source unique ». Remplace toutes les sources du bloc
-   * par un seul dataset et purge les refs de colonnes devenues invalides.
-   */
-  function updateBlockDataset(blockId: string, datasetId: string) {
-    snapshot()
-    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
-    if (!block) return
-    if (block.sources?.length === 1 && block.sources[0]?.datasetId === datasetId) return
-    block.datasetId = datasetId
-    block.sources = [{ id: datasetId, datasetId }]
-    block.primarySourceId = datasetId
-    block.joins = []
-    pruneBlockColumnRefs(block)
-    syncAutoPageParam(blockId)
-    markDirty()
-  }
-
-  function updateBlockSources(blockId: string, sources: BlockSource[]) {
-    snapshot()
-    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
-    if (!block) return
-    block.sources = sources
-    if (!block.primarySourceId || !sources.some((s) => s.id === block.primarySourceId)) {
-      block.primarySourceId = sources[0]?.id
-    }
-    block.datasetId = sources.find((s) => s.id === block.primarySourceId)?.datasetId ?? sources[0]?.datasetId
-    block.joins = (block.joins ?? []).filter(
-      (j) => sources.some((s) => s.id === j.leftSourceId) && sources.some((s) => s.id === j.rightSourceId),
-    )
-    pruneBlockColumnRefs(block)
-    syncAutoPageParam(blockId)
-    markDirty()
-  }
-
-  function addBlockSource(blockId: string, datasetId: string): string | undefined {
-    snapshot()
-    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
-    if (!block) return
-    const existing = block.sources ?? []
-    let id = datasetId
-    let n = 2
-    while (existing.some((s) => s.id === id)) id = `${datasetId}~${n++}`
-    block.sources = [...existing, { id, datasetId }]
-    if (!block.primarySourceId) block.primarySourceId = id
-    block.datasetId ??= datasetId
-    syncAutoPageParam(blockId)
-    markDirty()
-    return id
-  }
-
-  function removeBlockSource(blockId: string, sourceId: string) {
-    snapshot()
-    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
-    if (!block?.sources) return
-    block.sources = block.sources.filter((s) => s.id !== sourceId)
-    block.joins = (block.joins ?? []).filter((j) => j.leftSourceId !== sourceId && j.rightSourceId !== sourceId)
-    if (block.primarySourceId === sourceId) block.primarySourceId = block.sources[0]?.id
-    block.datasetId = block.sources.find((s) => s.id === block.primarySourceId)?.datasetId ?? block.sources[0]?.datasetId
-    pruneBlockColumnRefs(block)
-    syncAutoPageParam(blockId)
-    markDirty()
-  }
-
-  function setPrimarySource(blockId: string, sourceId: string) {
-    snapshot()
-    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
-    if (!block?.sources?.some((s) => s.id === sourceId)) return
-    block.primarySourceId = sourceId
-    block.datasetId = block.sources.find((s) => s.id === sourceId)?.datasetId
-    pruneBlockColumnRefs(block)
-    syncAutoPageParam(blockId)
-    markDirty()
-  }
-
-  /**
-   * Retire des `fieldMapping` / `config` / `filters` toute ref `col@<sourceId>`
-   * dont la source n'existe plus. Avec `dropBareRefs`, retire AUSSI les refs nues
-   * (`col` sans `@`) : elles pointaient sur l'ancienne source primaire, disparue.
-   */
-  function pruneBlockColumnRefs(block: StudioBlock, dropBareRefs = false) {
-    const ids = new Set((block.sources ?? []).map((s) => s.id))
-    const ok = (ref?: string | null): boolean => {
-      if (!ref) return true
-      const { sourceId } = parseColumnRef(ref)
-      if (!sourceId) return !dropBareRefs
-      return ids.has(sourceId)
-    }
-    const keepArr = (a?: string[]) => a?.filter(ok)
-    const keepKeys = <T>(rec?: Record<string, T>) =>
-      rec ? Object.fromEntries(Object.entries(rec).filter(([k]) => ok(k))) : rec
-    const fm = block.fieldMapping
-    block.fieldMapping = {
-      ...fm,
-      xAxis: ok(fm.xAxis) ? fm.xAxis : undefined,
-      yAxis: ok(fm.yAxis) ? fm.yAxis : undefined,
-      yAxes: keepArr(fm.yAxes),
-      label: ok(fm.label) ? fm.label : undefined,
-      value: ok(fm.value) ? fm.value : undefined,
-      series: ok(fm.series) ? fm.series : undefined,
-      columns: keepArr(fm.columns),
-      columnLabels: keepKeys(fm.columnLabels),
-      valueLabels: keepKeys(fm.valueLabels),
-      columnFormats: keepKeys(fm.columnFormats),
-      cellRules: fm.cellRules?.filter((c) => ok(c.column)),
-      recordTitleColumn: ok(fm.recordTitleColumn) ? fm.recordTitleColumn : undefined,
-      latColumn: ok(fm.latColumn) ? fm.latColumn : undefined,
-      lngColumn: ok(fm.lngColumn) ? fm.lngColumn : undefined,
-      mapPointColumn: ok(fm.mapPointColumn) ? fm.mapPointColumn : undefined,
-      mapTitleColumn: ok(fm.mapTitleColumn) ? fm.mapTitleColumn : undefined,
-      mapColorColumn: ok(fm.mapColorColumn) ? fm.mapColorColumn : undefined,
-      mapSizeColumn: ok(fm.mapSizeColumn) ? fm.mapSizeColumn : undefined,
-      valueColumn: ok(fm.valueColumn) ? fm.valueColumn : undefined,
-      comparisonColumn: ok(fm.comparisonColumn) ? fm.comparisonColumn : undefined,
-      aggregates: fm.aggregates?.filter((a) => ok(a.column)),
-      loopColumn: ok(fm.loopColumn) ? fm.loopColumn : undefined,
-      paramColumn: ok(fm.paramColumn) ? fm.paramColumn : undefined,
-      searchColumns: keepArr(fm.searchColumns),
-      searchAltColumns: keepArr(fm.searchAltColumns),
-      resultTitleParts: fm.resultTitleParts?.filter((p) => ok(p.ref)),
-      resultDescParts: fm.resultDescParts?.filter((p) => ok(p.ref)),
-    }
-    if (block.config.distinctColumn && !ok(block.config.distinctColumn)) block.config = { ...block.config, distinctColumn: null }
-    if (block.config.sortColumn && !ok(block.config.sortColumn)) block.config = { ...block.config, sortColumn: null }
-    block.filters = block.filters?.filter((f) => ok(f.column))
-    block.comparisonFilters = block.comparisonFilters?.filter((f) => ok(f.column))
-  }
-
-  /**
-   * Une source (dataset) a été supprimée du document : on la retire de la
-   * configuration de TOUS les blocs — entrée `sources`, jointures, et toutes les
-   * refs de colonnes qui en dépendaient (refs `col@<id>` de cette source + refs
-   * nues quand c'était la source primaire du bloc). Un bloc qui perd sa dernière
-   * source est remis à zéro côté données (il reste sur le canevas, à reconfigurer).
-   */
-  function purgeDataset(datasetId: string) {
-    const affected = blocks.value.filter(
-      (b: StudioBlock) =>
-        (b.sources ?? []).some((s) => s.datasetId === datasetId) ||
-        ((b.sources ?? []).length === 0 && b.datasetId === datasetId),
-    )
-    if (affected.length === 0) return
-    snapshot()
-    for (const block of affected) {
-      const sources = block.sources ?? []
-      const deadIds = new Set(sources.filter((s) => s.datasetId === datasetId).map((s) => s.id))
-      const primaryId = block.primarySourceId ?? sources[0]?.id
-      const primaryDead = sources.length === 0 || (primaryId != null && deadIds.has(primaryId))
-
-      block.sources = sources.filter((s) => !deadIds.has(s.id))
-      block.joins = (block.joins ?? []).filter(
-        (j) => !deadIds.has(j.leftSourceId) && !deadIds.has(j.rightSourceId),
-      )
-
-      if (block.sources.length === 0) {
-        block.datasetId = undefined
-        block.primarySourceId = undefined
-        block.joins = []
-      } else if (primaryDead) {
-        block.primarySourceId = block.sources[0]!.id
-        block.datasetId = block.sources[0]!.datasetId
-      } else {
-        block.datasetId =
-          block.sources.find((s) => s.id === block.primarySourceId)?.datasetId ?? block.sources[0]!.datasetId
-      }
-
-      pruneBlockColumnRefs(block, primaryDead)
-      syncAutoPageParam(block.id)
-    }
-    markDirty()
-  }
-
-  // ─── Branches du bloc « Condition » (if / elsif / else) ──────────────────────
-
-  /**
-   * Réindexe les zones de branche d'un bloc `if` : `remap(i)` renvoie le nouvel
-   * index de la branche `i`, ou `null` pour la supprimer (ses blocs + descendants
-   * de script sont retirés). Ne touche pas `block.config`.
-   */
-  function reindexIfBranches(blockId: string, remap: (branch: number) => number | null) {
-    const toRemove = new Set<string>()
-    const sectionsToRemove = new Set<string>()
-    for (const b of blocks.value) {
-      if (scriptIdFromZone(b.zoneId) !== blockId) continue
-      if (remap(scriptZoneBranch(b.zoneId)) === null) {
-        toRemove.add(b.id)
-        if (isContainerBlock(b.type)) loopChildIds(b.id).forEach((id) => toRemove.add(id))
-      }
-    }
-    // Sections nichées dans les branches (bloc `if` de page qui conditionne des sections).
-    for (const s of sections.value) {
-      if (!s.zoneId || scriptIdFromZone(s.zoneId) !== blockId) continue
-      if (remap(scriptZoneBranch(s.zoneId)) === null) {
-        const d = sectionDescendants(s.id)
-        sectionsToRemove.add(s.id)
-        d.blocks.forEach((id) => toRemove.add(id))
-        d.sections.forEach((id) => sectionsToRemove.add(id))
-      }
-    }
-    if (toRemove.size) blocks.value = blocks.value.filter((b: StudioBlock) => !toRemove.has(b.id))
-    if (sectionsToRemove.size) sections.value = sections.value.filter((s: Section) => !sectionsToRemove.has(s.id))
-    for (const b of blocks.value) {
-      if (scriptIdFromZone(b.zoneId) !== blockId) continue
-      const next = remap(scriptZoneBranch(b.zoneId))
-      if (next !== null) b.zoneId = scriptZoneId(blockId, next)
-    }
-    for (const s of sections.value) {
-      if (!s.zoneId || scriptIdFromZone(s.zoneId) !== blockId) continue
-      const next = remap(scriptZoneBranch(s.zoneId))
-      if (next !== null) s.zoneId = scriptZoneId(blockId, next)
-    }
-  }
-
-  /** Descendants d'une section (blocs de ses colonnes + sous-sections/blocs récursifs). */
-  function sectionDescendants(sectionId: string): { blocks: Set<string>; sections: Set<string> } {
-    const outBlocks = new Set<string>()
-    const outSections = new Set<string>()
-    const sectionStack = [sectionId]
-    const blockStack: string[] = []
-    while (sectionStack.length || blockStack.length) {
-      if (sectionStack.length) {
-        const sid = sectionStack.pop()!
-        for (const b of blocks.value) {
-          if (b.zoneId.startsWith(`${sid}-`) && !outBlocks.has(b.id)) {
-            outBlocks.add(b.id)
-            if (isContainerBlock(b.type)) blockStack.push(b.id)
-          }
-        }
-      } else {
-        const bid = blockStack.pop()!
-        for (const b of blocks.value) {
-          if (scriptIdFromZone(b.zoneId) === bid && !outBlocks.has(b.id)) {
-            outBlocks.add(b.id)
-            if (isContainerBlock(b.type)) blockStack.push(b.id)
-          }
-        }
-        for (const s of sections.value) {
-          if (s.zoneId && scriptIdFromZone(s.zoneId) === bid && !outSections.has(s.id)) {
-            outSections.add(s.id)
-            sectionStack.push(s.id)
-          }
-        }
-      }
-    }
-    return { blocks: outBlocks, sections: outSections }
-  }
-
-  function addIfBranch(blockId: string, kind: 'elsif' | 'else') {
-    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
-    if (!block || block.type !== 'if') return
-    const edit = withAddedBranch(readIfBranches(block.config), kind)
-    if (!edit) return
-    snapshot()
-    reindexIfBranches(blockId, edit.remap)
-    block.config = { ...block.config, ifBranches: edit.branches }
-    markDirty()
-  }
-
-  function removeIfBranch(blockId: string, branchIndex: number) {
-    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
-    if (!block || block.type !== 'if') return
-    const edit = withRemovedBranch(readIfBranches(block.config), branchIndex)
-    if (!edit) return
-    snapshot()
-    reindexIfBranches(blockId, edit.remap)
-    block.config = { ...block.config, ifBranches: edit.branches }
-    markDirty()
-  }
-
-  function updateBlockFieldMapping(blockId: string, mapping: Partial<FieldMapping>) {
-    snapshot()
-    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
-    if (!block) return
-    block.fieldMapping = { ...block.fieldMapping, ...mapping }
-    syncAutoPageParam(blockId)
-    markDirty()
-  }
-
-  function updateBlockFilters(blockId: string, filters: import('@/types/studio').BlockFilter[]) {
-    snapshot()
-    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
-    if (!block) return
-    block.filters = filters
-    markDirty()
-  }
-
-  function updateBlockComparisonFilters(blockId: string, filters: import('@/types/studio').BlockFilter[]) {
-    snapshot()
-    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
-    if (!block) return
-    block.comparisonFilters = filters
-    markDirty()
-  }
-
-  function updateBlockJoins(blockId: string, joins: BlockJoin[]) {
-    snapshot()
-    const block = blocks.value.find((b: StudioBlock) => b.id === blockId)
-    if (!block) return
-    block.joins = joins
-    syncAutoPageParam(blockId)
-    markDirty()
+    saveStatusApi.markDirty()
   }
 
   // ─── Preview ─────────────────────────────────────────────────────────────────
@@ -1697,26 +193,6 @@ export const useStudioStore = defineStore('studio', () => {
       isSidebarRightOpen.value = false
       isPanelOpen.value = false
     }
-  }
-
-  // ─── Save status ─────────────────────────────────────────────────────────────
-
-  function setSaveStatus(status: SaveStatus) {
-    saveStatus.value = status
-    if (status === 'saved') isDirty.value = false
-    if (status === 'saved' || status === 'saving') saveErrorStatus.value = null
-  }
-
-  /** L'autosave a échoué définitivement (document supprimé / accès révoqué) — plus de retry. */
-  function setSaveError(status: number) {
-    saveStatus.value = 'error'
-    saveErrorStatus.value = status
-  }
-
-  function markDirty() {
-    isDirty.value = true
-    saveStatus.value = 'idle'
-    dirtyVersion.value++
   }
 
   // ─── Sidebar ─────────────────────────────────────────────────────────────────
@@ -1734,208 +210,132 @@ export const useStudioStore = defineStore('studio', () => {
     isPanelOpen.value = false
   }
 
-  // ─── Serialization ────────────────────────────────────────────────────────────
-
-  function getPayload() {
-    return {
-      title: content.value?.title,
-      pages: pages.value,
-      sections: sections.value,
-      // Transition : on réécrit `datasetId` = dataset de la source primaire pour que
-      // l'ancien back / les agrégateurs publics restent valides si le front est déployé avant.
-      blocks: blocks.value.map((b: StudioBlock) => {
-        const srcs = b.sources
-        if (!srcs?.length) return b
-        const primary = srcs.find((s) => s.id === b.primarySourceId) ?? srcs[0]
-        return { ...b, datasetId: primary?.datasetId ?? b.datasetId }
-      }),
-    }
-  }
-
-  /**
-   * Remplace tout le corps du document (titre + pages + sections + blocs) par un
-   * payload JSON — même forme que {@link getPayload}. Réservé à l'outil « JSON »
-   * du super-admin : on colle le JSON produit par une IA externe. Rejoue les
-   * mêmes migrations / synchros que `initPage`, laisse le document `dirty`
-   * (l'autosave prend le relais) et empilable dans l'historique (un Ctrl+Z
-   * revient à l'état d'avant l'import).
-   */
-  function importPayload(raw: unknown): { ok: true } | { ok: false; error: string } {
-    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-      return { ok: false, error: 'Le JSON doit être un objet { title, pages, sections, blocks }.' }
-    }
-    const p = raw as Record<string, unknown>
-    if (!Array.isArray(p.sections)) return { ok: false, error: 'Champ `sections` manquant ou invalide (tableau attendu).' }
-    if (!Array.isArray(p.blocks)) return { ok: false, error: 'Champ `blocks` manquant ou invalide (tableau attendu).' }
-    if (p.pages !== undefined && !Array.isArray(p.pages)) {
-      return { ok: false, error: 'Champ `pages` invalide (tableau attendu).' }
-    }
-
-    snapshot()
-    const backup = {
-      title: content.value?.title,
-      pages: deepClone(pages.value),
-      sections: deepClone(sections.value),
-      blocks: deepClone(blocks.value),
-    }
-
-    try {
-      if (typeof p.title === 'string' && p.title.trim() && content.value) {
-        content.value.title = p.title.trim()
-      }
-
-      // Article / sondage : page unique implicite, on ignore d'éventuelles `pages`.
-      const wantsPages = supportsPages.value && Array.isArray(p.pages) && p.pages.length > 0
-      pages.value = wantsPages
-        ? (p.pages as StudioDocumentPage[])
-        : [{ id: 'default', title: 'Page 1' }]
-      currentPageId.value = pages.value[0]?.id ?? 'default'
-      const defaultPageId = currentPageId.value
-
-      sections.value = (p.sections as Section[]).map((s) => ({
-        ...s,
-        pageId: wantsPages ? (s.pageId ?? defaultPageId) : defaultPageId,
-      }))
-      // Tolérance : une IA peut omettre `fieldMapping` / `config` sur un bloc de texte.
-      blocks.value = (p.blocks as StudioBlock[])
-        .map((b) => ({ ...b, fieldMapping: b.fieldMapping ?? {}, config: b.config ?? {} }))
-        .map(normalizeBlockSources)
-
-      migrateLegacyTemplatePages()
-      migrateMultiColumnSections()
-      for (const b of blocks.value) {
-        if (b.type === 'param' && 'paramFanOut' in b.config) {
-          delete (b.config as Record<string, unknown>).paramFanOut
-        }
-      }
-      syncAllSearchPageParams()
-      syncAllParamBlockPageParams()
-      pageParams.value = defaultParamsForPage(pages.value.find((pg) => pg.id === currentPageId.value))
-
-      selectedBlockId.value = null
-      selectedSectionId.value = null
-      isPanelOpen.value = false
-      isSidebarRightOpen.value = false
-
-      markDirty()
-      return { ok: true }
-    } catch (e) {
-      if (content.value && backup.title !== undefined) content.value.title = backup.title
-      pages.value = backup.pages
-      sections.value = backup.sections
-      blocks.value = backup.blocks
-      past.value = past.value.slice(0, -1)
-      return { ok: false, error: e instanceof Error ? e.message : 'Import impossible : JSON incompatible.' }
-    }
-  }
+  // ─── Surface publique ─────────────────────────────────────────────────────────
+  // Contrat figé : ~130 clés consommées par nom dans une centaine de fichiers +
+  // `studio.spec.ts`. Toute restructuration interne doit se faire SOUS ce return
+  // (renommer/déplacer une clé ici casse tous les appelants).
 
   return {
     content,
     pages,
-    supportsPages,
+    supportsPages: canvasApi.supportsPages,
     currentPageId,
-    currentPage,
-    currentPageSections,
-    currentPageTopLevelSections,
-    currentPageCanvasItems,
-    sectionsInZone,
+    currentPage: canvasApi.currentPage,
+    currentPageSections: canvasApi.currentPageSections,
+    currentPageTopLevelSections: canvasApi.currentPageTopLevelSections,
+    currentPageCanvasItems: canvasApi.currentPageCanvasItems,
+    sectionsInZone: canvasApi.sectionsInZone,
     pageParams,
     sections,
     blocks,
-    selectedBlock,
+    selectedBlock: canvasApi.selectedBlock,
     selectedBlockId,
-    selectedSection,
+    selectedSection: canvasApi.selectedSection,
     selectedSectionId,
-    selectSection,
-    updateSection,
-    blocksByZone,
-    loopChildIds,
-    loopAncestors,
-    canPlaceInZone,
-    saveStatus,
-    saveErrorStatus,
-    isDirty,
-    dirtyVersion,
+    selectSection: canvasApi.selectSection,
+    updateSection: canvasApi.updateSection,
+    blocksByZone: canvasApi.blocksByZone,
+    loopChildIds: canvasApi.loopChildIds,
+    loopAncestors: canvasApi.loopAncestors,
+    canPlaceInZone: canvasApi.canPlaceInZone,
+    saveStatus: saveStatusApi.saveStatus,
+    saveErrorStatus: saveStatusApi.saveErrorStatus,
+    isDirty: saveStatusApi.isDirty,
+    dirtyVersion: saveStatusApi.dirtyVersion,
     isPreview,
-    premiumBlockTypes,
-    premiumBlockOffers,
-    premiumUpsellBlockType,
-    isBlockPremium,
-    requiredOfferForBlock,
-    canUseBlock,
-    isFormBlockLimitReached,
-    requestPremiumUpsell,
-    dismissPremiumUpsell,
+    premiumBlockTypes: premiumApi.premiumBlockTypes,
+    premiumBlockOffers: premiumApi.premiumBlockOffers,
+    premiumUpsellBlockType: premiumApi.premiumUpsellBlockType,
+    isBlockPremium: premiumApi.isBlockPremium,
+    requiredOfferForBlock: premiumApi.requiredOfferForBlock,
+    canUseBlock: premiumApi.canUseBlock,
+    isFormBlockLimitReached: premiumApi.isFormBlockLimitReached,
+    requestPremiumUpsell: premiumApi.requestPremiumUpsell,
+    dismissPremiumUpsell: premiumApi.dismissPremiumUpsell,
     activeLeftTab,
     isPanelOpen,
     isSidebarRightOpen,
-    canUndo,
-    canRedo,
+    activeBlockTab: mobileSheetApi.activeBlockTab,
+    mobileSheetSnap: mobileSheetApi.mobileSheetSnap,
+    canUndo: historyApi.canUndo,
+    canRedo: historyApi.canRedo,
     initPage,
     setTitle,
     togglePreview,
-    addSection,
-    addSectionInFlow,
-    addPageBlock,
-    removeSection,
-    moveSectionInFlow,
-    duplicateSection,
-    reorderSections,
-    reorderSectionZone,
-    moveSectionToZone,
-    moveSectionToFlow,
-    reorderPageCanvas,
-    addPage,
-    updatePage,
-    switchPage,
-    removePage,
-    movePage,
-    reorderPages,
-    setPageParam,
-    setPageParams,
-    clearPageParams,
-    currentPageParamDefs,
-    hasActivePageFilters,
-    addPageParam,
-    updatePageParam,
-    removePageParam,
-    pageIdOfBlock,
-    syncSearchPageParam,
-    syncParamBlockPageParam,
-    switchPageKeepParams,
-    reorderCurrentPageSections,
-    addBlock,
-    addBlockSmart,
-    removeBlock,
-    duplicateBlock,
-    selectBlock,
-    moveBlock,
-    moveBlockWithinZone,
-    setZoneBlocks,
-    updateBlockConfig,
-    changeBlockLayout,
-    updateBlockDataset,
-    updateBlockSources,
-    addBlockSource,
-    removeBlockSource,
-    setPrimarySource,
-    purgeDataset,
-    importPayload,
-    addIfBranch,
-    removeIfBranch,
-    updateBlockFieldMapping,
-    updateBlockFilters,
-    updateBlockComparisonFilters,
-    updateBlockJoins,
-    setSaveStatus,
-    setSaveError,
-    markDirty,
-    beginBatch,
-    endBatch,
-    undo,
-    redo,
+    addSection: sectionsApi.addSection,
+    addSectionInFlow: sectionsApi.addSectionInFlow,
+    addPageBlock: sectionsApi.addPageBlock,
+    removeSection: sectionsApi.removeSection,
+    moveSectionInFlow: sectionsApi.moveSectionInFlow,
+    duplicateSection: sectionsApi.duplicateSection,
+    reorderSections: sectionsApi.reorderSections,
+    reorderSectionZone: sectionsApi.reorderSectionZone,
+    moveSectionToZone: sectionsApi.moveSectionToZone,
+    moveSectionToFlow: sectionsApi.moveSectionToFlow,
+    reorderPageCanvas: sectionsApi.reorderPageCanvas,
+    addPage: pagesApi.addPage,
+    updatePage: pagesApi.updatePage,
+    switchPage: pagesApi.switchPage,
+    removePage: pagesApi.removePage,
+    movePage: pagesApi.movePage,
+    reorderPages: pagesApi.reorderPages,
+    setPageParam: pagesApi.setPageParam,
+    setPageParams: pagesApi.setPageParams,
+    clearPageParams: pagesApi.clearPageParams,
+    currentPageParamDefs: pageParamsApi.currentPageParamDefs,
+    hasActivePageFilters: pageParamsApi.hasActivePageFilters,
+    addPageParam: pageParamsApi.addPageParam,
+    updatePageParam: pageParamsApi.updatePageParam,
+    removePageParam: pageParamsApi.removePageParam,
+    pageIdOfBlock: pageParamsApi.pageIdOfBlock,
+    syncSearchPageParam: pageParamsApi.syncSearchPageParam,
+    syncParamBlockPageParam: pageParamsApi.syncParamBlockPageParam,
+    switchPageKeepParams: pagesApi.switchPageKeepParams,
+    reorderCurrentPageSections: sectionsApi.reorderCurrentPageSections,
+    addBlock: blocksApi.addBlock,
+    addBlockSmart: blocksApi.addBlockSmart,
+    removeBlock: blocksApi.removeBlock,
+    duplicateBlock: blocksApi.duplicateBlock,
+    selectBlock: blocksApi.selectBlock,
+    moveBlock: blocksApi.moveBlock,
+    moveBlockWithinZone: blocksApi.moveBlockWithinZone,
+    setZoneBlocks: blocksApi.setZoneBlocks,
+    updateBlockConfig: blocksApi.updateBlockConfig,
+    changeBlockLayout: blockDataSourcesApi.changeBlockLayout,
+    updateBlockDataset: blockDataSourcesApi.updateBlockDataset,
+    updateBlockSources: blockDataSourcesApi.updateBlockSources,
+    addBlockSource: blockDataSourcesApi.addBlockSource,
+    removeBlockSource: blockDataSourcesApi.removeBlockSource,
+    setPrimarySource: blockDataSourcesApi.setPrimarySource,
+    purgeDataset: blockDataSourcesApi.purgeDataset,
+    addSearchUnionGroup: blockDataSourcesApi.addSearchUnionGroup,
+    removeSearchUnionGroup: blockDataSourcesApi.removeSearchUnionGroup,
+    setSearchUnionGroupDataset: blockDataSourcesApi.setSearchUnionGroupDataset,
+    setSearchUnionGroupColumns: blockDataSourcesApi.setSearchUnionGroupColumns,
+    setSearchUnionGroupAltColumns: blockDataSourcesApi.setSearchUnionGroupAltColumns,
+    importPayload: serializationApi.importPayload,
+    addIfBranch: ifBranchesApi.addIfBranch,
+    removeIfBranch: ifBranchesApi.removeIfBranch,
+    updateBlockFieldMapping: blockFiltersApi.updateBlockFieldMapping,
+    updateBlockFilters: blockFiltersApi.updateBlockFilters,
+    updateBlockComparisonFilters: blockFiltersApi.updateBlockComparisonFilters,
+    updateBlockFilterGroups: blockFiltersApi.updateBlockFilterGroups,
+    updateBlockFiltersMatch: blockFiltersApi.updateBlockFiltersMatch,
+    updateBlockComparisonFilterGroups: blockFiltersApi.updateBlockComparisonFilterGroups,
+    updateBlockComparisonFiltersMatch: blockFiltersApi.updateBlockComparisonFiltersMatch,
+    updateBlockJoins: blockFiltersApi.updateBlockJoins,
+    setSaveStatus: saveStatusApi.setSaveStatus,
+    setSaveError: saveStatusApi.setSaveError,
+    markDirty: saveStatusApi.markDirty,
+    beginBatch: historyApi.beginBatch,
+    endBatch: historyApi.endBatch,
+    undo: historyApi.undo,
+    redo: historyApi.redo,
     setLeftTab,
     closePanel,
-    getPayload,
+    openMobileSheet: mobileSheetApi.openMobileSheet,
+    closeMobileSheet: mobileSheetApi.closeMobileSheet,
+    setMobileSheetSnap: mobileSheetApi.setMobileSheetSnap,
+    getPayload: serializationApi.getPayload,
   }
 })

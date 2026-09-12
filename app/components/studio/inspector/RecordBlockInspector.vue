@@ -2,7 +2,7 @@
 import { computed, watch } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
-import { blockColumnGroups, primarySourceId } from '@/lib/studio-columns'
+import { blockColumnGroups, columnRefLabel, primarySourceId } from '@/lib/studio-columns'
 import type { DatasetMeta, StudioBlock } from '@/types/studio'
 import { useSourceDrillIn } from '@/composables/useSourceDrillIn'
 import FieldPicker from '@/components/studio/fields/FieldPicker.vue'
@@ -53,10 +53,22 @@ function toggleColumn(col: string) {
   const cur = cols.value
   if (cur.includes(col)) {
     if (!isRelated.value && cur.length <= 1) return
+    const labels = { ...block.value.fieldMapping.columnLabels }
+    delete labels[col]
     updateMapping('columns', cur.filter((c) => c !== col))
+    updateMapping('columnLabels', Object.keys(labels).length ? labels : undefined)
   } else {
     updateMapping('columns', [...cur, col])
   }
+}
+
+const refLabel = (ref: string) => columnRefLabel(ref, props.block, datasets)
+const columnLabels = computed<Record<string, string>>(() => block.value.fieldMapping.columnLabels ?? {})
+function setColumnLabel(col: string, label: string) {
+  const labels = { ...columnLabels.value }
+  if (label && label !== col) labels[col] = label
+  else delete labels[col]
+  updateMapping('columnLabels', Object.keys(labels).length ? labels : undefined)
 }
 
 const sourceDrill = useSourceDrillIn()
@@ -91,6 +103,22 @@ const sourceDrill = useSourceDrillIn()
             :selected="cols"
             @pick="toggleColumn"
           />
+          <div v-if="!isRelated && cols.length" class="flex flex-col gap-1.5">
+            <label class="text-xs font-semibold text-[var(--studio-muted)]">Libellés des colonnes</label>
+            <div v-for="c in cols" :key="c" class="flex items-center gap-2">
+              <span
+                class="w-[80px] shrink-0 truncate rounded-md bg-[var(--studio-tag)] px-2 py-1.5 font-mono text-[10.5px] font-semibold text-[var(--studio-tag-ink)]"
+                :title="refLabel(c)"
+              >{{ refLabel(c) }}</span>
+              <input
+                :value="columnLabels[c] ?? ''"
+                type="text"
+                class="cfg-input min-w-0 flex-1 !py-2 !text-[12.5px]"
+                :placeholder="refLabel(c)"
+                @change="setColumnLabel(c, ($event.target as HTMLInputElement).value)"
+              />
+            </div>
+          </div>
           <div v-if="cols.length" class="flex flex-col gap-2">
             <label class="text-xs font-semibold text-[var(--studio-muted)]">Libellés des valeurs</label>
             <FieldValueLabels v-for="c in cols" :key="c" :block="block" :column-ref="c" />

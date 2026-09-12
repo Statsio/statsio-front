@@ -1,207 +1,31 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { RouterLink } from 'vue-router'
-import draggable from 'vuedraggable'
 import { useStudioStore } from '@/stores/studio'
 import { useAuthStore } from '@/stores/auth'
-import { contentPropertiesPath, publicContentPath } from '@/lib/content-display'
-import { getContentCollaborators, type ContentCollaborator } from '@/api/studio'
-import StudioModal from '@/components/studio/ui/StudioModal.vue'
+import { contentPropertiesPath } from '@/lib/content-display'
+import { useStudioBreakpoint } from '@/composables/useStudioBreakpoint'
 import StudioJsonModal from '@/components/studio/StudioJsonModal.vue'
-import VariablePickerModal from '@/components/studio/VariablePickerModal.vue'
-import FieldText from '@/components/studio/fields/FieldText.vue'
-import AppAvatar from '@/components/ui/AppAvatar.vue'
-import { slugify } from '@/lib/slug'
-import { getNameInitials } from '@/lib/format'
-import type { StudioDocumentPage } from '@/types/studio'
+import StudioShareDropdown from '@/components/studio/StudioShareDropdown.vue'
+import StudioPagePicker from '@/components/studio/StudioPagePicker.vue'
 import studioLogo from '@/assets/brand/statsio-studio.svg'
 
 const emit = defineEmits<{ save: []; publish: [] }>()
 const studio = useStudioStore()
 const auth = useAuthStore()
+const { isMobile } = useStudioBreakpoint()
 
 // Outil « JSON » : réservé aux administrateurs (copie du JSON / prompt IA + import).
 const showJsonModal = ref(false)
+const mobileMenuOpen = ref(false)
 
-const props = defineProps<{ publishing?: boolean }>()
-
-const isPublished = computed(() => studio.content?.status === 'published')
-const publishLabel = computed(() => {
-  if (props.publishing) return 'Publication…'
-  if (!isPublished.value) return 'Publier'
-  return studio.isDirty ? 'Mettre à jour' : 'Publié'
-})
+defineProps<{ publishing?: boolean }>()
 
 const settingsPath = computed(() => {
   const content = studio.content
   if (!content) return null
   return contentPropertiesPath(content.type ?? 'statsdata', content.slug)
 })
-
-const accesPath = computed(() => {
-  const base = settingsPath.value
-  return base ? `${base}/acces` : null
-})
-
-// Lien « voir sur la page publique » — nécessite un slug (contenu déjà enregistré).
-const publicPath = computed(() => {
-  const content = studio.content
-  if (!content?.slug) return null
-  return publicContentPath(content.type ?? 'statsdata', content.slug)
-})
-
-const isOwner = computed(() => studio.content?.access?.is_owner === true)
-
-// ─── Share dropdown ───────────────────────────────────────────────────────────
-
-const shareDropdownRef = ref<HTMLElement | null>(null)
-const shareOpen = ref(false)
-const collaborators = ref<ContentCollaborator[]>([])
-const collaboratorsLoading = ref(false)
-const collaboratorsLoaded = ref(false)
-/** True si l'API collaborateurs a répondu (propriétaire). */
-const canManageCollaborators = ref(false)
-
-const showAccessSection = computed(() => isOwner.value || canManageCollaborators.value)
-
-async function loadCollaborators() {
-  const slug = studio.content?.slug
-  if (!slug) {
-    collaborators.value = []
-    collaboratorsLoaded.value = true
-    canManageCollaborators.value = false
-    return
-  }
-  if (studio.content?.access && !isOwner.value) {
-    collaborators.value = []
-    collaboratorsLoaded.value = true
-    canManageCollaborators.value = false
-    return
-  }
-  collaboratorsLoading.value = true
-  try {
-    collaborators.value = await getContentCollaborators(slug)
-    canManageCollaborators.value = true
-    collaboratorsLoaded.value = true
-  } catch {
-    collaborators.value = []
-    canManageCollaborators.value = false
-    collaboratorsLoaded.value = true
-  } finally {
-    collaboratorsLoading.value = false
-  }
-}
-
-async function toggleShare() {
-  shareOpen.value = !shareOpen.value
-  if (shareOpen.value && !collaboratorsLoaded.value) {
-    await loadCollaborators()
-  }
-}
-
-function publish() {
-  const id = studio.content?.id
-  if (!id || id === 'demo') return
-  shareOpen.value = false
-  emit('publish')
-}
-
-watch(
-  () => studio.content?.slug,
-  () => {
-    collaboratorsLoaded.value = false
-    canManageCollaborators.value = false
-    collaborators.value = []
-  },
-)
-
-// ─── Page kind badge ─────────────────────────────────────────────────────────
-
-function pageKind(page?: StudioDocumentPage | null) {
-  return (page?.params?.length ?? 0) > 0
-    ? { tag: 'PARM', cls: 'bg-[#f2ecfd] text-[#7c3aed]' }
-    : { tag: 'PAGE', cls: 'bg-[#eaf1fe] text-[#2563eb]' }
-}
-
-// ─── Page management ──────────────────────────────────────────────────────────
-
-const pagesDropdownRef = ref<HTMLElement | null>(null)
-const pagesOpen = ref(false)
-
-const currentPage = computed(() => studio.pages.find((p) => p.id === studio.currentPageId))
-const canRemovePage = computed(() => studio.pages.length > 1)
-
-const editingPageId = ref<string | null>(null)
-const editingPageTitle = ref('')
-
-function startRename(id: string, title: string) {
-  editingPageId.value = id
-  editingPageTitle.value = title
-  nextTick(() => (document.getElementById(`hdr-rename-${id}`) as HTMLInputElement)?.select())
-}
-
-function commitRename(id: string) {
-  if (showPageTokenModal.value) return
-  if (editingPageTitle.value.trim()) studio.updatePage(id, { title: editingPageTitle.value.trim() })
-  editingPageId.value = null
-}
-
-// ─── Insert dynamic page variable (template pages) ────────────────────────────
-
-const showPageTokenModal = ref(false)
-
-function closePageTokenModal() {
-  showPageTokenModal.value = false
-  nextTick(() => (document.getElementById(`hdr-rename-${editingPageId.value}`) as HTMLInputElement)?.focus())
-}
-
-function onPickPageTitleToken(token: string) {
-  editingPageTitle.value = (editingPageTitle.value ? `${editingPageTitle.value} ${token}` : token).trim()
-  if (editingPageId.value) studio.updatePage(editingPageId.value, { title: editingPageTitle.value })
-}
-
-function removePage(id: string, title: string) {
-  if (window.confirm(`Supprimer la page « ${title} » et tous ses blocs ?`)) {
-    studio.removePage(id)
-  }
-}
-
-/** Glisser-déposer dans la liste des pages : réécrit l'ordre complet dans le store. */
-function onPagesChange(evt: { moved?: { oldIndex: number; newIndex: number } }) {
-  if (!evt.moved) return
-  const next = [...studio.pages]
-  const [moved] = next.splice(evt.moved.oldIndex, 1)
-  next.splice(evt.moved.newIndex, 0, moved!)
-  studio.reorderPages(next.map((p) => p.id))
-}
-
-// ─── Add page modal ──────────────────────────────────────────────────────────
-
-const showAddModal = ref(false)
-const newPageTitle = ref('')
-const newPageSlug = ref('')
-
-function openAddModal() {
-  newPageTitle.value = ''
-  newPageSlug.value = ''
-  pagesOpen.value = false
-  showAddModal.value = true
-}
-
-const newPageUrlPreview = computed(() => '/' + (newPageSlug.value || 'nouvelle-page'))
-
-function onNewPageTitleInput() {
-  newPageSlug.value = slugify(newPageTitle.value)
-}
-
-const canCreatePage = computed(() => !!newPageTitle.value.trim())
-
-function confirmAddPage() {
-  if (!canCreatePage.value) return
-  const page = studio.addPage(newPageTitle.value.trim(), { seedSection: true })
-  if (newPageSlug.value) studio.updatePage(page.id, { slug: newPageSlug.value })
-  showAddModal.value = false
-}
 
 // ─── Document title ──────────────────────────────────────────────────────────
 
@@ -246,25 +70,8 @@ function onKeydown(e: KeyboardEvent) {
   }
 }
 
-function onDocMousedown(e: MouseEvent) {
-  if (showPageTokenModal.value) return
-  if (pagesDropdownRef.value && !pagesDropdownRef.value.contains(e.target as Node)) {
-    pagesOpen.value = false
-    if (editingPageId.value) commitRename(editingPageId.value)
-  }
-  if (shareDropdownRef.value && !shareDropdownRef.value.contains(e.target as Node)) {
-    shareOpen.value = false
-  }
-}
-
-onMounted(() => {
-  window.addEventListener('keydown', onKeydown)
-  document.addEventListener('mousedown', onDocMousedown)
-})
-onUnmounted(() => {
-  window.removeEventListener('keydown', onKeydown)
-  document.removeEventListener('mousedown', onDocMousedown)
-})
+onMounted(() => window.addEventListener('keydown', onKeydown))
+onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 
 // ─── Save status ──────────────────────────────────────────────────────────────
 
@@ -288,7 +95,9 @@ const saveDotClass = computed(() => {
 </script>
 
 <template>
+  <!-- ─── Desktop header ────────────────────────────────────────────────────── -->
   <header
+    v-if="!isMobile"
     class="flex h-[66px] shrink-0 items-center justify-between gap-[18px] border-b border-[var(--studio-line)] bg-white px-5 font-sans"
   >
     <!-- Left: toggle + logo + page picker -->
@@ -335,112 +144,7 @@ const saveDotClass = computed(() => {
       </div>
 
       <!-- Page picker (StatsData uniquement — article/sondage = page unique) -->
-      <div v-if="studio.supportsPages" ref="pagesDropdownRef" class="relative ml-1">
-        <button
-          class="flex max-w-[300px] items-center gap-[9px] rounded-full border-[1.5px] px-3 py-[7px] transition-colors"
-          :class="pagesOpen
-            ? 'border-[var(--color-primary)] bg-[var(--studio-accent-wash)]'
-            : 'border-[var(--studio-line-strong)] bg-white hover:border-[var(--color-primary)]'"
-          @click="pagesOpen = !pagesOpen"
-        >
-          <span class="shrink-0 rounded-[5px] px-1.5 py-[3px] font-mono text-[9.5px] font-semibold" :class="pageKind(currentPage).cls">
-            {{ pageKind(currentPage).tag }}
-          </span>
-          <span class="min-w-0 truncate text-[12.5px] font-bold text-[var(--studio-ink)]">{{ currentPage?.title ?? 'Page' }}</span>
-          <span class="shrink-0 text-[8px] text-[var(--studio-faint)]">▾</span>
-        </button>
-
-        <div
-          v-if="pagesOpen"
-          class="absolute left-0 top-11 z-[120] w-[352px] rounded-[15px] border border-[var(--studio-line)] bg-white p-2 shadow-[var(--studio-shadow-pop)]"
-        >
-          <div class="px-2.5 pb-[7px] pt-2 text-[10px] font-extrabold uppercase tracking-[0.07em] text-[var(--studio-faint)]">
-            Pages de ce contenu
-          </div>
-          <draggable
-            :model-value="studio.pages"
-            item-key="id"
-            tag="div"
-            class="flex max-h-[290px] flex-col gap-0.5 overflow-auto"
-            handle=".page-drag-handle"
-            ghost-class="opacity-30"
-            animation="150"
-            @change="onPagesChange"
-          >
-            <template #item="{ element: page, index: pageIndex }">
-            <div
-              class="group grid grid-cols-[14px_34px_1fr_auto] items-center gap-2 rounded-[10px] px-2.5 py-[9px] transition-colors"
-              :class="studio.currentPageId === page.id ? 'bg-[var(--studio-accent-wash)]' : 'hover:bg-[var(--studio-wash)]'"
-            >
-              <span
-                class="page-drag-handle hidden shrink-0 cursor-grab items-center justify-center text-[var(--studio-faint)] hover:text-[var(--studio-ink)] active:cursor-grabbing group-hover:flex"
-                title="Glisser pour réordonner"
-              >
-                <svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M7 2a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM7 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM7 14a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM13 2a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM13 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM13 14a2 2 0 1 1-4 0 2 2 0 0 1 4 0z" />
-                </svg>
-              </span>
-              <span class="rounded-[5px] py-[3px] text-center font-mono text-[9px] font-semibold" :class="pageKind(page).cls">
-                {{ pageKind(page).tag }}
-              </span>
-              <button
-                v-if="editingPageId !== page.id"
-                class="block w-full min-w-0 text-left"
-                @click="studio.switchPage(page.id); pagesOpen = false"
-              >
-                <span class="block truncate text-[12.5px] font-bold text-[var(--studio-ink)]">{{ page.title }}</span>
-                <span class="mt-0.5 block truncate font-mono text-[10px] text-[var(--studio-faint)]">{{ page.slug ? '/' + page.slug : '—' }}</span>
-              </button>
-              <div v-else class="relative min-w-0">
-                <input
-                  :id="`hdr-rename-${page.id}`"
-                  v-model="editingPageTitle"
-                  class="studio-input !py-1.5 !pr-7 !text-[12.5px]"
-                  @click.stop
-                  @blur="commitRename(page.id)"
-                  @keydown.enter.stop="commitRename(page.id)"
-                  @keydown.escape.stop="editingPageId = null"
-                />
-                <button
-                  type="button"
-                  class="studio-tag absolute right-1 top-1/2 -translate-y-1/2 !py-0.5 text-[10px]"
-                  title="Insérer une variable de page"
-                  @mousedown.prevent="showPageTokenModal = true"
-                  @click.stop
-                >{ }</button>
-              </div>
-              <span class="flex items-center justify-end gap-0.5 text-[11px] text-[var(--color-primary)]">
-                <span class="hidden items-center gap-0.5 group-hover:flex">
-                  <button
-                    class="text-[var(--studio-faint)] hover:text-[var(--studio-ink)] disabled:opacity-30 disabled:hover:text-[var(--studio-faint)]"
-                    title="Monter"
-                    :disabled="pageIndex === 0"
-                    @click.stop="studio.movePage(page.id, -1)"
-                  >▲</button>
-                  <button
-                    class="text-[var(--studio-faint)] hover:text-[var(--studio-ink)] disabled:opacity-30 disabled:hover:text-[var(--studio-faint)]"
-                    title="Descendre"
-                    :disabled="pageIndex === studio.pages.length - 1"
-                    @click.stop="studio.movePage(page.id, 1)"
-                  >▼</button>
-                  <button class="text-[var(--studio-faint)] hover:text-[var(--studio-ink)]" title="Renommer" @click.stop="startRename(page.id, page.title)">✎</button>
-                  <button v-if="canRemovePage" class="text-[var(--studio-faint)] hover:text-[var(--color-error)]" title="Supprimer" @click.stop="removePage(page.id, page.title)">✕</button>
-                </span>
-                <template v-if="studio.currentPageId === page.id && editingPageId !== page.id">
-                  <span class="group-hover:hidden">✓</span>
-                </template>
-              </span>
-            </div>
-            </template>
-          </draggable>
-          <button
-            class="mt-1.5 w-full border-t border-[var(--studio-line)] p-[11px] text-center text-[12.5px] font-bold text-[var(--color-primary)]"
-            @click="openAddModal"
-          >
-            + Nouvelle page
-          </button>
-        </div>
-      </div>
+      <StudioPagePicker v-if="studio.supportsPages" />
     </div>
 
     <!-- Center: editable title -->
@@ -504,152 +208,171 @@ const saveDotClass = computed(() => {
         {{ studio.isPreview ? 'Éditer' : 'Aperçu' }}
       </button>
 
-      <!-- Partager dropdown -->
-      <div ref="shareDropdownRef" class="relative">
-        <button
-          type="button"
-          class="studio-gradient flex items-center gap-1.5 rounded-full px-5 py-[11px] text-[12.5px] font-extrabold tracking-[0.06em] text-white"
-          :class="shareOpen ? 'opacity-90' : ''"
-          @click="toggleShare"
-        >
-          Partager
-          <span class="text-[9px] opacity-80">{{ shareOpen ? '▴' : '▾' }}</span>
-        </button>
-
-        <div
-          v-if="shareOpen"
-          class="absolute right-0 top-12 z-[120] w-[320px] rounded-[15px] border border-[var(--studio-line)] bg-white p-3 shadow-[var(--studio-shadow-pop)]"
-        >
-          <button
-            type="button"
-            class="studio-gradient w-full rounded-full px-4 py-3 text-[12.5px] font-extrabold tracking-[0.06em] text-white disabled:opacity-50"
-            :disabled="publishing"
-            @click="publish"
-          >
-            {{ publishLabel }}
-          </button>
-
-          <a
-            v-if="publicPath"
-            :href="publicPath"
-            target="_blank"
-            rel="noopener"
-            class="mt-2 flex w-full items-center justify-between gap-2 rounded-[10px] px-3 py-2.5 text-[13px] font-semibold text-[var(--studio-ink)] transition-colors hover:bg-[var(--studio-wash)]"
-            :class="!isPublished ? 'opacity-60' : ''"
-            @click="shareOpen = false"
-          >
-            <span class="flex items-center gap-2">
-              <svg class="h-4 w-4 text-[var(--studio-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-              </svg>
-              Voir la page publique
-            </span>
-            <span class="text-[11px] text-[var(--studio-faint)]">↗</span>
-          </a>
-          <p
-            v-else
-            class="mt-2 px-3 py-2 text-[12px] text-[var(--studio-faint)]"
-          >
-            Enregistrez le contenu pour obtenir un lien public.
-          </p>
-
-          <div v-if="showAccessSection" class="mt-3 border-t border-[var(--studio-line)] pt-3">
-            <p class="mb-2 px-1 text-[10px] font-extrabold uppercase tracking-[0.07em] text-[var(--studio-faint)]">
-              Accès édition
-            </p>
-
-            <div v-if="collaboratorsLoading" class="space-y-2 px-1 py-1">
-              <div class="h-9 animate-pulse rounded-lg bg-[var(--studio-wash)]" />
-              <div class="h-9 animate-pulse rounded-lg bg-[var(--studio-wash)]" />
-            </div>
-            <template v-else>
-              <p
-                v-if="!collaborators.length"
-                class="px-1 py-1.5 text-[12.5px] text-[var(--studio-muted)]"
-              >
-                Aucun collaborateur pour l’instant.
-              </p>
-              <div v-else class="mb-2 flex max-h-[160px] flex-col gap-0.5 overflow-y-auto">
-                <div
-                  v-for="collab in collaborators"
-                  :key="collab.user_id"
-                  class="flex items-center gap-2.5 rounded-[10px] px-2 py-2"
-                >
-                  <AppAvatar
-                    :src="collab.avatar ?? undefined"
-                    :initials="getNameInitials(collab.name)"
-                    size="sm"
-                    background="linear-gradient(135deg, var(--color-primary), var(--color-accent))"
-                  />
-                  <div class="min-w-0 flex-1">
-                    <p class="truncate text-[12.5px] font-bold text-[var(--studio-ink)]">{{ collab.name }}</p>
-                    <p class="truncate text-[11px] text-[var(--studio-faint)]">{{ collab.email }}</p>
-                  </div>
-                </div>
-              </div>
-            </template>
-
-            <RouterLink
-              v-if="accesPath"
-              :to="accesPath"
-              class="mt-1 flex w-full items-center justify-center rounded-full border-[1.5px] border-[var(--studio-line-strong)] px-4 py-2.5 text-[12.5px] font-bold text-[var(--studio-ink)] transition-colors hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
-              @click="shareOpen = false"
-            >
-              Inviter
-            </RouterLink>
-          </div>
-        </div>
-      </div>
+      <StudioShareDropdown :publishing="publishing" @publish="emit('publish')" />
     </div>
   </header>
 
-  <!-- Add page modal -->
-  <StudioModal
-    v-if="showAddModal"
-    title="Nouvelle page"
-    subtitle="La page est ajoutée à ce contenu et partage ses sources de données."
-    :width="520"
-    @close="showAddModal = false"
+  <!-- ─── Mobile header : burger + logo + statut + partager ────────────────── -->
+  <header
+    v-else
+    class="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-[var(--studio-line)] bg-white px-3 font-sans"
   >
-    <div class="flex flex-col gap-4">
-      <FieldText
-        v-model="newPageTitle"
-        label="Titre de la page"
-        placeholder="ex. Prix par département"
-        @update:model-value="onNewPageTitleInput"
-      />
-      <div class="flex flex-wrap items-center gap-2">
-        <span class="text-[11.5px] text-[var(--studio-muted)]">URL</span>
-        <span class="studio-tag text-[11px]">{{ newPageUrlPreview }}</span>
-      </div>
-      <p class="text-[11.5px] leading-relaxed text-[var(--studio-faint)]">
-        Pour une page pilotée par une valeur (carburant, commune…), ajoutez ensuite un bloc
-        <b>Paramètre</b> ou <b>Recherche</b> : les blocs qui filtrent sur ce paramètre se
-        rechargent automatiquement.
-      </p>
-    </div>
-    <template #footer>
-      <button type="button" class="text-[13px] font-bold text-[var(--studio-faint)]" @click="showAddModal = false">Annuler</button>
+    <div class="flex min-w-0 items-center gap-2">
       <button
         type="button"
-        class="studio-gradient rounded-[10px] px-[22px] py-3 text-[13.5px] font-bold text-white disabled:opacity-40"
-        :disabled="!canCreatePage"
-        @click="confirmAddPage"
+        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] text-[var(--studio-muted)] transition-colors hover:bg-[var(--studio-wash)]"
+        aria-label="Ouvrir le menu"
+        @click="mobileMenuOpen = true"
       >
-        Créer la page
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+        </svg>
       </button>
-    </template>
-  </StudioModal>
 
-  <!-- Insertion de variable dynamique (pages template) -->
-  <VariablePickerModal
-    v-if="showPageTokenModal"
-    :page-id="editingPageId ?? undefined"
-    context="titre de la page"
-    @pick="onPickPageTitleToken"
-    @close="closePageTokenModal"
-  />
+      <a href="/" class="flex min-w-0 items-center gap-2">
+        <img :src="studioLogo" alt="Statsio Studio" class="h-7 w-7 shrink-0 rounded-[8px]" />
+        <span class="truncate text-[13px] font-extrabold uppercase tracking-[0.12em] text-[var(--studio-ink)]">Studio</span>
+      </a>
+    </div>
+
+    <div class="flex shrink-0 items-center gap-2.5">
+      <span class="h-[7px] w-[7px] shrink-0 rounded-full" :class="saveDotClass" :title="saveLabel" aria-hidden="true" />
+      <StudioShareDropdown compact :publishing="publishing" @publish="emit('publish')" />
+    </div>
+  </header>
+
+  <!-- ─── Mobile menu drawer : le reste des actions du header ──────────────── -->
+  <Teleport to="body">
+    <Transition
+      enter-active-class="transition duration-220 ease-out"
+      enter-from-class="opacity-0 -translate-x-3"
+      enter-to-class="opacity-100 translate-x-0"
+      leave-active-class="transition duration-160 ease-in"
+      leave-from-class="opacity-100 translate-x-0"
+      leave-to-class="opacity-0 -translate-x-3"
+    >
+      <div
+        v-if="isMobile && mobileMenuOpen"
+        class="fixed inset-0 z-50 flex flex-col bg-white"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Menu du studio"
+      >
+        <div class="flex shrink-0 items-center justify-between border-b border-[var(--studio-line)] px-4 py-3">
+          <span class="flex items-center gap-2">
+            <img :src="studioLogo" alt="Statsio Studio" class="h-7 w-7 shrink-0 rounded-[8px]" />
+            <span class="text-[13px] font-extrabold uppercase tracking-[0.12em] text-[var(--studio-ink)]">Studio</span>
+          </span>
+          <button
+            type="button"
+            class="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--studio-line-strong)] text-[var(--studio-muted)] transition-colors hover:bg-[var(--studio-wash)]"
+            aria-label="Fermer le menu"
+            @click="mobileMenuOpen = false"
+          >
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="flex-1 space-y-5 overflow-y-auto p-4">
+          <!-- Titre du contenu -->
+          <div>
+            <p class="mb-1.5 text-[10px] font-extrabold uppercase tracking-[0.07em] text-[var(--studio-faint)]">Titre</p>
+            <input
+              v-if="isEditingTitle"
+              ref="titleInput"
+              type="text"
+              class="w-full rounded-[9px] border-[1.5px] border-[var(--color-primary)] bg-white px-3 py-2.5 text-[15px] font-semibold text-[var(--studio-ink)] focus:outline-none"
+              :value="studio.content?.title ?? ''"
+              @blur="commitTitle"
+              @keydown="handleTitleKeydown"
+            />
+            <button
+              v-else
+              class="w-full truncate rounded-[9px] border-[1.5px] border-[var(--studio-line-strong)] bg-white px-3 py-2.5 text-left text-[15px] font-semibold text-[var(--studio-ink)]"
+              @click="startEditTitle"
+            >
+              {{ studio.content?.title || 'Sans titre' }}
+            </button>
+          </div>
+
+          <!-- Annuler / rétablir -->
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              class="flex flex-1 items-center justify-center gap-2 rounded-xl border border-[var(--studio-line)] py-2.5 text-[13px] font-bold transition-colors"
+              :class="studio.canUndo ? 'text-[var(--studio-ink)] hover:bg-[var(--studio-wash)]' : 'cursor-not-allowed text-[var(--studio-line-strong)]'"
+              :disabled="!studio.canUndo"
+              @click="studio.undo()"
+            >
+              <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
+              </svg>
+              Annuler
+            </button>
+            <button
+              type="button"
+              class="flex flex-1 items-center justify-center gap-2 rounded-xl border border-[var(--studio-line)] py-2.5 text-[13px] font-bold transition-colors"
+              :class="studio.canRedo ? 'text-[var(--studio-ink)] hover:bg-[var(--studio-wash)]' : 'cursor-not-allowed text-[var(--studio-line-strong)]'"
+              :disabled="!studio.canRedo"
+              @click="studio.redo()"
+            >
+              <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 15l6-6m0 0-6-6m6 6H9a6 6 0 0 0 0 12h3" />
+              </svg>
+              Rétablir
+            </button>
+          </div>
+
+          <!-- Pages -->
+          <div v-if="studio.supportsPages">
+            <p class="mb-1.5 text-[10px] font-extrabold uppercase tracking-[0.07em] text-[var(--studio-faint)]">Pages</p>
+            <StudioPagePicker compact />
+          </div>
+
+          <!-- Aperçu -->
+          <button
+            type="button"
+            class="flex w-full items-center justify-between rounded-xl border-[1.5px] px-3.5 py-2.5 text-[13px] font-bold transition-colors"
+            :class="studio.isPreview
+              ? 'border-[var(--color-primary)] bg-[var(--studio-accent-wash)] text-[var(--color-primary)]'
+              : 'border-[var(--studio-line-strong)] text-[var(--studio-ink)]'"
+            @click="studio.togglePreview()"
+          >
+            {{ studio.isPreview ? 'Repasser en édition' : 'Aperçu' }}
+          </button>
+
+          <!-- Paramètres du contenu -->
+          <RouterLink
+            v-if="settingsPath"
+            :to="settingsPath"
+            class="flex w-full items-center gap-2.5 rounded-xl border border-[var(--studio-line)] px-3.5 py-2.5 text-[13px] font-bold text-[var(--studio-ink)]"
+            @click="mobileMenuOpen = false"
+          >
+            <svg class="h-4 w-4 shrink-0 text-[var(--studio-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 0 1 0 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 0 1 0-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+            </svg>
+            Paramètres du contenu
+          </RouterLink>
+
+          <!-- JSON (admin) -->
+          <button
+            v-if="auth.isAdmin"
+            type="button"
+            class="flex w-full items-center gap-2.5 rounded-xl border border-[var(--studio-line)] px-3.5 py-2.5 text-[13px] font-bold text-[var(--studio-ink)]"
+            @click="showJsonModal = true; mobileMenuOpen = false"
+          >
+            <svg class="h-4 w-4 shrink-0 text-[var(--studio-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.25 6.75 22.5 12l-5.25 5.25M6.75 17.25 1.5 12l5.25-5.25m7.5-3-4.5 16.5" />
+            </svg>
+            JSON du contenu (admin)
+          </button>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 
   <!-- Outil JSON (admin) -->
   <StudioJsonModal v-if="showJsonModal" @close="showJsonModal = false" />

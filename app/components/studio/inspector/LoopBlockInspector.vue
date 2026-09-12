@@ -4,7 +4,8 @@ import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
 import { fetchDistinctValues } from '@/api/studio'
 import { blockSourceParams } from '@/composables/useBlockData'
-import type { BlockFilter, DatasetMeta, StudioBlock } from '@/types/studio'
+import { readFilterGroups, readFiltersMatch } from '@/lib/studio-filter-groups'
+import type { DatasetMeta, StudioBlock } from '@/types/studio'
 import { parseColumnRef } from '@/lib/studio-columns'
 import { useColumnDrillIn } from '@/composables/useColumnDrillIn'
 import { useSourceDrillIn } from '@/composables/useSourceDrillIn'
@@ -34,14 +35,15 @@ const datasetName = computed(() =>
 )
 const loopColumn = computed(() => props.block.fieldMapping.loopColumn ?? '')
 const loopVar = computed(() => props.block.fieldMapping.loopVar || 'item')
-const filters = computed<BlockFilter[]>(() => props.block.filters ?? [])
+const filterGroups = computed(() => readFilterGroups(props.block, 'primary'))
+const filtersMatch = computed(() => readFiltersMatch(props.block, 'primary'))
 
 // ─── Aperçu des valeurs ──────────────────────────────────────────────────────
 const preview = ref<string[]>([])
 const previewLoading = ref(false)
 
 watch(
-  () => [props.block.datasetId, JSON.stringify(props.block.sources ?? []), JSON.stringify(props.block.joins ?? []), loopColumn.value, JSON.stringify(filters.value)].join('|'),
+  () => [props.block.datasetId, JSON.stringify(props.block.sources ?? []), JSON.stringify(props.block.joins ?? []), loopColumn.value, JSON.stringify(filterGroups.value), filtersMatch.value].join('|'),
   async () => {
     preview.value = []
     const sp = blockSourceParams(props.block)
@@ -52,8 +54,11 @@ watch(
         sp.urlDatasetId,
         loopColumn.value,
         '',
-        filters.value.filter((f) => f.column && f.value !== ''),
-        { sources: sp.sources, primarySourceId: sp.primarySourceId, joins: sp.joins },
+        [],
+        {
+          sources: sp.sources, primarySourceId: sp.primarySourceId, joins: sp.joins,
+          filterGroups: filterGroups.value, filtersMatch: filtersMatch.value,
+        },
       )
     } catch {
       preview.value = []

@@ -93,7 +93,7 @@ const featuredStats = computed(() => {
       <span class="u-card-title block text-[1.7rem] font-extrabold leading-[1.16] tracking-[-0.025em] text-pretty lg:text-[29px]">{{ item.title }}</span>
       <span
         v-if="item.description"
-        class="mt-3 block max-w-[50ch] text-[14.5px] leading-[1.6]"
+        class="mt-3 block max-w-[50ch] line-clamp-2 text-[14.5px] leading-[1.6]"
         :class="dark ? 'text-white/70' : 'text-slate-500'"
       >{{ item.description }}</span>
       <span class="mt-5 flex flex-wrap gap-6">

@@ -85,6 +85,35 @@ describe('BlockFiltersField', () => {
 
     await w.findAll('button[aria-label="Retirer le filtre"]')[0]!.trigger('click')
 
-    expect(store.selectedBlock!.filters).toEqual([{ column: 'b', operator: '=', value: '2' }])
+    expect(store.selectedBlock!.filterGroups).toEqual([
+      { conditions: [{ column: 'b', operator: '=', value: '2' }], match: 'all' },
+    ])
+  })
+
+  it('shows an ET/OU pill for a group with several conditions, and toggles it', async () => {
+    const block = seedBlock([
+      { column: 'a', operator: '=', value: '1' },
+      { column: 'b', operator: '=', value: '2' },
+    ])
+    const store = useStudioStore()
+    const w = mount(BlockFiltersField, { props: { block } })
+
+    const ouBtn = w.findAll('button').find((b) => b.text() === 'OU')
+    expect(ouBtn).toBeTruthy()
+    await ouBtn!.trigger('click')
+
+    expect(store.selectedBlock!.filterGroups?.[0]?.match).toBe('any')
+  })
+
+  it('adds a new group on "+ Ajouter un groupe" and targets it on commit', async () => {
+    const block = seedBlock([{ column: 'a', operator: '=', value: '1' }])
+    const drillIn = useFilterDrillIn()
+    const w = mount(BlockFiltersField, { props: { block } })
+
+    const groupBtn = w.findAll('.studio-add-btn').find((b) => b.text().includes('Ajouter un groupe'))
+    await groupBtn!.trigger('click')
+
+    expect(drillIn.state.open).toBe(true)
+    expect(drillIn.state.groupIndex).toBeNull()
   })
 })

@@ -14,9 +14,11 @@ export default defineNuxtConfig({
         lang: 'fr',
       },
       link: [
+        // Seule cette entrée SVG pilote le favicon (cf. useFavicon.ts, même `key`).
+        // Ne pas ajouter de <link rel="icon"> PNG/ICO statique en plus : les navigateurs
+        // (Chrome notamment) les préfèrent au SVG, ce qui masquait le favicon par
+        // sous-marque sur /tvstats et /medistats en réaffichant celui de Statsio.
         { key: 'icon-svg', rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
-        { rel: 'icon', type: 'image/png', sizes: '96x96', href: '/favicon-96x96.png' },
-        { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },
         { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' },
         { rel: 'manifest', href: '/site.webmanifest' },
       ],

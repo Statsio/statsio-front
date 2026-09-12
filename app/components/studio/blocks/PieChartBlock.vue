@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { PALETTE } from '@/composables/useChart'
-import { useBlockData, rowKey, resolveBlockFilters } from '@/composables/useBlockData'
+import { useBlockData, rowKey, resolveBlockFilterGroups } from '@/composables/useBlockData'
 import { useResolvedTokenList } from '@/composables/useResolvedTokens'
 import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
@@ -49,7 +49,7 @@ const { list: resolvedSegments, pending: segPending } = useResolvedTokenList({
   datasetId: () => props.block.datasetId,
   readonly: () => props.readonly ?? false,
   docSlug: () => studio.content?.slug,
-  extraFilters: () => resolveBlockFilters(props.block.filters ?? [], { ...studio.pageParams, ...props.scope }),
+  extraFilters: () => resolveBlockFilterGroups(props.block, 'primary', { ...studio.pageParams, ...props.scope }),
 })
 
 interface Segment {
