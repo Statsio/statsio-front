@@ -17,13 +17,17 @@ export function useHomeFeed() {
   const domain = useContentDomain()
   const favOverrides = ref<Record<string, boolean>>({})
 
+  // Sur statsio, on agrège aussi le contenu de TVStats/Medistats (pas de filtre) ;
+  // sur les sous-sites, on reste cadré à leur propre sous-marque.
+  const subBrand = computed(() => (domain.value === 'statsio' ? undefined : domain.value))
+
   const { data, pending } = useAsyncData(
     `home-feed-${domain.value}`,
     async () => {
       const [articles, statsdata, surveys] = await Promise.all([
-        fetchPublicCatalog({ type: 'article', sort: 'trend', per_page: 14, sub_brand: domain.value }),
-        fetchPublicCatalog({ type: 'statsdata', sort: 'trend', per_page: 6, sub_brand: domain.value }),
-        fetchPublicCatalog({ type: 'survey', sort: 'trend', per_page: 6, sub_brand: domain.value }),
+        fetchPublicCatalog({ type: 'article', sort: 'trend', per_page: 14, sub_brand: subBrand.value }),
+        fetchPublicCatalog({ type: 'statsdata', sort: 'trend', per_page: 6, sub_brand: subBrand.value }),
+        fetchPublicCatalog({ type: 'survey', sort: 'trend', per_page: 6, sub_brand: subBrand.value }),
       ])
       return { articles, statsdata, surveys }
     },
