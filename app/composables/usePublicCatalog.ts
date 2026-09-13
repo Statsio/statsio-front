@@ -64,7 +64,9 @@ export function usePublicCatalog(options: {
     sort: sort.value,
     has_data: hasData.value || undefined,
     per_page: perPage.value,
-    sub_brand: domain.value,
+    // Sur statsio, on agrège aussi le contenu de TVStats/Medistats (pas de filtre) ;
+    // sur les sous-sites, on reste cadré à leur propre sous-marque.
+    sub_brand: domain.value === 'statsio' ? undefined : domain.value,
     survey_kind: surveyKind.value || undefined,
     status: surveyStatus.value || undefined,
     not_participated: notParticipated.value || undefined,
