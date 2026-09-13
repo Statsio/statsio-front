@@ -41,7 +41,9 @@ export function useDossiersCatalog() {
     q: q.value.trim() || undefined,
     category: category.value || undefined,
     sort: sort.value,
-    sub_brand: domain.value,
+    // Sur statsio, on agrège aussi les dossiers de TVStats/Medistats (pas de filtre) ;
+    // sur les sous-sites, on reste cadré à leur propre sous-marque.
+    sub_brand: domain.value === 'statsio' ? undefined : domain.value,
     per_page: perPage.value,
   }))
 
