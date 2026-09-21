@@ -73,7 +73,7 @@
     "oxlint": "~1.82.0",
     "prettier": "3.9.6",
     "sass": "^1.104.0",
-    "sass-embedded": "^1.98.0",
+    "sass-embedded": "^1.104.1",
     "typescript": "~5.9.3",
     "vitest": "^5.0.0",
     "vue-tsc": "^3.3.7"
