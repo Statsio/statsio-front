@@ -1,40 +1,39 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { BLOCK_CATEGORIES, BLOCK_META } from '@/types/studio'
 import type { BlockType } from '@/types/studio'
 import { useStudioStore } from '@/stores/studio'
+import { FORM_BLOCK_TYPES } from '@/types/studio'
+import { filterPalette, paletteFor } from '@/lib/studio-palette'
+import { useStudioToast } from '@/composables/useStudioToast'
+import DsTypeGlyph from '@/components/ds/DsTypeGlyph.vue'
+import StudioIcon from '../ui/StudioIcon.vue'
 
 const studio = useStudioStore()
+const { show } = useStudioToast()
 const search = ref('')
 
-// Blocs de formulaire → sondages (hors pétition, qui n'a pas de question) ; bloc Recherche → StatsData (pages template).
-const availableCategories = computed(() => {
-  const type = studio.content?.type
-  const surveyKind = studio.content?.survey_kind
-  return BLOCK_CATEGORIES.filter((cat) => {
-    if (cat.id === 'script') return false // onglet dédié « Script »
-    if (cat.id === 'form') return type === 'survey' && surveyKind !== 'petition'
-    if (cat.id === 'special') return type !== 'survey' && type !== 'article'
-    if (cat.id === 'statsio') return type === 'article'
-    return true
-  })
-})
+const isPetition = computed(() => studio.content?.type === 'survey' && studio.content?.survey_kind === 'petition')
+const isQuick = computed(() => studio.content?.type === 'survey' && studio.content?.survey_kind === 'single_question')
 
-const filteredCategories = computed(() => {
-  const q = search.value.toLowerCase().trim()
-  if (!q) return availableCategories.value
-  return availableCategories.value
-    .map((cat) => ({
-      ...cat,
-      blocks: cat.blocks.filter(
-        (b) => b.label.toLowerCase().includes(q) || b.description.toLowerCase().includes(q),
-      ),
-    }))
-    .filter((cat) => cat.blocks.length > 0)
-})
+const categories = computed(() => filterPalette(paletteFor(studio.content?.type), search.value))
+
+/** Raison du verrouillage d'une tuile (format du sondage), sinon chaîne vide. */
+function lockReason(type: BlockType): string {
+  if (!FORM_BLOCK_TYPES.includes(type)) return ''
+  if (isPetition.value) return 'Une pétition ne contient pas de questions'
+  if (studio.isFormBlockLimitReached(type)) return 'Une question rapide n’a qu’une question'
+  return ''
+}
+
+function tileTitle(type: BlockType, description: string): string {
+  const lock = lockReason(type)
+  if (lock) return lock
+  if (studio.isBlockPremium(type)) return `${description} · Réservé à l'offre ${studio.requiredOfferForBlock(type)?.name ?? 'payante'}`
+  return description
+}
 
 function onDragStart(event: DragEvent, type: BlockType) {
-  if (studio.isFormBlockLimitReached(type)) {
+  if (lockReason(type)) {
     event.preventDefault()
     return
   }
@@ -48,73 +47,81 @@ function onDragStart(event: DragEvent, type: BlockType) {
   event.dataTransfer.effectAllowed = 'copy'
 }
 
-function onBlockClick(type: BlockType) {
-  if (studio.isFormBlockLimitReached(type)) return
+function onBlockClick(type: BlockType, label: string) {
+  const lock = lockReason(type)
+  if (lock) {
+    show(lock)
+    return
+  }
+  if (type === 'sd-embed' && studio.content?.type === 'article') {
+    studio.setLeftTab('sdlib')
+    return
+  }
   if (!studio.canUseBlock(type)) {
     studio.requestPremiumUpsell(type)
     return
   }
   studio.addBlockSmart(type)
+  show(`Bloc « ${label} » ajouté`)
 }
 </script>
 
 <template>
   <div class="flex h-full flex-col">
-    <!-- Search -->
-    <div class="shrink-0 px-[22px] pb-3">
-      <div class="flex items-center gap-[9px] rounded-full border-[1.5px] border-[var(--studio-line-strong)] px-[15px] py-2.5 focus-within:border-[var(--color-primary)]">
-        <span class="h-3 w-3 shrink-0 rounded-full border-[1.6px] border-[color:color-mix(in_srgb,var(--studio-ink)_35%,transparent)]" />
-        <input
-          v-model="search"
-          type="search"
-          placeholder="Rechercher un bloc…"
-          class="min-w-0 flex-1 bg-transparent text-[13.5px] text-[var(--studio-ink)] placeholder:text-[var(--studio-faint)] focus:outline-none"
-        />
-      </div>
+    <div class="shrink-0 px-4 pb-3">
+      <p class="st-hint mb-3">
+        Cliquez pour ajouter <b>{{ studio.selectedBlock ? 'après le bloc sélectionné' : 'en fin de page' }}</b>, ou glissez sur le canevas.
+      </p>
+      <label class="st-find">
+        <span class="sr-only">Chercher un bloc</span>
+        <StudioIcon name="search" :size="16" />
+        <input v-model="search" type="search" placeholder="Chercher un bloc…" autocomplete="off" />
+      </label>
     </div>
 
-    <div class="min-h-0 flex-1 overflow-auto px-[22px] pb-6">
-      <div v-for="category in filteredCategories" :key="category.id" class="mb-5">
-        <div class="mb-2.5 text-[10.5px] font-extrabold uppercase tracking-[0.08em] text-[var(--studio-faint)]">
-          {{ category.label }}
+    <div class="flex min-h-0 flex-1 flex-col gap-[18px] overflow-auto px-4 pb-10 pt-1">
+      <div v-if="isPetition || isQuick" class="st-notice">
+        <StudioIcon name="callout" :size="16" />
+        <span>
+          {{ isPetition ? 'Format pétition : les blocs de questions sont désactivés.' : 'Format question rapide : une seule question par sondage.' }}
+          Changez le format dans <b>Réglages</b>.
+        </span>
+      </div>
+
+      <div v-for="category in categories" :key="category.id" class="flex flex-col gap-2">
+        <div class="flex items-center justify-between">
+          <span class="st-lbl">{{ category.label }}</span>
+          <button v-if="category.id === 'statsio'" type="button" class="st-addl !py-0" @click="studio.setLeftTab('sdlib')">Parcourir →</button>
         </div>
-        <div class="grid grid-cols-2 gap-[9px]">
+        <div class="st-tiles">
           <button
             v-for="block in category.blocks"
             :key="block.type"
             type="button"
-            class="relative flex cursor-grab select-none flex-col items-center gap-[9px] rounded-[13px] border-[1.5px] border-[var(--studio-line)] bg-white px-2 py-[15px] transition-colors hover:border-[var(--color-primary)] hover:bg-[var(--studio-accent-wash)] active:cursor-grabbing"
-            :class="{ 'cursor-not-allowed opacity-40 hover:border-[var(--studio-line)] hover:bg-white': studio.isFormBlockLimitReached(block.type) }"
-            :draggable="!studio.isFormBlockLimitReached(block.type)"
+            class="st-tile relative select-none"
+            :aria-disabled="lockReason(block.type) ? 'true' : undefined"
+            :draggable="!lockReason(block.type)"
             :data-block-type="block.type"
-            :title="
-              studio.isFormBlockLimitReached(block.type)
-                ? 'Un seul bloc de formulaire est autorisé pour un sondage « question unique ».'
-                : studio.isBlockPremium(block.type)
-                  ? `${block.description} · Réservé à l'offre ${studio.requiredOfferForBlock(block.type)?.name ?? 'payante'}`
-                  : block.description
-            "
+            :title="tileTitle(block.type, block.description)"
             @dragstart="onDragStart($event, block.type)"
-            @click="onBlockClick(block.type)"
+            @click="onBlockClick(block.type, block.label)"
           >
             <span
               v-if="studio.isBlockPremium(block.type)"
-              class="absolute right-1.5 top-1.5 rounded-full bg-[var(--color-primary)]/12 px-1.5 py-[1px] font-mono text-[8.5px] font-bold tracking-[0.04em] text-[var(--color-primary)]"
-            >
-              {{ studio.requiredOfferForBlock(block.type)?.name ?? 'Premium' }}
+              class="st-badge absolute right-1.5 top-1.5"
+            >{{ studio.requiredOfferForBlock(block.type)?.name ?? 'Premium' }}</span>
+            <span class="st-tg" :class="{ 'st-tg--data': block.data }">
+              <DsTypeGlyph v-if="block.type === 'sd-embed'" kind="statsdata" :size="20" mono />
+              <StudioIcon v-else :name="block.type" :size="20" />
             </span>
-            <span class="flex h-9 w-9 items-center justify-center rounded-[10px]" :class="BLOCK_META[block.type].tint">
-              <svg class="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7">
-                <path stroke-linecap="round" stroke-linejoin="round" :d="BLOCK_META[block.type].iconPath" />
-              </svg>
-            </span>
-            <span class="text-center text-[12px] font-bold leading-[1.25] text-[var(--studio-ink)]">{{ block.label }}</span>
+            <b>{{ block.label }}</b>
+            <small>{{ block.description }}</small>
           </button>
         </div>
       </div>
 
-      <p v-if="filteredCategories.length === 0" class="py-4 text-[13px] text-[var(--studio-faint)]">
-        Aucun bloc ne correspond à «&nbsp;{{ search }}&nbsp;».
+      <p v-if="categories.length === 0" class="st-hint">
+        Aucun bloc pour « {{ search }} ». Essayez « graphique », « question » ou « image ».
       </p>
     </div>
   </div>

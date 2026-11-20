@@ -9,7 +9,7 @@ import ContentDossierBadge from '@/components/statsdata/detail/ContentDossierBad
 import ContentOwnerBar from '@/components/statsdata/detail/ContentOwnerBar.vue'
 import ContentCommentsSection from '@/components/contents/ContentCommentsSection.vue'
 import { fetchPublicStatsDataDocument, fetchPublicSurveys, type StatsDataDocument } from '@/api/studio'
-import { fetchBlockResponse, submitBlockResponse, type BlockResponseAggregate, type FormAnswerValue } from '@/api/studio-responses'
+import { fetchBlockResponse, submitBlockResponse, type BlockResponseAggregate, type ResultsHiddenReason, type FormAnswerValue } from '@/api/studio-responses'
 import { startIdentityVerification } from '@/api/identity'
 import { toggleFavorite } from '@/api/statsio-account'
 import { getChannel, toggleChannelSubscription, type Channel } from '@/api/channels'
@@ -205,6 +205,16 @@ const primaryBlock = computed(() => questionBlocks.value[0])
 const primaryOptions = computed<string[]>(() => primaryBlock.value?.config?.formOptions ?? [])
 
 const primaryAggregate = ref<BlockResponseAggregate | null>(null)
+/** Résultats masqués par le réglage « Résultats visibles » (texte d'explication), sinon null. */
+const resultsHiddenReason = ref<ResultsHiddenReason | null>(null)
+const resultsHiddenText = computed(() => {
+  switch (resultsHiddenReason.value) {
+    case 'after_submit': return 'Les résultats s’affichent après votre réponse.'
+    case 'at_close': return 'Les résultats seront publiés à la clôture de la consultation.'
+    case 'never': return 'Les résultats de cette consultation ne sont pas publiés.'
+    default: return null
+  }
+})
 const primaryLoaded = ref(false)
 const myAnswer = ref<FormAnswerValue | null>(null)
 const answered = ref(false)
@@ -233,6 +243,7 @@ async function loadPrimaryResults() {
   try {
     const state = await fetchBlockResponse(poll.value.slug, block.id, respondentToken.value)
     primaryAggregate.value = state.aggregate
+    resultsHiddenReason.value = state.resultsHiddenReason
     answered.value = state.answered
     myAnswer.value = state.myAnswer
   } catch {
@@ -258,6 +269,7 @@ async function vote(value: string) {
       respondent_token: respondentToken.value,
     })
     primaryAggregate.value = state.aggregate
+    resultsHiddenReason.value = state.resultsHiddenReason
     answered.value = state.answered
     myAnswer.value = state.myAnswer
   } catch { /* déjà voté / clôturé */ } finally {
@@ -554,7 +566,8 @@ onUnmounted(() => {
                   {{ isPetition ? '✍ ' + opt : opt }}
                 </button>
               </div>
-              <p v-if="status.closed" class="mt-3 text-[12.5px] text-slate-400">Cette consultation est clôturée.</p>
+              <p v-if="status.notYetOpen" class="mt-3 text-[12.5px] text-slate-400">Cette consultation n’est pas encore ouverte · {{ status.label }}.</p>
+              <p v-else-if="status.closed" class="mt-3 text-[12.5px] text-slate-400">Cette consultation est clôturée.</p>
               <p v-else-if="!auth.isAuthenticated" class="mt-3 text-[12.5px] text-slate-500">
                 <button type="button" class="font-bold text-primary underline-offset-2 hover:underline" @click="requireAuth()">
                   Connectez-vous
@@ -590,8 +603,14 @@ onUnmounted(() => {
               <p v-if="poll.petition_target" class="mt-3 text-[13px] leading-relaxed text-slate-500">{{ poll.petition_target }}</p>
             </section>
 
+            <!-- Résultats masqués (réglage « Résultats visibles ») -->
+            <section v-if="answered && resultsHiddenText" class="rounded-[18px] bg-white p-6 shadow-[0_1px_3px_rgba(20,20,30,0.06)]">
+              <div class="mb-2 text-[10px] font-extrabold uppercase tracking-[0.1em] text-primary">Réponse enregistrée</div>
+              <p class="text-[13.5px] text-slate-600">{{ resultsHiddenText }}</p>
+            </section>
+
             <!-- Résultats globaux -->
-            <section v-if="resultRows.length" class="rounded-[18px] bg-white p-6 shadow-[0_1px_3px_rgba(20,20,30,0.06)]">
+            <section v-else-if="resultRows.length" class="rounded-[18px] bg-white p-6 shadow-[0_1px_3px_rgba(20,20,30,0.06)]">
               <div class="mb-4 flex items-baseline justify-between gap-3">
                 <div class="text-[10px] font-extrabold uppercase tracking-[0.1em] text-primary">Résultats globaux</div>
                 <div class="font-mono text-[11.5px] text-slate-400">{{ fmt(primaryTotal) }} réponses</div>
@@ -649,7 +668,7 @@ onUnmounted(() => {
           </template>
 
           <!-- Résultats détaillés -->
-          <div v-if="primaryBlock" class="mt-2">
+          <div v-if="primaryBlock && !resultsHiddenReason" class="mt-2">
             <div class="text-[19px] font-extrabold tracking-[-0.015em]">Résultats détaillés</div>
             <p class="mt-2 max-w-[64ch] text-[13.5px] leading-relaxed text-slate-500">
               Chaque répartition démographique n'est visible qu'une fois le champ correspondant complété dans votre
@@ -657,7 +676,7 @@ onUnmounted(() => {
             </p>
           </div>
 
-          <div v-if="primaryBlock" class="grid gap-4 sm:grid-cols-2">
+          <div v-if="primaryBlock && !resultsHiddenReason" class="grid gap-4 sm:grid-cols-2">
             <section
               v-for="c in demoCards"
               :key="c.key"

@@ -59,7 +59,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="h-screen w-screen flex flex-col overflow-hidden bg-[#f0f1f5]">
+  <div class="st-app h-screen w-screen flex flex-col overflow-hidden" :class="studio.isPreview ? 'st-preview' : 'st-edit'">
     <!-- Header -->
     <StudioHeader @save="saveNow" />
 
@@ -70,7 +70,8 @@ onBeforeUnmount(() => {
 
       <!-- Canvas (scrollable) -->
       <main
-        class="flex-1 min-w-0 overflow-auto p-8"
+        class="st-canvas flex-1"
+        :class="{ 'st-show-tags': studio.showBlockTags }"
         @click.self="studio.selectBlock(null)"
       >
         <CanvasGrid />

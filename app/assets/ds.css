@@ -45,6 +45,16 @@
   --ds-context: #8b879a;
   --ds-ok: #047857;
   --ds-mark: #ddd6fe;
+  --ds-accent-soft: #ede9fe; /* fond des variables {{…}} */
+
+  /* éditeur (Studio) : fond du canevas, familles « données » et « attention » */
+  --ds-canvas: #efecf8;
+  --ds-data-bg: #dbeafe;
+  --ds-data-ink: #1d4ed8;
+  --ds-data-line: #93c5fd;
+  --ds-warn-bg: #fef3c7;
+  --ds-warn-ink: #92400e;
+  --ds-warn-line: #b45309;
 
   /* bandeau « En continu » */
   --ds-flash-bg: #6d28d9;
@@ -88,6 +98,14 @@
   --ds-context: #6b6779;
   --ds-ok: #34d399;
   --ds-mark: #3b2f5e;
+  --ds-accent-soft: #2a2145;
+  --ds-canvas: #13121a;
+  --ds-data-bg: #14233f;
+  --ds-data-ink: #93c5fd;
+  --ds-data-line: #1d4ed8;
+  --ds-warn-bg: #2d2408;
+  --ds-warn-ink: #fcd34d;
+  --ds-warn-line: #fbbf24;
   --ds-flash-bg: #2e1065;
   --ds-flash-label: #1e3a8a;
 }

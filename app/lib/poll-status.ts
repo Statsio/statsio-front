@@ -2,6 +2,8 @@ export interface PollStatus {
   label: string
   closed: boolean
   urgent: boolean
+  /** Fermé parce que l'ouverture n'est pas encore arrivée (et non clôturé). */
+  notYetOpen?: boolean
 }
 
 /**
@@ -9,7 +11,17 @@ export interface PollStatus {
  * ouvert indéfiniment — on affiche alors depuis quand il l'est (basé sur
  * `created_at`) plutôt qu'un faux compte à rebours.
  */
-export function getPollStatus(poll: { response_deadline?: string | null; created_at?: string }): PollStatus {
+export function getPollStatus(poll: {
+  response_deadline?: string | null
+  opens_at?: string | null
+  created_at?: string
+}): PollStatus {
+  // Ouverture programmée (réglage « Ouverture » du Studio) : fermé jusque-là.
+  if (poll.opens_at && new Date(poll.opens_at).getTime() > Date.now()) {
+    const d = new Date(poll.opens_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
+    return { label: `Ouvre le ${d}`, closed: true, urgent: false, notYetOpen: true }
+  }
+
   if (poll.response_deadline) {
     const diffDays = Math.ceil((new Date(poll.response_deadline).getTime() - Date.now()) / 86_400_000)
 

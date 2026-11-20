@@ -43,18 +43,18 @@ function stepState(i: number): 'done' | 'current' | 'todo' {
 <template>
   <Teleport to="body">
     <div
-      class="fixed inset-0 z-[150] flex items-center justify-center bg-[rgba(18,18,26,0.5)] p-10 backdrop-blur-[3px]"
+      class="fixed inset-0 z-[150] flex items-center justify-center bg-[color-mix(in_srgb,var(--ds-text)_35%,transparent)] p-4 sm:p-10"
       @click.self="emit('close')"
     >
       <div
         ref="panel"
         role="dialog"
         aria-modal="true"
-        class="flex h-[640px] max-h-full w-[940px] max-w-full overflow-hidden rounded-[20px] bg-white font-sans shadow-[var(--studio-shadow-modal)]"
+        class="flex h-[640px] max-h-full w-[940px] max-w-full st-modal overflow-hidden rounded-[6px] border-2 border-[var(--ds-ol)] bg-[var(--ds-surface)] text-[var(--ds-text)] shadow-[6px_6px_0_var(--ds-sh)]"
       >
         <!-- Step rail -->
-        <div class="flex w-[246px] shrink-0 flex-col border-r border-[var(--studio-line)] bg-[var(--studio-panel)] px-5 py-6">
-          <div class="text-[16.5px] font-extrabold leading-[1.3] text-[var(--studio-ink)]">{{ railTitle || title }}</div>
+        <div class="flex w-[246px] shrink-0 flex-col border-r-2 border-[var(--ds-divide)] bg-[var(--studio-panel)] px-5 py-6">
+          <div class="st-h2 !leading-[1.05]">{{ railTitle || title }}</div>
           <div v-if="railBlurb" class="mt-[5px] text-[12px] leading-[1.5] text-[var(--studio-muted)]">{{ railBlurb }}</div>
 
           <div class="mt-[22px] flex flex-col gap-0.5">
@@ -97,9 +97,9 @@ function stepState(i: number): 'done' | 'current' | 'todo' {
 
         <!-- Content -->
         <div class="flex min-w-0 flex-1 flex-col">
-          <div class="flex shrink-0 items-start justify-between gap-4 border-b border-[var(--studio-line)] px-[26px] pb-3.5 pt-[22px]">
+          <div class="flex shrink-0 items-start justify-between gap-4 border-b-2 border-[var(--ds-divide)] px-[26px] pb-3.5 pt-[22px]">
             <div class="min-w-0">
-              <div class="text-[17px] font-extrabold text-[var(--studio-ink)]">{{ title }}</div>
+              <div class="st-h2 !text-[26px]">{{ title }}</div>
               <div v-if="subtitle" class="mt-[3px] text-[12.5px] leading-[1.5] text-[var(--studio-muted)] [text-wrap:pretty]">{{ subtitle }}</div>
             </div>
             <button
@@ -114,7 +114,7 @@ function stepState(i: number): 'done' | 'current' | 'todo' {
             <slot />
           </div>
 
-          <div class="flex shrink-0 items-center justify-between gap-3.5 border-t border-[var(--studio-line)] px-[26px] py-[15px]">
+          <div class="flex shrink-0 items-center justify-between gap-3.5 border-t-2 border-[var(--ds-divide)] px-[26px] py-[15px]">
             <button type="button" class="text-[13px] font-bold text-[var(--studio-faint)] hover:text-[var(--studio-ink)]" @click="emit('close')">Annuler</button>
             <div class="flex items-center gap-2.5">
               <button
