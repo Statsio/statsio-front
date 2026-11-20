@@ -1,4 +1,4 @@
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { fetchPublicStatsDataDocument, fetchPublicBlockData, fetchPublicDistinctValues } from '@/api/studio'
 import type { StatsDataDocument } from '@/api/studio'
@@ -9,6 +9,8 @@ import { blockSourceParams } from '@/composables/useBlockData'
 import { fanOutColumnsForSource, isUnionBlock, pageParamsFromUnionRow } from '@/lib/studio-search'
 import { primarySourceId } from '@/lib/studio-columns'
 import { slugify } from '@/lib/slug'
+import { useViewerDocRefresh } from '@/composables/useViewerDocRefresh'
+import { isHttpError } from '@/lib/http'
 
 function queryToParams(q: import('vue-router').LocationQuery): Record<string, string> {
   const result: Record<string, string> = {}
@@ -30,22 +32,25 @@ export function useStatsDataDetail() {
   /** Valeur fan-out scoped : `/statsdata/{slug}/{pageSlug}/{fanOut}`. */
   const fanOutSegment = computed(() => route.params.fanOut as string | undefined)
 
-  const doc = ref<StatsDataDocument | null>(null)
-  const loading = ref(true)
-  const error = ref<string | null>(null)
   /**
    * État d'hydratation d'une page fan-out atteinte par valeur :
    *  - `null` : la page courante n'est pas une valeur de fan-out ;
    *  - `true` : le segment d'URL correspond à une vraie ligne / valeur distincte ;
    *  - `false` : aucune correspondance — on n'a qu'un repli dé-slugifié (page « mince »).
-   * Sert à sortir de l'index les valeurs de fan-out sans contenu réel.
+   * Sert à n'ajouter la valeur au titre que si elle est réelle.
    */
-  const fanOutHydrated = ref<boolean | null>(null)
+  const fanOutHydrated = useState<boolean | null>(`statsdata-fanout-${docSlug.value}`, () => null)
 
   const activePage = computed(() =>
     studio.pages.length
       ? resolveSegments(segment.value, fanOutSegment.value, studio.pages).page
       : null,
+  )
+  /** L'URL porte une valeur de paramètre (`/statsdata/{slug}/{valeur}` ou `…/{page}/{valeur}`). */
+  const isFanOutUrl = computed(() =>
+    studio.pages.length
+      ? resolveSegments(segment.value, fanOutSegment.value, studio.pages).fanOut !== null
+      : false,
   )
   // La barre d'onglets montre toutes les pages du document.
   const allPages = computed(() => studio.pages)
@@ -195,52 +200,75 @@ export function useStatsDataDetail() {
     })
   }
 
-  onMounted(async () => {
+  // Capturé au setup : après un `await`, le contexte Nuxt n'est plus disponible.
+  const requestEvent = import.meta.server ? useRequestEvent() : undefined
+
+  /** Charge le document et applique le segment d'URL au store (serveur ou client). */
+  async function loadDocument(): Promise<StatsDataDocument | null> {
+    let data: StatsDataDocument
     try {
-      const data = await fetchPublicStatsDataDocument(docSlug.value)
-      doc.value = data
-      // onSelect d'un bloc recherche a pu poser des params avant ce montage
-      // (navigation index.vue → [segment].vue) — on les préserve.
-      const savedParams = { ...studio.pageParams }
-      studio.initPage(
-        {
-          id: data.id,
-          type: 'statsdata',
-          title: data.title,
-          status: data.status as 'draft' | 'published',
-          slug: docSlug.value,
-          download_enabled: data.download_enabled !== false,
-          embed_enabled: data.embed_enabled !== false,
-        },
-        data.sections, data.blocks, data.pages,
-      )
-
-      const { page, fanOut } = resolveSegments(segment.value, fanOutSegment.value, studio.pages)
-      if (!page) return
-
-      const urlParams = queryToParams(route.query)
-      const hasSaved = Object.keys(savedParams).length > 0
-
-      if (fanOut) {
-        studio.switchPageKeepParams(page.id)
-        studio.setPageParams({ ...savedParams, ...urlParams })
-        const deslug = fanOut.segment.replace(/-+/g, ' ')
-        studio.setPageParam(fanOut.param.name, deslug)
-        studio.setPageParam(fanOutSlugKey(fanOut.param), deslug)
-        if (hasSaved) fanOutHydrated.value = true
-        else void hydrateFanOut(page, fanOut.param, fanOut.segment)
-        return
+      data = await fetchPublicStatsDataDocument(docSlug.value)
+    } catch (e) {
+      // Vrai 404 HTTP pour les robots plutôt qu'une page vide en 200.
+      if (requestEvent && isHttpError(e) && e.response?.status === 404) {
+        setResponseStatus(requestEvent, 404)
       }
-
-      fanOutHydrated.value = null
-      studio.switchPage(page.id)
-      studio.setPageParams({ ...(hasSaved ? savedParams : {}), ...urlParams })
-    } catch {
-      error.value = 'Document introuvable ou non publié.'
-    } finally {
-      loading.value = false
+      throw e
     }
-  })
+    // onSelect d'un bloc recherche a pu poser des params avant ce montage
+    // (navigation index.vue → [segment].vue) — on les préserve.
+    const savedParams = { ...studio.pageParams }
+    studio.initPage(
+      {
+        id: data.id,
+        type: 'statsdata',
+        title: data.title,
+        status: data.status as 'draft' | 'published',
+        slug: docSlug.value,
+        download_enabled: data.download_enabled !== false,
+        embed_enabled: data.embed_enabled !== false,
+      },
+      data.sections, data.blocks, data.pages,
+    )
+
+    const { page, fanOut } = resolveSegments(segment.value, fanOutSegment.value, studio.pages)
+    if (!page) return data
+
+    const urlParams = queryToParams(route.query)
+    const hasSaved = Object.keys(savedParams).length > 0
+
+    if (fanOut) {
+      studio.switchPageKeepParams(page.id)
+      studio.setPageParams({ ...savedParams, ...urlParams })
+      const deslug = fanOut.segment.replace(/-+/g, ' ')
+      studio.setPageParam(fanOut.param.name, deslug)
+      studio.setPageParam(fanOutSlugKey(fanOut.param), deslug)
+      if (hasSaved) fanOutHydrated.value = true
+      // Côté serveur on attend la vraie valeur : elle entre dans le <title> / la description.
+      else if (import.meta.server) await hydrateFanOut(page, fanOut.param, fanOut.segment)
+      else void hydrateFanOut(page, fanOut.param, fanOut.segment)
+      return data
+    }
+
+    fanOutHydrated.value = null
+    studio.switchPage(page.id)
+    studio.setPageParams({ ...(hasSaved ? savedParams : {}), ...urlParams })
+    return data
+  }
+
+  // Document chargé côté serveur pour que Google reçoive titre, description, h1
+  // et contenu (sinon la page sort vide et passe pour un doublon de l'accueil).
+  // `useAsyncData` fait attendre le rendu serveur ; au chargement initial, le
+  // client reprend le document du payload et le store Pinia hydraté (pas de refetch).
+  const { data: asyncDoc, status, error: asyncError } = useAsyncData(
+    `statsdata-doc-${docSlug.value}`,
+    loadDocument,
+  )
+  const doc = computed(() => asyncDoc.value ?? null)
+  const loading = computed(() => status.value === 'idle' || status.value === 'pending')
+  const error = computed(() => (asyncError.value ? 'Document introuvable ou non publié.' : null))
+
+  useViewerDocRefresh(asyncDoc, () => fetchPublicStatsDataDocument(docSlug.value))
 
   return {
     docSlug,
@@ -251,6 +279,7 @@ export function useStatsDataDetail() {
     loading,
     error,
     fanOutHydrated,
+    isFanOutUrl,
     activePage,
     publicPages,
     allPages,

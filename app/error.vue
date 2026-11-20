@@ -101,6 +101,9 @@ const quickLinks = computed(() => currentBrand.value.footerNav)
 
 useHead({
   title: () => `${content.value.title} · ${currentBrand.value.name}`,
+  // Une page d'erreur ne doit jamais être indexée, même affichée côté client
+  // sur une URL servie en 200 (Google l'indexait sous « Une erreur est survenue »).
+  meta: [{ name: 'robots', content: 'noindex, nofollow' }],
 })
 </script>
 

@@ -36,7 +36,10 @@ const {
   sortSurveys,
   toggleItemFavorite,
   isFavorited,
+  ready,
 } = useChannelProfile()
+// Rendu serveur : attend la chaîne (et ses contenus) avant de répondre.
+await ready
 
 const basePath = useContentBasePath()
 const requestUrl = useRequestURL()

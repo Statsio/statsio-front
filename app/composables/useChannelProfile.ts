@@ -6,7 +6,8 @@ import { fetchChannelByHandle } from '@/lib/channels-api'
 import { useAuthStore } from '@/stores/auth'
 import { AUTH_REDIRECT_KEY } from '@/lib/auth-storage'
 import { getHttpErrorStatus } from '@/lib/http-errors'
-import { useChannelCatalog } from '@/composables/useChannelCatalog'
+import { fetchChannelContents, useChannelCatalog, type ChannelContents } from '@/composables/useChannelCatalog'
+import { useContentDomain } from '@/composables/useContentDomain'
 
 export type ChannelProfileTab = 'featured' | 'articles' | 'statsdata' | 'sondages' | 'apropos'
 
@@ -23,49 +24,61 @@ export function useChannelProfile() {
   const router = useRouter()
   const auth = useAuthStore()
 
-  const channel = ref<ChannelEntry | null>(null)
-  const loading = ref(true)
+  const domain = useContentDomain()
+  const handle = String(route.params.handle ?? '')
+
+  // Chaîne + premier lot de contenus chargés côté serveur (SSR) : Google reçoit
+  // nom, description, h1 et les liens vers les contenus de la chaîne.
+  const asyncData = useAsyncData(`channel-${handle}-${domain.value ?? ''}`, async () => {
+    let currentChannel: ChannelEntry | undefined
+    try {
+      currentChannel = await fetchChannelByHandle(handle)
+    } catch (e) {
+      throw createError({ statusCode: getHttpErrorStatus(e, 500), statusMessage: 'Erreur lors du chargement de la chaîne' })
+    }
+    if (!currentChannel) throw createError({ statusCode: 404, statusMessage: 'Chaîne non trouvée' })
+    let contents: ChannelContents | null = null
+    try {
+      contents = await fetchChannelContents(Number(currentChannel.slug), domain.value)
+    } catch { /* les onglets rechargeront côté client */ }
+    return { channel: currentChannel, contents }
+  })
+  const { data, error, status } = asyncData
+
+  const channel = computed<ChannelEntry | null>(() => data.value?.channel ?? null)
+  const loading = computed(() => status.value === 'pending')
   const isFollowing = ref(false)
   const isOwner = ref(false)
   const activeTab = ref<ChannelProfileTab>('featured')
 
   const channelId = computed(() => (channel.value ? Number(channel.value.slug) : undefined))
-  const { loading: contentLoading, ...catalog } = useChannelCatalog(channelId)
+  const { loading: contentLoading, ...catalog } = useChannelCatalog(
+    channelId,
+    computed(() => data.value?.contents),
+  )
 
-  async function load() {
-    loading.value = true
-    try {
-      const handle = String(route.params.handle ?? '')
-      const currentChannel = await fetchChannelByHandle(handle)
-
-      if (currentChannel) {
-        channel.value = currentChannel
-
-        if (auth.isAuthenticated) {
-          try {
-            const myChannels = await getMyChannels()
-            isOwner.value = myChannels.some((c) => String(c.id) === currentChannel.slug)
-          } catch {
-            /* impossible de déterminer la propriété, on garde le bouton Suivre par défaut */
-          }
-        }
-      } else {
-        showError(createError({ statusCode: 404, statusMessage: 'Chaîne non trouvée', fatal: true }))
-      }
-    } catch (e) {
-      showError(
-        createError({
-          statusCode: getHttpErrorStatus(e, 500),
-          statusMessage: 'Erreur lors du chargement de la chaîne',
-          fatal: true,
-        }),
-      )
-    } finally {
-      loading.value = false
+  /** À attendre dans le `<script setup>` : rejette (page d'erreur) si la chaîne est introuvable. */
+  const ready = asyncData.then(() => {
+    if (error.value || !data.value) {
+      throw createError({
+        statusCode: error.value?.statusCode ?? 404,
+        statusMessage: error.value?.statusMessage ?? 'Chaîne non trouvée',
+        fatal: true,
+      })
     }
-  }
+  })
 
-  onMounted(load)
+  // Propriété de la chaîne : dépend de la session, connue seulement dans le navigateur.
+  onMounted(async () => {
+    const current = channel.value
+    if (!current || !auth.isAuthenticated) return
+    try {
+      const myChannels = await getMyChannels()
+      isOwner.value = myChannels.some((c) => String(c.id) === current.slug)
+    } catch {
+      /* impossible de déterminer la propriété, on garde le bouton Suivre par défaut */
+    }
+  })
 
   function toggleFollow() {
     if (!auth.isAuthenticated) {
@@ -111,6 +124,7 @@ export function useChannelProfile() {
     createdAtLabel,
     createdAtYear,
     contentLoading,
+    ready,
     ...catalog,
   }
 }

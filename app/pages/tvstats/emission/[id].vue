@@ -9,6 +9,7 @@ import TvBroadcastActionCard from '@/components/tv/TvBroadcastActionCard.vue'
 import TvBroadcastAudienceCard from '@/components/tv/TvBroadcastAudienceCard.vue'
 import TvBroadcastInfoCard from '@/components/tv/TvBroadcastInfoCard.vue'
 import TvReviewModal from '@/components/tv/TvReviewModal.vue'
+import { getHttpErrorStatus } from '@/lib/http-errors'
 
 const {
   auth,
@@ -27,6 +28,8 @@ const {
   durationLabel,
   youtubeEmbedUrl,
   load,
+  fetchData,
+  apply,
   toggle,
   openReview,
   onReviewSubmitted,
@@ -37,7 +40,30 @@ usePageSeo({
   description: computed(() => broadcast.value?.program?.description ?? undefined),
 })
 
-onMounted(() => load())
+// Chargé côté serveur (SSR) : titre, description et fiche du programme dans le HTML.
+const { data: initialData, error: loadError } = await useAsyncData(
+  `tv-broadcast-${broadcastId.value}`,
+  async () => {
+    try {
+      return await fetchData()
+    } catch (e) {
+      throw createError({ statusCode: getHttpErrorStatus(e, 404), statusMessage: 'Programme introuvable.' })
+    }
+  },
+)
+if (loadError.value || !initialData.value) {
+  throw createError({
+    statusCode: loadError.value?.statusCode ?? 404,
+    statusMessage: 'Programme introuvable.',
+    fatal: true,
+  })
+}
+apply(initialData.value)
+
+// État « vu / à voir » du visiteur : dépend de la session, rechargé dans le navigateur.
+onMounted(() => {
+  if (auth.isAuthenticated) void load()
+})
 </script>
 
 <template>

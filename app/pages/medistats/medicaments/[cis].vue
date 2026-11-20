@@ -1,6 +1,6 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'default' })
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { fetchMedicamentDetail, fetchMedicamentGeneriques } from '@/api/medicaments'
 import MedicamentsDetail from '@/components/medicaments/MedicamentsDetail.vue'
@@ -51,27 +51,36 @@ async function loadGeneriques(m: Medicament) {
   }
 }
 
-async function load() {
-  isLoading.value = true
-  generiques.value = []
-  try {
-    medicament.value = await fetchMedicamentDetail(cis.value)
-    void loadGeneriques(medicament.value)
-  } catch (e) {
-    showError(
-      createError({
-        statusCode: getHttpErrorStatus(e, 404),
-        statusMessage: 'Ce médicament est introuvable.',
-        fatal: true,
-      }),
-    )
-  } finally {
-    isLoading.value = false
-  }
+// Chargé côté serveur (SSR) : titre, description et fiche dans le HTML.
+// La clé suit le paramètre d'URL : changer de fiche relance le chargement.
+const { data: loaded, status: loadStatus, error: loadError } = await useAsyncData(
+  () => `medistats-medicament-${cis.value}`,
+  async () => {
+    try {
+      return await fetchMedicamentDetail(cis.value)
+    } catch (e) {
+      throw createError({ statusCode: getHttpErrorStatus(e, 404), statusMessage: 'Ce médicament est introuvable.' })
+    }
+  },
+)
+function failIfMissing() {
+  if (!loadError.value) return
+  throw createError({ statusCode: loadError.value.statusCode ?? 404, statusMessage: 'Ce médicament est introuvable.', fatal: true })
 }
+failIfMissing()
+watch(loadError, (e) => {
+  if (e) showError(createError({ statusCode: e.statusCode ?? 404, statusMessage: 'Ce médicament est introuvable.', fatal: true }))
+})
+watch([loaded, loadStatus], ([v, st]) => {
+  medicament.value = v ?? null
+  isLoading.value = st === 'pending'
+}, { immediate: true })
 
-onMounted(load)
-watch(cis, load)
+// Génériques : complément non indispensable au référencement, chargé dans le navigateur.
+watch(medicament, (m) => {
+  generiques.value = []
+  if (m && import.meta.client) void loadGeneriques(m)
+}, { immediate: true })
 </script>
 
 <template>
