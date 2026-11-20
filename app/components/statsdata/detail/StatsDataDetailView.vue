@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { navigateTo } from '#app'
 import { useStatsDataDetail } from '@/composables/useStatsDataDetail'
@@ -58,6 +58,23 @@ const {
   nativeShare,
   shareTargets,
 } = useStatsDataChrome(doc)
+
+// La route est partagée par tout le document (pas de remontage) : on remonte en
+// haut seulement quand la page affichée change, pas quand une recherche modifie l'URL.
+// Avec une ancre (lien du sommaire vers une autre page), on attend que la cible
+// soit rendue puis on y va.
+watch(() => activePage.value?.id, (next, prev) => {
+  if (!import.meta.client || !prev || !next || next === prev) return
+  const hash = route.hash
+  if (!hash) { window.scrollTo({ top: 0 }); return }
+  let tries = 0
+  const tick = () => {
+    const el = document.getElementById(decodeURIComponent(hash.slice(1)))
+    if (el) el.scrollIntoView({ block: 'start' })
+    else if (tries++ < 60) requestAnimationFrame(tick)
+  }
+  tick()
+})
 
 const showEmbedModal = ref(false)
 const showSourcesModal = ref(false)
