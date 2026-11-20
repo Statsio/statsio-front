@@ -53,8 +53,7 @@ const shapes = computed<Shape[]>(() => {
   <AppNavIcon
     v-if="navIcon"
     :kind="navIcon"
-    class="ds-glyph"
-    :class="{ 'ds-glyph--mono': mono }"
+    :class="mono ? 'ds-glyph ds-glyph--mono' : 'ds-glyph'"
     :style="{ width: `${size}px`, height: `${size}px` }"
     aria-hidden="true"
   />
