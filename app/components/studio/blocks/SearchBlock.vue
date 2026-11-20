@@ -6,7 +6,7 @@ import { useStudioStore } from '@/stores/studio'
 import { useBlockSkin } from '@/lib/block-skin'
 import { blockSourceParams, resolveBlockFilterGroups } from '@/composables/useBlockData'
 import { bareNames, fanOutColumnsForSource, identityBareNamesForSource, isUnionBlock, pageParamsFromUnionRow, resultPartsForSource, unionSourceIds } from '@/lib/studio-search'
-import { buildFanOutHref, buildFanOutSegment, fanOutSlugKey } from '@/lib/statsdata-fanout'
+import { buildFanOutHref, buildFanOutSegment, fanOutSlugKey, pageUrlSegment } from '@/lib/statsdata-fanout'
 import { isCalcRef, parseColumnRef, primarySourceId } from '@/lib/studio-columns'
 import { STUDIO_EMBED_CONTEXT, type StudioEmbedContext } from '@/composables/studioEmbedContext'
 import type { BlockQueryResult, ResultPart, StudioBlock, StudioDocumentPage, PageParam } from '@/types/studio'
@@ -345,7 +345,9 @@ function clearSelection() {
       currentSeg = buildFanOutSegment(param, studio.pageParams)
     }
   }
-  const onFanOutUrl = Boolean(docSlug.value) && String(route.params.pageSlug ?? '') === currentSeg && currentSeg !== ''
+  // Valeur dans l'URL : 2e segment (fan-out scoped) sinon 1er (URL courte).
+  const urlSeg = String(route.params.fanOut || route.params.pageSlug || '')
+  const onFanOutUrl = Boolean(docSlug.value) && urlSeg === currentSeg && currentSeg !== ''
 
   const next = { ...studio.pageParams }
   for (const c of searchCols.value) delete next[c]
@@ -366,7 +368,14 @@ function clearSelection() {
   results.value = []
   isOpen.value = false
 
-  if (onFanOutUrl) router.push(`/statsdata/${docSlug.value}`)
+  // Retour à l'URL nue de la page du bloc (même vue, sans valeur) — sans recharger.
+  if (onFanOutUrl) {
+    const page = blockPage.value
+    const pages = availablePages.value
+    const defaultPage = pages.find((p) => !p.isTemplate) ?? pages[0]
+    const base = `/statsdata/${docSlug.value}`
+    router.push(page && defaultPage && page.id !== defaultPage.id ? `${base}/${pageUrlSegment(page)}` : base)
+  }
 }
 
 function onFocus() {
