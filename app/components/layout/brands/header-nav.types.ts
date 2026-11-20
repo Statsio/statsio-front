@@ -90,25 +90,19 @@ export type MegaMenuContent =
   | { variant: 'pie'; cards: MegaMenuPollCard[] }
   | { variant: 'plane'; cards: MegaMenuChannelCard[] }
 
+/** Type d'info du bandeau « En continu » (étiquette colorée devant le texte). */
+export type PromoTickerKind = 'une' | 'actu' | 'chiffre' | 'sondage' | 'maj'
+
+/** Fragment de texte d'une info du bandeau ; `strong` = chiffre mis en avant (mono). */
+export type PromoTickerPart = { text: string; strong?: boolean }
+
+/** Une info du bandeau « En continu » — toujours construite depuis le catalogue réel. */
 export type PromoTickerItem = {
-  kind: 'article' | 'statsdata' | 'survey'
-  tag: string
-  tagColor: string
-  title: string
+  kind: PromoTickerKind
+  /** libellé de l'étiquette (« À la une », « Dernier chiffre »…) */
+  label: string
+  parts: PromoTickerPart[]
   href: string
-  /** StatsData : valeur mise en avant + libellé (repli quand aucun graphique réel). */
-  kpi?: string
-  kpiLabel?: string
-  /** StatsData : mini série décorative dérivée de l'id (repli). */
-  sparkline?: number[]
-  /** StatsData : mini-graphe réel (même source que les cartes de catalogue). */
-  preview?: import('@/types/catalog').CardPreview
-  /** StatsData : catégories du contenu, pour la palette du mini-graphe. */
-  categories?: string[]
-  /** Sondage : pourcentage de l'option en tête (repli / pétitions). */
-  percent?: number
-  /** Sondage : barres d'options condensées (mêmes données que les cartes de catalogue). */
-  surveyOptions?: { pct: number; color: string; lead: boolean }[]
 }
 
 export type HeaderNavItem = {

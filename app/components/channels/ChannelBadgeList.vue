@@ -4,7 +4,11 @@ import ChannelOrganizationBadge from '@/components/channels/ChannelOrganizationB
 import type { ChannelOrganization } from '@/api/channels'
 
 withDefaults(
-  defineProps<{ slugs: readonly string[]; organization?: ChannelOrganization | null; size?: 'sm' | 'md' }>(),
+  defineProps<{
+    slugs: readonly string[]
+    organization?: ChannelOrganization | null
+    size?: 'sm' | 'md'
+  }>(),
   { slugs: () => [], organization: null, size: 'md' },
 )
 </script>

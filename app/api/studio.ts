@@ -480,6 +480,9 @@ export interface ContentDataset {
   refresh_frequency?: string | null
 }
 
+/** Visibilité publique des résultats d'un sondage. */
+export type SurveyResultsVisibility = 'after_submit' | 'at_close' | 'never'
+
 export interface StatsDataDocument {
   id: string
   title: string
@@ -527,6 +530,12 @@ export interface StatsDataDocument {
   survey_kind?: import('@/types/content-creation').SurveyKind | null
   /** `type === 'survey'` only — le sondage exige une vérification d'identité (à venir). */
   requires_identity_verification?: boolean
+  /** `type === 'survey'` only — ISO, ouverture des réponses. Null = dès la publication. */
+  opens_at?: string | null
+  /** `type === 'survey'` only — une seule réponse (non modifiable) par compte. Défaut true. */
+  one_response_per_account?: boolean
+  /** `type === 'survey'` only — quand les résultats deviennent visibles du public. */
+  results_visibility?: SurveyResultsVisibility
   /** `type === 'survey'` + `survey_kind === 'petition'` — objectif de signatures. */
   petition_goal?: number | null
   /** `type === 'survey'` + `survey_kind === 'petition'` — destinataire de la pétition. */
@@ -911,6 +920,9 @@ export interface SaveStatsDataDocumentPayload {
   survey_kind?: import('@/types/content-creation').SurveyKind
   /** `type === 'survey'` uniquement — exiger la vérification d'identité des répondants. */
   requires_identity_verification?: boolean
+  opens_at?: string | null
+  one_response_per_account?: boolean
+  results_visibility?: SurveyResultsVisibility
   published_as?: 'user' | 'channel' | null
   channel_id?: number | null
   pages?: import('@/types/studio').StudioDocumentPage[]
@@ -953,12 +965,15 @@ export async function publishStudioContent(
     dossierIds?: number[]
     /** Ignore `scheduled_publish_at` et met en ligne tout de suite. */
     immediate?: boolean
+    /** Note de version, affichée dans l'historique. */
+    note?: string
   } = {},
 ): Promise<StatsDataDocument> {
   const { data } = await apiHttp.post<Envelope<StatsDataDocument>>(STATSIO_API.studioContent.publish(documentId), {
     ...(opts.publishedAs ? { published_as: opts.publishedAs } : {}),
     ...(opts.channelId != null ? { channel_id: opts.channelId } : {}),
     ...(opts.dossierIds ? { dossier_ids: opts.dossierIds } : {}),
+    ...(opts.note?.trim() ? { note: opts.note.trim() } : {}),
     ...(opts.immediate ? { immediate: true } : {}),
   })
   return data.data
@@ -972,6 +987,8 @@ export async function unpublishStudioContent(documentId: string): Promise<StatsD
 export interface StudioContentVersionRow {
   version: number
   title: string
+  /** Note saisie à la publication (modale « Publier »). */
+  note?: string | null
   created_at: string | null
   published_as: 'user' | 'channel' | null
   author_name: string

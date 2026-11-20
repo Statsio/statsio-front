@@ -113,7 +113,7 @@ const summary = computed(() => {
       </span>
     </div>
 
-    <div class="rounded-2xl bg-[var(--studio-wash)]/40 p-1" @click.stop>
+    <div class="rounded-2xl bg-[var(--studio-wash)]/40 p-1 cursor-pointer" @click.stop>
       <CanvasSectionZone v-if="pageLevel" :zone-id="zoneId" />
       <CanvasZone v-else :zone-id="zoneId" :col-index="0" nested />
     </div>

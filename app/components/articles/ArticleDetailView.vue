@@ -279,7 +279,7 @@ onMounted(async () => {
           <div
             class="grid grid-cols-1 gap-10 pt-8 lg:grid-cols-[212px_minmax(0,1fr)] lg:items-start"
           >
-            <div class="lg:sticky lg:top-40">
+            <div>
               <ArticleToc :entries="tocEntries" :linked="linkedStatsData" />
             </div>
 

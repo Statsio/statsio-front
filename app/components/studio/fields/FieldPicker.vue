@@ -28,7 +28,7 @@ const emit = defineEmits<{ open: [] }>()
   <StudioField :label="label" :hint="hint">
     <button
       type="button"
-      class="flex w-full items-center justify-between gap-3 rounded-xl border-[1.5px] border-[var(--studio-line-strong)] bg-white px-3.5 py-3 text-left transition-colors hover:border-[var(--color-primary)] hover:bg-[var(--studio-accent-wash)]"
+      class="flex w-full items-center justify-between gap-3 rounded-[4px] border-2 border-[var(--ds-ol)] bg-[var(--ds-surface)] px-3 py-2.5 text-left shadow-[3px_3px_0_var(--ds-sh)] transition-transform hover:-translate-x-px hover:-translate-y-px"
       @click="emit('open')"
     >
       <span class="flex min-w-0 flex-col gap-1.5">
@@ -37,7 +37,7 @@ const emit = defineEmits<{ open: [] }>()
           <span
             v-for="(chip, i) in chips"
             :key="i"
-            class="rounded-[5px] px-[7px] py-[3px] font-mono text-[10px] font-semibold"
+            class="st-col"
             :class="chip.muted
               ? 'bg-[var(--studio-wash)] text-[color:color-mix(in_srgb,var(--studio-ink)_60%,transparent)]'
               : 'bg-[var(--studio-tag)] text-[var(--studio-tag-ink)]'"

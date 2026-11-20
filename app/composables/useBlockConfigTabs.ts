@@ -3,20 +3,20 @@ import { useStudioStore } from '@/stores/studio'
 import { isTextBlock } from '@/types/studio'
 
 const EDITORIAL_TYPES = ['image', 'video', 'button', 'link-card', 'retenir', 'field-grid'] as const
-const FORM_TYPES = ['choice', 'checkboxes', 'dropdown', 'scale', 'rating'] as const
+const FORM_TYPES = ['choice', 'checkboxes', 'dropdown', 'scale', 'rating', 'number', 'text-answer'] as const
 const RECORD_TYPES = ['record', 'related'] as const
 
-export const DATA_TABS      = [{ id: 'data', label: 'Données' }, { id: 'filters', label: 'Filtres' }, { id: 'style', label: 'Style' }]
-export const KPI_TABS       = [{ id: 'data', label: 'Données' }, { id: 'filters', label: 'Filtres' }, { id: 'comparison', label: 'Comparaison' }, { id: 'style', label: 'Style' }]
-export const LOOP_TABS      = [{ id: 'data', label: 'Boucle' }, { id: 'filters', label: 'Filtres' }, { id: 'style', label: 'Style' }]
-export const IF_TABS        = [{ id: 'condition', label: 'Condition' }]
-export const LAYOUT_TABS    = [{ id: 'layout', label: 'Disposition' }]
-export const TEXT_TABS      = [{ id: 'style', label: 'Style' }]
-export const SEARCH_TABS    = [{ id: 'config', label: 'Configuration' }, { id: 'filters', label: 'Filtres' }]
-export const PARAM_TABS     = [{ id: 'config', label: 'Configuration' }, { id: 'filters', label: 'Filtres' }]
-export const SDEMBED_TABS   = [{ id: 'config', label: 'Configuration' }]
+export const DATA_TABS      = [{ id: 'data', label: 'Contenu' }, { id: 'filters', label: 'Filtres' }, { id: 'style', label: 'Affichage' }]
+export const KPI_TABS       = [{ id: 'data', label: 'Contenu' }, { id: 'filters', label: 'Filtres' }, { id: 'comparison', label: 'Comparaison' }, { id: 'style', label: 'Affichage' }]
+export const LOOP_TABS      = [{ id: 'data', label: 'Contenu' }, { id: 'filters', label: 'Filtres' }, { id: 'style', label: 'Affichage' }]
+export const IF_TABS        = [{ id: 'condition', label: 'Contenu' }]
+export const LAYOUT_TABS    = [{ id: 'layout', label: 'Contenu' }]
+export const TEXT_TABS      = [{ id: 'style', label: 'Affichage' }]
+export const SEARCH_TABS    = [{ id: 'config', label: 'Contenu' }, { id: 'filters', label: 'Filtres' }]
+export const PARAM_TABS     = [{ id: 'config', label: 'Contenu' }, { id: 'filters', label: 'Filtres' }]
+export const SDEMBED_TABS   = [{ id: 'config', label: 'Contenu' }]
 export const EDITORIAL_TABS = [{ id: 'editorial', label: 'Contenu' }]
-export const FORM_TABS      = [{ id: 'form', label: 'Question' }]
+export const FORM_TABS      = [{ id: 'form', label: 'Contenu' }]
 
 /**
  * Jeux d'onglets de configuration par type de bloc + onglet actif, source unique

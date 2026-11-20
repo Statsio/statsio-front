@@ -25,7 +25,10 @@ const rows = computed<Row[]>(() => {
     }
     out.push({
       section,
-      header: !isBlankInlineHtml(section.kicker) || !isBlankInlineHtml(section.title) || !isBlankInlineHtml(section.description),
+      header:
+        !isBlankInlineHtml(section.kicker) ||
+        !isBlankInlineHtml(section.title) ||
+        !isBlankInlineHtml(section.description),
       blocks,
     })
   }
@@ -49,13 +52,22 @@ function showsTitle(block: StudioBlock) {
   return !!block.config.title && TITLED.has(block.type)
 }
 function isBare(block: StudioBlock) {
-  return isTextBlock(block.type) || block.type === 'sd-embed' || block.type === 'retenir' || block.type === 'image'
+  return (
+    isTextBlock(block.type) ||
+    block.type === 'sd-embed' ||
+    block.type === 'retenir' ||
+    block.type === 'image'
+  )
 }
 
 function headStyle(section: Section) {
   return {
-    ...(section.headerLetterSpacing != null ? { '--sec-head-ls': `${section.headerLetterSpacing}em` } : {}),
-    ...(section.headerLineHeight != null ? { '--sec-head-lh': String(section.headerLineHeight) } : {}),
+    ...(section.headerLetterSpacing != null
+      ? { '--sec-head-ls': `${section.headerLetterSpacing}em` }
+      : {}),
+    ...(section.headerLineHeight != null
+      ? { '--sec-head-lh': String(section.headerLineHeight) }
+      : {}),
   }
 }
 </script>
@@ -93,7 +105,12 @@ function headStyle(section: Section) {
         <div :id="`block-${block.id}`" class="scroll-mt-40">
           <BlockRenderer v-if="isBare(block)" :block="block" :readonly="true" />
           <div v-else class="rounded-[14px] border border-[var(--studio-line)] p-5">
-            <p v-if="showsTitle(block)" class="mb-3.5 text-[13px] font-bold text-[var(--studio-ink)]">{{ block.config.title }}</p>
+            <p
+              v-if="showsTitle(block)"
+              class="mb-3.5 text-[13px] font-bold text-[var(--studio-ink)]"
+            >
+              {{ block.config.title }}
+            </p>
             <BlockRenderer :block="block" :readonly="true" />
           </div>
         </div>

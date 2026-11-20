@@ -23,17 +23,17 @@ const firstName = computed(
 
 <template>
   <div class="flex min-w-0 flex-1 items-center gap-3">
-    <NuxtLink
-      to="/"
-      title="Retour au site Statsio"
-      class="group flex shrink-0 items-center gap-2"
-    >
+    <NuxtLink to="/" title="Retour au site Statsio" class="group flex shrink-0 items-center gap-2">
       <span
         class="flex h-8 w-8 items-center justify-center rounded-[9px] border-[1.5px] border-slate-200 text-[14px] text-slate-400 transition group-hover:border-primary/40 group-hover:text-primary"
       >
         ←
       </span>
-      <img :src="statsioLogo" alt="" class="hidden h-[26px] w-[26px] rounded-[8px] bg-white p-0.5 sm:block" />
+      <img
+        :src="statsioLogo"
+        alt=""
+        class="hidden h-[26px] w-[26px] rounded-[8px] bg-white p-0.5 sm:block"
+      />
       <AppWordmark as="span" class="!hidden !text-[15px] md:!inline" />
     </NuxtLink>
 

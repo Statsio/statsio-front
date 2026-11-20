@@ -58,14 +58,29 @@ describe('SidebarBlocks', () => {
     expect(barCard.text()).not.toContain('Premium')
   })
 
-  it('hides the form category entirely for a petition', () => {
+  it('locks the question tiles for a petition (shown disabled, click adds nothing)', async () => {
     const studio = useStudioStore()
     studio.initPage({ id: 'c1', type: 'survey', survey_kind: 'petition', title: 'Pétition' })
+    const initialCount = studio.blocks.length
 
     const w = mount(SidebarBlocks)
 
-    expect(w.find('[data-block-type="choice"]').exists()).toBe(false)
-    expect(w.find('[data-block-type="scale"]').exists()).toBe(false)
+    const choice = w.find('[data-block-type="choice"]')
+    expect(choice.attributes('aria-disabled')).toBe('true')
+    expect(w.text()).toContain('Format pétition')
+    await choice.trigger('click')
+    expect(studio.blocks).toHaveLength(initialCount)
+  })
+
+  it('shows the palette of the content type (article: no data blocks)', () => {
+    const studio = useStudioStore()
+    studio.initPage({ id: 'c1', type: 'article', title: 'Article' })
+
+    const w = mount(SidebarBlocks)
+
+    expect(w.find('[data-block-type="paragraph"]').exists()).toBe(true)
+    expect(w.find('[data-block-type="sd-embed"]').exists()).toBe(true)
+    expect(w.find('[data-block-type="bar"]').exists()).toBe(false)
   })
 
   it('shows the form category for a single_question survey', () => {

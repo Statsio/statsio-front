@@ -4,6 +4,7 @@ import { RouterLink, useRouter } from 'vue-router'
 
 type TabPage = { id: string; title: string; slug?: string; icon?: string }
 
+/** Onglets de pages d'un StatsData (charte « Tranches ») ; `<select>` sous 1100px. */
 const props = defineProps<{
   docSlug: string
   pages: TabPage[]
@@ -29,33 +30,84 @@ function onSelect(event: Event) {
 </script>
 
 <template>
-  <!-- Mobile + tablette : sélecteur de page -->
-  <div class="relative shrink-0 lg:hidden">
-    <select
-      :value="activeValue"
-      class="max-w-[190px] appearance-none rounded-full bg-[var(--studio-note)] py-1.5 pl-[13px] pr-8 text-[12px] font-bold text-[var(--studio-ink)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/25"
-      aria-label="Changer de page"
-      @change="onSelect"
-    >
-      <option v-for="page in pages" :key="page.id" :value="pageLink(page)">
-        {{ page.icon ? `${page.icon} ` : '' }}{{ page.title }}
-      </option>
-    </select>
-    <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[9px] text-[var(--studio-muted)]">▼</span>
-  </div>
+  <select :value="activeValue" class="sdtabs__sel" aria-label="Page du StatsData" @change="onSelect">
+    <option v-for="page in pages" :key="page.id" :value="pageLink(page)">
+      {{ page.icon ? `${page.icon} ` : '' }}{{ page.title }}
+    </option>
+  </select>
 
-  <!-- Desktop : onglets -->
-  <div class="hidden w-max max-w-full items-center gap-[3px] overflow-x-auto rounded-full bg-[var(--studio-note)] p-[3px] lg:flex">
+  <nav class="sdtabs" aria-label="Pages du StatsData">
     <RouterLink
       v-for="page in pages"
       :key="page.id"
       :to="pageLink(page)"
-      class="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-[13px] py-1.5 text-[12px] font-bold transition-colors"
-      :class="activePageId === page.id
-        ? 'bg-white text-[var(--studio-ink)] shadow-sm'
-        : 'text-[var(--studio-muted)] hover:text-[var(--studio-ink)]'"
+      class="sdtabs__tab"
+      :class="{ 'is-on': activePageId === page.id }"
+      :aria-current="activePageId === page.id ? 'page' : undefined"
     >
-      <span v-if="page.icon" class="leading-none">{{ page.icon }}</span>{{ page.title }}
+      <span v-if="page.icon" aria-hidden="true">{{ page.icon }}</span>{{ page.title }}
     </RouterLink>
-  </div>
+  </nav>
 </template>
+
+<style scoped>
+.sdtabs {
+  display: none;
+  min-width: 0;
+  flex-wrap: nowrap;
+  gap: 4px;
+  margin: 0 auto;
+  overflow-x: auto;
+  padding: 3px 5px 5px 3px;
+}
+.sdtabs__tab {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 2px solid transparent;
+  border-radius: 3px;
+  color: var(--ds-muted);
+  font: 600 13.5px/1.2 var(--ds-ui);
+  white-space: nowrap;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.sdtabs__tab:hover {
+  color: var(--ds-text);
+}
+.sdtabs__tab.is-on {
+  border-color: var(--ds-ol);
+  background: var(--ds-surface);
+  box-shadow: 2px 2px 0 var(--ds-sh);
+  color: var(--ds-text);
+}
+.sdtabs__sel {
+  min-width: 0;
+  max-width: 260px;
+  height: 36px;
+  margin-left: auto;
+  padding: 0 8px;
+  border: 2px solid var(--ds-ol);
+  border-radius: 3px;
+  background: var(--ds-surface);
+  color: var(--ds-text);
+  font: 600 13.5px/1 var(--ds-ui);
+}
+@media (min-width: 1101px) {
+  .sdtabs {
+    display: flex;
+  }
+  .sdtabs__sel {
+    display: none;
+  }
+}
+@media (max-width: 620px) {
+  .sdtabs__sel {
+    flex: 1;
+    max-width: none;
+    margin-left: 0;
+  }
+}
+</style>

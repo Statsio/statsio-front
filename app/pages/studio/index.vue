@@ -12,9 +12,14 @@ import StudioHeader from '@/components/studio/StudioHeader.vue'
 import StudioSidebarLeft from '@/components/studio/StudioSidebarLeft.vue'
 import StudioSidebarRight from '@/components/studio/StudioSidebarRight.vue'
 import CanvasGrid from '@/components/studio/canvas/CanvasGrid.vue'
+import CanvasBar from '@/components/studio/canvas/CanvasBar.vue'
+import { useStudioMetaStore } from '@/stores/studio-meta'
+import { provideBlockSkin } from '@/lib/block-skin'
 
 const route = useRoute()
 const studio = useStudioStore()
+useStudioMetaStore().init(null)
+provideBlockSkin('tranches')
 const datasets = useStudioDatasetsStore()
 const { saveNow } = useStudioAutosave()
 const { fail } = useStudioDocumentGuard()
@@ -60,7 +65,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="flex h-screen w-screen flex-col overflow-hidden bg-[var(--studio-wash)] font-sans">
+  <div class="st-app flex h-screen w-screen flex-col overflow-hidden" :class="studio.isPreview ? 'st-preview' : 'st-edit'">
     <!-- Header -->
     <StudioHeader @save="saveNow" />
 
@@ -71,9 +76,11 @@ onBeforeUnmount(() => {
 
       <!-- Canvas (scrollable) -->
       <main
-        class="min-w-0 flex-1 overflow-auto"
+        class="st-canvas flex-1"
+        :class="{ 'st-show-tags': studio.showBlockTags }"
         @click.self="studio.selectBlock(null)"
       >
+        <CanvasBar />
         <CanvasGrid />
       </main>
 

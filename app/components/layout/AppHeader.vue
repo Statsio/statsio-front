@@ -10,7 +10,7 @@ import StatsioAppHeaderNav from '@/components/layout/brands/statsio/AppHeaderNav
 import TvstatsAppHeaderNav from '@/components/layout/brands/tvstats/AppHeaderNav.vue'
 import MedistatsAppHeaderNav from '@/components/layout/brands/medistats/AppHeaderNav.vue'
 import AppAvatar from '@/components/ui/AppAvatar.vue'
-import AppButton from '@/components/ui/AppButton.vue'
+import DsButton from '@/components/ds/DsButton.vue'
 import { getBrandFromPath, getBrandSwitcherList, type BrandId } from '@/data/brands'
 import { getErrorMessage } from '@/lib/http-errors'
 import { useAuthStore } from '@/stores/auth'
@@ -19,6 +19,7 @@ import { fetchPinnedDossiers } from '@/api/dossiers'
 import { publicDossierPath } from '@/lib/content-display'
 import { storeToRefs } from 'pinia'
 import { usePrefsStore } from '@/stores/prefs'
+import { useSearchTarget } from '@/composables/useSearchTarget'
 
 interface BrandNavExpose { items: HeaderNavItem[] }
 
@@ -159,11 +160,21 @@ const toggleMobileItem = (label: string) => {
   expandedMobileItem.value = expandedMobileItem.value === label ? null : label
 }
 
+// Une page peut porter sa propre grande recherche (hero de l'accueil) : le bouton
+// et le raccourci « / » y envoient alors le focus au lieu d'ouvrir la modale, et
+// le bouton du header ne s'affiche qu'une fois cette recherche sortie de l'écran.
+const { target: searchTarget, targetVisible: searchTargetVisible, focusTarget } = useSearchTarget()
+const showHeaderSearch = computed(() => !searchTarget.value || !searchTargetVisible.value)
+
+// Thème de marque pour le drawer téléporté hors du wrapper `.app-shell[data-theme]`.
+const brandTheme = computed(() => (currentBrand.value.id === 'statsio' ? undefined : currentBrand.value.id))
+
 const openSearch = () => {
   isMobileMenuOpen.value = false
   isBrandMenuOpen.value = false
   isUserMenuOpen.value = false
   activeMenu.value = null
+  if (focusTarget()) return
   isSearchOpen.value = true
 }
 
@@ -250,12 +261,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <header class="fixed inset-x-0 top-14 z-40 border-b border-slate-200 bg-white"
+  <header class="ds-scope ds-header fixed inset-x-0 top-12 z-40"
     @mouseleave="activeMenu = null">
-    <div class="mx-auto flex h-14 w-full max-w-[1800px] items-center gap-2 px-4 sm:px-6 lg:px-10">
+    <div class="mx-auto flex h-16 w-full max-w-[1440px] items-center gap-2 px-4 sm:px-6 lg:gap-4 lg:px-10">
       <div ref="brandMenuRef" class="relative flex shrink-0 items-center gap-2">
         <RouterLink :to="currentBrand.to"
-          class="flex items-center gap-2 rounded-lg transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35">
+          class="ds-header__brand flex items-center gap-2 rounded-[3px] transition hover:opacity-90">
           <img :src="currentBrand.logo" :alt="currentBrand.logoAlt" class="h-8 w-8" />
           <p :class="[currentBrand.wordmarkClass, 'text-[15px] font-extrabold uppercase tracking-[0.08em]']">
             {{ currentBrand.prefix }}<span :class="currentBrand.suffixClass">{{ currentBrand.suffix }}</span>
@@ -264,7 +275,7 @@ onBeforeUnmount(() => {
 
         <button
           type="button"
-          class="inline-flex h-[22px] w-[22px] items-center justify-center rounded-full border-[1.5px] border-slate-200 text-slate-400 transition hover:border-slate-300 hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+          class="ds-header__chev inline-flex h-[24px] w-[24px] items-center justify-center rounded-[3px] transition"
           :aria-expanded="isBrandMenuOpen"
           aria-haspopup="menu"
           aria-label="Changer d'univers"
@@ -297,11 +308,11 @@ onBeforeUnmount(() => {
         >
           <div
             v-if="isBrandMenuOpen"
-            class="absolute left-0 top-[calc(100%+0.5rem)] z-50 w-[340px] origin-top-left rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_20px_44px_rgba(24,20,40,0.16)]"
+            class="ds-pop absolute left-0 top-[calc(100%+0.75rem)] z-50 w-[340px] origin-top-left p-4"
             role="menu"
             aria-label="Changer d'univers"
           >
-            <p class="px-2 pb-2.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-slate-400">
+            <p class="ds-pop__label px-2 pb-2.5">
               Changer d'univers
             </p>
             <component
@@ -309,8 +320,8 @@ onBeforeUnmount(() => {
               v-for="brand in universeBrands"
               :key="brand.id"
               :to="brand.current ? undefined : brand.to"
-              class="group flex items-center gap-3 rounded-xl p-2.5 transition"
-              :class="brand.current ? 'bg-slate-50' : 'hover:bg-slate-50'"
+              class="ds-pop__row group flex cursor-pointer items-center gap-3 p-2.5"
+              :class="{ 'is-current': brand.current }"
               :role="brand.current ? undefined : 'menuitem'"
               :aria-current="brand.current ? 'true' : undefined"
               @click="brand.current || closeBrandMenu()"
@@ -323,10 +334,10 @@ onBeforeUnmount(() => {
               </span>
               <span class="min-w-0 flex-1">
                 <span class="flex items-center gap-2">
-                  <span class="text-sm font-extrabold tracking-[-0.01em] text-slate-900">{{ brand.name }}</span>
+                  <span class="ds-pop__title text-sm font-extrabold tracking-[-0.01em]">{{ brand.name }}</span>
                   <span
                     v-if="brand.current"
-                    class="rounded bg-primary/10 px-1.5 py-0.5 font-mono text-[8.5px] font-semibold uppercase tracking-[0.06em] text-primary"
+                    class="ds-pop__badge px-1.5 py-0.5"
                   >
                     Actuel
                   </span>
@@ -337,11 +348,11 @@ onBeforeUnmount(() => {
                 >
                   {{ brand.switcherTagline }}
                 </span>
-                <span class="mt-1 block text-xs leading-snug text-slate-500">{{ brand.switcherBlurb }}</span>
+                <span class="ds-pop__muted mt-1 block text-xs leading-snug">{{ brand.switcherBlurb }}</span>
               </span>
               <svg
                 v-if="!brand.current"
-                class="h-4 w-4 shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-slate-500"
+                class="ds-pop__arrow h-4 w-4 shrink-0 transition group-hover:translate-x-0.5"
                 viewBox="0 0 20 20" fill="none"
               >
                 <path d="M7 10h6m0 0l-2.5-2.5M13 10l-2.5 2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
@@ -357,7 +368,7 @@ onBeforeUnmount(() => {
         v-if="pinnedDossiers && pinnedDossiers.length"
         class="hidden min-w-0 flex-1 items-center lg:flex"
       >
-        <span class="mx-1.5 h-4 w-px shrink-0 bg-slate-200" aria-hidden="true"></span>
+        <span class="ds-header__sep mx-1.5 h-5 w-[2px] shrink-0" aria-hidden="true"></span>
         <div
           ref="marqueeRef"
           class="dossier-marquee relative min-w-0 flex-1 mr-1.5"
@@ -374,7 +385,7 @@ onBeforeUnmount(() => {
               :to="publicDossierPath(entry.dossier.slug, currentBrand.contentBasePath)"
               :aria-hidden="entry.clone ? 'true' : undefined"
               :tabindex="entry.clone ? -1 : undefined"
-              class="dossier-item group inline-flex shrink-0 items-center gap-1.5 rounded-full border border-primary/20 bg-primary/[0.06] px-2.5 py-1 text-[12px] font-bold text-primary transition hover:border-primary/40 hover:bg-primary/10"
+              class="dossier-item ds-header__dossier group inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-bold transition"
             >
               <!-- Affiche l'emoji si présent -->
               <span
@@ -395,17 +406,17 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="ml-auto flex items-center gap-2 sm:gap-2.5">
-        <AppHeaderSearch @open="openSearch" />
+        <AppHeaderSearch v-show="showHeaderSearch" @open="openSearch" />
 
         <AppAccessibilityPanel ref="accessibilityPanelRef" />
 
         <template v-if="authStore.isAuthenticated">
           <div ref="userMenuRef" class="relative">
             <button type="button"
-              class="flex items-center gap-1.5 rounded-full p-1 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              class="ds-header__user flex items-center gap-1.5 rounded-full p-1 transition"
               :aria-expanded="isUserMenuOpen" aria-haspopup="menu" aria-label="Mon compte" @click="toggleUserMenu">
               <AppAvatar :src="authStore.user?.profile?.avatar ?? undefined" :initials="userInitials()" size="sm" />
-              <svg viewBox="0 0 20 20" class="h-3.5 w-3.5 shrink-0 text-slate-400 transition"
+              <svg viewBox="0 0 20 20" class="ds-header__muted h-3.5 w-3.5 shrink-0 transition"
                 :class="isUserMenuOpen ? 'rotate-180' : ''" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
                   stroke-linejoin="round" />
@@ -422,11 +433,11 @@ onBeforeUnmount(() => {
             >
               <div
                 v-if="isUserMenuOpen"
-                class="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-[248px] origin-top-right rounded-2xl border border-slate-200 bg-white p-2.5 shadow-[0_20px_44px_rgba(24,20,40,0.16)]"
+                class="ds-pop absolute right-0 top-[calc(100%+0.75rem)] z-50 w-[248px] origin-top-right p-2.5"
                 role="menu"
                 aria-label="Menu utilisateur"
               >
-                <div class="mb-1.5 flex items-center gap-2.5 border-b border-slate-100 px-2 pb-2.5">
+                <div class="ds-pop__head mb-1.5 flex items-center gap-2.5 px-2 pb-2.5">
                   <AppAvatar
                     :src="authStore.user?.profile?.avatar ?? undefined"
                     :initials="userInitials()"
@@ -434,10 +445,10 @@ onBeforeUnmount(() => {
                     background="var(--studio-gradient)"
                   />
                   <span class="min-w-0">
-                    <span class="block truncate text-[13px] font-bold text-slate-900">{{ authStore.displayName }}</span>
+                    <span class="ds-pop__title block truncate text-[13px] font-bold">{{ authStore.displayName }}</span>
                     <span
                       v-if="authStore.user?.email && authStore.user.email !== authStore.displayName"
-                      class="block truncate font-mono text-[10px] text-slate-400"
+                      class="ds-pop__muted block truncate text-[10.5px] [font-family:var(--ds-num)]"
                     >
                       {{ authStore.user.email }}
                     </span>
@@ -450,7 +461,7 @@ onBeforeUnmount(() => {
                   target="_blank"
                   rel="noopener"
                   role="menuitem"
-                  class="block rounded-lg px-2.5 py-2 text-[13px] font-semibold text-slate-800 transition hover:bg-slate-50 hover:text-primary"
+                  class="ds-pop__item block px-2.5 py-2 text-[13px] font-semibold"
                   @click="closeUserMenu"
                 >
                   Administration
@@ -461,18 +472,18 @@ onBeforeUnmount(() => {
                   :key="link.to"
                   :to="link.to"
                   role="menuitem"
-                  class="block rounded-lg px-2.5 py-2 text-[13px] font-semibold text-slate-800 transition hover:bg-slate-50 hover:text-primary [&.router-link-active]:text-primary"
+                  class="ds-pop__item block px-2.5 py-2 text-[13px] font-semibold"
                   @click="closeUserMenu"
                 >
                   {{ link.label }}
                 </RouterLink>
 
-                <div class="my-1.5 h-px bg-slate-100"></div>
+                <div class="ds-pop__sep my-1.5 h-[2px]"></div>
 
                 <button
                   type="button"
                   role="menuitem"
-                  class="block w-full rounded-lg px-2.5 py-2 text-left text-[13px] font-semibold text-rose-600 transition hover:bg-rose-50 disabled:opacity-60"
+                  class="ds-pop__item ds-pop__item--danger block w-full px-2.5 py-2 text-left text-[13px] font-semibold disabled:opacity-60"
                   :disabled="authStore.isLoggingOut"
                   @click="handleLogout"
                 >
@@ -485,7 +496,7 @@ onBeforeUnmount(() => {
         <template v-else>
           <RouterLink
             to="/login"
-            class="inline-flex h-9 w-9 items-center justify-center rounded-full text-white studio-gradient transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 md:hidden"
+            class="ds-header__icon-btn inline-flex h-10 w-10 items-center justify-center rounded-[3px] transition md:hidden"
             aria-label="Connexion"
           >
             <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -497,25 +508,15 @@ onBeforeUnmount(() => {
             </svg>
           </RouterLink>
 
-          <div class="hidden shrink-0 items-center gap-1.5 md:flex">
-            <RouterLink
-              to="/login"
-              class="whitespace-nowrap rounded-full px-3 py-2 text-[12.5px] font-bold text-slate-900 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            >
-              Se connecter
-            </RouterLink>
-            <RouterLink
-              to="/register"
-              class="studio-gradient whitespace-nowrap rounded-full px-3.5 py-2 text-[12.5px] font-extrabold tracking-[0.02em] text-white transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            >
-              Créer un compte
-            </RouterLink>
+          <div class="hidden shrink-0 items-center gap-4 md:flex">
+            <RouterLink to="/login" class="ds-header__login whitespace-nowrap">Se connecter</RouterLink>
+            <DsButton to="/register" size="sm">Créer un compte</DsButton>
           </div>
         </template>
 
         <button
           type="button"
-          class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 lg:hidden"
+          class="ds-header__icon-btn inline-flex h-10 w-10 items-center justify-center rounded-[3px] transition lg:hidden"
           :aria-expanded="isMobileMenuOpen"
           aria-haspopup="dialog"
           aria-label="Menu de navigation"
@@ -532,14 +533,14 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- Mobile navigation slider -->
-    <nav class="mobile-slider flex gap-2 overflow-x-auto border-t border-slate-100 px-4 py-2 lg:hidden" aria-label="Navigation rapide">
+    <nav class="mobile-slider ds-header__slider flex h-12 items-center gap-2 overflow-x-auto px-4 lg:hidden" aria-label="Navigation rapide">
       <component
         v-for="item in mobileNavItems"
         :key="item.label"
         :is="item.href.startsWith('/') ? RouterLink : 'a'"
         :to="item.href.startsWith('/') ? item.href : undefined"
         :href="item.href.startsWith('/') ? undefined : item.href"
-        class="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-primary/30 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 [&.router-link-active]:border-primary/40 [&.router-link-active]:text-primary [&.router-link-active]:underline [&.router-link-active]:underline-offset-4"
+        class="ds-header__pill flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition"
       >
         <AppNavIcon :kind="item.icon" class="h-[16px] w-[16px]" />
         {{ item.label }}
@@ -547,13 +548,13 @@ onBeforeUnmount(() => {
     </nav>
 
     <div v-if="logoutError" class="mx-auto w-full max-w-[1800px] px-4 pt-3 sm:px-6 lg:px-10">
-      <div class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+      <div class="rounded-[4px] border-2 border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700">
         {{ logoutError }}
       </div>
     </div>
 
     <div v-if="activeMenu"
-      class="absolute left-0 top-full z-30 w-full border-y border-slate-200 bg-white shadow-[0_24px_70px_-40px_rgba(15,23,42,0.45)]"
+      class="ds-header__mega absolute left-0 top-full z-30 w-full"
       @mouseenter="activeMenu = activeMenu">
       <AppHeaderMegaMenu :item="activeMenu" />
     </div>
@@ -571,26 +572,27 @@ onBeforeUnmount(() => {
     >
       <div
         v-if="isMobileMenuOpen"
-        class="fixed inset-0 z-50 flex flex-col bg-white lg:hidden"
+        class="ds-scope ds-drawer fixed inset-0 z-50 flex flex-col lg:hidden"
+        :data-theme="brandTheme"
         role="dialog"
         aria-modal="true"
         aria-label="Menu de navigation"
       >
         <!-- Drawer header -->
-        <div class="flex shrink-0 items-center justify-between border-b border-slate-100 px-4 py-3">
+        <div class="ds-drawer__head flex h-16 shrink-0 items-center justify-between px-4">
           <RouterLink
             :to="currentBrand.to"
-            class="flex items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            class="flex items-center gap-2 rounded-[3px]"
             @click="closeMobileMenu"
           >
-            <img :src="currentBrand.logo" :alt="currentBrand.logoAlt" class="h-9 w-9 rounded-xl border border-slate-100 bg-white p-1" />
-            <p :class="[currentBrand.wordmarkClass, 'text-lg font-bold uppercase font-mono']">
+            <img :src="currentBrand.logo" :alt="currentBrand.logoAlt" class="h-8 w-8" />
+            <p :class="[currentBrand.wordmarkClass, 'text-[15px] font-extrabold uppercase tracking-[0.08em]']">
               {{ currentBrand.prefix }}<span :class="currentBrand.suffixClass">{{ currentBrand.suffix }}</span>
             </p>
           </RouterLink>
           <button
             type="button"
-            class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            class="ds-header__icon-btn inline-flex h-10 w-10 items-center justify-center rounded-[3px] transition"
             aria-label="Fermer le menu"
             @click="closeMobileMenu"
           >
@@ -604,7 +606,7 @@ onBeforeUnmount(() => {
         <div class="flex-1 space-y-3 overflow-y-auto p-4">
           <AppHeaderSearch layout="block" @open="openSearch" />
 
-          <div v-for="item in mobileNavItems" :key="item.label" class="overflow-hidden rounded-2xl border border-slate-100 bg-slate-50">
+          <div v-for="item in mobileNavItems" :key="item.label" class="ds-drawer__card overflow-hidden">
             <div class="flex items-center gap-3 p-4">
               <component
                 :is="item.href.startsWith('/') ? RouterLink : 'a'"
@@ -613,17 +615,17 @@ onBeforeUnmount(() => {
                 class="group flex min-w-0 flex-1 items-center gap-3"
                 @click="closeMobileMenu"
               >
-                <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white">
+                <span class="ds-drawer__icon flex h-9 w-9 shrink-0 items-center justify-center rounded-[3px]">
                   <AppNavIcon :kind="item.icon" class="h-[20px] w-[20px]" />
                 </span>
                 <span class="min-w-0">
-                  <span class="block text-sm font-semibold text-slate-900 transition group-hover:text-primary [.router-link-active_&]:text-primary [.router-link-active_&]:underline [.router-link-active_&]:underline-offset-4">{{ item.label }}</span>
-                  <span class="block text-xs font-medium uppercase tracking-[0.16em] text-slate-400">{{ item.eyebrow }}</span>
+                  <span class="ds-drawer__title block text-[15px] font-bold transition">{{ item.label }}</span>
+                  <span class="ds-drawer__eyebrow block">{{ item.eyebrow }}</span>
                 </span>
               </component>
               <button
                 type="button"
-                class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                class="ds-header__icon-btn inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[3px] transition"
                 :aria-expanded="expandedMobileItem === item.label"
                 :aria-label="`Afficher le sous-menu ${item.label}`"
                 @click="toggleMobileItem(item.label)"
@@ -645,7 +647,7 @@ onBeforeUnmount(() => {
             >
               <div
                 v-if="expandedMobileItem === item.label"
-                class="border-t border-slate-100 bg-white px-3 py-4"
+                class="ds-drawer__sub cursor-pointer px-3 py-4"
                 @click="closeMobileMenu"
               >
                 <AppHeaderMegaMenu :item="item" dense />
@@ -655,53 +657,31 @@ onBeforeUnmount(() => {
         </div>
 
         <!-- Auth footer -->
-        <div class="shrink-0 border-t border-slate-100 p-4">
+        <div class="ds-drawer__foot shrink-0 p-4">
           <template v-if="authStore.isAuthenticated">
             <div class="mb-4 flex items-center gap-3">
               <AppAvatar :initials="userInitials()" size="sm" />
               <div class="min-w-0 max-w-full flex-1">
-                <p class="truncate text-sm font-semibold text-slate-900">{{ authStore.displayName }}</p>
-                <p class="truncate text-xs text-slate-500">{{ authStore.user?.email }}</p>
+                <p class="ds-drawer__title truncate text-sm font-bold">{{ authStore.displayName }}</p>
+                <p class="ds-drawer__eyebrow truncate">{{ authStore.user?.email }}</p>
               </div>
             </div>
             <div class="grid grid-cols-2 gap-2">
-              <RouterLink
-                to="/user"
-                class="flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-white"
-                @click="closeMobileMenu"
-              >
-                Mon compte
-              </RouterLink>
-              <button
-                type="button"
-                class="flex items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-60"
-                :disabled="authStore.isLoggingOut"
-                @click="handleLogout"
-              >
-                {{ authStore.isLoggingOut ? 'Déconnexion...' : 'Se déconnecter' }}
-              </button>
+              <DsButton to="/user" variant="secondary" block @click="closeMobileMenu">Mon compte</DsButton>
+              <DsButton variant="secondary" block :disabled="authStore.isLoggingOut" class="ds-drawer__logout" @click="handleLogout">
+                {{ authStore.isLoggingOut ? 'Déconnexion…' : 'Se déconnecter' }}
+              </DsButton>
             </div>
           </template>
           <template v-else>
             <div class="flex gap-3">
-              <AppButton as="router-link" to="/login" variant="outline" size="md" class="flex-1" @click="closeMobileMenu">
-                Se connecter
-              </AppButton>
-              <AppButton
-                as="router-link"
-                to="/register"
-                variant="primary"
-                size="md"
-                class="flex-1 studio-gradient"
-                @click="closeMobileMenu"
-              >
-                Créer un compte
-              </AppButton>
+              <DsButton to="/login" variant="secondary" class="flex-1" @click="closeMobileMenu">Se connecter</DsButton>
+              <DsButton to="/register" class="flex-1" @click="closeMobileMenu">Créer un compte</DsButton>
             </div>
           </template>
           <button
             type="button"
-            class="mt-3 flex w-full items-center justify-center gap-1.5 text-xs text-slate-400 transition hover:text-slate-600"
+            class="ds-drawer__eyebrow mt-4 flex w-full items-center justify-center gap-1.5 transition hover:opacity-80"
             @click="openAccessibilityPanel"
           >
             <svg viewBox="0 0 24 24" class="h-3.5 w-3.5" fill="none">
@@ -719,6 +699,130 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+/* ─── Header Bold Outline (charte Tranches) ─────────────────────────────── */
+.ds-header {
+  border-bottom: 2px solid var(--ds-ol);
+  background: color-mix(in srgb, var(--ds-bg) 94%, transparent);
+  color: var(--ds-text);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  font-family: var(--ds-ui);
+}
+.ds-header__brand:focus-visible,
+.ds-header :focus-visible {
+  outline: 2px solid var(--ds-focus);
+  outline-offset: 3px;
+}
+.ds-header__chev {
+  border: 2px solid var(--ds-divide);
+  color: var(--ds-link);
+  background: var(--ds-surface);
+}
+.ds-header__chev:hover,
+.ds-header__chev[aria-expanded='true'] {
+  border-color: var(--ds-ol);
+}
+.ds-header__sep {
+  background: var(--ds-divide);
+}
+.ds-header__dossier {
+  border: 2px solid var(--ds-divide);
+  background: var(--ds-surface);
+  color: var(--ds-link);
+}
+.ds-header__dossier:hover {
+  border-color: var(--ds-ol);
+  background: var(--ds-tint);
+}
+.ds-header__login {
+  color: var(--ds-link);
+  font-size: 14.5px;
+  font-weight: 700;
+}
+.ds-header__login:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.ds-header__icon-btn {
+  border: 2px solid var(--ds-ol);
+  background: var(--ds-surface);
+  color: var(--ds-ol);
+}
+.ds-header__icon-btn:hover {
+  background: var(--ds-tint);
+}
+.ds-header__user:hover {
+  background: var(--ds-tint);
+}
+.ds-header__muted {
+  color: var(--ds-muted);
+}
+.ds-header__slider {
+  border-top: 2px solid var(--ds-divide);
+}
+.ds-header__pill {
+  border: 2px solid var(--ds-divide);
+  background: var(--ds-surface);
+  color: var(--ds-muted);
+}
+.ds-header__pill:hover {
+  border-color: var(--ds-ol);
+  color: var(--ds-text);
+}
+.ds-header__pill.router-link-active {
+  border-color: var(--ds-ol);
+  background: var(--ds-tint);
+  color: var(--ds-link);
+}
+.ds-header__mega {
+  border-bottom: 2px solid var(--ds-ol);
+  background: var(--ds-surface);
+  box-shadow: 0 6px 0 var(--ds-tint);
+}
+
+/* ─── Drawer mobile ─────────────────────────────────────────────────────── */
+.ds-drawer {
+  background: var(--ds-bg);
+  color: var(--ds-text);
+  font-family: var(--ds-ui);
+}
+.ds-drawer__head {
+  border-bottom: 2px solid var(--ds-ol);
+}
+.ds-drawer__card {
+  border: 2px solid var(--ds-ol);
+  border-radius: 6px;
+  background: var(--ds-surface);
+  box-shadow: 3px 3px 0 var(--ds-sh);
+}
+.ds-drawer__icon {
+  border: 2px solid var(--ds-divide);
+  background: var(--ds-tint);
+}
+.ds-drawer__title {
+  color: var(--ds-text);
+}
+.group:hover .ds-drawer__title,
+.router-link-active .ds-drawer__title {
+  color: var(--ds-link);
+}
+.ds-drawer__eyebrow {
+  color: var(--ds-muted);
+  font: 500 10.5px/1.4 var(--ds-num);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.ds-drawer__sub {
+  border-top: 2px solid var(--ds-divide);
+  background: var(--ds-surface);
+}
+.ds-drawer__foot {
+  border-top: 2px solid var(--ds-ol);
+}
+.ds-drawer__logout {
+  color: #be123c;
+}
+
 .mobile-slider::-webkit-scrollbar {
   display: none;
 }

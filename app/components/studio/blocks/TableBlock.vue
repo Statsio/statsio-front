@@ -197,11 +197,11 @@ function exportCsv() {
     </div>
 
     <template v-else>
-      <div class="overflow-hidden rounded-[13px] border border-[var(--studio-line)]">
+      <div class="sd-tbl overflow-hidden rounded-[13px] border border-[var(--studio-line)]">
         <div class="overflow-x-auto">
           <table class="w-full min-w-[480px] border-collapse">
             <thead>
-              <tr class="border-b border-[var(--studio-line)] bg-[var(--studio-panel)]">
+              <tr class="sd-tbl__head border-b border-[var(--studio-line)] bg-[var(--studio-panel)]">
                 <th
                   v-for="col in visibleColumns"
                   :key="col"
@@ -212,7 +212,7 @@ function exportCsv() {
                 >
                   <span class="inline-flex items-center gap-1.5">
                     {{ columnLabel(col) }}
-                    <span v-if="block.config.sortable" class="text-[9px]" :class="sort?.col === col ? 'text-[var(--color-primary)]' : 'opacity-30'">
+                    <span v-if="block.config.sortable" class="sd-tbl__sort text-[9px]" :class="sort?.col === col ? 'text-[var(--color-primary)]' : 'opacity-30'">
                       {{ sort?.col === col ? (sort.dir === 'asc' ? '▲' : '▼') : '↕' }}
                     </span>
                   </span>
@@ -242,26 +242,26 @@ function exportCsv() {
 
       <div
         v-if="canExport || (showPagination && totalPages > 1)"
-        class="mt-3 flex items-center justify-between gap-3"
+        class="sd-tbl__foot mt-3 flex items-center justify-between gap-3"
       >
         <span class="mono text-[11px] text-[var(--studio-faint)]">{{ showPagination && totalPages > 1 ? pageInfo : '' }}</span>
         <div class="flex items-center gap-1.5">
           <button
             v-if="canExport"
             type="button"
-            class="mr-1 inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-[var(--studio-line-strong)] px-3.5 py-2 text-[12px] font-bold text-[var(--studio-muted)] transition-colors hover:border-[var(--color-primary)] hover:text-[var(--studio-tag-ink)]"
+            class="sd-tbl__btn mr-1 inline-flex items-center gap-1.5 rounded-full border-[1.5px] border-[var(--studio-line-strong)] px-3.5 py-2 text-[12px] font-bold text-[var(--studio-muted)] transition-colors hover:border-[var(--color-primary)] hover:text-[var(--studio-tag-ink)]"
             @click="exportCsv"
           >
             ↓ Exporter
           </button>
           <template v-if="showPagination && totalPages > 1">
             <button
-              class="rounded-[9px] border-[1.5px] border-[var(--studio-line-strong)] px-3 py-1.5 text-[12px] font-bold text-[var(--studio-muted)] transition-colors hover:border-[var(--color-primary)] hover:text-[var(--studio-tag-ink)] disabled:opacity-30"
+              class="sd-tbl__btn rounded-[9px] border-[1.5px] border-[var(--studio-line-strong)] px-3 py-1.5 text-[12px] font-bold text-[var(--studio-muted)] transition-colors hover:border-[var(--color-primary)] hover:text-[var(--studio-tag-ink)] disabled:opacity-30"
               :disabled="page === 0"
               @click="page--"
             >← Précédent</button>
             <button
-              class="rounded-[9px] border-[1.5px] border-[var(--studio-line-strong)] px-3 py-1.5 text-[12px] font-bold text-[var(--studio-muted)] transition-colors hover:border-[var(--color-primary)] hover:text-[var(--studio-tag-ink)] disabled:opacity-30"
+              class="sd-tbl__btn rounded-[9px] border-[1.5px] border-[var(--studio-line-strong)] px-3 py-1.5 text-[12px] font-bold text-[var(--studio-muted)] transition-colors hover:border-[var(--color-primary)] hover:text-[var(--studio-tag-ink)] disabled:opacity-30"
               :disabled="page >= totalPages - 1"
               @click="page++"
             >Suivant →</button>

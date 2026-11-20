@@ -14,18 +14,18 @@ const isInternal = (href?: string) => !!href && href.startsWith('/')
     :is="isInternal(card.href) ? RouterLink : 'a'"
     :to="isInternal(card.href) ? card.href : undefined"
     :href="isInternal(card.href) ? undefined : (card.href ?? '#')"
-    class="flex min-w-0 flex-col rounded-2xl border border-slate-100 bg-slate-50 p-3.5 transition hover:border-primary/20 hover:bg-primary/5"
+    class="ds-doc-card flex min-w-0 flex-col p-3.5"
   >
     <div class="mb-2 flex items-center gap-2">
       <span
-        class="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[0.06em]"
+        class="ds-doc-card__tag px-1.5 py-0.5"
         :style="{ color: card.tagColor ?? '#7c3aed' }"
       >
         {{ card.tag }}
       </span>
-      <span v-if="card.readingLabel" class="font-mono text-[9.5px] text-slate-400">{{ card.readingLabel }}</span>
+      <span v-if="card.readingLabel" class="ds-doc-card__meta">{{ card.readingLabel }}</span>
     </div>
-    <div class="line-clamp-2 min-h-[2.4em] text-[13px] font-extrabold leading-snug text-slate-950">
+    <div class="line-clamp-2 min-h-[2.4em] text-[13px] font-extrabold leading-snug ds-doc-card__title">
       {{ card.title }}
     </div>
     <div class="mt-3 flex items-center gap-2">
@@ -35,8 +35,8 @@ const isInternal = (href?: string) => !!href && href.startsWith('/')
         :class="[
           card.isChannel ? 'rounded-md' : 'rounded-full',
           card.logoUrl && card.isChannel
-            ? 'h-5 w-8 bg-white ring-1 ring-slate-200'
-            : 'h-5 w-5 bg-[linear-gradient(135deg,var(--color-primary),var(--color-accent))]',
+            ? 'ds-doc-card__logo h-5 w-8'
+            : 'h-5 w-5 bg-[var(--ds-t1)]',
         ]"
       >
         <img
@@ -48,9 +48,48 @@ const isInternal = (href?: string) => !!href && href.startsWith('/')
         />
         <template v-else>{{ card.initials }}</template>
       </span>
-      <span class="min-w-0 truncate text-[11px] font-semibold text-slate-500">
+      <span class="ds-doc-card__muted min-w-0 truncate text-[11px] font-semibold">
         <template v-if="card.publisher">{{ card.publisher }} · </template>{{ card.meta }}
       </span>
     </div>
   </component>
 </template>
+
+<style scoped>
+.ds-doc-card {
+  border: 2px solid var(--ds-divide);
+  border-radius: 4px;
+  background: var(--ds-surface);
+  color: var(--ds-text);
+  transition:
+    border-color 0.15s,
+    transform 0.15s,
+    box-shadow 0.15s;
+}
+.ds-doc-card:hover {
+  border-color: var(--ds-ol);
+  transform: translate(-2px, -2px);
+  box-shadow: 3px 3px 0 var(--ds-sh);
+}
+.ds-doc-card__tag {
+  border: 1.5px solid currentColor;
+  border-radius: 2px;
+  font: 500 9.5px/1 var(--ds-num);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.ds-doc-card__meta {
+  color: var(--ds-faint);
+  font: 400 10px var(--ds-num);
+}
+.ds-doc-card__title {
+  color: var(--ds-text);
+}
+.ds-doc-card__muted {
+  color: var(--ds-muted);
+}
+.ds-doc-card__logo {
+  border: 1.5px solid var(--ds-divide);
+  background: var(--ds-surface);
+}
+</style>

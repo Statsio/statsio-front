@@ -18,7 +18,7 @@ import { relativeUpdate } from '@/utils/statsDataFormat'
 import { formatCompactNumber, formatShortDate, getNameInitials } from '@/lib/format'
 import { CATALOG_FORMAT_STYLE, catalogThemeStyle } from '@/lib/catalog-theme'
 import { getSurveyKindMeta } from '@/lib/poll-visuals'
-import { surveyCardMeta } from '@/lib/survey-card'
+import { buildPromoTicker } from '@/lib/promo-ticker'
 import { resolveChannelColors } from '@/lib/channel-brand'
 import { publicChannelListPath, publicChannelPath, publicContentListPath, publicContentPath, publicDossierListPath, publicDossierPath } from '@/lib/content-display'
 import type {
@@ -461,79 +461,30 @@ export async function loadSoinsMenu(palette: string[]): Promise<HeaderMenuData> 
 }
 
 /**
- * Bandeau « Tendances » du header : le contenu le plus en vue de chaque type
- * (article / statsdata / sondage), reconstruit à chaque chargement depuis le
- * catalogue public trié par tendance.
+ * Bandeau « En continu » : infos typées (à la une, dernier chiffre, sondage,
+ * mise à jour…) reconstruites à chaque chargement depuis le catalogue public.
+ * La mise en forme est déléguée à `buildPromoTicker` (lib/promo-ticker.ts).
  */
 export async function loadPromoTicker(subBrand: SubBrand | undefined, basePath = ''): Promise<PromoTickerItem[]> {
   const brandFilter = subBrand ? { sub_brand: subBrand } : {}
   const [articles, datasets, surveys] = await Promise.all([
-    fetchPublicCatalog({ type: 'article', sort: 'trend', per_page: 1, ...brandFilter }).then((r) => r.data).catch(() => []),
-    fetchPublicCatalog({ type: 'statsdata', sort: 'trend', per_page: 1, ...brandFilter }).then((r) => r.data).catch(() => []),
+    fetchPublicCatalog({ type: 'article', sort: 'trend', per_page: 3, ...brandFilter }).then((r) => r.data).catch(() => []),
+    fetchPublicCatalog({ type: 'statsdata', sort: 'trend', per_page: 3, ...brandFilter }).then((r) => r.data).catch(() => []),
     fetchPublicCatalog({ type: 'survey', sort: 'trend', status: 'ouvert', per_page: 1, ...brandFilter })
       .then((r) => r.data)
       .catch(() => []),
   ])
 
-  const items: PromoTickerItem[] = []
+  // Mini-graphes réels (mêmes données que les cartes) pour le « Dernier chiffre ».
+  const withPreviews = await Promise.all(
+    datasets.slice(0, 2).map(async (item) => ({
+      item,
+      preview: await fetchStatsDataCardPreview(item.slug).catch(() => null),
+    })),
+  )
 
-  const article = articles[0]
-  if (article) {
-    items.push({
-      kind: 'article',
-      tag: 'ARTICLE',
-      tagColor: '#be123c',
-      title: article.title,
-      href: publicContentPath('article', article.slug, basePath),
-    })
-  }
-
-  const dataset = datasets[0]
-  if (dataset) {
-    // Mini-graphe réel du Statsdata (même endpoint que les cartes de catalogue).
-    const preview = await fetchStatsDataCardPreview(dataset.slug).catch(() => null)
-    const hasChart = Boolean(
-      preview &&
-        !preview.empty &&
-        (preview.series?.length ?? 0) > 0 &&
-        (preview.labels?.length ?? 0) > 0,
-    )
-    items.push({
-      kind: 'statsdata',
-      tag: 'STATSDATA',
-      tagColor: '#2563eb',
-      title: dataset.title,
-      href: publicContentPath('statsdata', dataset.slug, basePath),
-      preview: hasChart ? preview! : undefined,
-      categories: dataset.categories,
-      // Repli chiffré quand le Statsdata n'expose aucun graphique exploitable.
-      kpi: hasChart
-        ? undefined
-        : dataset.views_count
-          ? formatCompactNumber(dataset.views_count)
-          : `${dataset.charts_count}`,
-      kpiLabel: hasChart ? undefined : dataset.views_count ? 'vues' : 'graphiques',
-      sparkline: hasChart ? undefined : seededSparkline(dataset.id, 8),
-    })
-  }
-
-  const survey = surveys[0]
-  if (survey) {
-    // Barres d'options condensées, même source que les cartes de catalogue.
-    const options = surveyCardMeta(survey).options
-    items.push({
-      kind: 'survey',
-      tag: 'SONDAGE',
-      tagColor: '#7c3aed',
-      title: survey.title,
-      href: publicContentPath('survey', survey.slug, basePath),
-      surveyOptions:
-        options.length >= 2
-          ? options.map((o) => ({ pct: o.pct, color: o.color, lead: o.lead }))
-          : undefined,
-      percent: Math.round(survey.primary_options?.[0]?.pct ?? 0),
-    })
-  }
-
-  return items
+  return buildPromoTicker(
+    { articles, datasets: [...withPreviews, ...datasets.slice(2).map((item) => ({ item }))], surveys },
+    basePath,
+  )
 }

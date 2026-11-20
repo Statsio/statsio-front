@@ -53,23 +53,24 @@ body {
   --color-primary: #a78bfa;
   --color-secondary: #312e81;
   --color-accent: #60a5fa;
-  --app-surface: #0f172a;
-  --app-surface-muted: #162033;
+  --app-surface: #16151d;
+  --app-surface-muted: #1e1830;
   --app-surface-soft: rgba(15, 23, 42, 0.84);
-  --app-border: #334155;
-  --app-text-strong: #f8fafc;
-  --app-text-default: #e2e8f0;
-  --app-text-muted: #cbd5e1;
+  --app-border: #2a2833;
+  --app-text-strong: #f1f0f6;
+  --app-text-default: #e4e2ec;
+  --app-text-muted: #a9a5b6;
   --app-body-background:
     linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px),
     linear-gradient(180deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px),
-    radial-gradient(900px 480px at 15% -10%, rgba(96, 165, 250, 0.14), transparent 70%), #020617;
+    radial-gradient(900px 480px at 15% -10%, rgba(96, 165, 250, 0.14), transparent 70%), #0f0e14;
   --app-badge-border: rgba(167, 139, 250, 0.42);
   --app-badge-surface: rgba(167, 139, 250, 0.18);
   --app-badge-text: #ddd6fe;
-  --app-shell-bg: linear-gradient(180deg, #020617 0%, #0b1120 42%, #0f172a 100%);
+  /* neutres sombres de la charte « Tranches » (voir ds.css) */
+  --app-shell-bg: #0f0e14;
   --app-surface-inset: rgba(148, 163, 184, 0.08);
-  --app-media-fallback: linear-gradient(to bottom right, #1e293b, #0f172a);
+  --app-media-fallback: linear-gradient(to bottom right, #1e1830, #16151d);
   --home-band-muted: rgba(148, 163, 184, 0.05);
   --home-band-muted-2: rgba(148, 163, 184, 0.05);
   --home-band-tint: rgba(167, 139, 250, 0.08);
@@ -83,13 +84,13 @@ body {
    détail, compte. Le canevas du Studio (éditeur, `layouts/studio.vue`) est hors
    `.app-shell` et garde volontairement son thème clair. */
 :root[data-color-scheme='dark'] .app-shell {
-  --studio-wash: #020617;
-  --studio-surface: #0f172a;
-  --studio-panel: #162033;
+  --studio-wash: #0f0e14;
+  --studio-surface: #16151d;
+  --studio-panel: #1e1830;
   --studio-note: rgba(148, 163, 184, 0.06);
-  --studio-line: rgba(148, 163, 184, 0.14);
-  --studio-line-strong: rgba(148, 163, 184, 0.24);
-  --studio-ink: #f1f5f9;
+  --studio-line: #2a2833;
+  --studio-line-strong: #3b2f5e;
+  --studio-ink: #f1f0f6;
   --studio-muted: rgba(226, 232, 240, 0.72);
   --studio-faint: rgba(226, 232, 240, 0.46);
   --studio-tag: rgba(167, 139, 250, 0.18);
@@ -125,7 +126,7 @@ body {
 
 :root[data-color-scheme='dark'] [class*='bg-slate-900'],
 :root[data-color-scheme='dark'] [class*='bg-slate-950'] {
-  background-color: #020617 !important;
+  background-color: #0f0e14 !important;
 }
 
 :root[data-color-scheme='dark'] [class*='border-slate-200'],
@@ -212,7 +213,7 @@ body {
    illisible. En sombre : fond profond, illustration inversée + atténuée (les
    maquettes UI blanches deviennent sombres), voile dégradé sombre. */
 :root[data-color-scheme='dark'] .page-hero {
-  background: #020617 !important;
+  background: #0f0e14 !important;
 }
 :root[data-color-scheme='dark'] .page-hero__art {
   opacity: 0.28;
@@ -221,10 +222,10 @@ body {
 :root[data-color-scheme='dark'] .page-hero__wash {
   background: linear-gradient(
     100deg,
-    #020617 0%,
-    rgba(2, 6, 23, 0.94) 40%,
-    rgba(2, 6, 23, 0.6) 64%,
-    rgba(2, 6, 23, 0.18) 100%
+    #0f0e14 0%,
+    rgba(15, 14, 20, 0.94) 40%,
+    rgba(15, 14, 20, 0.6) 64%,
+    rgba(15, 14, 20, 0.18) 100%
   ) !important;
 }
 

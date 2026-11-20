@@ -47,7 +47,9 @@ function go(path: string) {
 
 <template>
   <div ref="root" class="relative min-w-0 flex-1 sm:max-w-[440px]">
-    <div class="flex items-center gap-2.5 rounded-full border-[1.5px] border-slate-200 bg-white px-4 py-2 focus-within:border-primary/40">
+    <div
+      class="flex items-center gap-2.5 rounded-full border-[1.5px] border-slate-200 bg-white px-4 py-2 focus-within:border-primary/40"
+    >
       <span class="shrink-0 text-[13px] text-slate-400" aria-hidden="true">⌕</span>
       <input
         v-model="query"
@@ -86,8 +88,12 @@ function go(path: string) {
             {{ item.typeLabel.slice(0, 2) }}
           </span>
           <span class="min-w-0 flex-1">
-            <span class="block truncate text-[13px] font-semibold text-slate-950">{{ item.title }}</span>
-            <span class="block truncate text-[11px] text-slate-400">{{ item.typeLabel }} · {{ item.date }}</span>
+            <span class="block truncate text-[13px] font-semibold text-slate-950">{{
+              item.title
+            }}</span>
+            <span class="block truncate text-[11px] text-slate-400"
+              >{{ item.typeLabel }} · {{ item.date }}</span
+            >
           </span>
         </button>
       </div>

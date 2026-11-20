@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted, onBeforeUnmount, inject } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { fetchBlockData, fetchPublicBlockData } from '@/api/studio'
 import { useStudioStore } from '@/stores/studio'
+import { useBlockSkin } from '@/lib/block-skin'
 import { blockSourceParams, resolveBlockFilterGroups } from '@/composables/useBlockData'
 import { bareNames, fanOutColumnsForSource, identityBareNamesForSource, isUnionBlock, pageParamsFromUnionRow, resultPartsForSource, unionSourceIds } from '@/lib/studio-search'
 import { buildFanOutHref, buildFanOutSegment, fanOutSlugKey } from '@/lib/statsdata-fanout'
@@ -12,6 +13,7 @@ import type { BlockQueryResult, ResultPart, StudioBlock, StudioDocumentPage, Pag
 
 const props = defineProps<{ block: StudioBlock; readonly?: boolean }>()
 
+const tranches = useBlockSkin() === 'tranches'
 const studio = useStudioStore()
 const route  = useRoute()
 const router = useRouter()
@@ -405,7 +407,7 @@ onBeforeUnmount(() => {
     <!-- Option sélectionnée : on masque le champ de recherche -->
     <div
       v-else-if="isSelected"
-      class="flex items-center gap-2.5 rounded-xl border border-[var(--studio-line-strong)] bg-[color-mix(in_srgb,var(--studio-ink)_5%,transparent)] py-3.5 pl-4 pr-4"
+      class="sd-search is-selected flex items-center gap-2.5 rounded-xl border border-[var(--studio-line-strong)] bg-[color-mix(in_srgb,var(--studio-ink)_5%,transparent)] py-3.5 pl-4 pr-4"
     >
       <svg class="w-4 h-4 shrink-0 text-[var(--studio-faint)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
@@ -423,7 +425,7 @@ onBeforeUnmount(() => {
     <!-- Search UI -->
     <div v-else ref="containerRef" class="relative w-full">
       <div
-        class="flex cursor-text items-center gap-2.5 rounded-xl border border-[var(--studio-line-strong)] bg-[color-mix(in_srgb,var(--studio-ink)_5%,transparent)] py-3.5 pl-4 pr-4 transition-colors focus-within:ring-2 focus-within:ring-[var(--color-primary)]/25"
+        class="sd-search flex cursor-text items-center gap-2.5 rounded-xl border border-[var(--studio-line-strong)] bg-[color-mix(in_srgb,var(--studio-ink)_5%,transparent)] py-3.5 pl-4 pr-4 transition-colors focus-within:ring-2 focus-within:ring-[var(--color-primary)]/25"
         @click="inputRef?.focus()"
       >
         <svg
@@ -458,7 +460,8 @@ onBeforeUnmount(() => {
       <Teleport to="body">
         <div
           v-if="isOpen && results.length > 0"
-          class="fixed z-[9999] bg-white border border-[var(--studio-line)] rounded-xl shadow-xl max-h-64 overflow-y-auto"
+          class="sd-search-pop fixed z-[9999] bg-white border border-[var(--studio-line)] rounded-xl shadow-xl max-h-64 overflow-y-auto"
+          :class="{ 'is-tranches': tranches }"
           :style="dropdownStyle"
         >
           <button
