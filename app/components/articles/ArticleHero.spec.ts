@@ -5,7 +5,11 @@ import type { StatsDataDocument } from '@/api/studio'
 
 const stubs = {
   ContentCoverImage: { name: 'ContentCoverImage', props: ['doc'], template: '<div />' },
-  ContentCreatorByline: { name: 'ContentCreatorByline', props: ['doc', 'isFollowing', 'canFollow'], template: '<div />' },
+  ContentCreatorByline: {
+    name: 'ContentCreatorByline',
+    props: ['doc', 'isFollowing', 'canFollow'],
+    template: '<div />',
+  },
 }
 
 function makeDoc(overrides: Partial<StatsDataDocument> = {}): StatsDataDocument {
@@ -23,7 +27,13 @@ function makeDoc(overrides: Partial<StatsDataDocument> = {}): StatsDataDocument 
 describe('ArticleHero', () => {
   it('derives the format label + theme from categories', () => {
     const wrapper = mount(ArticleHero, {
-      props: { doc: makeDoc(), readingMinutes: 9, linkedCount: 0, isFollowing: false, canFollow: false },
+      props: {
+        doc: makeDoc(),
+        readingMinutes: 9,
+        linkedCount: 0,
+        isFollowing: false,
+        canFollow: false,
+      },
       global: { stubs },
     })
     expect(wrapper.text()).toContain('ENQUÊTE')
@@ -33,13 +43,25 @@ describe('ArticleHero', () => {
 
   it('shows the linked-Statsdata pill only when linkedCount > 0', () => {
     const none = mount(ArticleHero, {
-      props: { doc: makeDoc(), readingMinutes: 5, linkedCount: 0, isFollowing: false, canFollow: false },
+      props: {
+        doc: makeDoc(),
+        readingMinutes: 5,
+        linkedCount: 0,
+        isFollowing: false,
+        canFollow: false,
+      },
       global: { stubs },
     })
     expect(none.text()).not.toContain('Statsdata lié')
 
     const some = mount(ArticleHero, {
-      props: { doc: makeDoc(), readingMinutes: 5, linkedCount: 2, isFollowing: false, canFollow: false },
+      props: {
+        doc: makeDoc(),
+        readingMinutes: 5,
+        linkedCount: 2,
+        isFollowing: false,
+        canFollow: false,
+      },
       global: { stubs },
     })
     expect(some.text()).toContain('2 Statsdata liés')

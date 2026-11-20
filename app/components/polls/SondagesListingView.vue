@@ -1,28 +1,47 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import DsBox from '@/components/ds/DsBox.vue'
+import DsButton from '@/components/ds/DsButton.vue'
+import ListingHero from '@/components/listing/tranches/ListingHero.vue'
+import ListingResultBar from '@/components/listing/tranches/ListingResultBar.vue'
+import ListingEmptyState from '@/components/listing/tranches/ListingEmptyState.vue'
+import ListingEndLine from '@/components/listing/tranches/ListingEndLine.vue'
+import SurveysListingToolbar from '@/components/polls/listing/SurveysListingToolbar.vue'
+import SurveyFeature from '@/components/polls/listing/SurveyFeature.vue'
+import SurveyTile from '@/components/polls/listing/SurveyTile.vue'
+import SurveysTable from '@/components/polls/listing/SurveysTable.vue'
+import SurveysPublishBand from '@/components/polls/listing/SurveysPublishBand.vue'
 import { usePublicCatalog } from '@/composables/usePublicCatalog'
 import { useContentBasePath } from '@/composables/useContentBasePath'
+import { useContentCategoryNames } from '@/composables/useContentCategoryNames'
 import { formatCatalogCount, formatRelativePublished } from '@/lib/catalog-format'
-import { SURVEY_KIND_META } from '@/lib/poll-visuals'
-import type { CatalogFacet, SurveyKind, SurveyStatusFilter } from '@/types/catalog'
-import CatalogHero from '@/components/listing/CatalogHero.vue'
-import CatalogToolbar from '@/components/listing/CatalogToolbar.vue'
-import CatalogSearchField from '@/components/listing/CatalogSearchField.vue'
-import CatalogSortPills from '@/components/listing/CatalogSortPills.vue'
-import CatalogViewToggle from '@/components/listing/CatalogViewToggle.vue'
-import CatalogChipRow from '@/components/listing/CatalogChipRow.vue'
-import CatalogToggleChip from '@/components/listing/CatalogToggleChip.vue'
-import CatalogResultBar from '@/components/listing/CatalogResultBar.vue'
-import CatalogEmpty from '@/components/listing/CatalogEmpty.vue'
-import CatalogLoadMore from '@/components/listing/CatalogLoadMore.vue'
-import CatalogCta from '@/components/listing/CatalogCta.vue'
-import SurveyCard from '@/components/content/SurveyCard.vue'
+import { publicContentPath } from '@/lib/content-display'
+import { buildRubricSlices, rubricBadgeOf, rubricLabel } from '@/lib/listing-rubrics'
+import {
+  surveyActiveFilters,
+  surveyKindCaption,
+  surveyKindOptions,
+  surveyKindPie,
+  surveySortContext,
+  type SurveyFilterKey,
+} from '@/lib/surveys-listing'
+import type { CatalogItem, SurveyKind } from '@/types/catalog'
 
-defineProps<{
+/**
+ * Listing des sondages (Statsio, TVStats, Medistats) — charte « Tranches ».
+ * Orchestration seule : recherche, type, thème, statut, « pas encore participé »,
+ * tri, vue, pagination et favoris vivent dans `usePublicCatalog` (reflétés dans
+ * l'URL) ; la présentation est dans `lib/listing-rubrics.ts` et `lib/surveys-listing.ts`.
+ */
+const props = defineProps<{
+  /** titre imposé par une sous-marque */
   title?: string
 }>()
 
+const UNIT = { one: 'consultation', many: 'consultations' }
+
 const basePath = useContentBasePath()
+const categoryNames = useContentCategoryNames()
 const {
   qInput,
   category,
@@ -41,208 +60,235 @@ const {
   selectSurveyStatus,
   toggleItemFavorite,
   isFavorited,
-} = usePublicCatalog({
-  type: 'survey',
-  key: 'surveys-catalog',
+} = usePublicCatalog({ type: 'survey', key: 'surveys-catalog' })
+
+/* ── types et thèmes ── */
+const kinds = computed(() => surveyKindOptions(catalog.value.facets.survey_kinds))
+const rubrics = computed(() =>
+  buildRubricSlices(catalog.value.facets.categories, categoryNames.value),
+)
+const rubricOf = (item: CatalogItem) =>
+  rubricBadgeOf(item.category, rubrics.value.slices, categoryNames.value)
+const linkOf = (item: CatalogItem) => publicContentPath('survey', item.slug, basePath.value)
+
+/* ── hero : chiffres + camembert des types ──
+   Figé pendant une recherche (même objet → DsPie ne rejoue pas son animation). */
+let lastHeroKinds = kinds.value
+const heroKinds = computed(() => {
+  if (!qInput.value.trim()) lastHeroKinds = kinds.value
+  return lastHeroKinds
 })
-
-const sortOptions: { value: 'trend' | 'created' | 'recent'; label: string }[] = [
-  { value: 'trend', label: 'Popularité' },
-  { value: 'created', label: 'Date de création' },
-  { value: 'recent', label: 'Date de modification' },
-]
-
-const statusOptions: { value: SurveyStatusFilter | ''; label: string }[] = [
-  { value: '', label: 'Tous' },
-  { value: 'ouvert', label: 'Ouverts' },
-  { value: 'clos', label: 'Clos' },
-]
-
+const heroPie = computed(() => surveyKindPie(heroKinds.value))
+const heroPieLabel = computed(
+  () =>
+    `Répartition des consultations par type : ${heroPie.value.map((s) => `${s.label} ${s.value}`).join(', ')}`,
+)
+const heroCaption = computed(() => surveyKindCaption(heroKinds.value))
+const heroStats = computed(() => [
+  { label: 'Consultations publiées', value: formatCatalogCount(catalog.value.stats.published) },
+  { label: 'Chaînes éditrices', value: formatCatalogCount(catalog.value.stats.channels) },
+  // pour les sondages, l'API renvoie le nombre de pétitions dans `stats.charts`
+  { label: 'Pétitions', value: formatCatalogCount(catalog.value.stats.charts) },
+  {
+    label: 'Dernière publication',
+    value: formatRelativePublished(catalog.value.stats.last_published_at),
+    small: true,
+  },
+])
 const crumbs = computed(() => [
   { label: 'Accueil', to: basePath.value || '/' },
-  { label: 'Sondages' },
+  { label: props.title ?? 'Sondages' },
 ])
 
-const heroStats = computed(() => [
-  { label: 'Consultations ouvertes', value: formatCatalogCount(catalog.value.stats.published) },
-  { label: 'Chaînes éditrices', value: formatCatalogCount(catalog.value.stats.channels) },
-  { label: 'Pétitions actives', value: formatCatalogCount(catalog.value.stats.charts) },
-  { label: 'Dernière publication', value: formatRelativePublished(catalog.value.stats.last_published_at) },
-])
-
-const kindFacets = computed<CatalogFacet[]>(() => {
-  const fromApi = catalog.value.facets.survey_kinds
-  if (fromApi?.length) return fromApi
-  return [
-    { value: '', label: 'Tous', count: 0 },
-    ...(Object.keys(SURVEY_KIND_META) as SurveyKind[]).map((k) => ({
-      value: k,
-      label: SURVEY_KIND_META[k].label,
-      count: 0,
-    })),
-  ]
-})
-const categoryFacets = computed(() => catalog.value.facets.categories)
-
-const countLine = computed(
-  () => `${catalog.value.meta.total} consultation${catalog.value.meta.total > 1 ? 's' : ''} · ${catalog.value.meta.shown} affichée${catalog.value.meta.shown > 1 ? 's' : ''}`,
+/* ── résultats ── */
+const filters = computed(() =>
+  surveyActiveFilters(
+    {
+      q: qInput.value,
+      kind: surveyKind.value,
+      category: category.value,
+      status: surveyStatus.value,
+      notParticipated: notParticipated.value,
+    },
+    (v) => rubricLabel(v, categoryNames.value),
+  ),
 )
-const contextLine = computed(() => {
-  if (anyFilter.value) return 'Filtres actifs'
-  if (sort.value === 'created') return 'Classées par date de création'
-  if (sort.value === 'recent') return 'Classées par date de modification'
-  return 'Classées par popularité'
-})
+const context = computed(
+  () => surveySortContext(sort.value) + (view.value === 'list' ? ' · vue liste' : ''),
+)
+
+function removeFilter(key: SurveyFilterKey) {
+  if (key === 'q') qInput.value = ''
+  else if (key === 'kind') selectSurveyKind('')
+  else if (key === 'category') selectCategory('')
+  else if (key === 'status') selectSurveyStatus('')
+  else notParticipated.value = false
+}
+
+const featured = computed(() =>
+  view.value === 'grid' && !anyFilter.value ? catalog.value.featured : null,
+)
+const gridItems = computed(() =>
+  catalog.value.data.filter((item) => item.id !== featured.value?.id),
+)
 const moreCount = computed(() =>
   Math.min(6, Math.max(0, catalog.value.meta.total - catalog.value.meta.shown)),
 )
-const showFeatured = computed(
-  () => view.value === 'grid' && !anyFilter.value && Boolean(catalog.value.featured),
-)
-const gridItems = computed(() => {
-  const items = catalog.value.data
-  if (!showFeatured.value || !catalog.value.featured) return items
-  return items.filter((item) => item.id !== catalog.value.featured?.id)
-})
+const loadingFirst = computed(() => pending.value && !catalog.value.data.length)
 </script>
 
 <template>
-  <div class="bg-[#f4f3f8] pb-24">
-    <CatalogHero
+  <div class="ds-scope surveys">
+    <ListingHero
       :crumbs="crumbs"
-      badge="CONSULTATIONS"
-      kicker="SONDAGES RAPIDES · QUESTIONNAIRES · PÉTITIONS"
-      :title="title"
-      subtitle="Un vote en un clic, un questionnaire complet ou une pétition à signer — trois formats de consultation, des résultats publics et exportables."
-      hero-src="/brand/listings/sondages-hero-light.png"
+      lede="Un vote en un clic, un questionnaire complet ou une pétition à signer. Les résultats sont publics, exportables, et certaines consultations demandent une identité vérifiée pour compter une voix par personne."
       :stats="heroStats"
+      :pie="heroPie"
+      :pie-label="heroPieLabel"
+      :caption="heroCaption"
     >
+      <template #label>Consultations · <b>sondages rapides, questionnaires, pétitions</b></template>
       <template #title>
         <template v-if="title">{{ title }}</template>
-        <template v-else>
-          Ce que <span class="text-primary">pensent les lecteurs</span>, <span class="text-accent">chiffre à l’appui</span>.
-        </template>
-      </template>
-    </CatalogHero>
-
-    <CatalogToolbar>
-      <template #search>
-        <CatalogSearchField v-model="qInput" placeholder="Rechercher un sondage, une pétition, une chaîne…" />
-      </template>
-      <template #sort>
-        <CatalogSortPills v-model="sort" :options="sortOptions" />
-      </template>
-      <template #view>
-        <CatalogViewToggle v-model="view" />
-      </template>
-
-      <CatalogChipRow
-        label="Type"
-        :model-value="surveyKind"
-        :options="kindFacets"
-        @update:model-value="(v) => selectSurveyKind(v as SurveyKind | '')"
-      />
-
-      <CatalogChipRow
-        v-if="categoryFacets.length > 1"
-        label="Thème"
-        :model-value="category"
-        :options="categoryFacets"
-        @update:model-value="selectCategory"
-      />
-
-      <div class="flex flex-wrap items-center gap-2.5">
-        <span class="shrink-0 text-[9.5px] font-extrabold uppercase tracking-[0.09em] text-slate-400">Statut</span>
-        <button
-          v-for="opt in statusOptions"
-          :key="opt.value || 'all'"
-          type="button"
-          class="rounded-lg border px-3 py-1.5 font-mono text-[11px] font-semibold uppercase tracking-[0.03em] transition"
-          :class="surveyStatus === opt.value
-            ? 'border-[#c4b5fd] bg-[#f2ecfd] text-primary'
-            : 'border-slate-200 bg-white text-slate-500 hover:border-[#c4b5fd] hover:text-primary'"
-          @click="selectSurveyStatus(opt.value)"
+        <template v-else
+          >Ce que <em>pensent</em> les lecteurs,
+          <span class="is-alt">chiffre à l'appui.</span></template
         >
-          {{ opt.label }}
-        </button>
-        <span class="flex-1" />
-        <CatalogToggleChip :model-value="notParticipated" label="Pas encore participé" @update:model-value="notParticipated = $event" />
-        <button
-          v-if="anyFilter"
-          type="button"
-          class="shrink-0 rounded-full border-[1.5px] border-slate-200 px-3.5 py-[7px] text-xs font-bold text-slate-500 transition hover:border-[#c4b5fd] hover:text-primary"
-          @click="resetFilters"
-        >
-          Réinitialiser
-        </button>
-      </div>
-    </CatalogToolbar>
-
-    <div class="mx-auto max-w-[1240px] px-4 py-6 sm:px-6 lg:px-8 lg:pb-[90px] lg:pt-[26px]">
-      <CatalogResultBar :count-line="countLine" :context-line="contextLine" />
-
-      <div v-if="pending && !catalog.data.length" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <div v-for="i in 6" :key="i" class="h-80 animate-pulse rounded-[18px] bg-white" />
-      </div>
-
-      <template v-else-if="catalog.meta.total > 0">
-        <SurveyCard v-if="showFeatured && catalog.featured" :item="catalog.featured" format="row" feature tone="dark" class="mb-[22px]" />
-
-        <div v-if="view === 'grid'" class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <SurveyCard
-            v-for="item in gridItems"
-            :key="item.id"
-            :item="item"
-            format="card"
-            :favorited="isFavorited(item)"
-            @favorite="toggleItemFavorite(item)"
-          />
-        </div>
-
-        <div v-else class="overflow-x-auto rounded-[18px] bg-white shadow-[0_1px_3px_rgba(20,20,30,0.06)]">
-          <div class="grid min-w-[720px] grid-cols-[minmax(0,2.5fr)_1.05fr_1fr_0.8fr_0.8fr_46px] gap-3.5 bg-[#faf9fd] px-5 py-3">
-            <div class="text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-400">Consultation</div>
-            <div class="text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-400">Type</div>
-            <div class="text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-400">Publié par</div>
-            <div class="text-right text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-400">Participation</div>
-            <div class="text-right text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-400">Clôture</div>
-            <div />
-          </div>
-          <div class="min-w-[720px]">
-            <SurveyCard
-              v-for="item in catalog.data"
-              :key="item.id"
-              :item="item"
-              format="row"
-              :favorited="isFavorited(item)"
-              @favorite="toggleItemFavorite(item)"
-            />
-          </div>
-        </div>
-
-        <CatalogLoadMore
-          v-if="catalog.meta.has_more"
-          :more-count="moreCount"
-          :loading="pending"
-          @load="loadMore"
-        />
       </template>
+    </ListingHero>
 
-      <CatalogEmpty
-        v-else
-        title="Aucune consultation ne correspond"
-        :subtitle="qInput ? `Aucun résultat pour « ${qInput} » avec ces filtres.` : 'Essayez un autre type, thème ou statut.'"
+    <SurveysListingToolbar
+      v-model:q="qInput"
+      v-model:sort="sort"
+      v-model:view="view"
+      v-model:not-participated="notParticipated"
+      :kind="surveyKind"
+      :category="category"
+      :status="surveyStatus"
+      :kinds="kinds"
+      :slices="rubrics.slices"
+      :other-rubrics="rubrics.others"
+      @update:kind="(v: SurveyKind | '') => selectSurveyKind(v)"
+      @update:category="selectCategory"
+      @update:status="selectSurveyStatus"
+    />
+
+    <section class="ds-max surveys__list" aria-label="Consultations">
+      <ListingResultBar
+        :total="catalog.meta.total"
+        :unit="UNIT"
+        :overall="anyFilter ? catalog.stats.published : null"
+        :filters="filters"
+        :context="context"
+        @remove="removeFilter"
         @reset="resetFilters"
       />
 
-      <CatalogCta
-        title="Consultez votre audience, à votre échelle"
-        subtitle="Un vote express, un questionnaire à plusieurs volets ou une pétition avec objectif de signatures — et l’export des réponses en CSV."
-        primary-to="/studio"
-        primary-label="Créer une consultation"
-        secondary-to="/about"
-        secondary-label="Bonnes pratiques"
+      <div v-if="loadingFirst" class="surveys__grid" aria-busy="true">
+        <DsBox v-for="i in 6" :key="i" shadow="sm" class="surveys__ghost" />
+      </div>
+
+      <template v-else-if="catalog.data.length">
+        <template v-if="view === 'grid'">
+          <SurveyFeature
+            v-if="featured"
+            :item="featured"
+            :to="linkOf(featured)"
+            :favorited="isFavorited(featured)"
+            @favorite="toggleItemFavorite(featured)"
+          />
+          <div class="surveys__grid">
+            <SurveyTile
+              v-for="item in gridItems"
+              :key="item.id"
+              :item="item"
+              :to="linkOf(item)"
+              :rubric="rubricOf(item)"
+              :favorited="isFavorited(item)"
+              :query="qInput"
+              @favorite="toggleItemFavorite(item)"
+            />
+          </div>
+        </template>
+        <SurveysTable
+          v-else
+          :items="catalog.data"
+          :query="qInput"
+          :link-of="linkOf"
+          :is-favorited="isFavorited"
+          @favorite="toggleItemFavorite"
+        />
+
+        <div v-if="catalog.meta.has_more" class="surveys__more">
+          <DsButton variant="secondary" :disabled="pending" @click="loadMore"
+            >Afficher {{ moreCount }} de plus</DsButton
+          >
+        </div>
+        <ListingEndLine
+          v-else
+          :total="catalog.meta.total"
+          :overall="anyFilter ? catalog.stats.published : null"
+          :unit="UNIT"
+          feminine
+        />
+      </template>
+
+      <ListingEmptyState
+        v-else
+        :filtered="anyFilter"
+        :query="qInput"
+        title="Aucune consultation ne correspond"
+        empty-title="Aucune consultation publiée pour le moment"
+        hint="Essayez un autre type, thème ou statut."
+        @reset="resetFilters"
       />
-    </div>
+
+      <SurveysPublishBand />
+    </section>
   </div>
 </template>
+
+<style scoped>
+.surveys {
+  padding-bottom: 80px;
+  background: var(--ds-bg);
+  color: var(--ds-text);
+  font-family: var(--ds-ui);
+}
+.surveys :deep(.is-alt) {
+  color: var(--ds-t2);
+}
+.surveys__list {
+  padding-top: 28px;
+}
+.surveys__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 26px;
+}
+@media (min-width: 621px) {
+  .surveys__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1041px) {
+  .surveys__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.surveys__ghost {
+  height: 380px;
+  background: var(--ds-tint);
+  animation: surveys-pulse 1.4s var(--ds-e-balaye) infinite alternate;
+}
+@keyframes surveys-pulse {
+  to {
+    opacity: 0.55;
+  }
+}
+.surveys__more {
+  display: flex;
+  justify-content: center;
+  margin-top: 34px;
+}
+</style>

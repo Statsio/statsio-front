@@ -3,6 +3,12 @@ import { computed, onMounted, ref } from 'vue'
 import AppSelect from '@/components/ui/AppSelect.vue'
 import DossierPicker from '@/components/studio/DossierPicker.vue'
 import { useMyChannels } from '@/composables/useMyChannels'
+import { useModalA11y } from '@/composables/useModalA11y'
+import { useStudioStore } from '@/stores/studio'
+import { useStudioMetaStore } from '@/stores/studio-meta'
+import { studioChecks } from '@/lib/studio-checks'
+import DsButton from '@/components/ds/DsButton.vue'
+import StudioIcon from '@/components/studio/ui/StudioIcon.vue'
 
 const props = defineProps<{
   /** 'author' = 1re publication (choix profil/chaîne), 'confirm' = re-publication. */
@@ -15,7 +21,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   close: []
-  confirm: [{ publishedAs?: 'user' | 'channel'; channelId?: number | null; dossierIds: number[] }]
+  confirm: [{ publishedAs?: 'user' | 'channel'; channelId?: number | null; dossierIds: number[]; note?: string }]
 }>()
 
 const { channels, loading: channelsLoading, fetch: fetchChannels } = useMyChannels()
@@ -23,6 +29,30 @@ const { channels, loading: channelsLoading, fetch: fetchChannels } = useMyChanne
 const publishedAs = ref<'user' | 'channel'>('user')
 const channelId = ref<number | null>(null)
 const dossierIds = ref<number[]>([])
+const note = ref('')
+
+const studio = useStudioStore()
+const meta = useStudioMetaStore()
+/** Points non remplis de la liste « Avant de publier » (jamais bloquants). */
+const issues = computed(() =>
+  studioChecks({
+    type: studio.content?.type ?? 'statsdata',
+    title: studio.content?.title,
+    description: meta.doc?.description,
+    hasCover: !!meta.doc?.thumbnail_url?.trim(),
+    surveyKind: meta.doc?.survey_kind ?? studio.content?.survey_kind,
+    blocks: studio.blocks,
+  }).filter((c) => !c.ok),
+)
+const lockedAuthor = computed(() => {
+  if (props.mode !== 'confirm') return null
+  if (meta.doc?.published_as === 'channel') return meta.doc.channel?.name ?? 'votre chaîne'
+  return meta.doc?.author?.name ?? 'votre profil'
+})
+const lockedIsChannel = computed(() => meta.doc?.published_as === 'channel')
+
+const dialog = ref<HTMLElement | null>(null)
+useModalA11y(dialog, () => emit('close'))
 /** En mode 'author', étape 1 = choix auteur, étape 2 = dossier. */
 const step = ref<1 | 2>(1)
 
@@ -61,9 +91,10 @@ function submit() {
       publishedAs: publishedAs.value,
       channelId: publishedAs.value === 'channel' ? channelId.value : null,
       dossierIds: dossierIds.value,
+      note: note.value,
     })
   } else {
-    emit('confirm', { dossierIds: dossierIds.value })
+    emit('confirm', { dossierIds: dossierIds.value, note: note.value })
   }
 }
 </script>
@@ -71,122 +102,93 @@ function submit() {
 <template>
   <Teleport to="body">
     <div
-      class="fixed inset-0 z-[130] flex items-center justify-center bg-[rgba(20,16,30,0.55)] p-6"
+      class="fixed inset-0 z-[130] flex items-center justify-center bg-[color-mix(in_srgb,var(--ds-text)_35%,transparent)] p-4"
       @click.self="emit('close')"
     >
-      <div class="w-full max-w-[460px] overflow-hidden rounded-[18px] bg-white shadow-[0_30px_70px_rgba(20,16,30,0.35)]">
-        <div class="flex items-center justify-between border-b border-[var(--studio-line)] px-6 py-[18px]">
-          <span class="text-[15px] font-extrabold text-[var(--studio-ink)]">{{ title }}</span>
-          <button
-            type="button"
-            class="flex h-7 w-7 items-center justify-center rounded-full text-[13px] text-[var(--studio-muted)] hover:bg-[var(--studio-wash)]"
-            aria-label="Fermer"
-            @click="emit('close')"
-          >✕</button>
+      <div
+        ref="dialog"
+        class="flex max-h-[calc(100vh-32px)] w-full max-w-[560px] flex-col gap-4 overflow-auto rounded-[6px] border-2 border-[var(--ds-ol)] bg-[var(--ds-surface)] p-[22px] text-[var(--ds-text)] shadow-[6px_6px_0_var(--ds-sh)]"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="pub-t"
+      >
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <span class="st-lbl">Publier · version {{ nextVersion }}</span>
+            <h2 id="pub-t" class="mt-2 text-[28px] font-extrabold leading-none [font-stretch:90%]" style="font-family: var(--ds-display)">
+              {{ mode === 'author' && step === 2 ? 'Ranger dans un dossier' : (studio.content?.title || title) }}
+            </h2>
+          </div>
+          <button type="button" class="st-ibtn" aria-label="Fermer" @click="emit('close')">
+            <StudioIcon name="x" :size="16" />
+          </button>
         </div>
 
-        <div class="px-6 py-5">
-          <!-- Mode 'author' — étape 1 : choix de l'auteur -->
-          <template v-if="mode === 'author' && step === 1">
-            <p class="mb-4 text-[12.5px] leading-relaxed text-[var(--studio-muted)]">
-              Au nom de qui ce contenu paraît publiquement ? Ce choix est définitif — il pourra
-              ensuite être modifié depuis les propriétés du contenu.
-            </p>
+        <!-- 1re publication — étape 1 : choix de l'auteur -->
+        <template v-if="mode === 'author' && step === 1">
+          <p class="st-hint">
+            Au nom de qui ce contenu paraît-il ? Ce choix est verrouillé après la première publication.
+          </p>
+          <div class="st-pick">
+            <button type="button" :aria-pressed="publishedAs === 'user'" @click="publishedAs = 'user'; channelId = null">
+              <span class="st-tg"><StudioIcon name="pen" :size="16" /></span>
+              <span>En mon nom<small class="st-meta block">Contenu lié à votre profil personnel</small></span>
+            </button>
+            <button type="button" :aria-pressed="publishedAs === 'channel'" @click="publishedAs = 'channel'">
+              <span class="st-tg"><StudioIcon name="share" :size="16" /></span>
+              <span>Avec une chaîne<small class="st-meta block">Contenu lié à l’une de vos chaînes</small></span>
+            </button>
+          </div>
+          <div v-if="publishedAs === 'channel'">
+            <p v-if="channelsLoading" class="st-hint">Chargement de vos chaînes…</p>
+            <AppSelect
+              v-else-if="channelOptions.length"
+              :model-value="channelId ?? null"
+              :options="channelOptions"
+              placeholder="Choisir une chaîne…"
+              @update:model-value="onChannelChange"
+            />
+            <NuxtLink v-else to="/user/chaines?create=1" class="st-addl">Créer une chaîne →</NuxtLink>
+          </div>
+        </template>
 
-            <div class="flex flex-col gap-2.5">
-              <button
-                type="button"
-                class="flex items-center gap-3 rounded-xl border-[1.5px] px-4 py-3 text-left transition-colors"
-                :class="publishedAs === 'user' ? 'border-[var(--color-primary)] bg-[var(--studio-accent-wash)]' : 'border-[var(--studio-line-strong)] bg-white'"
-                @click="publishedAs = 'user'; channelId = null"
-              >
-                <span class="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-2" :class="publishedAs === 'user' ? 'border-[var(--color-primary)]' : 'border-[var(--studio-line-strong)]'">
-                  <span v-if="publishedAs === 'user'" class="h-2 w-2 rounded-full bg-[var(--color-primary)]" />
-                </span>
-                <span>
-                  <span class="block text-[13px] font-bold text-[var(--studio-ink)]">En mon nom</span>
-                  <span class="mt-0.5 block text-[11.5px] text-[var(--studio-muted)]">Contenu lié à votre profil personnel.</span>
-                </span>
-              </button>
+        <!-- Dossier + note (1re publication étape 2, ou republication) -->
+        <template v-else>
+          <div v-if="lockedAuthor" class="flex items-center gap-2.5 rounded-[4px] border-2 border-[var(--ds-divide)] px-3 py-2.5 text-[13.5px]">
+            <StudioIcon name="lock" :size="18" />
+            <span>Publié {{ lockedIsChannel ? 'sur la chaîne' : 'au nom de' }} <b>{{ lockedAuthor }}</b>. Choix verrouillé depuis la v1.</span>
+          </div>
 
-              <button
-                type="button"
-                class="flex items-center gap-3 rounded-xl border-[1.5px] px-4 py-3 text-left transition-colors"
-                :class="publishedAs === 'channel' ? 'border-[var(--color-primary)] bg-[var(--studio-accent-wash)]' : 'border-[var(--studio-line-strong)] bg-white'"
-                @click="publishedAs = 'channel'"
-              >
-                <span class="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-2" :class="publishedAs === 'channel' ? 'border-[var(--color-primary)]' : 'border-[var(--studio-line-strong)]'">
-                  <span v-if="publishedAs === 'channel'" class="h-2 w-2 rounded-full bg-[var(--color-primary)]" />
-                </span>
-                <span>
-                  <span class="block text-[13px] font-bold text-[var(--studio-ink)]">Avec une chaîne</span>
-                  <span class="mt-0.5 block text-[11.5px] text-[var(--studio-muted)]">Contenu lié à l'une de vos chaînes éditoriales.</span>
-                </span>
-              </button>
-
-              <div v-if="publishedAs === 'channel'" class="pt-1">
-                <p v-if="channelsLoading" class="text-[12px] text-[var(--studio-muted)]">Chargement de vos chaînes…</p>
-                <AppSelect
-                  v-else-if="channelOptions.length"
-                  :model-value="channelId ?? null"
-                  :options="channelOptions"
-                  placeholder="Choisir une chaîne…"
-                  @update:model-value="onChannelChange"
-                />
-                <NuxtLink v-else to="/user/chaines?create=1" class="text-[12.5px] font-bold text-[var(--color-primary)]">
-                  Créer une chaîne →
-                </NuxtLink>
-              </div>
-            </div>
-          </template>
-
-          <!-- Étape dossier (mode 'author' étape 2, ou mode 'confirm') -->
-          <template v-else-if="mode === 'author'">
+          <div class="flex flex-col gap-1.5">
+            <span class="st-lbl">Dossier</span>
             <DossierPicker
               v-model="dossierIds"
               :document-id="documentId"
-              :seed-from-current="false"
+              :seed-from-current="mode === 'confirm'"
             />
-          </template>
+          </div>
 
-          <template v-else>
-            <p class="mb-3 text-[12.5px] leading-relaxed text-[var(--studio-muted)]">
-              Les visiteurs verront vos dernières modifications enregistrées. La version en ligne
-              actuelle reste consultable dans l'historique du contenu.
-            </p>
-            <DossierPicker v-model="dossierIds" :document-id="documentId" />
-          </template>
-        </div>
+          <div class="flex flex-col gap-1.5">
+            <label class="st-lbl" for="pub-note">Note de version (visible dans l’historique)</label>
+            <textarea id="pub-note" v-model="note" class="studio-input" rows="2" maxlength="500" placeholder="Ex. Ajout du camembert par département" />
+          </div>
 
-        <div class="flex items-center justify-end gap-2.5 border-t border-[var(--studio-line)] px-6 py-4">
-          <button
-            v-if="mode === 'author' && step === 2"
-            type="button"
-            class="mr-auto text-[13px] font-bold text-[var(--studio-faint)]"
-            @click="step = 1"
-          >
-            ← Retour
-          </button>
-          <button type="button" class="text-[13px] font-bold text-[var(--studio-faint)]" @click="emit('close')">Annuler</button>
+          <div v-if="issues.length" class="st-notice">
+            <StudioIcon name="callout" :size="16" />
+            <span>{{ issues.map((i) => i.label).join(' · ') }}. Vous pouvez publier quand même.</span>
+          </div>
+          <p v-else class="st-hint">Tout est prêt. La page publique affichera cette version dès la publication.</p>
+        </template>
 
-          <button
-            v-if="mode === 'author' && step === 1"
-            type="button"
-            class="studio-gradient rounded-full px-5 py-2.5 text-[12.5px] font-extrabold tracking-[0.06em] text-white disabled:opacity-40"
-            :disabled="authorInvalid"
-            @click="next"
-          >
-            CONTINUER
-          </button>
-          <button
-            v-else
-            type="button"
-            class="studio-gradient rounded-full px-5 py-2.5 text-[12.5px] font-extrabold tracking-[0.06em] text-white disabled:opacity-40"
-            :disabled="publishing || authorInvalid"
-            @click="submit"
-          >
-            {{ publishing ? 'PUBLICATION…' : 'PUBLIER' }}
-          </button>
+        <div class="flex flex-wrap items-center justify-end gap-2.5">
+          <button v-if="mode === 'author' && step === 2" type="button" class="st-addl mr-auto" @click="step = 1">← Retour</button>
+          <DsButton variant="secondary" size="sm" @click="emit('close')">Annuler</DsButton>
+          <DsButton v-if="mode === 'author' && step === 1" size="sm" :disabled="authorInvalid" @click="next">
+            Continuer <span aria-hidden="true">→</span>
+          </DsButton>
+          <DsButton v-else size="sm" :disabled="publishing || authorInvalid" @click="submit">
+            {{ publishing ? 'Publication…' : `Publier la version ${nextVersion}` }}
+          </DsButton>
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, provide, onBeforeUnmount } from 'vue'
+import { computed, provide, onBeforeUnmount, ref } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { useResolvedTokens } from '@/composables/useResolvedTokens'
 import { sanitizeInlineHtml, isBlankInlineHtml } from '@/lib/inline-rich-text'
@@ -7,6 +7,9 @@ import type { Section } from '@/types/studio'
 import CanvasZone from './CanvasZone.vue'
 import SectionInlineText from './SectionInlineText.vue'
 import { SECTION_CONTEXT } from './section-context'
+import StudioIcon from '../ui/StudioIcon.vue'
+import BlockInsertPopover from './BlockInsertPopover.vue'
+import { useStudioToast } from '@/composables/useStudioToast'
 
 const props = defineProps<{ section: Section }>()
 const studio = useStudioStore()
@@ -57,6 +60,26 @@ function onSectionClick(event: MouseEvent) {
 }
 
 const zoneId = computed(() => `${props.section.id}-0`)
+
+const { show } = useStudioToast()
+function removeSection() {
+  studio.removeSection(props.section.id)
+  show(isSurvey.value ? 'Étape supprimée' : 'Section supprimée', 'Annuler', () => studio.undo())
+}
+
+// Sondage : chaque section racine est une « étape » numérotée.
+const isSurvey = computed(() => studio.content?.type === 'survey')
+const stepInfo = computed(() => {
+  if (!isSurvey.value) return null
+  const roots = studio.currentPageCanvasItems.filter((i) => i.section).map((i) => i.section!.id)
+  const n = roots.indexOf(props.section.id)
+  return n >= 0 ? { n: n + 1, total: roots.length } : null
+})
+
+// « + Ajouter un bloc » en pied de zone → popover d'insertion en fin de zone.
+const addEndBtn = ref<HTMLElement | null>(null)
+const addEndOpen = ref(false)
+const zoneLength = computed(() => (studio.blocksByZone[zoneId.value] ?? []).length)
 
 const resolveOpts = {
   tokenMap: () => studio.pageParams,
@@ -113,61 +136,39 @@ provide(SECTION_CONTEXT, {
       :class="studio.selectedSectionId === section.id ? 'opacity-100' : ''"
     >
       <div
-        class="section-drag-handle flex cursor-grab items-center gap-1 rounded-lg border border-[var(--studio-line)] bg-white px-2 py-1 shadow-[var(--studio-shadow-card)] hover:bg-[var(--studio-wash)] active:cursor-grabbing"
-        title="Réordonner cette section"
+        class="section-drag-handle flex h-7 cursor-grab items-center gap-1.5 rounded-[3px] border-2 border-[var(--ds-divide)] bg-[var(--ds-surface)] px-2 active:cursor-grabbing"
+        title="Glisser pour réordonner"
       >
-        <svg class="h-3.5 w-3.5 text-[var(--studio-faint)]" fill="currentColor" viewBox="0 0 20 20">
-          <path d="M7 2a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM7 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM7 14a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM13 2a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM13 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM13 14a2 2 0 1 1-4 0 2 2 0 0 1 4 0z" />
-        </svg>
-        <span class="text-[10px] font-medium text-[var(--studio-muted)]">Section</span>
+        <StudioIcon name="grip" :size="13" class="text-[var(--ds-muted)]" />
+        <span class="st-lbl !text-[10px]">{{ isSurvey ? 'Étape' : 'Section' }}</span>
       </div>
 
-      <div
-        class="flex items-center gap-0.5 rounded-[10px] border border-[var(--studio-line)] bg-white p-1 shadow-[var(--studio-shadow-card)]"
-      >
-        <button
-          type="button"
-          class="flex h-[26px] w-7 items-center justify-center rounded-[7px] text-[13px] hover:bg-[var(--studio-wash)]"
-          :class="studio.selectedSectionId === section.id ? 'text-[var(--color-primary)]' : 'text-[var(--studio-muted)]'"
-          title="Réglages de la section"
-          @click.stop="studio.selectSection(section.id)"
-        >⚙</button>
-        <button
-          type="button"
-          class="flex h-[26px] w-7 items-center justify-center rounded-[7px] text-[13px] text-[var(--studio-muted)] hover:bg-[var(--studio-wash)]"
-          title="Monter"
-          @click.stop="moveSection(-1)"
-        >↑</button>
-        <button
-          type="button"
-          class="flex h-[26px] w-7 items-center justify-center rounded-[7px] text-[13px] text-[var(--studio-muted)] hover:bg-[var(--studio-wash)]"
-          title="Descendre"
-          @click.stop="moveSection(1)"
-        >↓</button>
-        <button
-          type="button"
-          class="flex h-[26px] w-7 items-center justify-center rounded-[7px] text-[13px] text-[var(--studio-muted)] hover:bg-[var(--studio-wash)]"
-          title="Dupliquer cette section"
-          @click.stop="studio.duplicateSection(section.id)"
-        >⧉</button>
-        <button
-          type="button"
-          class="flex h-[26px] w-7 items-center justify-center rounded-[7px] text-[13px] text-[var(--studio-muted)] hover:bg-[var(--studio-wash)] hover:text-[var(--color-error)]"
-          title="Supprimer cette section"
-          @click.stop="studio.removeSection(section.id)"
-        >🗑</button>
+      <div class="st-b-tools !static !flex" role="toolbar" :aria-label="isSurvey ? 'Actions de l’étape' : 'Actions de la section'">
+        <button type="button" title="Réglages" aria-label="Réglages" @click.stop="studio.selectSection(section.id)">
+          <StudioIcon name="gear" :size="15" />
+        </button>
+        <button type="button" title="Monter" aria-label="Monter" @click.stop="moveSection(-1)">
+          <StudioIcon name="up" :size="15" />
+        </button>
+        <button type="button" title="Descendre" aria-label="Descendre" @click.stop="moveSection(1)">
+          <StudioIcon name="down" :size="15" />
+        </button>
+        <button type="button" title="Dupliquer" aria-label="Dupliquer" @click.stop="studio.duplicateSection(section.id)">
+          <StudioIcon name="dup" :size="15" />
+        </button>
+        <button type="button" title="Supprimer" aria-label="Supprimer" @click.stop="removeSection">
+          <StudioIcon name="trash" :size="15" />
+        </button>
       </div>
     </div>
 
     <!-- Badge verrouillé -->
     <div
       v-if="section.locked && !studio.isPreview"
-      class="mb-2 flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-1.5"
+      class="st-notice mb-2 !py-1.5"
     >
-      <svg class="h-3.5 w-3.5 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
-      </svg>
-      <span class="text-[11px] font-semibold text-amber-700">Section verrouillée</span>
+      <StudioIcon name="lock" :size="14" />
+      <span>Section verrouillée</span>
     </div>
 
     <!-- La section = une carte (comme au rendu public) -->
@@ -177,18 +178,22 @@ provide(SECTION_CONTEXT, {
         'sd-sec--card': carded && theme === 'default',
         'sd-sec--accent': theme === 'accent',
         'sd-sec--dark': dark,
-        'outline outline-2 outline-offset-4 outline-[var(--color-primary)] rounded-[18px]': studio.selectedSectionId === section.id && !studio.isPreview,
+        'outline outline-2 outline-offset-[6px] outline-[var(--ds-blue-500)]': studio.selectedSectionId === section.id && !studio.isPreview,
       }"
     >
       <!-- Édition : en-tête toujours présent, éditable en place -->
       <div
         v-if="!studio.isPreview"
-        class="sd-sec__head"
-        :class="{ 'sd-sec__head--empty': !hasHeader }"
+        class="sd-sec__head st-sec-h"
+        :class="{ 'sd-sec__head--empty': !hasHeader, 'is-sel': studio.selectedSectionId === section.id }"
         :style="headStyle"
         @focusout="flushHeader"
       >
+        <p v-if="stepInfo" class="sd-sec__kicker !flex items-center gap-2">
+          <StudioIcon name="choice" :size="13" />Étape {{ stepInfo.n }} sur {{ stepInfo.total }}
+        </p>
         <SectionInlineText
+          v-else
           class="sd-sec__kicker"
           :section-id="section.id"
           field="kicker"
@@ -222,6 +227,25 @@ provide(SECTION_CONTEXT, {
       </div>
 
       <CanvasZone :zone-id="zoneId" :col-index="0" />
+
+      <div v-if="!studio.isPreview && !section.locked && zoneLength > 0" class="mt-1 flex justify-center">
+        <button
+          ref="addEndBtn"
+          type="button"
+          class="st-add-ghost"
+          :aria-expanded="addEndOpen"
+          @click.stop="addEndOpen = !addEndOpen"
+        >
+          <StudioIcon name="plus" :size="14" />Ajouter un bloc
+        </button>
+        <BlockInsertPopover
+          v-if="addEndOpen && addEndBtn"
+          :anchor="addEndBtn"
+          :zone-id="zoneId"
+          :index="zoneLength"
+          @close="addEndOpen = false"
+        />
+      </div>
     </div>
   </div>
 </template>

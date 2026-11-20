@@ -70,7 +70,7 @@ const items = computed(() => {
         v-for="(item, i) in items"
         :key="i"
         :href="item.href"
-        class="flex items-center gap-2 rounded-full border-[1.5px] border-[var(--studio-line)] px-3.5 py-2 text-[12.5px] font-semibold text-[var(--studio-ink)]"
+        class="sd-rel flex items-center gap-2 rounded-full border-[1.5px] border-[var(--studio-line)] px-3.5 py-2 text-[12.5px] font-semibold text-[var(--studio-ink)]"
         :class="item.href ? 'transition-colors hover:border-[var(--color-primary)] hover:bg-[var(--studio-accent-wash)]' : ''"
       >
         <span>{{ item.label }}</span>

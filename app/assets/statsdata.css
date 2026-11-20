@@ -23,34 +23,25 @@
   border-left: 4px solid var(--color-primary, #7c3aed);
 }
 
-/* ─── Mode sombre du rendu public (`.sd-public`, posé par StatsDataDetailView) ──
-   On rebascule les tokens `--studio-*` que lisent l'entête, le sommaire, le hero
-   et surtout tous les blocs. Scopé à `.sd-public` pour ne pas toucher le canevas
-   du Studio (éditeur), qui partage `.sd-sec` mais reste en clair. */
-[data-color-scheme='dark'] .sd-public {
-  --studio-wash: #020617;
-  --studio-surface: #0f172a;
-  --studio-panel: #162033;
-  --studio-note: rgba(148, 163, 184, 0.06);
-  --studio-line: rgba(148, 163, 184, 0.14);
-  --studio-line-strong: rgba(148, 163, 184, 0.24);
-  --studio-ink: #f1f5f9;
-  --studio-muted: rgba(226, 232, 240, 0.72);
-  --studio-faint: rgba(226, 232, 240, 0.46);
-  --studio-tag: rgba(167, 139, 250, 0.18);
-  --studio-tag-ink: #c4b5fd;
-  --studio-accent-wash: rgba(167, 139, 250, 0.12);
-  --studio-shadow-card: 0 0 0 1px rgba(148, 163, 184, 0.1), 0 1px 3px rgba(0, 0, 0, 0.5);
-}
-
-/* `.sd-sec` redéfinit --sd-sec-muted sur lui-même : on l'éclaircit à la source. */
-[data-color-scheme='dark'] .sd-public .sd-sec {
-  --sd-sec-muted: rgba(226, 232, 240, 0.68);
-}
-
-[data-color-scheme='dark'] .sd-public .sd-sec--card,
-[data-color-scheme='dark'] .sd-public .sd-sec--accent {
-  background: var(--studio-surface);
+/* ─── Rendu public (`.sd-public`, posé par StatsDataDetailView) ───────────────
+   Charte « Tranches » : on rebascule les tokens `--studio-*` que lisent l'entête,
+   le sommaire et surtout tous les blocs sur les tokens `--ds-*` (qui suivent déjà
+   le mode sombre et les sous-marques). Scopé à `.sd-public` pour ne pas toucher le
+   canevas du Studio (éditeur), qui partage `.sd-sec` mais garde son rendu. */
+.sd-public {
+  --studio-wash: var(--ds-bg);
+  --studio-surface: var(--ds-surface);
+  --studio-panel: var(--ds-tint);
+  --studio-note: var(--ds-tint);
+  --studio-line: var(--ds-line);
+  --studio-line-strong: color-mix(in srgb, var(--ds-ol) 30%, var(--ds-line));
+  --studio-ink: var(--ds-text);
+  --studio-muted: var(--ds-muted);
+  --studio-faint: var(--ds-faint);
+  --studio-tag: var(--ds-tint);
+  --studio-tag-ink: var(--ds-link);
+  --studio-accent-wash: var(--ds-tint);
+  --studio-shadow-card: none;
 }
 
 /* Surfaces claires codées en dur (bg-white, #18181f) dans le hero / l'entête /
@@ -132,3 +123,546 @@
 .sd-sec__head u { text-underline-offset: 0.15em; }
 .sd-sec__head mark { border-radius: 3px; padding: 0 0.12em; }
 .sd-sec__head p { margin: 0; }
+
+/* ═══ Charte « Tranches » — page publique StatsData ════════════════════════════
+   Maquette « StatsData Incendies » (Bold Outline) : sections encadrées, titres
+   display soulignés, blocs à contour 2px et ombres décalées nettes. */
+
+.sd-public .mono {
+  font-family: var(--ds-num);
+}
+
+/* Sections */
+.sd-public .sd-sec {
+  --sd-sec-accent: var(--ds-link);
+  --sd-sec-muted: var(--ds-muted);
+  scroll-margin-top: 140px;
+}
+.sd-public .sd-sec--card,
+.sd-public .sd-sec--accent,
+.sd-public .sd-sec--dark {
+  padding: 20px;
+  border: 2px solid var(--ds-ol);
+  border-left-width: 2px;
+  border-radius: 6px;
+  background: var(--ds-surface);
+  box-shadow: 5px 5px 0 var(--ds-sh);
+}
+@media (min-width: 620px) {
+  .sd-public .sd-sec--card,
+  .sd-public .sd-sec--accent,
+  .sd-public .sd-sec--dark {
+    padding: 28px;
+  }
+}
+.sd-public .sd-sec--accent {
+  background: var(--ds-tint);
+}
+.sd-public .sd-sec--dark {
+  background: linear-gradient(135deg, #16151d, #2a1f45);
+  --sd-sec-accent: #c4b5fd;
+}
+.sd-public .sd-sec > .flex.flex-col {
+  gap: 22px;
+}
+.sd-public .sd-sec__head {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.sd-public .sd-sec__kicker {
+  margin: 0;
+  color: var(--ds-muted);
+  font: 500 11.5px/1.3 var(--ds-num);
+  letter-spacing: var(--sec-head-ls, 0.12em);
+}
+.sd-public .sd-sec--dark .sd-sec__kicker {
+  color: var(--sd-sec-accent);
+}
+.sd-public .sd-sec__title {
+  font: 800 clamp(28px, 3.4vw, 42px) / var(--sec-head-lh, 1.05) var(--ds-display);
+  font-stretch: 90%;
+  letter-spacing: var(--sec-head-ls, -0.015em);
+  text-decoration: underline;
+  text-decoration-color: var(--ds-violet-500);
+  text-decoration-thickness: 4px;
+  text-underline-offset: 8px;
+}
+.sd-public .sd-sec__desc {
+  margin-top: 4px;
+  max-width: 68ch;
+  font-size: 17px;
+  line-height: var(--sec-head-lh, 1.7);
+}
+.sd-public .sd-sec__head mark {
+  background: var(--ds-mark);
+  color: inherit;
+}
+
+/* Cadre de bloc */
+.sd-public .sd-blk--card {
+  padding: 20px;
+  border: 2px solid var(--ds-ol);
+  border-radius: 6px;
+  background: var(--ds-surface);
+  box-shadow: 5px 5px 0 var(--ds-sh);
+}
+@media (min-width: 620px) {
+  .sd-public .sd-blk--card {
+    padding: 24px;
+  }
+}
+.sd-public .sd-blk__head {
+  margin-bottom: 18px;
+}
+/* Sans titre : les boutons agrandir / intégrer flottent — on leur réserve une
+   bande pour qu'ils ne masquent ni l'en-tête d'un tableau ni le haut d'un graphique. */
+.sd-public .sd-blk--floating:not(.sd-blk--kpi) {
+  padding-top: 44px;
+}
+.sd-public .sd-blk--floating.sd-blk--card:not(.sd-blk--kpi) > .absolute {
+  top: 14px;
+  right: 14px;
+}
+.sd-public .sd-blk--kpi > .absolute {
+  top: 6px;
+  right: 6px;
+}
+.sd-public .sd-blk__title {
+  max-width: 34ch;
+  font: 800 24px/1.1 var(--ds-display);
+  font-stretch: 90%;
+  text-wrap: balance;
+}
+.sd-public .sd-blk__desc {
+  margin-top: 6px;
+  color: var(--ds-faint);
+  font: 400 11.5px/1.45 var(--ds-num);
+}
+.sd-public .sd-blk__trend {
+  padding: 4px 9px;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  font: 500 12px/1 var(--ds-num);
+}
+.sd-public .sd-blk__act {
+  border: 2px solid var(--ds-ol);
+  border-radius: 3px;
+  background: var(--ds-surface);
+  color: var(--ds-ol);
+  box-shadow: 2px 2px 0 var(--ds-sh);
+  transition: transform 0.09s, box-shadow 0.09s, background 0.15s;
+}
+.sd-public .sd-blk__act:hover {
+  background: var(--ds-tint);
+  color: var(--ds-ol);
+}
+.sd-public .sd-blk__act:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 var(--ds-sh);
+}
+.sd-public .sd-sec--dark .sd-blk__act {
+  border-color: #c4b5fd;
+  background: transparent;
+  color: #c4b5fd;
+}
+
+/* KPI : carte encadrée, chiffre display */
+.sd-public .sd-kpi {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border: 2px solid var(--ds-ol);
+  border-radius: 6px;
+  background: var(--ds-surface);
+}
+.sd-public .sd-blk--card .sd-kpi {
+  padding: 0;
+  border: 0;
+}
+.sd-public .sd-sec--dark .sd-kpi {
+  border-color: rgba(196, 181, 253, 0.5);
+  background: rgba(255, 255, 255, 0.03);
+}
+.sd-public .sd-kpi__label {
+  min-height: 0;
+  color: var(--ds-muted);
+  font: 500 11.5px/1.3 var(--ds-num);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.sd-public .sd-kpi__value {
+  margin-top: 0;
+  font: 800 40px/1 var(--ds-display);
+  font-stretch: 116%;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+.sd-public .sd-kpi__trend {
+  margin-top: 0;
+  font: 500 12.5px/1.4 var(--ds-num);
+}
+.sd-public .sd-kpi__trend.is-up {
+  color: var(--ds-ok);
+}
+.sd-public .sd-kpi__trend.is-down {
+  color: #be123c;
+}
+.sd-public .sd-kpi__trend span + span,
+.sd-public .sd-kpi__desc {
+  margin-top: 0;
+  color: var(--ds-muted);
+  font: 400 14px/1.5 var(--ds-ui);
+}
+/* Grille de KPI (≥ 2 blocs) : 3 colonnes comme la maquette, cartes alignées. */
+.sd-public .sd-sec .grid:has(> [data-block-anim] .sd-kpi) {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 18px;
+}
+
+/* Tableau */
+.sd-public .sd-tbl {
+  border: 2px solid var(--ds-ol);
+  border-radius: 6px;
+  background: var(--ds-surface);
+  box-shadow: 5px 5px 0 var(--ds-sh);
+}
+.sd-public .sd-tbl table {
+  font-size: 14.5px;
+}
+.sd-public .sd-tbl__head {
+  border-bottom: 2px solid var(--ds-ol);
+  background: var(--ds-tint);
+}
+.sd-public .sd-tbl th {
+  color: var(--ds-text);
+  font: 500 10.5px/1.2 var(--ds-num);
+  letter-spacing: 0.12em;
+}
+.sd-public .sd-tbl__sort {
+  color: var(--ds-link) !important;
+}
+.sd-public .sd-tbl tbody tr {
+  border-bottom: 2px solid var(--ds-line);
+}
+.sd-public .sd-tbl tbody tr:last-child {
+  border-bottom: 0;
+}
+.sd-public .sd-tbl tbody tr:hover {
+  background: color-mix(in srgb, var(--ds-tint) 70%, var(--ds-surface));
+}
+.sd-public .sd-tbl td {
+  padding-block: 11px;
+  font-size: 14.5px;
+}
+.sd-public .sd-tbl td.mono {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.sd-public .sd-tbl__foot {
+  margin-top: 16px;
+}
+.sd-public .sd-tbl__btn {
+  border: 2px solid var(--ds-ol);
+  border-radius: 999px;
+  background: var(--ds-surface);
+  color: var(--ds-text);
+  font: 600 12.5px/1.2 var(--ds-ui);
+}
+.sd-public .sd-tbl__btn:hover:not(:disabled) {
+  border-color: var(--ds-ol);
+  background: var(--ds-tint);
+  color: var(--ds-text);
+}
+
+/* Barres de progression (bar style « progress ») */
+.sd-public .sd-track {
+  height: 10px;
+  border-radius: 0 2px 2px 0;
+  background: var(--ds-line);
+}
+.sd-public .sd-track__fill {
+  border-radius: 0 2px 2px 0;
+}
+
+/* Légendes (courbes multi-séries) */
+.sd-public .sd-legend {
+  color: var(--ds-muted);
+  font: 600 13px/1.3 var(--ds-ui);
+}
+.sd-public .sd-legend__mark {
+  width: 12px;
+  height: 12px;
+  border-radius: 100% 0 0 0;
+  outline: 2px solid var(--ds-ol);
+}
+
+/* Camembert (rendu SVG `DsPie`, voir PieChartBlock) */
+.sd-public .sd-pie {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+  align-items: center;
+}
+.sd-public .sd-pie__disc {
+  justify-self: center;
+}
+@media (min-width: 620px) {
+  .sd-public .sd-pie {
+    grid-template-columns: 200px minmax(0, 1fr);
+    gap: 28px;
+  }
+  .sd-public .sd-pie--xl {
+    grid-template-columns: 280px minmax(0, 1fr);
+  }
+}
+.sd-pie__legend {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sd-pie__legend li {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 2px solid var(--ds-line);
+  color: var(--ds-text);
+  font: 400 14.5px/1.35 var(--ds-ui);
+  transition: opacity 0.2s;
+}
+.sd-pie__legend li:last-child {
+  border-bottom: 0;
+}
+.sd-pie__legend li.is-dim {
+  opacity: 0.4;
+}
+.sd-pie__legend i {
+  width: 12px;
+  height: 12px;
+  border-radius: 100% 0 0 0;
+  outline: 2px solid var(--ds-ol);
+}
+.sd-pie__legend b {
+  font: 500 13px/1 var(--ds-num);
+}
+
+/* À retenir */
+.sd-public .sd-keep__label {
+  margin-bottom: 14px;
+  color: var(--ds-link) !important;
+  font: 500 11.5px/1.3 var(--ds-num);
+  letter-spacing: 0.12em;
+}
+.sd-public .sd-keep ul {
+  gap: 12px;
+}
+.sd-public .sd-keep__item {
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 14px;
+  max-width: 72ch;
+  color: var(--ds-text);
+  font-size: 16px;
+}
+.sd-public .sd-keep__num {
+  display: flex;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 2px solid var(--ds-ol);
+  border-radius: 3px;
+  background: var(--ds-tint) !important;
+  color: var(--ds-ol) !important;
+  box-shadow: 2px 2px 0 var(--ds-sh);
+  font: 800 20px/1 var(--ds-display);
+}
+
+/* Recherche & paramètre */
+.sd-public .sd-search {
+  min-height: 48px;
+  padding-block: 10px;
+  border: 2px solid var(--ds-ol);
+  border-radius: 3px;
+  background: var(--ds-surface);
+  box-shadow: 3px 3px 0 var(--ds-sh);
+}
+.sd-public .sd-search:focus-within {
+  --tw-ring-shadow: 0 0 #0000;
+  border-color: var(--ds-link);
+  box-shadow: 3px 3px 0 var(--ds-link);
+}
+.sd-public .sd-search input {
+  font-size: 16px;
+}
+.sd-public .sd-sec--dark .sd-search {
+  border-color: #c4b5fd;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 3px 3px 0 #6d28d9;
+}
+.sd-public .sd-sec--dark .sd-search input::placeholder {
+  color: rgba(244, 243, 248, 0.55);
+}
+.sd-public .sd-search.is-selected {
+  background: var(--ds-tint);
+}
+.sd-public .sd-search.is-selected p {
+  font-weight: 700;
+}
+.sd-public .sd-search.is-selected button {
+  color: var(--ds-link);
+  font-size: 13px;
+  font-weight: 700;
+}
+.sd-search-pop.is-tranches {
+  border: 2px solid var(--ds-ol);
+  border-radius: 6px;
+  background: var(--ds-surface);
+  box-shadow: 5px 5px 0 var(--ds-sh);
+  color: var(--ds-text);
+  font-family: var(--ds-ui);
+}
+.sd-search-pop.is-tranches > button {
+  border-bottom: 2px solid var(--ds-line);
+}
+.sd-search-pop.is-tranches > button:hover {
+  background: var(--ds-tint);
+}
+.sd-search-pop.is-tranches p {
+  color: var(--ds-text);
+}
+.sd-search-pop.is-tranches span {
+  color: var(--ds-muted);
+}
+
+.sd-public .sd-param {
+  border: 2px solid var(--ds-ol);
+  border-radius: 6px;
+  background: var(--ds-surface);
+  box-shadow: 3px 3px 0 var(--ds-sh);
+}
+.sd-public .sd-param__label {
+  color: var(--ds-muted);
+  font: 500 11px/1.3 var(--ds-num);
+  letter-spacing: 0.12em;
+}
+.sd-public .sd-param__opt {
+  border: 2px solid var(--ds-ol);
+  background: var(--ds-surface);
+  color: var(--ds-text);
+  font: 600 13px/1.2 var(--ds-ui);
+}
+.sd-public .sd-param__opt:hover {
+  background: var(--ds-tint);
+}
+.sd-public .sd-param__opt[aria-pressed='true'] {
+  border-color: var(--ds-ol);
+  background: var(--ds-action);
+  color: var(--ds-action-ink);
+}
+.sd-public .sd-param__select {
+  height: 36px;
+  border: 2px solid var(--ds-ol);
+  border-radius: 3px;
+  background: var(--ds-surface);
+  color: var(--ds-text);
+}
+
+/* Fiche (bloc record) : encart teinté façon « fiche commune » */
+.sd-public .sd-blk--record:not(.sd-blk--dark) {
+  padding: 18px;
+  border: 2px solid var(--ds-ol);
+  border-radius: 6px;
+  background: var(--ds-tint);
+}
+.sd-public .sd-blk--record.sd-blk--card {
+  box-shadow: 5px 5px 0 var(--ds-sh);
+}
+.sd-public .sd-rec__title {
+  font: 800 28px/1 var(--ds-display);
+  font-stretch: 95%;
+}
+.sd-public .sd-rec {
+  border: 0;
+}
+.sd-public .sd-rec > div {
+  border-color: var(--ds-divide);
+  border-top-width: 2px;
+}
+.sd-public .sd-rec dt {
+  color: var(--ds-muted);
+  font-size: 14px;
+}
+.sd-public .sd-rec dd {
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+/* Puces liées */
+.sd-public .sd-rel {
+  border: 2px solid var(--ds-ol);
+  background: var(--ds-surface);
+  font: 600 13px/1.2 var(--ds-ui);
+}
+.sd-public a.sd-rel:hover {
+  border-color: var(--ds-ol);
+  background: var(--ds-tint);
+}
+
+/* Carte de lien (« Pour aller plus loin ») */
+.sd-public .sd-link {
+  padding: 18px;
+  border: 2px solid var(--ds-ol);
+  border-radius: 6px;
+  background: var(--ds-surface);
+  box-shadow: 5px 5px 0 var(--ds-sh);
+  transition: transform 0.18s var(--ds-e-glisse), box-shadow 0.18s var(--ds-e-glisse);
+}
+.sd-public a.sd-link:hover {
+  border-color: var(--ds-ol);
+  transform: translate(-2px, -2px);
+  box-shadow: 7px 7px 0 var(--ds-sh);
+}
+.sd-public .sd-link img {
+  border: 2px solid var(--ds-ol);
+  border-radius: 3px;
+}
+.sd-public .sd-link__eyebrow {
+  color: var(--ds-muted);
+  font: 500 11.5px/1.3 var(--ds-num);
+  letter-spacing: 0.12em;
+}
+.sd-public .sd-link__title {
+  font: 800 22px/1.1 var(--ds-display);
+  font-stretch: 90%;
+}
+
+/* Texte riche : titres en display, corps de récit à 17px */
+.sd-public .tiptap :where(h1, h2, h3) {
+  font-family: var(--ds-display);
+  font-stretch: 90%;
+}
+.sd-public .tiptap a {
+  color: var(--ds-link);
+  font-weight: 700;
+  text-underline-offset: 3px;
+}
+
+/* Page vide */
+.sd-empty {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px;
+  border: 2px dashed color-mix(in srgb, var(--ds-ol) 30%, var(--ds-line));
+  border-radius: 6px;
+  color: var(--ds-muted);
+  font: 400 14.5px/1.5 var(--ds-ui);
+}

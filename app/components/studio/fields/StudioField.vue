@@ -13,8 +13,8 @@ withDefaults(defineProps<{ label?: string; hint?: string }>(), {
       v-if="label || hint"
       class="mb-[7px] flex items-baseline justify-between gap-2.5"
     >
-      <span v-if="label" class="text-[12.5px] font-bold text-[var(--studio-ink)]">{{ label }}</span>
-      <span v-if="hint" class="font-mono text-[11px] text-[var(--studio-faint)]">{{ hint }}</span>
+      <span v-if="label" class="st-lbl !text-[10.5px]">{{ label }}</span>
+      <span v-if="hint" class="st-meta !text-[11px]">{{ hint }}</span>
     </div>
     <slot />
   </div>

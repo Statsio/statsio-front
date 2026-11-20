@@ -20,6 +20,11 @@ import StudioBottomTabBar from '@/components/studio/mobile/StudioBottomTabBar.vu
 import StudioBottomSheet from '@/components/studio/mobile/StudioBottomSheet.vue'
 import StudioMobileSheetContent from '@/components/studio/mobile/StudioMobileSheetContent.vue'
 import { useStudioBreakpoint } from '@/composables/useStudioBreakpoint'
+import { useStudioShortcuts } from '@/composables/useStudioShortcuts'
+import { useStudioMetaStore } from '@/stores/studio-meta'
+import { provideBlockSkin } from '@/lib/block-skin'
+import CanvasBar from '@/components/studio/canvas/CanvasBar.vue'
+import StudioToast from '@/components/studio/ui/StudioToast.vue'
 
 const route = useRoute()
 const studio = useStudioStore()
@@ -37,6 +42,11 @@ const {
   confirm: confirmPublish,
 } = useStudioPublish(saveNow)
 const { fail } = useStudioDocumentGuard()
+const meta = useStudioMetaStore()
+
+// Canevas = la page telle que publiée : blocs habillés comme sur le site public.
+provideBlockSkin('tranches')
+useStudioShortcuts(saveNow)
 
 onMounted(async () => {
   const documentId = route.params.slug as string | undefined
@@ -46,6 +56,7 @@ onMounted(async () => {
   if (documentId) {
     try {
       const doc = await fetchStatsDataDocument(documentId)
+      meta.init(doc)
       studio.initPage(
         {
           id: doc.id,
@@ -72,20 +83,20 @@ onMounted(async () => {
       fail(getHttpErrorStatus(e, 404))
     }
   } else {
+    meta.init(null)
     studio.initPage({ id: 'demo', type: routeType, title: 'Mon dashboard' })
   }
 })
 
 onBeforeUnmount(() => {
   if (studio.isDirty) saveNow()
+  void meta.flush()
 })
 </script>
 
 <template>
-  <div class="flex h-screen w-screen flex-col overflow-hidden bg-[var(--studio-wash)] font-sans">
-    <!-- Header -->
+  <div class="st-app flex h-screen w-screen flex-col overflow-hidden" :class="studio.isPreview ? 'st-preview' : 'st-edit'">
     <StudioHeader :publishing="isPublishing" @save="saveNow" @publish="openPublish" />
-
     <StudioPublishModal
       v-if="publishOpen"
       :mode="publishMode"
@@ -96,42 +107,35 @@ onBeforeUnmount(() => {
       @confirm="confirmPublish"
     />
 
-    <!-- Floating overlays: no layout space, both absolute over the canvas -->
+    <!-- Barre de mise en forme du texte : flottante, au-dessus du canevas -->
     <div v-if="!studio.isPreview" class="relative z-30 h-0">
-      <div class="pointer-events-none absolute top-3 flex w-full justify-center">
+      <div class="pointer-events-none absolute top-14 flex w-full justify-center">
         <div class="pointer-events-auto">
           <TextFormatToolbar />
         </div>
       </div>
     </div>
 
-    <!-- Body -->
+    <!-- Corps : rail · panneau · canevas · inspecteur -->
     <div v-if="!isMobile" class="flex min-h-0 flex-1 overflow-hidden">
-      <!-- Icon rail + panel -->
       <StudioSidebarLeft v-if="!studio.isPreview" />
-
-      <!-- Canvas (scrollable) -->
-      <main
-        class="min-w-0 flex-1 overflow-auto"
-        @click.self="studio.selectBlock(null)"
-      >
+      <main class="st-canvas flex-1" :class="{ 'st-show-tags': studio.showBlockTags }" @click.self="studio.selectBlock(null)">
+        <CanvasBar />
         <CanvasGrid />
       </main>
-
-      <!-- Right config panel (block selected) -->
       <StudioSidebarRight v-if="!studio.isPreview" />
     </div>
 
-    <!-- Body (mobile) : canvas plein écran + barre d'onglets et bottom sheet en bas -->
+    <!-- Corps (mobile) : canevas plein écran + barre d'onglets et tiroir en bas -->
     <div v-else class="flex min-h-0 flex-1 overflow-hidden">
       <main
-        class="min-w-0 flex-1 overflow-auto"
-        :class="!studio.isPreview && 'pb-16'"
+        class="st-canvas flex-1"
+        :class="[{ 'st-show-tags': studio.showBlockTags }, !studio.isPreview && 'pb-16']"
         @click.self="studio.selectBlock(null)"
       >
+        <CanvasBar />
         <CanvasGrid />
       </main>
-
       <template v-if="!studio.isPreview">
         <StudioBottomTabBar />
         <StudioBottomSheet>
@@ -139,5 +143,7 @@ onBeforeUnmount(() => {
         </StudioBottomSheet>
       </template>
     </div>
+
+    <StudioToast />
   </div>
 </template>

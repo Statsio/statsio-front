@@ -18,7 +18,8 @@ const resetSignals = [
 <template>
   <AuthShell
     :signals="resetSignals"
-    title="Choisissez un nouveau mot de passe."
+    eyebrow-accent="sécurité"
+    :title="[{ text: 'Choisissez un ' }, { text: 'nouveau', em: true }, { text: ' mot de passe.' }]"
     description="Définissez un mot de passe solide pour sécuriser à nouveau l'accès à votre compte Statsio."
   >
     <ResetPasswordFormCard />

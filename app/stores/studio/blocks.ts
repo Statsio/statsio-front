@@ -24,6 +24,7 @@ const FORM_DEFAULTS: Partial<Record<BlockType, object>> = {
   dropdown:   { formOptions: ['Option 1', 'Option 2'] },
   scale:      { scaleMin: 1, scaleMax: 5 },
   rating:     { ratingMax: 5 },
+  'text-answer': { formLongAnswer: true },
   'sd-embed': { showSourceLink: true },
   layout:     { layoutType: '2-cols' },
 }
@@ -108,7 +109,12 @@ export function useStudioBlocks(deps: {
    */
   function addBlockSmart(type: BlockType): StudioBlock {
     const selected = selectedBlock.value
-    if (selected) return addBlock(type, selected.zoneId)
+    if (selected) {
+      // Juste après le bloc sélectionné (même zone).
+      const zoneIds = blocks.value.filter((b: StudioBlock) => b.zoneId === selected.zoneId).map((b: StudioBlock) => b.id)
+      const at = zoneIds.indexOf(selected.id)
+      return addBlock(type, selected.zoneId, at >= 0 ? at + 1 : undefined)
+    }
 
     const pageSections = sections.value.filter(
       (s: Section) => (s.pageId ?? 'default') === currentPageId.value && !s.zoneId,

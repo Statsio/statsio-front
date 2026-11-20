@@ -282,7 +282,7 @@ async function share() {
     </section>
 
     <!-- Barre de filtres -->
-    <div class="sticky top-[62px] z-[55] border-b border-slate-950/[0.07] bg-white/90 px-4 py-3.5 backdrop-blur sm:px-6 lg:px-8">
+    <div class="border-b border-slate-950/[0.07] bg-white/90 px-4 py-3.5 backdrop-blur sm:px-6 lg:px-8">
       <div class="mx-auto flex max-w-[1220px] items-center gap-2.5 overflow-x-auto">
         <div class="flex shrink-0 gap-1.5">
           <button
@@ -337,7 +337,7 @@ async function share() {
       </div>
 
       <!-- Aside -->
-      <aside class="flex flex-col gap-5 lg:sticky lg:top-[150px]">
+      <aside class="flex flex-col gap-5">
         <div v-if="timeline.length" class="rounded-2xl border-[1.5px] border-slate-950/[0.06] bg-white p-5 shadow-[0_1px_3px_rgba(20,20,30,0.05)]">
           <div class="mb-3.5 text-[11px] font-extrabold uppercase tracking-[0.06em] text-slate-950/40">Frise chronologique</div>
           <div class="max-h-[420px] overflow-y-auto pr-1">

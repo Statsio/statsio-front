@@ -24,8 +24,8 @@ usePageSeo()
     <AppPromoBanner />
     <AppHeader />
     <!--
-      pt-40 lg:pt-28 clears the fixed AppPromoBanner (h-14) + AppHeader (h-14) stack — 112px
-      at lg+, plus the mobile nav-pills row below lg. Pages that bleed a background under the
+      pt-40 lg:pt-28 clears the fixed AppPromoBanner (h-12, 48px) + AppHeader (h-16, 64px)
+      stack — 112px at lg+, plus the 48px mobile nav-pills row below lg (160px). Pages that bleed a background under the
       header (PageHero.vue / PageHeroV2.vue) cancel this with a matching -mt-40 lg:-mt-28 — keep
       both in sync if the promo/header heights change.
     -->

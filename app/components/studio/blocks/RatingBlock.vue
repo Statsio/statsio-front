@@ -71,6 +71,13 @@ function edit() {
       </button>
     </div>
 
+    <!-- Public: résultats masqués (réglage « Résultats visibles » du sondage) -->
+    <div v-else-if="form?.resultsHiddenText.value" class="flex flex-col gap-1.5 rounded-[4px] border-2 border-[var(--ds-divide)] px-4 py-3">
+      <p class="text-[14px] font-bold">✓ Réponse enregistrée</p>
+      <p class="text-[12.5px] text-[var(--ds-muted)]">{{ form.resultsHiddenText.value }}</p>
+      <button v-if="form.canChange.value" type="button" class="self-start text-[12.5px] font-semibold text-[var(--color-primary)] hover:underline" @click="edit">Modifier ma réponse</button>
+    </div>
+
     <!-- Public: results -->
     <div v-else class="flex flex-col gap-2">
       <div class="flex items-center gap-3">
@@ -83,7 +90,7 @@ function edit() {
       </div>
       <p class="text-[11.5px] text-slate-400">
         {{ form?.aggregate.value.totalResponses }} avis
-        · <button class="font-semibold text-[var(--color-primary)] hover:underline" @click="edit">Modifier ma réponse</button>
+        <template v-if="form?.canChange.value">· <button class="font-semibold text-[var(--color-primary)] hover:underline" @click="edit">Modifier ma réponse</button></template>
       </p>
     </div>
   </div>

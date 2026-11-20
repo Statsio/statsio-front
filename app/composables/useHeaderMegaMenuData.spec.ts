@@ -160,8 +160,12 @@ describe('useHeaderMegaMenuData', () => {
             followers_count: 184000,
             publications_count: 0,
             statsdata_count: 0,
+            articles_count: 0,
+            surveys_count: 0,
+            activity_days: [],
             view_count: 0,
             last_published_at: null,
+            created_at: null,
             pace: 'semaine',
             is_following: false,
             logo_url: null,
@@ -227,66 +231,37 @@ describe('useHeaderMegaMenuData', () => {
   })
 
   describe('loadPromoTicker', () => {
-    it('returns one trending item per content type', async () => {
+    const text = (item: { parts: { text: string }[] } | undefined) => item?.parts.map((p) => p.text).join('') ?? ''
+
+    it('builds typed infos from the trending catalog (une, chiffre, sondage, actu)', async () => {
       vi.mocked(fetchPublicCatalog).mockImplementation(async (query) => {
-        if (query.type === 'article') return catalogResponse([catalogItem({ slug: 'a', title: 'Article' })])
+        if (query.type === 'article')
+          return catalogResponse([
+            catalogItem({ id: 'a1', slug: 'a', title: 'Article' }),
+            catalogItem({ id: 'a2', slug: 'b', title: 'Autre article' }),
+          ])
         if (query.type === 'statsdata') return catalogResponse([catalogItem({ slug: 'd', title: 'Dataset' })])
         return catalogResponse([catalogItem({ slug: 's', title: 'Sondage', primary_options: [{ label: 'Oui', pct: 61 }] })])
       })
-
-      const items = await loadPromoTicker(undefined)
-
-      expect(items.map((i) => i.kind)).toEqual(['article', 'statsdata', 'survey'])
-      expect(items[2]).toMatchObject({ tag: 'SONDAGE', percent: 61, href: '/sondages/s' })
-    })
-
-    it('attaches the real StatsData chart preview and drops the view-count KPI', async () => {
-      vi.mocked(fetchPublicCatalog).mockImplementation(async (query) => {
-        if (query.type === 'statsdata')
-          return catalogResponse([catalogItem({ slug: 'd', title: 'Dataset', categories: ['sante'] })])
-        return catalogResponse([])
-      })
       vi.mocked(fetchStatsDataCardPreview).mockResolvedValueOnce({
         kind: 'line',
-        labels: ['2019', '2020', '2021'],
-        series: [{ name: 'Prix', values: [1.4, 1.6, 1.9] }],
+        labels: ['2024', '2025'],
+        series: [{ name: 'Prix', values: [1.5, 1.8] }],
+        unit: '€',
         empty: false,
       })
 
       const items = await loadPromoTicker(undefined)
-      const statsdata = items.find((i) => i.kind === 'statsdata')
 
-      expect(statsdata?.preview?.kind).toBe('line')
-      expect(statsdata?.categories).toEqual(['sante'])
-      expect(statsdata?.kpi).toBeUndefined()
-      expect(statsdata?.sparkline).toBeUndefined()
+      expect(items.map((i) => i.kind)).toEqual(['une', 'chiffre', 'sondage', 'actu'])
+      expect(items[0]).toMatchObject({ label: 'À la une', href: '/articles/a' })
+      expect(text(items[1])).toBe('Dataset : 1,8\u00a0€ en 2025, soit +20\u00a0% sur un pas')
+      expect(items[1]!.parts.filter((p) => p.strong).map((p) => p.text)).toEqual(['1,8\u00a0€', '+20\u00a0%'])
+      expect(items[2]).toMatchObject({ label: 'Sondage', href: '/sondages/s' })
+      expect(text(items[2])).toContain('61\u00a0%')
     })
 
-    it('condenses the survey option bars when the poll exposes a breakdown', async () => {
-      vi.mocked(fetchPublicCatalog).mockImplementation(async (query) => {
-        if (query.type === 'survey')
-          return catalogResponse([
-            catalogItem({
-              slug: 's',
-              title: 'Sondage',
-              primary_options: [
-                { label: 'Oui', pct: 61 },
-                { label: 'Non', pct: 24 },
-                { label: 'NSP', pct: 15 },
-              ],
-            }),
-          ])
-        return catalogResponse([])
-      })
-
-      const items = await loadPromoTicker(undefined)
-      const survey = items.find((i) => i.kind === 'survey')
-
-      expect(survey?.surveyOptions?.map((o) => o.pct)).toEqual([61, 24, 15])
-      expect(survey?.surveyOptions?.find((o) => o.lead)?.pct).toBe(61)
-    })
-
-    it('falls back to the KPI when the StatsData has no usable chart', async () => {
+    it('emits no « Dernier chiffre » when the StatsData has no usable chart', async () => {
       vi.mocked(fetchPublicCatalog).mockImplementation(async (query) => {
         if (query.type === 'statsdata') return catalogResponse([catalogItem({ slug: 'd', title: 'Dataset' })])
         return catalogResponse([])
@@ -294,21 +269,48 @@ describe('useHeaderMegaMenuData', () => {
       vi.mocked(fetchStatsDataCardPreview).mockResolvedValueOnce({ empty: true })
 
       const items = await loadPromoTicker(undefined)
-      const statsdata = items.find((i) => i.kind === 'statsdata')
 
-      expect(statsdata?.preview).toBeUndefined()
-      expect(statsdata?.kpi).toBeTruthy()
+      expect(items.find((i) => i.kind === 'chiffre')).toBeUndefined()
+    })
+
+    it('announces a source sync from the StatsData freshness', async () => {
+      const refreshed = new Date(Date.now() - 2 * 3600_000).toISOString()
+      vi.mocked(fetchPublicCatalog).mockImplementation(async (query) => {
+        if (query.type === 'statsdata')
+          return catalogResponse([
+            catalogItem({ slug: 'd', title: 'Dataset', freshness: { last_refreshed_at: refreshed } }),
+          ])
+        return catalogResponse([])
+      })
+
+      const items = await loadPromoTicker(undefined)
+      const maj = items.find((i) => i.kind === 'maj')
+
+      expect(maj?.label).toBe('Mise à jour')
+      expect(text(maj)).toBe('Dataset : source synchronisée il y a 2 h')
+    })
+
+    it('prefixes links with the brand base path', async () => {
+      vi.mocked(fetchPublicCatalog).mockImplementation(async (query) => {
+        if (query.type === 'article') return catalogResponse([catalogItem({ slug: 'a', title: 'Article' })])
+        return catalogResponse([])
+      })
+
+      const items = await loadPromoTicker('tvstats', '/tvstats')
+
+      expect(items[0]?.href).toBe('/tvstats/articles/a')
     })
 
     it('skips a type whose catalog call fails and keeps the others', async () => {
       vi.mocked(fetchPublicCatalog).mockImplementation(async (query) => {
         if (query.type === 'article') throw new Error('fail')
-        return catalogResponse([catalogItem({ slug: 'x', title: 'Ok' })])
+        return catalogResponse([catalogItem({ slug: 'x', title: 'Ok', primary_options: [{ label: 'Oui', pct: 50 }] })])
       })
+      vi.mocked(fetchStatsDataCardPreview).mockResolvedValueOnce({ empty: true })
 
       const items = await loadPromoTicker(undefined)
 
-      expect(items.map((i) => i.kind)).toEqual(['statsdata', 'survey'])
+      expect(items.map((i) => i.kind)).toEqual(['sondage'])
     })
   })
 

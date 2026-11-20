@@ -21,8 +21,14 @@ export type ChannelCatalogItem = {
   followers_count: number
   publications_count: number
   statsdata_count: number
+  articles_count: number
+  surveys_count: number
+  /** jours de parution sur les 30 derniers : 0 = il y a 29 jours, 29 = aujourd'hui */
+  activity_days: number[]
   view_count: number
   last_published_at: string | null
+  /** ouverture de la chaîne */
+  created_at: string | null
   pace: ChannelPace
   is_following: boolean
   logo_url: string | null
@@ -33,23 +39,14 @@ export type ChannelCatalogItem = {
 
 export type ChannelCatalogFeaturedPost = {
   title: string
+  slug: string
   type: string
   updated_at: string | null
 }
 
-export type ChannelCatalogFeatured = {
-  id: number
-  name: string
-  handle: string
+/** Chaîne mise en avant (« chaîne du mois ») : un élément du catalogue enrichi. */
+export type ChannelCatalogFeatured = ChannelCatalogItem & {
   initials: string
-  verified: boolean
-  description: string | null
-  kind: ChannelKind
-  pace: ChannelPace
-  logo_url: string | null
-  custom_color_primary: string | null
-  custom_color_secondary: string | null
-  is_following: boolean
   stats: { label: string; value: number }[]
   posts: ChannelCatalogFeaturedPost[]
 }

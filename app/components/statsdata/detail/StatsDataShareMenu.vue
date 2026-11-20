@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
+import DsButton from '@/components/ds/DsButton.vue'
 
 const props = defineProps<{
   shareUrl: string
@@ -7,6 +8,8 @@ const props = defineProps<{
   targets: { key: string; label: string; href: string }[]
   /** Afficher l’entrée « Intégrer (iframe) ». Défaut true. */
   canEmbed?: boolean
+  /** `tranches` : bouton DsButton + panneau `.ds-pop` (page StatsData charte Tranches). */
+  tone?: 'default' | 'tranches'
 }>()
 
 const emit = defineEmits<{ 'native-share': []; 'open-embed': [] }>()
@@ -40,7 +43,16 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 
 <template>
   <div ref="root" class="relative">
+    <DsButton
+      v-if="tone === 'tranches'"
+      size="sm"
+      :aria-expanded="canWebShare ? undefined : open"
+      @click="toggle"
+    >
+      Partager
+    </DsButton>
     <button
+      v-else
       type="button"
       class="flex shrink-0 items-center gap-0 whitespace-nowrap rounded-[10px] border-[1.5px] border-[#18181f]/15 bg-white px-3 py-3 text-[14px] font-bold text-[#18181f] transition-colors hover:border-[#18181f]/25 md:gap-2 md:px-[18px]"
       aria-label="Partager"
@@ -53,7 +65,39 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
     </button>
 
     <div
-      v-if="open"
+      v-if="open && tone === 'tranches'"
+      class="ds-pop absolute right-0 z-20 mt-2 w-60 overflow-hidden p-1.5"
+    >
+      <button type="button" class="ds-pop__item flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13.5px] font-semibold" @click="copyLink">
+        <span class="ds-pop__muted" aria-hidden="true">{{ copied ? '✓' : '⧉' }}</span>
+        {{ copied ? 'Lien copié !' : 'Copier le lien' }}
+      </button>
+      <a
+        v-for="target in targets"
+        :key="target.key"
+        :href="target.href"
+        target="_blank"
+        rel="noopener nofollow"
+        class="ds-pop__item flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13.5px] font-semibold"
+        @click="open = false"
+      >
+        <span class="ds-pop__muted" aria-hidden="true">↗</span>
+        {{ target.label }}
+      </a>
+      <div v-if="canEmbed !== false" class="ds-pop__sep my-1.5 h-[2px]" />
+      <button
+        v-if="canEmbed !== false"
+        type="button"
+        class="ds-pop__item flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13.5px] font-semibold"
+        @click="open = false; emit('open-embed')"
+      >
+        <span class="ds-pop__muted" aria-hidden="true">&lt;/&gt;</span>
+        Intégrer (iframe)
+      </button>
+    </div>
+
+    <div
+      v-else-if="open"
       class="absolute right-0 z-20 mt-2 w-56 overflow-hidden rounded-xl border border-[#18181f]/10 bg-white py-1.5 shadow-lg"
     >
       <button type="button" class="flex w-full items-center gap-2.5 px-4 py-2 text-left text-[13px] font-medium text-[#18181f] hover:bg-[#18181f]/[0.04]" @click="copyLink">
