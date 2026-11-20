@@ -26,6 +26,12 @@ const options = computed({
   set: (v: string[]) => set('formOptions', v),
 })
 
+/** Champ numérique facultatif : vide → undefined. */
+function setNumber(key: 'formMin' | 'formMax', raw: string) {
+  const n = raw.trim() === '' ? undefined : Number(raw.replace(',', '.'))
+  set(key, n === undefined || Number.isNaN(n) ? undefined : n)
+}
+
 const optionsHint = computed(() => {
   if (props.block.type === 'checkboxes') return 'Réponses multiples autorisées'
   if (props.block.type === 'dropdown') return 'Affichées dans une liste déroulante'
@@ -90,9 +96,44 @@ const optionsHint = computed(() => {
       />
     </InspectorSection>
 
-    <FieldNote>
-      Dans le Studio le bloc reste statique. En mode public, chaque visiteur répond une fois puis voit
-      les résultats agrégés (pourcentages, moyenne, distribution), avec un lien pour modifier sa réponse.
+    <InspectorSection v-if="block.type === 'number'" label="Nombre">
+      <FieldText
+        :model-value="block.config.formUnit ?? ''"
+        label="Unité"
+        placeholder="jours, €, km…"
+        @update:model-value="set('formUnit', $event || undefined)"
+      />
+      <div class="grid grid-cols-2 gap-2.5">
+        <FieldText
+          :model-value="block.config.formMin != null ? String(block.config.formMin) : ''"
+          label="Minimum"
+          placeholder="Aucun"
+          @update:model-value="setNumber('formMin', $event)"
+        />
+        <FieldText
+          :model-value="block.config.formMax != null ? String(block.config.formMax) : ''"
+          label="Maximum"
+          placeholder="Aucun"
+          @update:model-value="setNumber('formMax', $event)"
+        />
+      </div>
+    </InspectorSection>
+
+    <InspectorSection v-if="block.type === 'text-answer'" label="Réponse">
+      <FieldSegmented
+        :model-value="block.config.formLongAnswer === false ? 'court' : 'long'"
+        label="Longueur"
+        :options="[{ value: 'court', label: 'Courte' }, { value: 'long', label: 'Longue' }]"
+        @update:model-value="set('formLongAnswer', $event !== 'court')"
+      />
+    </InspectorSection>
+
+    <FieldNote v-if="block.type === 'text-answer'">
+      Les réponses libres ne sont jamais publiées une à une : le public ne voit que leur nombre.
+    </FieldNote>
+    <FieldNote v-else>
+      Dans le Studio le bloc reste statique. En mode public, chaque visiteur répond puis voit
+      les résultats agrégés selon le réglage « Résultats visibles » du sondage.
     </FieldNote>
   </div>
 </template>

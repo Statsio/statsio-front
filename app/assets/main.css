@@ -2,6 +2,7 @@
 @import 'tailwindcss';
 @import './tokens.css';
 @import './ds.css';
+@import './studio.css';
 @import './base.css';
 @import './statsdata.css';
 

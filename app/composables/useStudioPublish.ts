@@ -2,6 +2,7 @@ import { computed, ref } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { publishStudioContent } from '@/api/studio'
 import type { StudioContent } from '@/types/studio'
+import { useStudioToast } from '@/composables/useStudioToast'
 
 /**
  * Orchestration du bouton « Publier » du Studio :
@@ -46,6 +47,7 @@ export function useStudioPublish(saveNow: () => Promise<void> | void) {
       channelId?: number | null
       dossierIds?: number[]
       immediate?: boolean
+      note?: string
     } = {},
   ) {
     const id = studio.content?.id
@@ -68,6 +70,11 @@ export function useStudioPublish(saveNow: () => Promise<void> | void) {
         scheduled_publish_at: updated.scheduled_publish_at ?? null,
       })
       isOpen.value = false
+      useStudioToast().show(
+        updated.status === 'scheduled'
+          ? 'Publication programmée'
+          : `Version ${updated.published_version ?? nextVersion.value} publiée`,
+      )
     } finally {
       isPublishing.value = false
     }

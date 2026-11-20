@@ -111,7 +111,16 @@ function onDrop(event: DragEvent) {
   event.preventDefault()
   const blockType = event.dataTransfer?.getData('studio-block-type') as BlockType
   if (blockType) {
-    studio.addBlock(blockType, props.zoneId, idx >= 0 ? idx : undefined)
+    const block = studio.addBlock(blockType, props.zoneId, idx >= 0 ? idx : undefined)
+    // Bloc StatsData glissé depuis l'onglet « StatsData » : source déjà choisie.
+    const embed = event.dataTransfer?.getData('studio-sd-embed')
+    if (blockType === 'sd-embed' && embed) {
+      try {
+        studio.updateBlockConfig(block.id, JSON.parse(embed))
+      } catch {
+        /* charge utile illisible : le bloc reste à configurer */
+      }
+    }
   }
 }
 
@@ -141,11 +150,11 @@ onBeforeUnmount(() => {
       nested ? '' : 'rounded-xl',
       isEmpty && !studio.isPreview
         ? (nested
-            ? 'min-h-[72px] rounded-lg border border-dashed border-[var(--studio-line)] bg-transparent'
-            : 'min-h-[104px] rounded-xl border-2 border-dashed border-[var(--studio-line-strong)] bg-[color-mix(in_srgb,var(--studio-ink)_3%,transparent)]')
+            ? 'min-h-[72px] rounded-[4px] border-2 border-dashed border-[var(--ds-divide)] bg-transparent'
+            : 'min-h-[104px] rounded-[4px] border-2 border-dashed border-[var(--ds-divide)] bg-transparent')
         : 'bg-transparent',
       isDragOver
-        ? 'rounded-xl border-2 border-dashed border-[var(--color-primary)] bg-[var(--studio-accent-wash)]'
+        ? 'rounded-[4px] border-2 border-dashed border-[var(--ds-blue-500)] bg-[color-mix(in_srgb,var(--ds-blue-500)_6%,transparent)]'
         : '',
     ]"
     @dragover="onDragOver"
@@ -158,14 +167,11 @@ onBeforeUnmount(() => {
       v-if="isEmpty && !isDragOver && !studio.isPreview"
       class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2"
     >
-      <svg class="h-6 w-6 text-[var(--studio-line-strong)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4.5v15m7.5-7.5h-15" />
-      </svg>
-      <p class="text-[11px] font-medium text-[var(--studio-faint)]">Glisser un bloc ici</p>
+      <p class="text-[13.5px] text-[var(--ds-muted)]">Glissez un bloc ici, ou cliquez sur un élément du panneau.</p>
       <button
-        v-if="!nested"
+        v-if="!nested && studio.content?.type !== 'survey'"
         type="button"
-        class="pointer-events-auto rounded-lg border border-dashed border-[var(--studio-line-strong)] px-2.5 py-1 text-[11px] font-semibold text-[var(--studio-muted)] transition-colors hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+        class="st-add-ghost pointer-events-auto"
         @click="studio.addBlock('layout', zoneId)"
       >
         + Ajouter une disposition
@@ -177,7 +183,7 @@ onBeforeUnmount(() => {
       v-if="isDragOver && isEmpty"
       class="pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
     >
-      <span class="text-xs font-semibold text-[var(--color-primary)]">Déposer ici</span>
+      <span class="text-xs font-semibold text-[var(--ds-blue-700)]">Déposer ici</span>
     </div>
 
     <!-- Éditeur (client) : vuedraggable — reorder + déplacements inter-zones -->
@@ -197,24 +203,14 @@ onBeforeUnmount(() => {
       <template #item="{ element, index }">
         <div :data-block-index="index" class="flex flex-col">
           <!-- Insertion indicator: above this block -->
-          <div
-            v-if="isDragOver && dropIndex === index"
-            class="relative h-0.5 rounded-full bg-[var(--color-primary)] mx-1 mb-2 shrink-0"
-          >
-            <div class="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-2.5 h-2.5 rounded-full bg-[var(--color-primary)]" />
-          </div>
+          <div v-if="isDragOver && dropIndex === index" class="st-drop-ind mb-3 shrink-0" />
           <BlockWrapper :block="element" />
         </div>
       </template>
 
       <!-- Insertion indicator: after all blocks (append) -->
       <template #footer>
-        <div
-          v-if="isDragOver && dropIndex >= zoneBlocks.length"
-          class="relative h-0.5 rounded-full bg-[var(--color-primary)] mx-1 mt-2 shrink-0"
-        >
-          <div class="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 w-2.5 h-2.5 rounded-full bg-[var(--color-primary)]" />
-        </div>
+        <div v-if="isDragOver && dropIndex >= zoneBlocks.length" class="st-drop-ind mt-3 shrink-0" />
       </template>
     </component>
 
@@ -237,7 +233,7 @@ onBeforeUnmount(() => {
 <style>
 .studio-drag-ghost {
   opacity: 0.3;
-  border-radius: 0.75rem;
-  outline: 2px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
+  border-radius: 4px;
+  outline: 2px dashed var(--ds-blue-500, #3b82f6);
 }
 </style>

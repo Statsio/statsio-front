@@ -38,6 +38,10 @@ export const useStudioStore = defineStore('studio', () => {
   const isSidebarRightOpen = ref(false)
   /** Aperçu : canevas en lecture seule, chrome d'édition masqué. */
   const isPreview = ref(false)
+  /** Largeur d'aperçu du canevas (« papier ») : ordinateur ou mobile. */
+  const previewDevice = ref<'desktop' | 'mobile'>('desktop')
+  /** Affiche l'étiquette de type de tous les blocs du canevas (interrupteur « Types de blocs »). */
+  const showBlockTags = ref(false)
 
   // ─── Composables internes ─────────────────────────────────────────────────────
   // Chacun ferme sur un sous-ensemble du state ci-dessus (+ `snapshot`/`markDirty`
@@ -210,6 +214,14 @@ export const useStudioStore = defineStore('studio', () => {
     isPanelOpen.value = false
   }
 
+  function setPreviewDevice(device: 'desktop' | 'mobile') {
+    previewDevice.value = device
+  }
+
+  function toggleBlockTags(value?: boolean) {
+    showBlockTags.value = value ?? !showBlockTags.value
+  }
+
   // ─── Surface publique ─────────────────────────────────────────────────────────
   // Contrat figé : ~130 clés consommées par nom dans une centaine de fichiers +
   // `studio.spec.ts`. Toute restructuration interne doit se faire SOUS ce return
@@ -244,6 +256,10 @@ export const useStudioStore = defineStore('studio', () => {
     dirtyVersion: saveStatusApi.dirtyVersion,
     hasUnpublishedChanges: saveStatusApi.hasUnpublishedChanges,
     isPreview,
+    previewDevice,
+    showBlockTags,
+    setPreviewDevice,
+    toggleBlockTags,
     premiumBlockTypes: premiumApi.premiumBlockTypes,
     premiumBlockOffers: premiumApi.premiumBlockOffers,
     premiumUpsellBlockType: premiumApi.premiumUpsellBlockType,

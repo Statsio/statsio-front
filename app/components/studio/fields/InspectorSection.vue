@@ -6,7 +6,7 @@ withDefaults(defineProps<{ label?: string }>(), { label: '' })
   <div>
     <div
       v-if="label"
-      class="mb-2.5 text-[10.5px] font-extrabold uppercase tracking-[0.07em] text-[var(--studio-faint)]"
+      class="st-lbl mb-2.5"
     >
       {{ label }}
     </div>

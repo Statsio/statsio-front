@@ -23,6 +23,8 @@ import CheckboxesBlock from './CheckboxesBlock.vue'
 import DropdownBlock from './DropdownBlock.vue'
 import LinearScaleBlock from './LinearScaleBlock.vue'
 import RatingBlock from './RatingBlock.vue'
+import NumberAnswerBlock from './NumberAnswerBlock.vue'
+import TextAnswerBlock from './TextAnswerBlock.vue'
 
 const props = defineProps<{
   block: StudioBlock
@@ -67,6 +69,8 @@ const component = computed(() => {
     case 'dropdown':   return DropdownBlock
     case 'scale':      return LinearScaleBlock
     case 'rating':     return RatingBlock
+    case 'number':     return NumberAnswerBlock
+    case 'text-answer': return TextAnswerBlock
     case 'heading':
     case 'paragraph':
     case 'quote':
