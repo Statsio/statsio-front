@@ -6,7 +6,8 @@ import { fetchHelpCategory } from '@/api/help'
 const route = useRoute()
 const slug = computed(() => String(route.params.category))
 
-const { data, error } = await useAsyncData('help-category', () => fetchHelpCategory(slug.value), {
+// Clé par catégorie : une clé fixe partagerait les données entre catégories.
+const { data, error } = await useAsyncData(() => `help-category-${slug.value}`, () => fetchHelpCategory(slug.value), {
   watch: [slug],
 })
 
@@ -16,6 +17,13 @@ if (error.value || !data.value) {
 
 const category = computed(() => data.value!.category)
 const articles = computed(() => data.value!.articles)
+
+usePageSeo({
+  title: computed(() => `${category.value.name} — Centre d'aide`),
+  description: computed(
+    () => category.value.description || `Guides et réponses du centre d'aide Statsio : ${category.value.name}.`,
+  ),
+})
 </script>
 
 <template>

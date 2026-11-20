@@ -8,8 +8,9 @@ const route = useRoute()
 const categorySlug = computed(() => String(route.params.category))
 const articleSlug = computed(() => String(route.params.article))
 
+// Clé par article : une clé fixe partagerait les données entre articles.
 const { data, error } = await useAsyncData(
-  'help-article',
+  () => `help-article-${categorySlug.value}-${articleSlug.value}`,
   () => fetchHelpArticle(categorySlug.value, articleSlug.value),
   { watch: [categorySlug, articleSlug] },
 )
@@ -20,6 +21,13 @@ if (error.value || !data.value) {
 
 const article = computed(() => data.value!.article)
 const category = computed(() => data.value!.category)
+
+usePageSeo({
+  title: computed(() => `${article.value.title} — Centre d'aide`),
+  description: computed(
+    () => article.value.excerpt || `${article.value.title} : réponse du centre d'aide Statsio (${category.value.name}).`,
+  ),
+})
 
 const authStore = useAuthStore()
 

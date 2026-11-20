@@ -23,127 +23,19 @@ describe('fetchPublicContentEntries', () => {
     expect(entries).toEqual([{ loc: '/articles/a', lastmod: '2026-08-01T00:00:00Z' }])
   })
 
-  it('expands fan-out params into one indexable URL per distinct slug value', async () => {
-    stubFetch((url) => {
-      if (url === `${API}/studio/content/public`) {
-        return { data: [{
-          slug: 'prix-carburants', visibility: 'public', updated_at: '2026-08-10T00:00:00Z',
-          pages: [{
-            slug: 'commune',
-            params: [{ name: 'code_commune', slugColumn: 'nom_commune', datasetId: '7', fanOut: true }],
-          }],
-        }] }
-      }
-      // distinct query
-      expect(url).toContain(`/studio/content/public/prix-carburants/datasets/7/query`)
-      expect(url).toContain('columns[]=nom_commune')
-      expect(url).toContain('distinct=true')
-      return { data: { rows: [
-        { nom_commune: 'Lyon' }, { nom_commune: 'Saint-Étienne' }, { nom_commune: 'Lyon' }, { nom_commune: '' },
-      ] } }
-    })
-
-    const entries = await fetchPublicContentEntries(API, 'statsdata', '')
-    expect(entries.map((e) => e.loc)).toEqual([
-      '/statsdata/prix-carburants',
-      '/statsdata/prix-carburants/lyon',
-      '/statsdata/prix-carburants/saint-etienne',
-    ])
-  })
-
-  it('builds composite fan-out segments from a multi-column search param', async () => {
-    stubFetch((url) => {
-      if (url === `${API}/studio/content/public`) {
-        return { data: [{
-          slug: 'annuaire', visibility: 'public', updated_at: '2026-09-01T00:00:00Z',
-          pages: [{
-            slug: 'personne',
-            params: [{ name: 'q', columns: ['prenom', 'nom'], datasetId: '3', fanOut: true, hidden: true, searchBlockId: 'b1' }],
-          }],
-        }] }
-      }
-      expect(url).toContain('columns[]=prenom')
-      expect(url).toContain('columns[]=nom')
-      expect(url).not.toContain('distinct=true')
-      return { data: { rows: [
-        { prenom: 'Jean', nom: 'Dupond' },
-        { prenom: 'Jean', nom: 'Dupond' },
-        { prenom: 'Marie', nom: 'Martin' },
-      ] } }
-    })
-
-    const entries = await fetchPublicContentEntries(API, 'statsdata', '')
-    expect(entries.map((e) => e.loc)).toEqual([
-      '/statsdata/annuaire',
-      '/statsdata/annuaire/jean-dupond',
-      '/statsdata/annuaire/marie-martin',
-    ])
-  })
-
-  it('does not expand fan-out under a sub-brand base path (root only, dedup via canonical)', async () => {
-    const fetchSpy = vi.fn<(url: string) => Promise<unknown>>((url: string) => {
-      if (url === `${API}/studio/content/public`) {
-        return Promise.resolve({ data: [{
-          slug: 'prix-carburants', visibility: 'public', updated_at: '2026-08-10T00:00:00Z',
-          pages: [{ slug: 'commune', params: [{ name: 'c', slugColumn: 'nom', datasetId: '7', fanOut: true }] }],
-        }] })
-      }
-      return Promise.resolve({ data: { rows: [{ nom: 'Lyon' }] } })
-    })
+  it('never emits fan-out URLs (parameter values are noindex)', async () => {
+    const fetchSpy = vi.fn<(url: string) => Promise<unknown>>(() =>
+      Promise.resolve({ data: [{
+        slug: 'prix-carburants', visibility: 'public', updated_at: '2026-08-10T00:00:00Z',
+        pages: [{ slug: 'commune', params: [{ name: 'c', slugColumn: 'nom', datasetId: '7', fanOut: true }] }],
+      }] }),
+    )
     vi.stubGlobal('$fetch', fetchSpy)
 
-    const entries = await fetchPublicContentEntries(API, 'statsdata', '/medistats', ['sante'])
-    expect(entries.map((e) => e.loc)).toEqual(['/medistats/statsdata/prix-carburants'])
-    // pas d'appel à la requête de valeurs distinctes
+    const entries = await fetchPublicContentEntries(API, 'statsdata', '')
+    expect(entries).toEqual([{ loc: '/statsdata/prix-carburants', lastmod: '2026-08-10T00:00:00Z' }])
+    // aucune requête de valeurs distinctes
     expect(fetchSpy.mock.calls.every(([url]) => !String(url).includes('/query'))).toBe(true)
-  })
-
-  it('caps the number of fan-out URLs emitted per document', async () => {
-    stubFetch((url) => {
-      if (url === `${API}/studio/content/public`) {
-        return { data: [{
-          slug: 'communes', visibility: 'public',
-          pages: [{ slug: 'commune', params: [{ name: 'c', slugColumn: 'nom', datasetId: '7', fanOut: true }] }],
-        }] }
-      }
-      return { data: { rows: Array.from({ length: 5000 }, (_, i) => ({ nom: `Ville ${i}` })) } }
-    })
-
-    const entries = await fetchPublicContentEntries(API, 'statsdata', '')
-    // 1 URL parente + le plafond fan-out
-    expect(entries.length).toBeLessThanOrEqual(1 + 800)
-    expect(entries.length).toBeGreaterThan(1)
-  })
-
-  it('scopes secondary fan-out pages under their page slug', async () => {
-    stubFetch((url) => {
-      if (url === `${API}/studio/content/public`) {
-        return { data: [{
-          slug: 'annuaire', visibility: 'public', updated_at: '2026-09-01T00:00:00Z',
-          pages: [
-            {
-              slug: 'commune',
-              params: [{ name: 'code', slugColumn: 'nom', datasetId: '1', fanOut: true }],
-            },
-            {
-              slug: 'personne',
-              params: [{ name: 'q', columns: ['prenom', 'nom'], datasetId: '3', fanOut: true, hidden: true }],
-            },
-          ],
-        }] }
-      }
-      if (url.includes('/datasets/1/query')) {
-        return { data: { rows: [{ nom: 'Lyon' }] } }
-      }
-      return { data: { rows: [{ prenom: 'Jean', nom: 'Dupond' }] } }
-    })
-
-    const entries = await fetchPublicContentEntries(API, 'statsdata', '')
-    expect(entries.map((e) => e.loc)).toEqual([
-      '/statsdata/annuaire',
-      '/statsdata/annuaire/lyon',
-      '/statsdata/annuaire/personne/jean-dupond',
-    ])
   })
 
   it('does not expand fan-out for non-statsdata types', async () => {

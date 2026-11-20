@@ -42,7 +42,6 @@ const slug = computed(() => String(route.params.slug ?? ''))
 
 const poll = ref<StatsDataDocument | null>(null)
 const relatedPolls = ref<StatsDataDocument[]>([])
-const loading = ref(true)
 
 const canonicalPath = computed(() => canonicalContentPath(route.path))
 
@@ -360,37 +359,53 @@ usePageSeo({
   }),
 })
 
-onMounted(async () => {
-  try {
-    const [doc, surveys] = await Promise.all([
-      fetchPublicStatsDataDocument(slug.value),
-      fetchPublicSurveys({ sub_brand: domain.value }),
-    ])
-
-    poll.value = doc
-    isFavorite.value = doc.is_favorited ?? false
-    relatedPolls.value = surveys.filter((item) => item.slug !== doc.slug)
-
-    studio.initPage(
-      { id: doc.id, type: 'survey', title: doc.title, status: doc.status as 'draft' | 'published', slug: slug.value },
-      doc.sections,
-      doc.blocks,
-      doc.pages,
-    )
-
-    await Promise.all([loadPrimaryResults(), loadChannel()])
-    pollTimer = setInterval(loadPrimaryResults, 6000)
-  } catch (e) {
-    showError(
-      createError({
+// Chargé côté serveur (SSR) : Google reçoit titre, description, h1 et questions.
+// Au chargement initial, le client reprend le payload et le store Pinia hydraté.
+const { data: pageData, error: loadError, status: loadStatus } = await useAsyncData(
+  `sondage-${slug.value}-${domain.value ?? ''}`,
+  async () => {
+    try {
+      const [doc, surveys] = await Promise.all([
+        fetchPublicStatsDataDocument(slug.value),
+        fetchPublicSurveys({ sub_brand: domain.value }),
+      ])
+      studio.initPage(
+        { id: doc.id, type: 'survey', title: doc.title, status: doc.status as 'draft' | 'published', slug: slug.value },
+        doc.sections,
+        doc.blocks,
+        doc.pages,
+      )
+      return { doc, related: surveys.filter((item) => item.slug !== doc.slug) }
+    } catch (e) {
+      throw createError({
         statusCode: getHttpErrorStatus(e, 404),
         statusMessage: 'Ce sondage est introuvable ou non publié.',
-        fatal: true,
-      }),
-    )
-  } finally {
-    loading.value = false
-  }
+      })
+    }
+  },
+)
+if (loadError.value || !pageData.value) {
+  throw createError({
+    statusCode: loadError.value?.statusCode ?? 404,
+    statusMessage: 'Ce sondage est introuvable ou non publié.',
+    fatal: true,
+  })
+}
+poll.value = pageData.value.doc
+relatedPolls.value = pageData.value.related
+isFavorite.value = pageData.value.doc.is_favorited ?? false
+const loading = computed(() => loadStatus.value === 'pending')
+
+useViewerDocRefresh(
+  poll,
+  () => fetchPublicStatsDataDocument(slug.value),
+  (fresh) => { isFavorite.value = fresh.is_favorited ?? false },
+)
+
+// Résultats en direct, chaîne (abonnement) : propres au navigateur du visiteur.
+onMounted(async () => {
+  await Promise.all([loadPrimaryResults(), loadChannel()])
+  pollTimer = setInterval(loadPrimaryResults, 6000)
 })
 
 onUnmounted(() => {

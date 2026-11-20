@@ -34,6 +34,7 @@ const {
   loading,
   error,
   fanOutHydrated,
+  isFanOutUrl,
   activePage,
   allPages,
   canvasItems,
@@ -108,15 +109,10 @@ const fanOutValue = computed(() => {
   return studio.pageParams[key] || studio.pageParams[param.name] || ''
 })
 
-// Page fan-out atteinte sans valeur (clic d'onglet, URL nue) : contenu « vide »,
-// on la sort de l'index — seules les vraies pages par valeur doivent être indexées.
-const emptyFanOutPage = computed(() => Boolean(fanOutParam.value) && !fanOutValue.value)
-
-// Valeur de fan-out qui ne correspond à aucune donnée réelle (repli dé-slugifié) :
-// page « mince », hors index elle aussi.
-const thinFanOutPage = computed(
-  () => Boolean(fanOutParam.value) && Boolean(fanOutValue.value) && fanOutHydrated.value === false,
-)
+// Une URL portant une valeur de paramètre (`/statsdata/{slug}/{valeur}`) reste
+// hors index : seules les pages du document elles-mêmes sont référencées.
+// `follow` laisse Google suivre leurs liens.
+const fanOutPage = computed(() => isFanOutUrl.value)
 
 /** Titre/description enrichis de la valeur quand le gabarit n'y fait pas déjà référence via un jeton. */
 function withFanOutValue(text: string | undefined): string | undefined {
@@ -135,11 +131,11 @@ usePageSeo({
   image: computed(() => doc.value?.thumbnail_url ?? undefined),
   canonical: canonicalPath,
   robots: computed(() =>
-    props.embed || emptyFanOutPage.value || thinFanOutPage.value ? 'noindex,follow' : undefined,
+    props.embed || fanOutPage.value ? 'noindex,follow' : undefined,
   ),
   jsonLd: computed(() => {
     const d = doc.value
-    if (!d || props.embed || emptyFanOutPage.value || thinFanOutPage.value) return []
+    if (!d || props.embed || fanOutPage.value) return []
     const name = withFanOutValue(d.title) ?? d.title
     return [
       breadcrumbNode(

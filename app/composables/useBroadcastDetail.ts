@@ -66,7 +66,7 @@ export function useBroadcastDetail() {
   const formattedDate = computed(() => {
     if (!broadcast.value) return ''
     return new Date(broadcast.value.startAt).toLocaleDateString('fr-FR', {
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Europe/Paris',
     })
   })
 
@@ -85,30 +85,44 @@ export function useBroadcastDetail() {
     return null
   })
 
+  /** Données brutes de la page (chargeables côté serveur, sérialisables). */
+  async function fetchData() {
+    const [detail, channels, sched, rev] = await Promise.all([
+      fetchBroadcast(broadcastId.value),
+      apiHttp.get<{ slug: string; logo_url: string | null }[]>('/tv/channels').catch(() => ({ data: [] })),
+      fetchProgrammeSchedule(broadcastId.value),
+      fetchBroadcastReviews(broadcastId.value),
+    ])
+    return {
+      detail,
+      logos: channels.data
+        .filter((c: { slug: string; logo_url: string | null }) => c.logo_url)
+        .map((c: { slug: string; logo_url: string | null }) => [c.slug, c.logo_url as string] as [string, string]),
+      sched,
+      rev,
+    }
+  }
+
+  function apply(data: Awaited<ReturnType<typeof fetchData>>) {
+    broadcast.value = data.detail
+    dbLogoMap.value = new Map(data.logos)
+    schedule.value = data.sched
+    reviewsData.value = data.rev
+    isLoading.value = false
+  }
+
   async function load() {
     isLoading.value = true
     error.value = null
     try {
-      const [detail, channels, sched, rev] = await Promise.all([
-        fetchBroadcast(broadcastId.value),
-        apiHttp.get<{ slug: string; logo_url: string | null }[]>('/tv/channels').catch(() => ({ data: [] })),
-        fetchProgrammeSchedule(broadcastId.value),
-        fetchBroadcastReviews(broadcastId.value),
-      ])
-      broadcast.value = detail
-      dbLogoMap.value = new Map(
-        channels.data
-          .filter((c: { slug: string; logo_url: string | null }) => c.logo_url)
-          .map((c: { slug: string; logo_url: string | null }) => [c.slug, c.logo_url as string]),
-      )
-      schedule.value = sched
-      reviewsData.value = rev
+      apply(await fetchData())
     } catch {
       error.value = 'Programme introuvable.'
     } finally {
       isLoading.value = false
     }
   }
+
 
   async function toggle(type: 'watched' | 'will_watch') {
     if (!auth.isAuthenticated) { router.push({ name: 'login' }); return }
@@ -160,6 +174,8 @@ export function useBroadcastDetail() {
     durationLabel,
     youtubeEmbedUrl,
     load,
+    fetchData,
+    apply,
     toggle,
     openReview,
     onReviewSubmitted,

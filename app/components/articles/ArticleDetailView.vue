@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import ArticleSubHeader from '@/components/articles/ArticleSubHeader.vue'
 import ArticleHero from '@/components/articles/ArticleHero.vue'
@@ -39,7 +39,6 @@ const slug = computed(() => String(route.params.slug ?? ''))
 
 const article = ref<StatsDataDocument | null>(null)
 const relatedArticles = ref<StatsDataDocument[]>([])
-const loading = ref(true)
 
 const {
   isFavorite,
@@ -168,42 +167,51 @@ const linkedStatsData = computed(() => {
 
 const listPath = computed(() => publicContentListPath('article', basePath.value))
 
-onMounted(async () => {
-  try {
-    const [doc, articles] = await Promise.all([
-      fetchPublicStatsDataDocument(slug.value),
-      props.embed
-        ? Promise.resolve([] as StatsDataDocument[])
-        : fetchPublicArticles({ sub_brand: domain.value }),
-    ])
-
-    article.value = doc
-    relatedArticles.value = articles.filter((item) => item.slug !== doc.slug).slice(0, 2)
-
-    studio.initPage(
-      {
-        id: doc.id,
-        type: 'article',
-        title: doc.title,
-        status: doc.status as 'draft' | 'published',
-        slug: slug.value,
-      },
-      doc.sections,
-      doc.blocks,
-      doc.pages,
-    )
-  } catch (e) {
-    showError(
-      createError({
+// Chargé côté serveur (SSR) : Google reçoit titre, description, h1 et contenu.
+// Au chargement initial, le client reprend le payload et le store Pinia hydraté.
+const { data: pageData, error: loadError, status: loadStatus } = await useAsyncData(
+  `article-${slug.value}-${domain.value ?? ''}${props.embed ? '-embed' : ''}`,
+  async () => {
+    try {
+      const [doc, articles] = await Promise.all([
+        fetchPublicStatsDataDocument(slug.value),
+        props.embed
+          ? Promise.resolve([] as StatsDataDocument[])
+          : fetchPublicArticles({ sub_brand: domain.value }),
+      ])
+      studio.initPage(
+        {
+          id: doc.id,
+          type: 'article',
+          title: doc.title,
+          status: doc.status as 'draft' | 'published',
+          slug: slug.value,
+        },
+        doc.sections,
+        doc.blocks,
+        doc.pages,
+      )
+      return { doc, related: articles.filter((item) => item.slug !== doc.slug).slice(0, 2) }
+    } catch (e) {
+      throw createError({
         statusCode: getHttpErrorStatus(e, 404),
         statusMessage: 'Cet article est introuvable ou non publié.',
-        fatal: true,
-      }),
-    )
-  } finally {
-    loading.value = false
-  }
-})
+      })
+    }
+  },
+)
+if (loadError.value || !pageData.value) {
+  throw createError({
+    statusCode: loadError.value?.statusCode ?? 404,
+    statusMessage: 'Cet article est introuvable ou non publié.',
+    fatal: true,
+  })
+}
+article.value = pageData.value.doc
+relatedArticles.value = pageData.value.related
+const loading = computed(() => loadStatus.value === 'pending')
+
+useViewerDocRefresh(article, () => fetchPublicStatsDataDocument(slug.value))
 </script>
 
 <template>
