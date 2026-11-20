@@ -136,6 +136,16 @@ export function useStatsDataDetail() {
 
     if (fanOut) {
       studio.switchPageKeepParams(page.id)
+      // Navigation in-app depuis un bloc recherche : la ligne exacte est déjà
+      // posée dans les pageParams — on ne l'écrase pas par un repli dé-slugifié.
+      if (paramsMatchSegment(fanOut.param, fanOut.segment)) {
+        const slugKey = fanOutSlugKey(fanOut.param)
+        const exact = studio.pageParams[slugKey]
+        if (exact && !studio.pageParams[fanOut.param.name]) studio.setPageParam(fanOut.param.name, exact)
+        for (const [k, v] of Object.entries(urlParams)) studio.setPageParam(k, v)
+        fanOutHydrated.value = true
+        return
+      }
       const deslug = fanOut.segment.replace(/-+/g, ' ')
       studio.setPageParam(fanOut.param.name, deslug)
       studio.setPageParam(fanOutSlugKey(fanOut.param), deslug)
@@ -145,8 +155,24 @@ export function useStatsDataDetail() {
     }
 
     fanOutHydrated.value = null
-    studio.switchPage(page.id)
+    // Même page (ex. réinitialisation d'un bloc recherche) : on garde les autres
+    // paramètres en cours ; sinon (changement d'onglet) on repart des défauts.
+    if (studio.currentPageId === page.id) studio.switchPageKeepParams(page.id)
+    else studio.switchPage(page.id)
     for (const [k, v] of Object.entries(urlParams)) studio.setPageParam(k, v)
+  }
+
+  /** Les pageParams courants produisent-ils déjà ce segment fan-out ? */
+  function paramsMatchSegment(param: PageParam, seg: string): boolean {
+    const params = studio.pageParams
+    if (buildFanOutSegment(param, params) === seg) return true
+    const sourceId = params.__source_id
+    if (!sourceId) return false
+    return studio.blocks.some((b: StudioBlock) => {
+      if (b.type !== 'search' || !isUnionBlock(b)) return false
+      const cols = fanOutColumnsForSource(b, sourceId, params)
+      return cols.length > 0 && buildFanOutSegment({ ...param, columns: cols }, params) === seg
+    })
   }
 
   watch([segment, fanOutSegment], () => applySegment())
