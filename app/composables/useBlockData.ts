@@ -114,6 +114,9 @@ export function useBlockData(
   }
 
   async function load() {
+    // Pas de requête côté serveur : le rendu SSR n'attend pas ces données
+    // (elles seraient perdues) — le client les charge à l'hydratation.
+    if (import.meta.server) return
     const b = block()
     const sp = b ? blockSourceParams(b) : null
     if (!b || !sp?.urlDatasetId) {

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'default' })
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { fetchPaysDetail } from '@/api/pays'
 import PaysDetail from '@/components/pays/PaysDetail.vue'
@@ -23,25 +23,30 @@ usePageSeo({
   ),
 })
 
-async function load() {
-  isLoading.value = true
-  try {
-    pays.value = await fetchPaysDetail(iso3.value)
-  } catch (e) {
-    showError(
-      createError({
-        statusCode: getHttpErrorStatus(e, 404),
-        statusMessage: 'Ce pays est introuvable.',
-        fatal: true,
-      }),
-    )
-  } finally {
-    isLoading.value = false
-  }
+// Chargé côté serveur (SSR) : titre, description et fiche dans le HTML.
+// La clé suit le paramètre d'URL : changer de fiche relance le chargement.
+const { data: loaded, status: loadStatus, error: loadError } = await useAsyncData(
+  () => `medistats-pays-${iso3.value}`,
+  async () => {
+    try {
+      return await fetchPaysDetail(iso3.value)
+    } catch (e) {
+      throw createError({ statusCode: getHttpErrorStatus(e, 404), statusMessage: 'Ce pays est introuvable.' })
+    }
+  },
+)
+function failIfMissing() {
+  if (!loadError.value) return
+  throw createError({ statusCode: loadError.value.statusCode ?? 404, statusMessage: 'Ce pays est introuvable.', fatal: true })
 }
-
-onMounted(load)
-watch(iso3, load)
+failIfMissing()
+watch(loadError, (e) => {
+  if (e) showError(createError({ statusCode: e.statusCode ?? 404, statusMessage: 'Ce pays est introuvable.', fatal: true }))
+})
+watch([loaded, loadStatus], ([v, st]) => {
+  pays.value = v ?? null
+  isLoading.value = st === 'pending'
+}, { immediate: true })
 </script>
 
 <template>

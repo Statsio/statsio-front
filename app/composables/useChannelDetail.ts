@@ -43,17 +43,31 @@ export function useChannelDetail() {
   const now = ref(new Date())
   const referenceMinutes = computed(() => now.value.getHours() * 60 + now.value.getMinutes())
 
+  /** Données brutes de la page (chargeables côté serveur, sérialisables). */
+  async function fetchData() {
+    const [channelDetail, schedules, popular] = await Promise.all([
+      fetchChannelDetail(slug.value),
+      fetchChannelSchedules(toDateStr(new Date())),
+      fetchChannelPopularProgrammes(slug.value),
+    ])
+    return {
+      detail: channelDetail,
+      schedule: schedules.find((s) => s.channel.id === slug.value) ?? null,
+      popular,
+    }
+  }
+
+  function apply(data: Awaited<ReturnType<typeof fetchData>>) {
+    detail.value = data.detail
+    schedule.value = data.schedule
+    popularProgrammes.value = data.popular
+    isLoading.value = false
+  }
+
   async function load() {
     isLoading.value = true
     try {
-      const [channelDetail, schedules, popular] = await Promise.all([
-        fetchChannelDetail(slug.value),
-        fetchChannelSchedules(toDateStr(new Date())),
-        fetchChannelPopularProgrammes(slug.value),
-      ])
-      detail.value = channelDetail
-      schedule.value = schedules.find((s) => s.channel.id === slug.value) ?? null
-      popularProgrammes.value = popular
+      apply(await fetchData())
     } catch (e) {
       showError(
         createError({
@@ -66,6 +80,7 @@ export function useChannelDetail() {
       isLoading.value = false
     }
   }
+
 
   async function toggleFollow() {
     if (!auth.isAuthenticated) { router.push({ name: 'login' }); return }
@@ -94,6 +109,8 @@ export function useChannelDetail() {
     now,
     referenceMinutes,
     load,
+    fetchData,
+    apply,
     toggleFollow,
   }
 }

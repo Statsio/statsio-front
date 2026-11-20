@@ -1,6 +1,6 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'default' })
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { fetchMaladieDetail } from '@/api/maladies'
 import MaladiesDetail from '@/components/maladies/MaladiesDetail.vue'
@@ -25,25 +25,30 @@ usePageSeo({
   ),
 })
 
-async function load() {
-  isLoading.value = true
-  try {
-    maladie.value = await fetchMaladieDetail(id.value)
-  } catch (e) {
-    showError(
-      createError({
-        statusCode: getHttpErrorStatus(e, 404),
-        statusMessage: 'Cette maladie est introuvable.',
-        fatal: true,
-      }),
-    )
-  } finally {
-    isLoading.value = false
-  }
+// Chargé côté serveur (SSR) : titre, description et fiche dans le HTML.
+// La clé suit le paramètre d'URL : changer de fiche relance le chargement.
+const { data: loaded, status: loadStatus, error: loadError } = await useAsyncData(
+  () => `medistats-maladie-${id.value}`,
+  async () => {
+    try {
+      return await fetchMaladieDetail(id.value)
+    } catch (e) {
+      throw createError({ statusCode: getHttpErrorStatus(e, 404), statusMessage: 'Cette maladie est introuvable.' })
+    }
+  },
+)
+function failIfMissing() {
+  if (!loadError.value) return
+  throw createError({ statusCode: loadError.value.statusCode ?? 404, statusMessage: 'Cette maladie est introuvable.', fatal: true })
 }
-
-onMounted(load)
-watch(id, load)
+failIfMissing()
+watch(loadError, (e) => {
+  if (e) showError(createError({ statusCode: e.statusCode ?? 404, statusMessage: 'Cette maladie est introuvable.', fatal: true }))
+})
+watch([loaded, loadStatus], ([v, st]) => {
+  maladie.value = v ?? null
+  isLoading.value = st === 'pending'
+}, { immediate: true })
 </script>
 
 <template>

@@ -8,6 +8,7 @@ import TvPopularProgrammeCard from '@/components/tv/TvPopularProgrammeCard.vue'
 import { useChannelDetail, type ChannelTab } from '@/composables/useChannelDetail'
 import { useNowNext } from '@/composables/useNowNext'
 import type { TvProgramme } from '@/types/tv-schedule'
+import { getHttpErrorStatus } from '@/lib/http-errors'
 
 const {
   auth,
@@ -22,6 +23,8 @@ const {
   now,
   referenceMinutes,
   load,
+  fetchData,
+  apply,
   toggleFollow,
 } = useChannelDetail()
 
@@ -49,7 +52,31 @@ const nowCards = computed(() => {
 
 const fullDayWindow = { startMinutes: 0, endMinutes: 24 * 60, label: 'Programme du jour' }
 
-onMounted(() => load())
+// Chargé côté serveur (SSR) : nom, description et programmes populaires dans le HTML.
+const route = useRoute()
+const { data: initialData, error: loadError } = await useAsyncData(
+  `tv-channel-${String(route.params.slug)}`,
+  async () => {
+    try {
+      return await fetchData()
+    } catch (e) {
+      throw createError({ statusCode: getHttpErrorStatus(e, 404), statusMessage: 'Cette chaîne est introuvable.' })
+    }
+  },
+)
+if (loadError.value || !initialData.value) {
+  throw createError({
+    statusCode: loadError.value?.statusCode ?? 404,
+    statusMessage: 'Cette chaîne est introuvable.',
+    fatal: true,
+  })
+}
+apply(initialData.value)
+
+// Suivi de la chaîne : dépend de la session, rechargé dans le navigateur.
+onMounted(() => {
+  if (auth.isAuthenticated) void load()
+})
 </script>
 
 <template>
@@ -86,8 +113,9 @@ onMounted(() => load())
             </button>
           </div>
 
-          <!-- Now / next -->
-          <div v-if="tab === 'now'" class="flex flex-wrap gap-4">
+          <!-- Now / next — dépend de l'heure locale du visiteur : rendu client uniquement. -->
+          <ClientOnly v-if="tab === 'now'">
+          <div class="flex flex-wrap gap-4">
             <TvProgrammeCard
               v-for="c in nowCards"
               :key="c.programme.id"
@@ -100,14 +128,16 @@ onMounted(() => load())
               Programme non disponible pour cette chaîne.
             </p>
           </div>
+          </ClientOnly>
 
           <!-- Grid: today's full schedule for this channel -->
-          <TvScheduleGrid
-            v-else-if="tab === 'grid' && schedule"
-            :schedules="[schedule]"
-            :time-window="fullDayWindow"
-            :now="now"
-          />
+          <ClientOnly v-else-if="tab === 'grid' && schedule">
+            <TvScheduleGrid
+              :schedules="[schedule]"
+              :time-window="fullDayWindow"
+              :now="now"
+            />
+          </ClientOnly>
 
           <!-- Popular programmes -->
           <div v-else-if="tab === 'popular'" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
