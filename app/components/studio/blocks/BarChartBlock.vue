@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { useChart, useChartTheme, PALETTE } from '@/composables/useChart'
+import { useChart, useChartTheme } from '@/composables/useChart'
 import { useBlockData } from '@/composables/useBlockData'
 import { useExpressionNumber } from '@/composables/useResolvedTokens'
 import { buildChartSeries, markColor } from '@/lib/studio-chart'
@@ -57,21 +57,25 @@ const isSingleSeries = computed(
 )
 const hasMultipleSeries = computed(() => built.value.series.length >= 2)
 
-const seriesColor = (i: number) => PALETTE[i % PALETTE.length]!
+const chartTheme = useChartTheme()
+const palette = computed(() => chartTheme.value.palette)
+const seriesColor = (i: number) => palette.value[i % palette.value.length]!
+/** Tranches : barres à coin droit côté base, arrondi léger au bout (maquette). */
+const barRadius = computed(() => (chartTheme.value.tranches ? 2 : 6))
 
 const chartData = computed(() => {
   const { labels, series } = built.value
 
   if (isSingleSeries.value) {
     const values = series[0]?.values ?? []
-    const fallback = props.block.config.colors?.[0] ?? PALETTE[0]!
+    const fallback = props.block.config.colors?.[0] ?? palette.value[0]!
     return {
       labels,
       datasets: [{
         label: props.block.config.title ?? series[0]?.label ?? '',
         data: values,
         backgroundColor: barColors(values, fallback),
-        borderRadius: 6,
+        borderRadius: barRadius.value,
       }],
     }
   }
@@ -82,7 +86,7 @@ const chartData = computed(() => {
       label: s.label,
       data: s.values,
       backgroundColor: seriesColor(s.colorIndex),
-      borderRadius: 6,
+      borderRadius: barRadius.value,
     })),
   }
 })
@@ -149,7 +153,7 @@ const progressGroups = computed<ProgressGroup[]>(() => {
 const progressRows = computed<ProgressRow[]>(() => {
   const { labels: xLabels, series } = built.value
   const limit = props.block.config.rowLimit ?? 20
-  const colors = props.block.config.colors?.length ? props.block.config.colors : PALETTE
+  const colors = props.block.config.colors?.length ? props.block.config.colors : palette.value
   const color = colors[0] ?? '#8b5cf6'
   const isPercent = props.block.config.format === 'percent'
 
@@ -191,9 +195,8 @@ const xTitle = computed(() => (props.block.fieldMapping.xAxis ? labels.value[pro
 const yTitle = computed(() =>
   isSingleSeries.value && yRefs.value[0] ? (labels.value[yRefs.value[0]] || '') : '',
 )
-const chartTheme = useChartTheme()
 const axisTitle = (text: string) => (text
-  ? { display: true, text, font: { family: "'JetBrains Mono', monospace", size: 11, weight: 600 as const }, color: chartTheme.value.title }
+  ? { display: true, text, font: { family: chartTheme.value.font, size: 11, weight: 600 as const }, color: chartTheme.value.title }
   : { display: false })
 
 const { scheduleResize } = useChart(canvasRef, 'bar', () => chartData.value, () => ({
@@ -206,22 +209,30 @@ const { scheduleResize } = useChart(canvasRef, 'bar', () => chartData.value, () 
   scales: {
     x: {
       ...(isHorizontal.value && useLogScale.value ? { type: 'logarithmic' as const } : {}),
-      grid: { display: isHorizontal.value, color: chartTheme.value.grid },
-      border: { display: false },
-      ticks: { font: { family: "'JetBrains Mono', monospace", size: 11 }, color: chartTheme.value.tick },
+      grid: { display: isHorizontal.value, color: chartTheme.value.grid, drawTicks: false },
+      border: chartTheme.value.tranches && !isHorizontal.value
+        ? { display: true, color: chartTheme.value.baseline, width: 2 }
+        : { display: false },
+      ticks: { font: { family: chartTheme.value.font, size: 11.5 }, color: chartTheme.value.tick, padding: 8 },
       title: axisTitle(isHorizontal.value ? yTitle.value : xTitle.value),
     },
     y: {
       ...(!isHorizontal.value && useLogScale.value ? { type: 'logarithmic' as const } : {}),
-      grid: { display: false },
-      border: { display: false },
-      ticks: { font: { family: "'JetBrains Mono', monospace", size: 11 }, color: chartTheme.value.tick },
+      grid: { display: chartTheme.value.tranches && !isHorizontal.value, color: chartTheme.value.grid, drawTicks: false },
+      border: chartTheme.value.tranches && isHorizontal.value
+        ? { display: true, color: chartTheme.value.baseline, width: 2 }
+        : { display: false },
+      ticks: { font: { family: chartTheme.value.font, size: 11.5 }, color: chartTheme.value.tick, padding: 8 },
       title: axisTitle(isHorizontal.value ? xTitle.value : yTitle.value),
     },
   },
   plugins: {
-    legend: { display: hasMultipleSeries.value, position: 'bottom' as const },
-    tooltip: { mode: 'index' as const, intersect: false },
+    legend: {
+      display: hasMultipleSeries.value,
+      position: 'bottom' as const,
+      labels: { font: { family: chartTheme.value.tranches ? "'Manrope', system-ui, sans-serif" : undefined, size: 12.5, weight: 600 as const }, color: chartTheme.value.tick, boxWidth: 12, boxHeight: 12 },
+    },
+    tooltip: chartTheme.value.tooltip,
     valueLabels: {
       enabled: Boolean(props.block.config.showValueLabels),
       format: props.block.config.format,
@@ -273,8 +284,8 @@ watch(() => [studio.isPanelOpen, studio.selectedBlockId !== null], scheduleResiz
       <div v-for="group in progressGroups" :key="group.label" class="flex flex-col gap-1.5">
         <span class="truncate text-[12.5px] font-medium text-[color:color-mix(in_srgb,var(--studio-ink)_85%,transparent)]">{{ group.label }}</span>
         <div v-for="bar in group.bars" :key="bar.label" class="flex items-center gap-2.5">
-          <div class="h-2.5 flex-1 rounded-full bg-[color:color-mix(in_srgb,var(--color-primary)_14%,var(--studio-surface))]">
-            <div class="h-full rounded-full" :style="{ width: `${bar.width}%`, backgroundColor: bar.color }" />
+          <div class="sd-track h-2.5 flex-1 rounded-full bg-[color:color-mix(in_srgb,var(--color-primary)_14%,var(--studio-surface))]">
+            <div class="sd-track__fill h-full rounded-full" :style="{ width: `${bar.width}%`, backgroundColor: bar.color }" />
           </div>
           <span class="mono w-12 shrink-0 text-right text-[11.5px] text-[color:color-mix(in_srgb,var(--studio-ink)_80%,transparent)]">{{ bar.display }}</span>
         </div>
@@ -284,8 +295,8 @@ watch(() => [studio.isPanelOpen, studio.selectedBlockId !== null], scheduleResiz
     <div v-else class="flex flex-col gap-2.5 py-1">
       <div v-for="row in progressRows" :key="row.label" class="flex items-center gap-2.5">
         <span class="w-[90px] shrink-0 truncate text-[12.5px] text-[color:color-mix(in_srgb,var(--studio-ink)_80%,transparent)]">{{ row.label }}</span>
-        <div class="h-2.5 flex-1 rounded-full bg-[color:color-mix(in_srgb,var(--color-primary)_14%,var(--studio-surface))]">
-          <div class="h-full rounded-full" :style="{ width: `${row.width}%`, backgroundColor: row.color }" />
+        <div class="sd-track h-2.5 flex-1 rounded-full bg-[color:color-mix(in_srgb,var(--color-primary)_14%,var(--studio-surface))]">
+          <div class="sd-track__fill h-full rounded-full" :style="{ width: `${row.width}%`, backgroundColor: row.color }" />
         </div>
         <span class="mono w-12 shrink-0 text-right text-[11.5px] text-[color:color-mix(in_srgb,var(--studio-ink)_80%,transparent)]">{{ row.display }}</span>
       </div>

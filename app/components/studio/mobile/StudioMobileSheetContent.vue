@@ -6,6 +6,10 @@ import SidebarScript from '@/components/studio/sidebar/SidebarScript.vue'
 import SidebarFilters from '@/components/studio/sidebar/SidebarFilters.vue'
 import SidebarDataSources from '@/components/studio/sidebar/SidebarDataSources.vue'
 import StudioAssistantPanel from '@/components/studio/assistant/StudioAssistantPanel.vue'
+import SidebarStatsDataLibrary from '@/components/studio/sidebar/SidebarStatsDataLibrary.vue'
+import SidebarSurveySettings from '@/components/studio/sidebar/SidebarSurveySettings.vue'
+import DocumentInspector from '@/components/studio/inspector/DocumentInspector.vue'
+import SectionInspector from '@/components/studio/inspector/SectionInspector.vue'
 import FormBlockInspector from '@/components/studio/inspector/FormBlockInspector.vue'
 import MediaBlockInspector from '@/components/studio/inspector/MediaBlockInspector.vue'
 import RichBlockInspector from '@/components/studio/inspector/RichBlockInspector.vue'
@@ -65,6 +69,9 @@ const {
     <RichBlockInspector v-if="isText && activeTab === 'style'" :block="block" />
   </div>
 
+  <!-- ─── Section sélectionnée ────────────────────────────────────────────────── -->
+  <SectionInspector v-else-if="studio.selectedSection" />
+
   <!-- ─── Aucun bloc sélectionné : contenu de la sidebar gauche ────────────────── -->
   <template v-else>
     <StudioAssistantPanel v-if="studio.activeLeftTab === 'assistant'" />
@@ -72,5 +79,8 @@ const {
     <SidebarScript v-else-if="studio.activeLeftTab === 'script'" />
     <SidebarFilters v-else-if="studio.activeLeftTab === 'filters'" />
     <SidebarDataSources v-else-if="studio.activeLeftTab === 'sources'" />
+    <SidebarStatsDataLibrary v-else-if="studio.activeLeftTab === 'sdlib'" />
+    <SidebarSurveySettings v-else-if="studio.activeLeftTab === 'settings'" />
+    <DocumentInspector v-else-if="studio.activeLeftTab === 'properties'" />
   </template>
 </template>

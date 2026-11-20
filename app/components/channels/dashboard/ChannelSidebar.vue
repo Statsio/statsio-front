@@ -57,7 +57,9 @@ const navItems = computed<NavItem[]>(() => [
     to: `${basePath.value}/contenus`,
     label: 'Contenus',
     icon: 'M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m6.75 12l-3-3m0 0l-3 3m3-3v6m-1.5-15H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z',
-    count: channelContentEntries.value.length ? String(channelContentEntries.value.length) : undefined,
+    count: channelContentEntries.value.length
+      ? String(channelContentEntries.value.length)
+      : undefined,
   },
   {
     to: `${basePath.value}/sources`,
@@ -99,7 +101,9 @@ function isActive(item: NavItem) {
     >
       <span class="w-[18px] shrink-0 text-center text-[14px] leading-none text-primary">←</span>
       <span class="min-w-0 flex-1">
-        <span class="block text-[9.5px] font-extrabold uppercase tracking-[0.07em] text-slate-400">Retour à</span>
+        <span class="block text-[9.5px] font-extrabold uppercase tracking-[0.07em] text-slate-400"
+          >Retour à</span
+        >
         <span class="mt-0.5 block text-[12.5px] font-bold text-slate-950">Mon profil Statsio</span>
       </span>
       <AppAvatar
@@ -128,7 +132,9 @@ function isActive(item: NavItem) {
         @click="emit('navigate')"
       >
         <template #trailing>
-          <span v-if="item.count" class="font-mono text-[10px] text-slate-400">{{ item.count }}</span>
+          <span v-if="item.count" class="font-mono text-[10px] text-slate-400">{{
+            item.count
+          }}</span>
         </template>
       </AppSidebarNavItem>
     </nav>
@@ -144,7 +150,10 @@ function isActive(item: NavItem) {
             class="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left text-[13.5px] font-bold text-slate-950 transition hover:bg-slate-50"
             @click="toggle"
           >
-            <span class="flex h-[18px] w-[18px] shrink-0 items-center justify-center text-[15px] text-primary">✛</span>
+            <span
+              class="flex h-[18px] w-[18px] shrink-0 items-center justify-center text-[15px] text-primary"
+              >✛</span
+            >
             <span class="flex-1">Créer un contenu</span>
           </button>
         </template>

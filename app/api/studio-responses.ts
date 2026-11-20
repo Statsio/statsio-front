@@ -34,14 +34,23 @@ export interface BlockResponseAggregate {
   totalResponses: number
   options?: BlockResponseOption[]
   average?: number
+  /** Question « Nombre » uniquement. */
+  median?: number | null
   distribution?: Record<string, number>
   demographics?: ResponseDemographics
 }
+
+/** Pourquoi les résultats d'un sondage sont masqués (réglage « Résultats visibles »). */
+export type ResultsHiddenReason = 'after_submit' | 'at_close' | 'never'
 
 export interface BlockResponseState {
   answered: boolean
   myAnswer: FormAnswerValue | null
   aggregate: BlockResponseAggregate
+  /** Faux si le sondage n'accepte qu'une réponse (non modifiable) par compte. */
+  canChange: boolean
+  /** Non nul quand le serveur masque l'agrégat. */
+  resultsHiddenReason: ResultsHiddenReason | null
 }
 
 export async function fetchBlockResponse(
@@ -69,10 +78,13 @@ function mapResponseState(raw: Record<string, unknown>): BlockResponseState {
   return {
     answered: Boolean(raw.answered),
     myAnswer: (raw.my_answer as FormAnswerValue | null) ?? null,
+    canChange: raw.can_change !== false,
+    resultsHiddenReason: raw.results_hidden ? ((raw.results_hidden_reason as ResultsHiddenReason) ?? 'never') : null,
     aggregate: {
       totalResponses: Number(aggregate.total_responses ?? 0),
       options: (aggregate.options as BlockResponseOption[] | undefined) ?? undefined,
       average: aggregate.average !== undefined && aggregate.average !== null ? Number(aggregate.average) : undefined,
+      median: aggregate.median !== undefined && aggregate.median !== null ? Number(aggregate.median) : null,
       distribution: (aggregate.distribution as Record<string, number> | undefined) ?? undefined,
       demographics: (aggregate.demographics as ResponseDemographics | undefined) ?? undefined,
     },

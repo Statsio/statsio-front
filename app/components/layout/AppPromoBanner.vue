@@ -1,550 +1,602 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { usePrefsStore } from '@/stores/prefs'
 import { getBrandFromPath } from '@/data/brands'
 import { loadPromoTicker } from '@/composables/useHeaderMegaMenuData'
 import { usePromoFlashRotation } from '@/composables/usePromoFlashRotation'
 import { fetchPromoCategories } from '@/api/promo-categories'
-import { isBlankInlineHtml, sanitizePromoTitleHtml } from '@/lib/inline-rich-text'
+import { sanitizePromoTitleHtml, stripInlineHtml } from '@/lib/inline-rich-text'
+import { sectorPath } from '@/lib/ds/pie'
 import type { PromoTickerItem } from '@/components/layout/brands/header-nav.types'
-import type { CardPreview } from '@/types/catalog'
-import type { PromoCategory, PromoTitleAlign } from '@/types/promo-category'
-import { getStatsDataPalette } from '@/utils/statsDataVisuals'
-import StatsDataMiniChart from '@/components/content/StatsDataMiniChart.vue'
+import type { PromoCategory } from '@/types/promo-category'
+import DsBox from '@/components/ds/DsBox.vue'
+import DsButton from '@/components/ds/DsButton.vue'
+import DsKindTag from '@/components/ds/DsKindTag.vue'
+import DsLabel from '@/components/ds/DsLabel.vue'
+import DsHeading from '@/components/ds/DsHeading.vue'
+
+/**
+ * Bandeau « En continu » (charte Tranches), fixé tout en haut au-dessus du header.
+ *
+ * - Étiquette coupée à 45° : « En continu » + mini camembert qui tourne. Quand une
+ *   catégorie de promotion (flash, gérée dans l'admin) est active, l'étiquette
+ *   alterne avec cet « événement du moment » — rythme piloté par
+ *   `usePromoFlashRotation` (durées configurées dans l'admin, `always_visible`).
+ *   Un clic ouvre un popover avec les infos de l'événement.
+ * - Piste défilante d'infos typées construites depuis le catalogue réel
+ *   (`loadPromoTicker`) ; pause au survol / focus / bouton pause.
+ * - Heure en direct (client) + bouton pause. Mouvement réduit : piste figée,
+ *   défilement manuel, étiquette statique.
+ *
+ * Hauteur fixe 48px (h-12) : avec le header (64px) = 112px, cf. layouts/default.vue.
+ */
 
 const route = useRoute()
 const { reducedMotion } = storeToRefs(usePrefsStore())
-
 const brand = computed(() => getBrandFromPath(route.path))
-// « Voir les tendances » ouvre la page Tendances (classement unifié) sur Statsio ;
-// les sous-marques n'ont pas cette page → repli sur leur listing Articles (trié tendance).
-const ctaHref = computed(() =>
-  brand.value.id === 'statsio' ? '/tendances' : `${brand.value.contentBasePath}/articles`,
-)
 
 const { data } = useAsyncData(
   'promo-ticker',
   () => loadPromoTicker(brand.value.id, brand.value.contentBasePath),
   { watch: [() => brand.value.id], default: (): PromoTickerItem[] => [] },
 )
-
 const items = computed<PromoTickerItem[]>(() => data.value ?? [])
 
-// Catégories de promotion (« flash ») avec lesquelles le ticker de tendances alterne.
-const { data: flashCategoriesData } = useAsyncData(
+const { data: categoriesData } = useAsyncData(
   'promo-flash-categories',
   () => fetchPromoCategories(brand.value.id),
   { watch: [() => brand.value.id], default: (): PromoCategory[] => [] },
 )
-const flashCategories = computed<PromoCategory[]>(() => flashCategoriesData.value ?? [])
-const { phase, currentCategory, currentInfo } = usePromoFlashRotation(flashCategories)
+const categories = computed<PromoCategory[]>(() => categoriesData.value ?? [])
+const { phase, currentCategory, currentInfo } = usePromoFlashRotation(categories)
 
-/** Ligne 1 = gros titre, ligne 2 = intermédiaire, ligne 3 = plus discrète. */
-const TITLE_LINE_SIZE_CLASSES = [
-  'text-[15px] sm:text-[17px] lg:text-[18px]',
-  'text-[12px] sm:text-[13px] lg:text-[14px]',
-  'text-[10px] sm:text-[10.5px] lg:text-[11px]',
-]
-function normalizeTitleAlign(align: PromoTitleAlign | null | undefined): PromoTitleAlign {
-  return align === 'left' || align === 'center' || align === 'stagger' ? align : 'stagger'
-}
+/* ─── Événement du moment (étiquette + popover) ───────────────────────────── */
+const popoverOpen = ref(false)
+/** Catégorie figée pendant que le popover est ouvert (la rotation continue derrière). */
+const openedCategory = ref<PromoCategory | null>(null)
 
-const currentTitleLines = computed(() => {
-  const category = currentCategory.value
-  if (!category) return []
-  return [
-    {
-      line: category.title_line_1,
-      align: normalizeTitleAlign(category.title_line_1_align),
-    },
-    {
-      line: category.title_line_2,
-      align: normalizeTitleAlign(category.title_line_2_align),
-    },
-    {
-      line: category.title_line_3,
-      align: normalizeTitleAlign(category.title_line_3_align),
-    },
-  ]
-    .map((entry, index) => ({ ...entry, sizeClass: TITLE_LINE_SIZE_CLASSES[index] }))
-    .filter(({ line }) => !isBlankInlineHtml(line))
-    .map(({ line, sizeClass, align }) => ({
-      html: sanitizePromoTitleHtml(line),
-      sizeClass,
-      align,
-      alignClass: align === 'center' ? 'self-center' : 'self-start',
-    }))
-})
+const eventCategory = computed(() => (popoverOpen.value ? openedCategory.value : currentCategory.value))
+const showEvent = computed(() => popoverOpen.value || (phase.value === 'flash' && !!currentCategory.value))
 
-const hasCenteredTitleLine = computed(() => currentTitleLines.value.some((line) => line.align === 'center'))
+const eventTitleHtml = (c: PromoCategory | null) =>
+  c ? sanitizePromoTitleHtml(c.title_line_1 || c.title_line_2 || c.name) : ''
+const eventTitleText = computed(() => stripInlineHtml(eventTitleHtml(eventCategory.value)))
+const eventSubtitle = computed(
+  () => stripInlineHtml(currentInfo.value?.title) || stripInlineHtml(eventCategory.value?.title_line_2) || 'À suivre',
+)
+const popoverCta = computed(() => eventCategory.value?.infos.find((i) => i.cta_link && i.cta_label) ?? null)
 
-/**
- * Décalage « en quinconce » uniquement pour les lignes en mode `stagger` :
- * chaque ligne démarre au milieu de la précédente.
- *
- *   TITRE 1
- *       TITRE 2
- *           TITRE 3
- *
- * Les modes `left` / `center` gardent un offset 0 (le centrage passe par self-center).
- */
-const titleLineEls = ref<(HTMLElement | null)[]>([])
-const titleLineOffsets = ref<number[]>([])
-/** Largeur totale du bloc titre pour que le flex réserve la place (surtout en quinconce). */
-const titleBlockWidth = ref<number | null>(null)
+const labelEl = ref<HTMLElement | null>(null)
+const labelA = ref<HTMLElement | null>(null)
+const labelB = ref<HTMLElement | null>(null)
+const eventButton = ref<HTMLButtonElement | null>(null)
+const popoverEl = ref<HTMLElement | null>(null)
+const labelWidth = ref<number | null>(null)
 
-function setTitleLineRef(el: Element | null, index: number) {
-  titleLineEls.value[index] = el as HTMLElement | null
-}
-
-async function recomputeTitleLineOffsets(retries = 0) {
+/** Largeur de l'étiquette = contenu visible + padding (transition CSS sur width). */
+async function measureLabel() {
   await nextTick()
-  const lines = currentTitleLines.value
-  const lineCount = lines.length
-  if (!lineCount || phase.value !== 'flash') {
-    titleLineOffsets.value = []
-    titleBlockWidth.value = null
-    return
-  }
+  const host = labelEl.value
+  const inner = showEvent.value ? labelB.value : labelA.value
+  if (!host || !inner) return
+  const cs = getComputedStyle(host)
+  labelWidth.value = Math.ceil(inner.scrollWidth + parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight))
+}
+watch([showEvent, eventTitleText, eventSubtitle], () => void measureLabel())
 
-  // Transition out-in : le panneau flash n'est pas encore monté → réessai au frame suivant.
-  const anyMounted = Array.from({ length: lineCount }, (_, index) => titleLineEls.value[index]).some(Boolean)
-  if (!anyMounted) {
-    if (retries < 30) {
-      requestAnimationFrame(() => {
-        void recomputeTitleLineOffsets(retries + 1)
-      })
-    }
-    return
-  }
-
-  const widths = Array.from(
-    { length: lineCount },
-    (_, index) => titleLineEls.value[index]?.getBoundingClientRect().width ?? 0,
-  )
-
-  const containerWidth = titleLineEls.value[0]?.parentElement?.getBoundingClientRect().width ?? 0
-  const offsets: number[] = []
-  for (let index = 0; index < lineCount; index++) {
-    const line = lines[index]!
-    if (index === 0 || line.align !== 'stagger') {
-      offsets[index] = 0
-      continue
-    }
-    const prev = lines[index - 1]!
-    const prevWidth = widths[index - 1]!
-    if (prev.align === 'center') {
-      // Ligne du dessus centrée dans le bloc → milieu = centre du bloc.
-      const prevLeft = Math.max(0, (containerWidth - prevWidth) / 2)
-      offsets[index] = prevLeft + prevWidth / 2
-    } else {
-      // left / stagger : milieu = début de la ligne du dessus + moitié de sa largeur.
-      offsets[index] = (offsets[index - 1] ?? 0) + prevWidth / 2
-    }
-  }
-  titleLineOffsets.value = offsets
-
-  // Largeur réservée : max entre (fin de chaque ligne). En mode centré, on laisse
-  // le conteneur prendre toute la place dispo (w-full) pour que self-center fonctionne.
-  if (hasCenteredTitleLine.value) {
-    titleBlockWidth.value = null
-    return
-  }
-
-  let maxRight = 0
-  for (let index = 0; index < lineCount; index++) {
-    const right = (offsets[index] ?? 0) + widths[index]!
-    if (right > maxRight) maxRight = right
-  }
-  titleBlockWidth.value = maxRight || null
+function openPopover() {
+  openedCategory.value = currentCategory.value
+  popoverOpen.value = true
+  void nextTick(() => popoverEl.value?.querySelector<HTMLElement>('[data-close]')?.focus())
+}
+function closePopover(restoreFocus = true) {
+  if (!popoverOpen.value) return
+  popoverOpen.value = false
+  openedCategory.value = null
+  if (restoreFocus) void nextTick(() => eventButton.value?.focus())
+}
+function onDocPointer(e: PointerEvent) {
+  if (!popoverOpen.value) return
+  const t = e.target as Node
+  if (popoverEl.value?.contains(t) || eventButton.value?.contains(t)) return
+  closePopover(false)
+}
+function onKey(e: KeyboardEvent) {
+  if (e.key === 'Escape') closePopover()
 }
 
-watch([currentTitleLines, phase], () => {
-  titleLineOffsets.value = []
-  titleBlockWidth.value = null
-  void recomputeTitleLineOffsets()
-})
+/* ─── Piste défilante ─────────────────────────────────────────────────────── */
+const paused = ref(false)
+const track = ref<HTMLElement | null>(null)
+const trackDuration = ref(60)
+const PX_PER_SECOND = 70
 
-/**
- * Défilement du bloc « info » du flash promo, uniquement quand son contenu
- * dépasse la largeur disponible (sinon il reste figé, tronqué au besoin).
- * Mesure via un clone invisible en position absolue (n'influe pas sur la
- * largeur du conteneur flex) comparé à la largeur réellement rendue.
- */
-const FLASH_INFO_MARQUEE_SPEED_PX_S = 40
-const FLASH_INFO_MARQUEE_MIN_DURATION = 8
-
-const flashInfoViewportEl = ref<HTMLElement | null>(null)
-const flashInfoContentEl = ref<HTMLElement | null>(null)
-const flashInfoOverflow = ref(false)
-const flashInfoMarqueeDuration = ref(FLASH_INFO_MARQUEE_MIN_DURATION)
-
-async function recomputeFlashInfoOverflow(retries = 0) {
+async function measureTrack() {
   await nextTick()
-  const viewport = flashInfoViewportEl.value
-  const content = flashInfoContentEl.value
-  if (!viewport || !content) {
-    // Transition out-in : le panneau flash n'est pas encore monté → réessai au frame suivant.
-    if (retries < 30) {
-      requestAnimationFrame(() => {
-        void recomputeFlashInfoOverflow(retries + 1)
-      })
-    }
-    return
-  }
+  const el = track.value
+  if (!el) return
+  trackDuration.value = Math.max(30, Math.round(el.scrollWidth / 2 / PX_PER_SECOND))
+}
+watch(items, () => void measureTrack())
 
-  const viewportWidth = viewport.clientWidth
-  const contentWidth = content.getBoundingClientRect().width
-  flashInfoOverflow.value = contentWidth > viewportWidth
-  flashInfoMarqueeDuration.value = Math.max(
-    FLASH_INFO_MARQUEE_MIN_DURATION,
-    contentWidth / FLASH_INFO_MARQUEE_SPEED_PX_S,
-  )
+/* ─── Horloge (client uniquement : pas de décalage d'hydratation) ─────────── */
+const clock = ref('')
+let clockTimer: ReturnType<typeof setInterval> | undefined
+function tick() {
+  const d = new Date()
+  clock.value = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-watch(currentInfo, () => {
-  flashInfoOverflow.value = false
-  void recomputeFlashInfoOverflow()
-})
-
-function onWindowResize() {
-  recomputeTitleLineOffsets()
-  recomputeFlashInfoOverflow()
+function onResize() {
+  void measureLabel()
+  void measureTrack()
 }
 
 onMounted(() => {
-  recomputeTitleLineOffsets()
-  recomputeFlashInfoOverflow()
-  window.addEventListener('resize', onWindowResize)
+  tick()
+  clockTimer = setInterval(tick, 15_000)
+  void measureLabel()
+  void measureTrack()
+  window.addEventListener('resize', onResize)
+  document.addEventListener('pointerdown', onDocPointer)
+  document.addEventListener('keydown', onKey)
 })
-
 onBeforeUnmount(() => {
-  window.removeEventListener('resize', onWindowResize)
-})
-/**
- * Piste du bandeau défilant. Sans animation on ne rend qu'une passe (scroll manuel) ;
- * avec animation on répète la liste 4× — la keyframe translate de -50 % (soit 2 passes)
- * et retombe donc exactement sur un contenu identique → boucle sans saut.
- */
-const MARQUEE_COPIES = 4
-const trackItems = computed(() => {
-  const list = items.value
-  if (!list.length) return []
-  const copies = reducedMotion.value ? 1 : MARQUEE_COPIES
-  const out: { item: PromoTickerItem; key: string; clone: boolean }[] = []
-  for (let copy = 0; copy < copies; copy++) {
-    list.forEach((item, index) => out.push({ item, key: `${copy}-${index}`, clone: copy > 0 }))
-  }
-  return out
+  clearInterval(clockTimer)
+  window.removeEventListener('resize', onResize)
+  document.removeEventListener('pointerdown', onDocPointer)
+  document.removeEventListener('keydown', onKey)
 })
 
-const sparkMax = (values: number[]) => Math.max(...values, 1)
+/** Mini camembert de l'étiquette événement : 3 tranches de la charte (décoratif). */
+const eventPie = [
+  { d: sectorPath(20, 20, 17, -90, 30), fill: 'var(--ds-violet-500)' },
+  { d: sectorPath(20, 20, 17, 30, 150), fill: 'var(--ds-blue-500)' },
+  { d: sectorPath(20, 20, 17, 150, 270), fill: 'var(--ds-violet-300)' },
+]
 
-const paletteFor = (item: PromoTickerItem) => getStatsDataPalette(item.categories)
-
-/** Camembert d'aperçu → dégradé conique compact (même rendu que les cartes de catalogue). */
-const pieGradient = (preview: CardPreview, item: PromoTickerItem) => {
-  const values = preview.series?.[0]?.values ?? []
-  const total = values.reduce((sum, v) => sum + Math.abs(v), 0) || 1
-  const colors = paletteFor(item)
-  let acc = 0
-  const stops = values.map((value, i) => {
-    const from = (acc / total) * 100
-    acc += Math.abs(value)
-    const to = (acc / total) * 100
-    return `${colors[i % colors.length]} ${from.toFixed(2)}% ${to.toFixed(2)}%`
-  })
-  return `conic-gradient(${stops.join(',')})`
-}
-
-const surveyLeadPct = (options: { pct: number; lead: boolean }[]) =>
-  Math.round(options.find((o) => o.lead)?.pct ?? options[0]?.pct ?? 0)
+const isExternal = (href: string) => /^https?:\/\//.test(href)
 </script>
 
 <template>
   <section
-    class="fixed inset-x-0 top-0 z-50 flex h-14 items-center overflow-hidden border-b border-slate-200 bg-white text-slate-900"
+    class="ds-scope ds-flash fixed inset-x-0 top-0 z-50"
+    :class="{ 'is-paused': paused, 'is-reduced': reducedMotion }"
+    aria-label="Infos en continu"
   >
-    <div class="promo-flip-viewport mx-auto flex w-full max-w-[1800px] items-center px-4 sm:px-6 lg:px-10">
-      <Transition :name="reducedMotion ? '' : 'promo-flip'" mode="out-in">
-      <div v-if="phase === 'ticker'" key="ticker" class="flex w-full items-center gap-4">
-        <span class="flex shrink-0 items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-rose-600">
-          <span
-            class="h-1.5 w-1.5 rounded-full bg-rose-500"
-            :class="reducedMotion ? '' : 'animate-pulse'"
-          ></span>
-          <span class="hidden sm:inline">Tendances</span>
+    <!-- Étiquette : « En continu » ⇄ événement du moment -->
+    <div
+      ref="labelEl"
+      class="ds-flash__label"
+      :class="{ 'is-event': showEvent }"
+      :style="labelWidth ? { width: `${labelWidth}px` } : undefined"
+    >
+      <span ref="labelA" class="ds-flash__a" :aria-hidden="showEvent ? 'true' : undefined">
+        <i class="ds-flash__spin" aria-hidden="true" />
+        <span class="ds-flash__a-text">En continu</span>
+      </span>
+      <button
+        v-if="eventCategory || showEvent"
+        ref="eventButton"
+        type="button"
+        class="ds-flash__b"
+        :tabindex="showEvent ? 0 : -1"
+        :aria-hidden="showEvent ? undefined : 'true'"
+        aria-haspopup="dialog"
+        aria-controls="ds-flash-popover"
+        :aria-expanded="popoverOpen"
+        @click="popoverOpen ? closePopover() : openPopover()"
+      >
+        <span ref="labelB" class="ds-flash__b-inner">
+          <svg viewBox="0 0 40 40" width="26" height="26" aria-hidden="true" class="ds-flash__b-pie">
+            <path v-for="(p, i) in eventPie" :key="i" :d="p.d" :style="{ fill: p.fill }" stroke="#fff" stroke-width="1.5" />
+            <circle cx="20" cy="20" r="17.5" fill="none" stroke="currentColor" stroke-width="1.5" />
+          </svg>
+          <span class="ds-flash__b-lines">
+            <b>{{ eventTitleText }}</b>
+            <small>{{ eventSubtitle }}</small>
+          </span>
+          <span class="ds-flash__b-arrow" aria-hidden="true">→</span>
         </span>
-
-        <span class="hidden h-4 w-px shrink-0 bg-slate-200 sm:block"></span>
-
-        <span v-if="!items.length" class="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-slate-500">
-          Le meilleur de Statsio, mis à jour en continu
-        </span>
-
-        <div
-          v-if="items.length"
-          class="promo-marquee relative min-w-0 flex-1"
-          :class="reducedMotion ? 'promo-scroll overflow-x-auto' : 'overflow-hidden'"
-        >
-          <div class="promo-track flex w-max items-center" :class="{ 'promo-track--run': !reducedMotion }">
-            <component
-              :is="entry.item.href.startsWith('/') ? RouterLink : 'a'"
-              v-for="entry in trackItems"
-              :key="entry.key"
-              :to="entry.item.href.startsWith('/') ? entry.item.href : undefined"
-              :href="entry.item.href.startsWith('/') ? undefined : entry.item.href"
-              :aria-hidden="entry.clone ? 'true' : undefined"
-              :tabindex="entry.clone ? -1 : undefined"
-              class="promo-item flex shrink-0 items-center gap-2.5 text-slate-900 transition hover:text-primary"
-            >
-              <span
-                class="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[8.5px] font-bold uppercase tracking-[0.05em]"
-                :style="{ color: entry.item.tagColor }"
-              >
-                {{ entry.item.tag }}
-              </span>
-              <span class="whitespace-nowrap text-[12.5px] font-bold">{{ entry.item.title }}</span>
-
-              <template v-if="entry.item.kind === 'statsdata' && entry.item.preview">
-                <span
-                  v-if="entry.item.preview.kind === 'pie'"
-                  class="block h-7 w-7 shrink-0 rounded-full"
-                  :style="{ background: pieGradient(entry.item.preview, entry.item) }"
-                ></span>
-                <div v-else class="h-7 w-[104px] shrink-0">
-                  <StatsDataMiniChart
-                    :preview="entry.item.preview"
-                    :palette="paletteFor(entry.item)"
-                    :height="28"
-                    spark
-                  />
-                </div>
-              </template>
-
-              <template v-else-if="entry.item.kind === 'statsdata' && entry.item.kpi">
-                <span class="flex shrink-0 items-baseline gap-1">
-                  <span class="font-mono text-[12px] font-bold text-slate-900">{{ entry.item.kpi }}</span>
-                  <span class="font-mono text-[9px] font-semibold text-emerald-600">{{ entry.item.kpiLabel }}</span>
-                </span>
-                <span v-if="entry.item.sparkline?.length" class="flex h-3.5 shrink-0 items-end gap-[1.5px]">
-                  <span
-                    v-for="(value, index) in entry.item.sparkline"
-                    :key="index"
-                    class="w-[2.5px] rounded-t-sm"
-                    :class="index >= (entry.item.sparkline?.length ?? 0) - 3 ? 'bg-primary' : 'bg-slate-200'"
-                    :style="{ height: Math.max(15, Math.round((value / sparkMax(entry.item.sparkline ?? [])) * 100)) + '%' }"
-                  ></span>
-                </span>
-              </template>
-
-              <template v-if="entry.item.kind === 'survey' && entry.item.surveyOptions">
-                <span class="flex shrink-0 items-center gap-2">
-                  <span class="flex flex-col gap-[3px]">
-                    <span
-                      v-for="(o, i) in entry.item.surveyOptions"
-                      :key="i"
-                      class="h-[4px] w-14 overflow-hidden rounded-full bg-slate-200"
-                    >
-                      <span
-                        class="block h-full rounded-full"
-                        :style="{ width: Math.max(6, o.pct) + '%', background: o.color }"
-                      ></span>
-                    </span>
-                  </span>
-                  <span class="font-mono text-[10.5px] font-bold text-primary"
-                    >{{ surveyLeadPct(entry.item.surveyOptions) }}%</span
-                  >
-                </span>
-              </template>
-
-              <template v-else-if="entry.item.kind === 'survey' && entry.item.percent != null">
-                <span class="h-[5px] w-16 shrink-0 overflow-hidden rounded-full bg-slate-200">
-                  <span
-                    class="block h-full rounded-full bg-[linear-gradient(90deg,var(--color-primary),var(--color-accent))]"
-                    :style="{ width: Math.min(100, Math.max(0, entry.item.percent)) + '%' }"
-                  ></span>
-                </span>
-                <span class="shrink-0 font-mono text-[10.5px] font-bold text-primary">{{ entry.item.percent }}%</span>
-              </template>
-            </component>
-          </div>
-        </div>
-
-        <RouterLink
-          :to="ctaHref"
-          class="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-[linear-gradient(135deg,var(--color-primary),var(--color-accent))] px-3 py-1.5 text-[11.5px] font-extrabold text-white transition hover:opacity-90"
-        >
-          Voir les tendances →
-        </RouterLink>
-      </div>
-
-      <div v-else key="flash" class="flex w-full items-center gap-2.5 sm:gap-5">
-        <div
-          class="promo-flash-title flex max-w-[42%] shrink-0 flex-col justify-center gap-0 overflow-hidden font-black tracking-tight text-slate-900 sm:max-w-[55%]"
-          :class="hasCenteredTitleLine ? 'w-full items-stretch' : 'items-start'"
-          :style="titleBlockWidth != null ? { width: `${titleBlockWidth}px` } : undefined"
-        >
-          <div
-            v-for="(titleLine, index) in currentTitleLines"
-            :key="index"
-            :ref="(el) => setTitleLineRef(el as Element | null, index)"
-            class="promo-flash-title-line whitespace-nowrap leading-[1.02]"
-            :class="[titleLine.sizeClass, titleLine.alignClass]"
-            :style="titleLine.align === 'stagger' ? { marginLeft: `${titleLineOffsets[index] ?? 0}px` } : undefined"
-            v-html="titleLine.html"
-          ></div>
-        </div>
-
-        <span class="h-6 w-px shrink-0 self-center bg-slate-200 sm:h-8" aria-hidden="true"></span>
-
-        <Transition :name="reducedMotion ? '' : 'promo-flash'" mode="out-in">
-          <div
-            v-if="currentInfo"
-            :key="`${currentCategory?.id}-${currentInfo.title}`"
-            ref="flashInfoViewportEl"
-            class="relative min-w-0 flex-1 text-[12px] sm:text-[12.5px]"
-          >
-            <!-- Mesure invisible (hors flux) servant à détecter le dépassement. -->
-            <span ref="flashInfoContentEl" class="invisible absolute left-0 top-0 whitespace-nowrap" aria-hidden="true">
-              <strong class="font-bold">{{ currentInfo.title }}</strong>
-              <span v-if="currentInfo.description" class="ml-1.5">{{ currentInfo.description }}</span>
-            </span>
-
-            <div v-if="flashInfoOverflow && !reducedMotion" class="promo-flash-marquee overflow-hidden">
-              <div
-                class="promo-flash-marquee-track flex w-max items-center"
-                :style="{ animationDuration: `${flashInfoMarqueeDuration}s` }"
-              >
-                <span
-                  v-for="copy in 2"
-                  :key="copy"
-                  class="mr-12 whitespace-nowrap"
-                  :aria-hidden="copy === 2 ? 'true' : undefined"
-                >
-                  <strong class="font-bold text-slate-900">{{ currentInfo.title }}</strong>
-                  <span v-if="currentInfo.description" class="ml-1.5 text-slate-600">{{ currentInfo.description }}</span>
-                </span>
-              </div>
-            </div>
-            <div v-else :class="flashInfoOverflow ? 'promo-scroll overflow-x-auto' : 'truncate'">
-              <strong class="font-bold text-slate-900">{{ currentInfo.title }}</strong>
-              <span v-if="currentInfo.description" class="ml-1.5 text-slate-600">{{ currentInfo.description }}</span>
-            </div>
-          </div>
-        </Transition>
-
-        <a
-          v-if="currentInfo?.cta_link && currentInfo?.cta_label"
-          :href="currentInfo.cta_link"
-          target="_blank"
-          rel="noopener"
-          class="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-[linear-gradient(135deg,var(--color-primary),var(--color-accent))] px-3 py-1.5 text-[11.5px] font-extrabold text-white transition hover:opacity-90"
-        >
-          {{ currentInfo.cta_label }} →
-        </a>
-      </div>
-      </Transition>
+      </button>
     </div>
+
+    <!-- Piste défilante -->
+    <div class="ds-flash__mask">
+      <div ref="track" class="ds-flash__track" :style="{ '--ds-flash-dur': `${trackDuration}s` }">
+        <template v-for="copy in reducedMotion ? 1 : 2" :key="copy">
+          <NuxtLink
+            v-for="(item, index) in items"
+            :key="`${copy}-${index}`"
+            :to="item.href"
+            class="ds-flash__item"
+            :aria-hidden="copy === 2 ? 'true' : undefined"
+            :tabindex="copy === 2 ? -1 : undefined"
+          >
+            <DsKindTag :kind="item.kind" tone="flash">{{ item.label }}</DsKindTag>
+            <span class="ds-flash__text">
+              <template v-for="(part, p) in item.parts" :key="p">
+                <b v-if="part.strong">{{ part.text }}</b>
+                <template v-else>{{ part.text }}</template>
+              </template>
+            </span>
+          </NuxtLink>
+        </template>
+      </div>
+    </div>
+
+    <!-- Heure + pause -->
+    <div class="ds-flash__right">
+      <time class="ds-flash__clock" aria-label="Heure">{{ clock }}</time>
+      <button
+        v-if="!reducedMotion"
+        type="button"
+        class="ds-flash__pause"
+        :aria-pressed="paused"
+        :aria-label="paused ? 'Relancer le bandeau' : 'Mettre le bandeau en pause'"
+        @click="paused = !paused"
+      >
+        <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+          <path v-if="paused" d="M3 1.5 L10.5 6 L3 10.5 Z" fill="currentColor" />
+          <template v-else>
+            <rect x="2" y="1.5" width="3" height="9" fill="currentColor" />
+            <rect x="7" y="1.5" width="3" height="9" fill="currentColor" />
+          </template>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Popover de l'événement -->
+    <DsBox
+      v-if="popoverOpen && eventCategory"
+      id="ds-flash-popover"
+      class="ds-flash__pop"
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby="ds-flash-pop-title"
+    >
+      <div ref="popoverEl" class="ds-flash__pop-inner">
+        <div class="ds-flash__pop-head">
+          <DsLabel>{{ eventCategory.name }} · <b>en ce moment</b></DsLabel>
+          <button type="button" class="ds-flash__pop-x" data-close aria-label="Fermer" @click="closePopover()">×</button>
+        </div>
+        <DsHeading id="ds-flash-pop-title" :level="3" size="md">
+          <span v-html="eventTitleHtml(eventCategory)" />
+        </DsHeading>
+        <ul v-if="eventCategory.infos.length" class="ds-flash__pop-list">
+          <li v-for="(info, i) in eventCategory.infos" :key="i">
+            <b>{{ info.title }}</b>
+            <span v-if="info.description">{{ info.description }}</span>
+          </li>
+        </ul>
+        <DsButton
+          v-if="popoverCta"
+          :to="isExternal(popoverCta.cta_link!) ? undefined : popoverCta.cta_link!"
+          :href="isExternal(popoverCta.cta_link!) ? popoverCta.cta_link! : undefined"
+          class="self-start"
+          @click="closePopover(false)"
+        >
+          {{ popoverCta.cta_label }} <span aria-hidden="true">→</span>
+        </DsButton>
+      </div>
+    </DsBox>
   </section>
 </template>
 
 <style scoped>
-.promo-scroll {
-  scrollbar-width: none;
-}
-.promo-scroll::-webkit-scrollbar {
-  display: none;
-}
-
-/* Espacement porté par l'item (et non un `gap` flex) pour que translateX(-50%) tombe
-   pile sur une frontière de copie → boucle sans saccade. */
-.promo-item {
-  margin-inline-end: 2.75rem;
+.ds-flash {
+  display: flex;
+  align-items: stretch;
+  height: 48px;
+  background: var(--ds-flash-bg);
+  color: var(--ds-flash-ink);
+  font-family: var(--ds-ui);
 }
 
-.promo-track--run {
-  animation: promo-marquee 34s linear infinite;
+/* ── étiquette ── */
+.ds-flash__label {
+  position: relative;
+  flex: none;
+  display: grid;
+  align-items: center;
+  padding: 0 30px 0 16px;
+  overflow: hidden;
+  background: var(--ds-flash-label);
+  clip-path: polygon(0 0, 100% 0, calc(100% - 16px) 100%, 0 100%);
+  transition:
+    width 0.6s var(--ds-e-glisse),
+    background-color 0.45s;
+}
+@media (min-width: 1024px) {
+  .ds-flash__label {
+    padding-left: 40px;
+  }
+}
+.ds-flash__label > * {
+  grid-area: 1 / 1;
+}
+.ds-flash__label.is-event {
+  background: #fff;
+}
+.ds-flash__a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  font: 500 11.5px/1 var(--ds-num);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  transition: opacity 0.25s;
+}
+.is-event .ds-flash__a {
+  opacity: 0;
+}
+@property --ds-fl {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+.ds-flash__spin {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: conic-gradient(#fff var(--ds-fl), rgba(255, 255, 255, 0.28) 0);
+  animation: ds-flash-spin 1.6s var(--ds-e-balaye) infinite;
+}
+@keyframes ds-flash-spin {
+  to {
+    --ds-fl: 360deg;
+  }
+}
+.is-reduced .ds-flash__spin {
+  animation: none;
+  background: conic-gradient(#fff 270deg, rgba(255, 255, 255, 0.28) 0);
 }
 
-.promo-marquee:hover .promo-track--run,
-.promo-marquee:focus-within .promo-track--run {
+@property --ds-sw {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+.ds-flash__b {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #6d28d9;
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  /* révélation par balayage conique, centré sur le mini camembert */
+  --ds-sw: 0deg;
+  -webkit-mask-image: conic-gradient(from 0deg at 13px 50%, #000 var(--ds-sw), transparent 0);
+  mask-image: conic-gradient(from 0deg at 13px 50%, #000 var(--ds-sw), transparent 0);
+  transition:
+    --ds-sw 0.45s var(--ds-e-balaye),
+    opacity 0.2s;
+}
+.is-event .ds-flash__b {
+  opacity: 1;
+  pointer-events: auto;
+  --ds-sw: 360deg;
+  transition:
+    --ds-sw 0.85s var(--ds-e-balaye) 0.15s,
+    opacity 0.1s;
+}
+.is-reduced .ds-flash__b {
+  transition: none;
+}
+.ds-flash__b:focus-visible {
+  outline: 2px solid #6d28d9;
+  outline-offset: 2px;
+}
+.ds-flash__b-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.ds-flash__b-pie {
+  flex: none;
+  color: #6d28d9;
+}
+.ds-flash__b-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1;
+}
+.ds-flash__b-lines b {
+  font: 600 11.5px/1 var(--ds-num);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.ds-flash__b-lines small {
+  color: #1d4ed8;
+  font: 600 12.5px/1 var(--ds-ui);
+}
+.ds-flash__b-arrow {
+  color: #1d4ed8;
+  font-weight: 800;
+  transition: transform 0.2s;
+}
+.ds-flash__b:hover .ds-flash__b-arrow {
+  transform: translateX(3px);
+}
+
+/* ── piste ── */
+.ds-flash__mask {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent);
+}
+.ds-flash__track {
+  display: flex;
+  align-items: center;
+  width: max-content;
+  height: 100%;
+  animation: ds-flash-scroll var(--ds-flash-dur, 60s) linear infinite;
+}
+.ds-flash:hover .ds-flash__track,
+.ds-flash:focus-within .ds-flash__track,
+.ds-flash.is-paused .ds-flash__track {
   animation-play-state: paused;
 }
-
-@keyframes promo-marquee {
-  from {
-    transform: translateX(0);
-  }
+@keyframes ds-flash-scroll {
   to {
     transform: translateX(-50%);
   }
 }
+.is-reduced .ds-flash__track {
+  animation: none;
+}
+.is-reduced .ds-flash__mask {
+  overflow-x: auto;
+}
+.ds-flash__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 100%;
+  padding: 0 22px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.ds-flash__item::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  margin-left: 12px;
+  border-radius: 100% 0 0 0;
+  background: var(--ds-flash-swatch);
+}
+.ds-flash__item:hover .ds-flash__text {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.ds-flash__item:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: -4px;
+}
+.ds-flash__text b {
+  padding: 1px 5px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.16);
+  font-family: var(--ds-num);
+  font-weight: 500;
+}
 
-@media (prefers-reduced-motion: reduce) {
-  .promo-track--run,
-  .promo-flash-marquee-track {
-    animation: none;
+/* ── droite ── */
+.ds-flash__right {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px 0 12px;
+  background: var(--ds-flash-bg);
+}
+@media (min-width: 1024px) {
+  .ds-flash__right {
+    padding-right: 40px;
+  }
+}
+.ds-flash__clock {
+  font: 500 13px var(--ds-num);
+  letter-spacing: 0.04em;
+}
+.ds-flash__pause {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1.5px solid rgba(255, 255, 255, 0.7);
+  border-radius: 3px;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+}
+.ds-flash__pause:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+.ds-flash__pause:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+@media (max-width: 640px) {
+  .ds-flash__a-text,
+  .ds-flash__clock {
+    display: none;
+  }
+  .ds-flash__label {
+    padding-right: 22px;
   }
 }
 
-.promo-flash-title :deep(strong) {
-  font-weight: 800;
+/* ── popover ── */
+.ds-flash__pop {
+  position: absolute;
+  top: 54px;
+  left: 16px;
+  z-index: 60;
+  width: min(440px, calc(100vw - 32px));
 }
-
-.promo-flash-marquee-track {
-  animation: promo-marquee linear infinite;
-  animation-delay: 1s;
-  animation-fill-mode: backwards;
+@media (min-width: 1024px) {
+  .ds-flash__pop {
+    left: 40px;
+  }
 }
-
-.promo-flash-marquee:hover .promo-flash-marquee-track,
-.promo-flash-marquee:focus-within .promo-flash-marquee-track {
-  animation-play-state: paused;
+.ds-flash__pop-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
 }
-
-/* Contour lisible sur les titres stroke (contour derrière le fill). */
-.promo-flash-title-line {
-  paint-order: stroke fill;
+.ds-flash__pop-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
-
-.promo-flash-enter-active,
-.promo-flash-leave-active {
-  transition:
-    opacity 0.25s ease,
-    transform 0.25s ease;
+.ds-flash__pop-x {
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--ds-ol);
+  border-radius: 3px;
+  background: var(--ds-surface);
+  color: var(--ds-ol);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
 }
-
-.promo-flash-enter-from,
-.promo-flash-leave-to {
-  opacity: 0;
-  transform: translateY(4px);
+.ds-flash__pop-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
-
-/* Bascule ticker ⇄ flash : un panneau plein-largeur bascule comme une plaque
-   articulée sur son bord bas (façon compteur à palettes / flip-clock). */
-.promo-flip-viewport {
-  perspective: 1000px;
+.ds-flash__pop-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 0;
+  border-bottom: 2px solid var(--ds-divide);
+  font-size: 14px;
 }
-
-.promo-flip-enter-active,
-.promo-flip-leave-active {
-  transition:
-    transform 0.45s cubic-bezier(0.5, 0, 0.2, 1),
-    opacity 0.3s ease;
-  transform-origin: 50% 100%;
-  backface-visibility: hidden;
+.ds-flash__pop-list li:last-child {
+  border-bottom: 0;
 }
-
-.promo-flip-enter-from {
-  transform: rotateX(-100deg);
-  opacity: 0;
-}
-
-.promo-flip-leave-to {
-  transform: rotateX(100deg);
-  opacity: 0;
+.ds-flash__pop-list span {
+  color: var(--ds-muted);
+  font-size: 13.5px;
 }
 </style>

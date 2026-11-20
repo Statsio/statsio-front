@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { PALETTE } from '@/composables/useChart'
+import { useBlockSkin, TRANCHES_SERIES } from '@/lib/block-skin'
+import DsPie from '@/components/ds/DsPie.vue'
 import { useBlockData, rowKey, resolveBlockFilterGroups } from '@/composables/useBlockData'
 import { useResolvedTokenList } from '@/composables/useResolvedTokens'
 import { useStudioStore } from '@/stores/studio'
@@ -19,6 +21,9 @@ const props = defineProps<{
 }>()
 
 const studio = useStudioStore()
+const skin = useBlockSkin()
+const tranches = skin === 'tranches'
+const hovered = ref<number | null>(null)
 const datasets = useStudioDatasetsStore()
 const { data, isLoading, error } = useBlockData(() => props.block, props.readonly, () => props.scope)
 
@@ -55,11 +60,12 @@ const { list: resolvedSegments, pending: segPending } = useResolvedTokenList({
 interface Segment {
   label: string
   percent: number
+  value: number
   color: string
 }
 
 const segments = computed<Segment[]>(() => {
-  const colors = props.block.config.colors?.length ? props.block.config.colors : PALETTE
+  const colors = props.block.config.colors?.length ? props.block.config.colors : (tranches ? TRANCHES_SERIES : PALETTE)
   const rules = props.block.config.markRules
 
   const raw = isSegments.value
@@ -89,6 +95,7 @@ const segments = computed<Segment[]>(() => {
     const fallback = colors[i % colors.length] ?? '#94a3b8'
     return {
       label: s.label,
+      value: s.value,
       percent: total > 0 ? Math.round((s.value / total) * 1000) / 10 : 0,
       color: rules?.length ? markColor(rules, s.value, bounds, fallback) : fallback,
     }
@@ -102,6 +109,12 @@ const configured = computed(() =>
     ? segmentDefs.value.some((s) => s.column)
     : Boolean(props.block.fieldMapping.label && props.block.fieldMapping.value)),
 )
+
+const pieSegments = computed(() =>
+  segments.value.map((s) => ({ value: s.value, color: s.color, label: s.label })),
+)
+const pieLabel = computed(() => segments.value.map((s) => `${s.label} ${s.percent} %`).join(', '))
+const fmtValue = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 })
 
 // Cumulative conic-gradient stops built from each segment's share of the total.
 const conicGradient = computed(() => {
@@ -131,6 +144,34 @@ const conicGradient = computed(() => {
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z M13.5 10.5H21A7.5 7.5 0 0 0 13.5 3v7.5Z" />
       </svg>
       <span class="text-xs">Configurer les données →</span>
+    </div>
+
+    <!-- Charte Tranches (page publique) : camembert SVG qui se dessine + légende liée -->
+    <div v-else-if="tranches" class="sd-pie" :class="{ 'sd-pie--xl': expanded }">
+      <DsPie
+        class="sd-pie__disc"
+        :segments="pieSegments"
+        :size="expanded ? 280 : 200"
+        animate="view"
+        interactive
+        :selected="hovered"
+        :detach="6"
+        :label="pieLabel"
+        @hover="hovered = $event"
+      />
+      <ul class="sd-pie__legend">
+        <li
+          v-for="(s, i) in segments"
+          :key="s.label + i"
+          :class="{ 'is-dim': hovered !== null && hovered !== i }"
+          @pointerenter="hovered = i"
+          @pointerleave="hovered = null"
+        >
+          <i :style="{ background: s.color }" aria-hidden="true" />
+          <span class="min-w-0 truncate">{{ s.label }}</span>
+          <b class="ds-tnum">{{ isSegments ? fmtValue.format(s.value) + ' · ' : '' }}{{ s.percent }} %</b>
+        </li>
+      </ul>
     </div>
 
     <div v-else class="flex items-center gap-8" :class="expanded ? 'flex-col sm:flex-row sm:gap-12' : ''">

@@ -19,6 +19,10 @@ import ColumnDrillInPanel from '@/components/studio/filters/ColumnDrillInPanel.v
 import SourceDrillInPanel from '@/components/studio/filters/SourceDrillInPanel.vue'
 import { BLOCK_META, type BlockType } from '@/types/studio'
 import { readFilterGroups, countConditions } from '@/lib/studio-filter-groups'
+import { DATA_BLOCK_TYPES } from '@/lib/studio-palette'
+import { useStudioToast } from '@/composables/useStudioToast'
+import DsTypeGlyph from '@/components/ds/DsTypeGlyph.vue'
+import StudioIcon from '@/components/studio/ui/StudioIcon.vue'
 
 const studio = useStudioStore()
 
@@ -42,6 +46,33 @@ const {
 // ─── Block metadata ───────────────────────────────────────────────────────────
 
 const blockMeta = computed(() => block.value ? BLOCK_META[block.value.type as BlockType] : null)
+const isData = computed(() => (block.value ? DATA_BLOCK_TYPES.has(block.value.type) : false))
+
+/** « Bloc · <section> » et « nᵉ de la section » pour l'en-tête et le pied. */
+const sectionOf = computed(() => {
+  const b = block.value
+  if (!b) return null
+  return studio.sections.find((s) => b.zoneId.startsWith(`${s.id}-`)) ?? null
+})
+const sectionLabel = computed(() => {
+  const s = sectionOf.value
+  const raw = (s?.kicker || s?.title || '').replace(/<[^>]+>/g, '').trim()
+  return raw || (studio.content?.type === 'survey' ? 'étape' : 'section')
+})
+const position = computed(() => {
+  const b = block.value
+  if (!b) return 0
+  return (studio.blocksByZone[b.zoneId] ?? []).findIndex((x) => x.id === b.id) + 1
+})
+
+const { show } = useStudioToast()
+function removeSelected() {
+  const b = block.value
+  if (!b) return
+  const label = blockMeta.value?.label ?? 'Bloc'
+  studio.removeBlock(b.id)
+  show(`Bloc « ${label} » supprimé`, 'Annuler', () => studio.undo())
+}
 
 // ─── Filters (tab badge counts) ──────────────────────────────────────────────
 
@@ -54,38 +85,36 @@ const compFiltersCount = computed(() => (block.value ? countConditions(readFilte
   <!-- ─── Block selected ──────────────────────────────────────────────────── -->
   <div v-if="block" class="flex h-full flex-col overflow-hidden font-sans">
 
-    <!-- Header -->
-    <div class="flex shrink-0 items-center gap-3 px-5 pb-3.5 pt-[18px]">
-      <span class="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[11px] bg-[var(--studio-tag)]">
-        <svg class="h-4 w-4 text-[var(--studio-tag-ink)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" :d="blockMeta?.iconPath" />
-        </svg>
-      </span>
-      <div class="min-w-0 flex-1">
-        <p class="truncate text-[16px] font-extrabold text-[var(--studio-ink)]">{{ blockMeta?.label }}</p>
-        <p class="text-[12.5px] text-[var(--studio-muted)]">Configuration du bloc</p>
+    <!-- En-tête -->
+    <div class="flex shrink-0 flex-col gap-3.5 px-4 pt-4">
+      <div class="st-ins-h">
+        <span class="st-tg" :class="{ 'st-tg--data': isData }">
+          <DsTypeGlyph v-if="block.type === 'sd-embed'" kind="statsdata" :size="20" mono />
+          <StudioIcon v-else :name="block.type" :size="20" />
+        </span>
+        <div class="min-w-0 flex-1">
+          <span class="st-lbl block truncate">Bloc · {{ sectionLabel }}</span>
+          <h2 class="st-h2 truncate">{{ blockMeta?.label }}</h2>
+        </div>
+        <button class="st-ibtn" type="button" aria-label="Fermer (Échap)" title="Fermer (Échap)" @click="studio.selectBlock(null)">
+          <StudioIcon name="x" :size="16" />
+        </button>
       </div>
-      <button
-        class="shrink-0 text-[16px] leading-none text-[var(--studio-faint)] hover:text-[var(--studio-ink)]"
-        aria-label="Fermer"
-        @click="studio.selectBlock(null)"
-      >✕</button>
-    </div>
 
-    <!-- Tab bar -->
-    <div v-if="currentTabs.length > 1" class="shrink-0 px-4 pb-1">
-      <div class="flex gap-1 rounded-full bg-[var(--studio-wash)] p-[5px]">
+      <!-- Onglets -->
+      <div v-if="currentTabs.length > 1" class="flex gap-1 border-b-2 border-[var(--ds-divide)]" role="tablist">
         <button
           v-for="tab in currentTabs" :key="tab.id"
-          class="flex flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-full py-[9px] text-[12.5px] font-bold transition-colors"
-          :class="activeTab === tab.id ? 'bg-white text-[var(--studio-ink)] shadow-[0_1px_2px_rgba(20,20,30,0.12)]' : 'text-[var(--studio-muted)] hover:text-[var(--studio-ink)]'"
+          type="button"
+          role="tab"
+          :aria-selected="activeTab === tab.id"
+          class="-mb-[2px] flex items-center gap-1.5 whitespace-nowrap border-b-[3px] px-2.5 py-2 text-[13px] font-bold transition-colors"
+          :class="activeTab === tab.id ? 'border-[var(--ds-ol)] text-[var(--ds-accent)]' : 'border-transparent text-[var(--ds-muted)] hover:text-[var(--ds-accent)]'"
           @click="activeTab = tab.id"
         >
           {{ tab.label }}
-          <span v-if="tab.id === 'filters' && filtersCount > 0"
-            class="flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--color-primary)] px-1 text-[9px] font-bold text-white">{{ filtersCount }}</span>
-          <span v-if="tab.id === 'comparison' && compFiltersCount > 0"
-            class="flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white">{{ compFiltersCount }}</span>
+          <span v-if="tab.id === 'filters' && filtersCount > 0" class="st-badge !mt-0">{{ filtersCount }}</span>
+          <span v-if="tab.id === 'comparison' && compFiltersCount > 0" class="st-badge !mt-0">{{ compFiltersCount }}</span>
         </button>
       </div>
     </div>
@@ -140,26 +169,17 @@ const compFiltersCount = computed(() => (block.value ? countConditions(readFilte
       </div>
     </div>
 
-    <!-- Footer: duplicate / delete -->
-    <div class="px-3 py-3 border-t border-[var(--studio-line)] shrink-0 flex gap-2">
-      <button
-        class="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-[var(--studio-muted)] hover:bg-[var(--studio-wash)] rounded-xl transition-colors"
-        @click="studio.duplicateBlock(block.id)"
-      >
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" />
-        </svg>
-        Dupliquer
-      </button>
-      <button
-        class="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50 rounded-xl transition-colors"
-        @click="studio.removeBlock(block.id)"
-      >
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-        </svg>
-        Supprimer
-      </button>
+    <!-- Pied -->
+    <div class="st-ins-foot mx-4 mb-3 shrink-0">
+      <span class="st-meta">#{{ block.id.slice(0, 6) }} · {{ position }}ᵉ de {{ studio.content?.type === 'survey' ? 'l’étape' : 'la section' }}</span>
+      <span class="flex items-center gap-3">
+        <button type="button" class="st-addl !py-0" :disabled="block.locked" @click="studio.duplicateBlock(block.id)">
+          <StudioIcon name="dup" :size="14" />Dupliquer
+        </button>
+        <button type="button" class="st-danger" :disabled="block.locked" @click="removeSelected">
+          <StudioIcon name="trash" :size="14" />Supprimer
+        </button>
+      </span>
     </div>
 
   </div>

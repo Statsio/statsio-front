@@ -25,19 +25,19 @@ useModalA11y(panel, () => emit('close'))
 <template>
   <Teleport to="body">
     <div
-      class="fixed inset-0 z-[150] flex items-center justify-center bg-[rgba(18,18,26,0.5)] p-10 backdrop-blur-[3px]"
+      class="fixed inset-0 z-[150] flex items-center justify-center bg-[color-mix(in_srgb,var(--ds-text)_35%,transparent)] p-4 sm:p-10"
       @click.self="emit('close')"
     >
       <div
         ref="panel"
         role="dialog"
         aria-modal="true"
-        class="flex max-h-full w-full flex-col overflow-hidden rounded-[20px] bg-white font-sans shadow-[var(--studio-shadow-modal)]"
+        class="flex max-h-full w-full flex-col st-modal overflow-hidden rounded-[6px] border-2 border-[var(--ds-ol)] bg-[var(--ds-surface)] text-[var(--ds-text)] shadow-[6px_6px_0_var(--ds-sh)]"
         :style="{ width: props.width + 'px', height: props.height ? props.height + 'px' : undefined }"
       >
-        <div class="flex shrink-0 items-start justify-between gap-4 border-b border-[var(--studio-line)] px-[26px] pb-[15px] pt-[22px]">
+        <div class="flex shrink-0 items-start justify-between gap-4 border-b-2 border-[var(--ds-divide)] px-[26px] pb-[15px] pt-[22px]">
           <div class="min-w-0">
-            <div class="text-[17px] font-extrabold text-[var(--studio-ink)]">{{ title }}</div>
+            <div class="st-h2 !text-[26px]">{{ title }}</div>
             <div
               v-if="subtitle"
               class="mt-[3px] text-[12.5px] leading-[1.5] text-[var(--studio-muted)] [text-wrap:pretty]"
@@ -62,7 +62,7 @@ useModalA11y(panel, () => emit('close'))
 
         <div
           v-if="$slots.footer"
-          class="flex shrink-0 items-center justify-between gap-3.5 border-t border-[var(--studio-line)] px-[26px] py-[15px]"
+          class="flex shrink-0 items-center justify-between gap-3.5 border-t-2 border-[var(--ds-divide)] px-[26px] py-[15px]"
         >
           <slot name="footer" />
         </div>

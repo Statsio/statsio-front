@@ -5,6 +5,8 @@ import { useStudioStore } from '@/stores/studio'
 import { useResolvedTokenList } from '@/composables/useResolvedTokens'
 import { sectionAnchorId } from '@/lib/slug'
 import { stripInlineHtml, isBlankInlineHtml } from '@/lib/inline-rich-text'
+import { sectorPath } from '@/lib/ds/pie'
+import DsLabel from '@/components/ds/DsLabel.vue'
 import type { Section } from '@/types/studio'
 
 const studio = useStudioStore()
@@ -48,6 +50,8 @@ interface TocEntry {
   id: string
   label: string
   num: string
+  /** Tranche de progression (0–1) dans l'ensemble du document — camembert de l'entrée. */
+  share: number
   /** Lien vers une autre page (`undefined` sur la page courante → ancre locale). */
   to?: string
 }
@@ -61,6 +65,8 @@ interface TocPage {
 
 const tocPages = computed<TocPage[]>(() => {
   let flatIndex = 0
+  let rank = 0
+  const total = Math.max(1, flatSections.value.length)
   return studio.pages.map((page) => {
     const isActive = page.id === activePageId.value
     const pageHref = `/statsdata/${docSlug.value}/${page.slug ?? page.id}`
@@ -68,10 +74,12 @@ const tocPages = computed<TocPage[]>(() => {
       .map((s, i) => {
         const anchor = sectionAnchorId(s)
         const label = cleanLabel(resolvedTitles.value[flatIndex++] ?? '', s.title)
+        rank++
         return {
           id: anchor ?? '',
           label,
           num: String(i + 1).padStart(2, '0'),
+          share: rank / total,
           to: isActive || !anchor ? undefined : `${pageHref}#${anchor}`,
         }
       })
@@ -162,105 +170,171 @@ onMounted(() => {
 })
 watch(activeEntries, () => setTimeout(observe, 50))
 onBeforeUnmount(() => observer?.disconnect())
+
+/** Camembert de progression d'une entrée (viewBox 20). */
+const piePath = (share: number) => sectorPath(10, 10, 8.5, -90, -90 + 360 * Math.min(1, share))
 </script>
 
 <template>
-  <nav v-if="showToc" class="hidden lg:block">
+  <nav v-if="showToc" class="sdtoc" aria-label="Sommaire">
     <template v-if="isMultiPage || activeEntries.length >= 2">
-      <p
-        class="mb-3 text-[9.5px] font-extrabold uppercase tracking-[0.09em] text-[var(--studio-faint)]"
-      >
-        Sommaire
-      </p>
+      <DsLabel as="p" class="sdtoc__title">Sommaire</DsLabel>
 
-      <div class="flex flex-col gap-4">
-        <div v-for="page in tocPages" :key="page.id" class="flex flex-col gap-px">
-          <!-- En-tête de page (masqué en mono-page) -->
-          <component
-            :is="page.to ? RouterLink : 'p'"
-            v-if="isMultiPage"
-            :to="page.to"
-            class="mb-1 flex items-center gap-1.5 px-2.5 text-[10px] font-extrabold uppercase tracking-[0.08em] transition-colors"
-            :class="
-              page.isActive
-                ? 'text-[var(--studio-ink)]'
-                : 'text-[var(--studio-faint)] hover:text-[var(--studio-ink)]'
-            "
+      <div v-for="page in tocPages" :key="page.id" class="sdtoc__page">
+        <!-- En-tête de page (masqué en mono-page) -->
+        <component
+          :is="page.to ? RouterLink : 'p'"
+          v-if="isMultiPage"
+          :to="page.to"
+          class="sdtoc__grp"
+          :class="{ 'is-on': page.isActive }"
+        >
+          <span class="sdtoc__wedge" aria-hidden="true" />
+          <span class="truncate">{{ page.title }}</span>
+        </component>
+
+        <p v-if="isMultiPage && !page.entries.length" class="sdtoc__empty">Aucune section</p>
+
+        <template v-for="e in page.entries" :key="page.id + e.id">
+          <!-- Page courante : ancre locale + scroll-spy -->
+          <a
+            v-if="!e.to"
+            :href="`#${e.id}`"
+            class="sdtoc__a"
+            :class="{ 'is-on': activeId === e.id }"
+            :aria-current="activeId === e.id ? 'location' : undefined"
+            @click.prevent="goTo(e.id)"
           >
-            <span
-              class="h-1.5 w-1.5 shrink-0 rounded-full"
-              :class="
-                page.isActive ? 'bg-[var(--color-primary)]' : 'bg-[var(--studio-line-strong)]'
-              "
-            />
-            <span class="truncate">{{ page.title }}</span>
-          </component>
-
-          <p
-            v-if="isMultiPage && !page.entries.length"
-            class="px-2.5 py-[7px] text-[12px] italic text-[var(--studio-faint)]"
-          >
-            Aucune section
-          </p>
-
-          <template v-for="e in page.entries" :key="page.id + e.id">
-            <!-- Page courante : ancre locale + scroll-spy -->
-            <a
-              v-if="!e.to"
-              :href="`#${e.id}`"
-              class="flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[12.5px] font-semibold transition-colors"
-              :class="
-                activeId === e.id
-                  ? 'bg-[var(--studio-tag)] text-[var(--studio-tag-ink)]'
-                  : 'text-[var(--studio-muted)] hover:bg-white hover:text-[var(--studio-ink)]'
-              "
-              @click.prevent="goTo(e.id)"
-            >
-              <span
-                class="mono shrink-0 text-[9.5px]"
-                :class="
-                  activeId === e.id
-                    ? 'text-[var(--studio-tag-ink)]/70'
-                    : 'text-[var(--studio-faint)]'
-                "
-                >{{ e.num }}</span
-              >
-              <span class="truncate">{{ e.label }}</span>
-            </a>
-            <!-- Autre page : navigation -->
-            <RouterLink
-              v-else
-              :to="e.to"
-              class="flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[12.5px] font-semibold text-[var(--studio-muted)] transition-colors hover:bg-white hover:text-[var(--studio-ink)]"
-            >
-              <span class="mono shrink-0 text-[9.5px] text-[var(--studio-faint)]">{{ e.num }}</span>
-              <span class="truncate">{{ e.label }}</span>
-            </RouterLink>
-          </template>
-        </div>
+            <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" class="sdtoc__pie">
+              <circle cx="10" cy="10" r="8.5" />
+              <path :d="piePath(e.share)" />
+            </svg>
+            <span class="sr-only">{{ e.num }}</span>
+            <span class="truncate">{{ e.label }}</span>
+          </a>
+          <!-- Autre page : navigation -->
+          <RouterLink v-else :to="e.to" class="sdtoc__a">
+            <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" class="sdtoc__pie">
+              <circle cx="10" cy="10" r="8.5" />
+              <path :d="piePath(e.share)" />
+            </svg>
+            <span class="sr-only">{{ e.num }}</span>
+            <span class="truncate">{{ e.label }}</span>
+          </RouterLink>
+        </template>
       </div>
     </template>
 
-    <div
-      v-if="activeParams.length"
-      class="rounded-xl border-[1.5px] border-dashed border-[var(--studio-line-strong)] px-3 py-[13px]"
-      :class="isMultiPage || activeEntries.length >= 2 ? 'mt-[18px]' : ''"
-    >
-      <p
-        class="mb-2 text-[10px] font-extrabold uppercase tracking-[0.05em] text-[var(--studio-faint)]"
-      >
-        Vos paramètres
-      </p>
-      <div class="flex flex-col gap-2">
-        <div v-for="p in activeParams" :key="p.key" class="flex flex-col gap-px">
-          <span class="truncate text-[10.5px] font-semibold text-[var(--studio-faint)]">{{
-            p.label
-          }}</span>
-          <span class="truncate text-[12.5px] font-bold text-[var(--studio-tag-ink)]">{{
-            p.value
-          }}</span>
-        </div>
+    <div v-if="activeParams.length" class="sdtoc__params">
+      <DsLabel as="p">Vos paramètres</DsLabel>
+      <div v-for="p in activeParams" :key="p.key" class="sdtoc__param">
+        <span class="truncate">{{ p.label }}</span>
+        <b class="truncate">{{ p.value }}</b>
       </div>
     </div>
   </nav>
 </template>
+
+<style scoped>
+.sdtoc {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sdtoc__title {
+  margin-bottom: 4px;
+}
+.sdtoc__page {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sdtoc__grp {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  color: var(--ds-muted);
+  font: 500 10.5px/1.3 var(--ds-num);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+.sdtoc__page:first-of-type .sdtoc__grp {
+  margin-top: 8px;
+}
+a.sdtoc__grp:hover,
+.sdtoc__grp.is-on {
+  color: var(--ds-text);
+}
+.sdtoc__wedge {
+  display: inline-block;
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 100% 0 0 0;
+  background: var(--ds-violet-500);
+}
+.sdtoc__grp:not(.is-on) .sdtoc__wedge {
+  opacity: 0.45;
+}
+.sdtoc__empty {
+  padding: 6px 8px;
+  color: var(--ds-faint);
+  font: italic 400 13px/1.3 var(--ds-ui);
+}
+.sdtoc__a {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border: 2px solid transparent;
+  border-radius: 3px;
+  color: var(--ds-muted);
+  font: 500 14px/1.3 var(--ds-ui);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.sdtoc__a:hover {
+  color: var(--ds-text);
+}
+.sdtoc__a.is-on {
+  border-color: var(--ds-ol);
+  background: var(--ds-surface);
+  color: var(--ds-text);
+  font-weight: 700;
+}
+.sdtoc__pie {
+  flex: none;
+}
+.sdtoc__pie circle {
+  fill: none;
+  stroke: var(--ds-ol);
+  stroke-width: 1.5;
+}
+.sdtoc__pie path {
+  fill: var(--ds-violet-500);
+}
+.sdtoc__params {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 18px;
+  padding: 12px;
+  border: 2px dashed var(--ds-divide);
+  border-radius: 6px;
+}
+.sdtoc__param {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+  color: var(--ds-faint);
+  font: 600 11.5px/1.3 var(--ds-ui);
+}
+.sdtoc__param b {
+  color: var(--ds-link);
+  font: 700 14px/1.3 var(--ds-ui);
+}
+</style>

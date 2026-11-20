@@ -51,10 +51,11 @@ watch(() => visibleItems.value, async () => {
     </template>
   </template>
 
-  <div v-else class="rounded-2xl border border-dashed border-[#18181f]/15 bg-[#18181f]/[0.02] py-20 text-center text-[#18181f]/40">
-    <svg class="mx-auto mb-3 h-10 w-10 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12" />
+  <div v-else class="sd-empty">
+    <svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true">
+      <circle cx="20" cy="20" r="17" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="4 4" />
+      <path d="M20 20 L20 3 A17 17 0 0 1 37 20 Z" fill="var(--ds-tint)" stroke="currentColor" stroke-width="2" />
     </svg>
-    <p class="text-sm">Aucun contenu sur cette page.</p>
+    <p>Aucun contenu sur cette page.</p>
   </div>
 </template>

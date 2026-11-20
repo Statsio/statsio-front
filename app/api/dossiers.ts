@@ -4,6 +4,7 @@ import type {
   Dossier,
   DossierCatalogResponse,
   DossierCatalogSort,
+  DossierContentType,
   DossierDetailResponse,
   PinnedDossier,
 } from '@/types/dossier'
@@ -57,11 +58,12 @@ export async function fetchPinnedDossiers(
   return (data.data ?? []).map((raw) => ({ id: raw.id, slug: raw.slug, name: raw.name, icon: raw.icon ?? null }))
 }
 
-/** Catalogue public paginé de la page /dossiers (recherche, facette catégorie, tri, dossier à la une). */
+/** Catalogue public paginé de la page /dossiers (recherche, facettes catégorie / type, tri, dossier à la une). */
 export async function fetchDossierCatalog(
   query: {
     q?: string
     category?: string
+    has?: DossierContentType
     sort?: DossierCatalogSort
     sub_brand?: import('@/types/sub-brand').SubBrand
     per_page?: number
@@ -73,6 +75,7 @@ export async function fetchDossierCatalog(
       params: {
         ...(query.q ? { q: query.q } : {}),
         ...(query.category ? { category: query.category } : {}),
+        ...(query.has ? { has: query.has } : {}),
         ...(query.sort ? { sort: query.sort } : {}),
         ...(query.sub_brand ? { sub_brand: query.sub_brand } : {}),
         ...(query.per_page ? { per_page: query.per_page } : {}),

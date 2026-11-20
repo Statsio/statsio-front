@@ -72,11 +72,14 @@ const handleSubmit = async () => {
 
 <template>
   <AuthCard>
-    <div class="flex flex-col gap-6">
-      <div>
-        <h1 class="mb-1.5 text-2xl font-bold text-slate-950">Créer un compte</h1>
-        <p class="text-sm text-slate-950/55">Rejoignez Statsio pour explorer et partager des données.</p>
-      </div>
+    <div class="flex flex-col gap-5">
+      <AuthCardHeader
+        eyebrow="Inscription · gratuite"
+        :title="[{ text: 'Créez votre ' }, { text: 'compte', em: true }]"
+        description="Suivez vos sujets, votez aux sondages et publiez vos propres analyses."
+      >
+        <template #aside><NuxtLink to="/login" class="ds-auth-link">Déjà un compte ? Se connecter</NuxtLink></template>
+      </AuthCardHeader>
 
       <AuthErrorAlert :message="submitError" />
 
@@ -100,26 +103,27 @@ const handleSubmit = async () => {
           />
         </div>
 
-        <AuthInputField
-          v-model="birthday"
-          label="Date de naissance"
-          type="date"
-          autocomplete="bday"
-          :error="fieldErrors.birthday"
-          :disabled="authStore.isAuthenticating"
-        />
+        <div class="grid gap-4 sm:grid-cols-2">
+          <AuthInputField
+            v-model="email"
+            label="Adresse e-mail"
+            type="email"
+            autocomplete="email"
+            placeholder="vous@statsio.fr"
+            :error="fieldErrors.email"
+            :disabled="authStore.isAuthenticating"
+          />
+          <AuthInputField
+            v-model="birthday"
+            label="Date de naissance"
+            type="date"
+            autocomplete="bday"
+            :error="fieldErrors.birthday"
+            :disabled="authStore.isAuthenticating"
+          />
+        </div>
 
-        <AuthInputField
-          v-model="email"
-          label="Adresse e-mail"
-          type="email"
-          autocomplete="email"
-          placeholder="vous@statsio.fr"
-          :error="fieldErrors.email"
-          :disabled="authStore.isAuthenticating"
-        />
-
-        <div>
+        <div class="flex flex-col gap-2">
           <AuthInputField
             v-model="password"
             label="Mot de passe"
@@ -129,48 +133,35 @@ const handleSubmit = async () => {
             :error="fieldErrors.password"
             :disabled="authStore.isAuthenticating"
           />
-          <PasswordStrengthMeter class="mt-2" :strength="passwordStrength" :has-password="password.length > 0" />
+          <PasswordStrengthMeter :strength="passwordStrength" :has-password="password.length > 0" />
         </div>
 
-        <AppCheckbox v-model="acceptTerms" class="mt-0.5">
-          <span class="text-sm leading-[1.4] text-slate-700">
-            J'accepte les
-            <NuxtLink to="/mentions-legales" target="_blank" class="font-semibold text-[var(--color-primary)]">mentions légales</NuxtLink>
-            et la
-            <NuxtLink to="/politique-de-confidentialite" target="_blank" class="font-semibold text-[var(--color-primary)]">politique de confidentialité</NuxtLink>
-          </span>
-        </AppCheckbox>
+        <AuthCheckbox v-model="acceptTerms">
+          J'accepte les
+          <NuxtLink to="/mentions-legales" target="_blank">mentions légales</NuxtLink>
+          et la
+          <NuxtLink to="/politique-de-confidentialite" target="_blank">politique de confidentialité</NuxtLink>
+        </AuthCheckbox>
 
         <AppTurnstile
           ref="turnstileRef"
           action="register"
+          appearance="interaction-only"
           @verified="(token) => { turnstileToken = token; submitError = '' }"
           @expired="turnstileToken = ''"
           @error="() => { turnstileToken = ''; submitError = 'Impossible de charger la vérification de sécurité. Vérifiez votre connexion réseau.' }"
         />
 
-        <AppButton
-          :disabled="!isFormValid || authStore.isAuthenticating"
-          full-width
-          size="lg"
-          variant="gradient"
-          type="submit"
-          class="mt-1.5 auth-cta"
-        >
-          {{ authStore.isAuthenticating ? 'Création...' : 'Créer mon compte' }}
-        </AppButton>
+        <DsButton type="submit" block :disabled="!isFormValid || authStore.isAuthenticating">
+          <template v-if="authStore.isAuthenticating"><AuthSpinner /> Création…</template>
+          <template v-else>Créer mon compte <span aria-hidden="true">→</span></template>
+        </DsButton>
       </form>
 
       <AuthDivider />
 
       <AuthGoogleButton context="signup" @success="handleGoogleSuccess" @error="submitError = $event" />
 
-      <p class="text-center text-sm text-slate-950/55">
-        Déjà un compte ?
-        <NuxtLink to="/login" class="font-bold text-[var(--color-primary)] transition hover:brightness-90">
-          Se connecter
-        </NuxtLink>
-      </p>
     </div>
   </AuthCard>
 </template>

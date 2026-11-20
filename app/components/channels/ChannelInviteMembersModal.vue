@@ -20,7 +20,10 @@ const emit = defineEmits<{ 'update:open': [boolean]; invited: [] }>()
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-const roleOptions: AppSelectOption[] = INVITABLE_ROLES.map((r) => ({ value: r, label: channelRoleLabels[r] }))
+const roleOptions: AppSelectOption[] = INVITABLE_ROLES.map((r) => ({
+  value: r,
+  label: channelRoleLabels[r],
+}))
 
 const ROLE_DEFAULTS: Record<ChannelRole, string[]> = {
   owner: [],
@@ -40,7 +43,9 @@ const submitting = ref(false)
 const error = ref('')
 const result = ref<InviteChannelMembersResult | null>(null)
 
-const allPermissionKeys = computed(() => categories.value.flatMap((c) => c.permissions.map((p) => p.key)))
+const allPermissionKeys = computed(() =>
+  categories.value.flatMap((c) => c.permissions.map((p) => p.key)),
+)
 const isLockedRole = computed(() => role.value === 'owner' || role.value === 'admin')
 
 function applyRoleDefaults() {
@@ -113,7 +118,9 @@ function isValidEmail(email: string) {
   return EMAIL_RE.test(email)
 }
 
-const canSubmit = computed(() => emails.value.length > 0 && emails.value.every(isValidEmail) && !submitting.value)
+const canSubmit = computed(
+  () => emails.value.length > 0 && emails.value.every(isValidEmail) && !submitting.value,
+)
 
 async function submit() {
   if (!canSubmit.value) return
@@ -151,13 +158,22 @@ function close() {
 <template>
   <AppModal :open="open" title="Inviter des membres" size="lg" @update:open="close">
     <div v-if="result" class="flex flex-col gap-4">
-      <p v-if="result.created.length" class="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+      <p
+        v-if="result.created.length"
+        class="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700"
+      >
         Invitation envoyée à : {{ result.created.join(', ') }}
       </p>
-      <p v-if="result.resent.length" class="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-700">
+      <p
+        v-if="result.resent.length"
+        class="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-700"
+      >
         Invitation renvoyée à : {{ result.resent.join(', ') }}
       </p>
-      <p v-if="result.skipped.length" class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+      <p
+        v-if="result.skipped.length"
+        class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700"
+      >
         Ignoré : {{ result.skipped.map((s) => `${s.email} (${s.reason})`).join(', ') }}
       </p>
       <AppButton variant="primary" size="md" @click="close">Fermer</AppButton>
@@ -167,7 +183,9 @@ function close() {
       <!-- Emails -->
       <div>
         <label class="mb-2 block text-sm font-semibold text-slate-700">Adresses e-mail</label>
-        <div class="flex flex-wrap items-center gap-2 rounded-[1.25rem] border border-slate-200 bg-white px-3 py-2.5 focus-within:border-primary/30 focus-within:ring-2 focus-within:ring-primary/20">
+        <div
+          class="flex flex-wrap items-center gap-2 rounded-[1.25rem] border border-slate-200 bg-white px-3 py-2.5 focus-within:border-primary/30 focus-within:ring-2 focus-within:ring-primary/20"
+        >
           <span
             v-for="e in emails"
             :key="e"
@@ -175,7 +193,13 @@ function close() {
             :class="isValidEmail(e) ? 'bg-primary/10 text-primary' : 'bg-rose-50 text-rose-600'"
           >
             {{ e }}
-            <button type="button" class="text-current/60 hover:text-current" @click="removeEmail(e)">×</button>
+            <button
+              type="button"
+              class="text-current/60 hover:text-current"
+              @click="removeEmail(e)"
+            >
+              ×
+            </button>
           </span>
           <input
             v-model="emailInput"
@@ -187,7 +211,9 @@ function close() {
             @paste="onEmailPaste"
           />
         </div>
-        <p class="mt-1.5 text-xs text-slate-400">Entrée, virgule ou collage multiple pour ajouter plusieurs adresses.</p>
+        <p class="mt-1.5 text-xs text-slate-400">
+          Entrée, virgule ou collage multiple pour ajouter plusieurs adresses.
+        </p>
       </div>
 
       <!-- Rôle -->
@@ -200,12 +226,20 @@ function close() {
       <div>
         <label class="mb-2 block text-sm font-semibold text-slate-700">
           Permissions
-          <span v-if="isLockedRole" class="font-normal text-slate-400">— accès complet pour ce rôle</span>
+          <span v-if="isLockedRole" class="font-normal text-slate-400"
+            >— accès complet pour ce rôle</span
+          >
         </label>
         <div v-if="categoriesLoading" class="h-32 animate-pulse rounded-2xl bg-slate-100" />
         <div v-else class="grid gap-4 sm:grid-cols-2">
-          <div v-for="cat in categories" :key="cat.category" class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <p class="mb-3 text-xs font-bold uppercase tracking-[0.1em] text-slate-500">{{ cat.category }}</p>
+          <div
+            v-for="cat in categories"
+            :key="cat.category"
+            class="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+          >
+            <p class="mb-3 text-xs font-bold uppercase tracking-[0.1em] text-slate-500">
+              {{ cat.category }}
+            </p>
             <div class="flex flex-col gap-2.5">
               <AppCheckbox
                 v-for="perm in cat.permissions"

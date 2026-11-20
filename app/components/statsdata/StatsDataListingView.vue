@@ -1,30 +1,56 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import DsBox from '@/components/ds/DsBox.vue'
+import DsButton from '@/components/ds/DsButton.vue'
+import ListingHero from '@/components/listing/tranches/ListingHero.vue'
+import ListingResultBar from '@/components/listing/tranches/ListingResultBar.vue'
+import ListingEmptyState from '@/components/listing/tranches/ListingEmptyState.vue'
+import ListingEndLine from '@/components/listing/tranches/ListingEndLine.vue'
+import StatsDataListingToolbar from '@/components/statsdata/listing/StatsDataListingToolbar.vue'
+import StatsDataFeature from '@/components/statsdata/listing/StatsDataFeature.vue'
+import StatsDataTile from '@/components/statsdata/listing/StatsDataTile.vue'
+import StatsDataTable from '@/components/statsdata/listing/StatsDataTable.vue'
+import StatsDataPublishBand from '@/components/statsdata/listing/StatsDataPublishBand.vue'
 import { usePublicCatalog } from '@/composables/usePublicCatalog'
 import { useContentBasePath } from '@/composables/useContentBasePath'
+import { useContentCategoryNames } from '@/composables/useContentCategoryNames'
 import { formatCatalogCount, formatRelativePublished } from '@/lib/catalog-format'
-import CatalogHero from '@/components/listing/CatalogHero.vue'
-import CatalogToolbar from '@/components/listing/CatalogToolbar.vue'
-import CatalogSearchField from '@/components/listing/CatalogSearchField.vue'
-import CatalogSortPills from '@/components/listing/CatalogSortPills.vue'
-import CatalogViewToggle from '@/components/listing/CatalogViewToggle.vue'
-import CatalogChipRow from '@/components/listing/CatalogChipRow.vue'
-import CatalogToggleChip from '@/components/listing/CatalogToggleChip.vue'
-import CatalogResultBar from '@/components/listing/CatalogResultBar.vue'
-import CatalogEmpty from '@/components/listing/CatalogEmpty.vue'
-import CatalogLoadMore from '@/components/listing/CatalogLoadMore.vue'
-import CatalogCta from '@/components/listing/CatalogCta.vue'
-import StatsDataCard from '@/components/content/StatsDataCard.vue'
+import { publicContentPath } from '@/lib/content-display'
+import {
+  buildRubricSlices,
+  rubricBadgeOf,
+  rubricLabel,
+  rubricLeadCaption,
+  rubricPieSegments,
+  sortContextLabel,
+  type RubricSlice,
+} from '@/lib/listing-rubrics'
+import {
+  applyStatsDataToggles,
+  hasToggle,
+  NO_TOGGLES,
+  statsDataActiveFilters,
+  type StatsDataFilterKey,
+  type StatsDataToggles,
+} from '@/lib/statsdata-listing'
+import type { CatalogItem } from '@/types/catalog'
 
-defineProps<{
+/**
+ * Listing des StatsData (Statsio, TVStats, Medistats) — charte « Tranches ».
+ * Orchestration seule : recherche, catégorie, tri, vue, pagination et favoris
+ * vivent dans `usePublicCatalog` (reflétés dans l'URL) ; les filtres « Affiner »
+ * s'appliquent aux résultats chargés ; la présentation est dans
+ * `lib/listing-rubrics.ts` et `lib/statsdata-listing.ts`.
+ */
+const props = defineProps<{
+  /** titre imposé par une sous-marque */
   title?: string
 }>()
 
-const basePath = useContentBasePath()
-const withCharts = ref(false)
-const withMultiSources = ref(false)
-const recentlyUpdated = ref(false)
+const UNIT = { one: 'StatsData', many: 'StatsData' }
 
+const basePath = useContentBasePath()
+const categoryNames = useContentCategoryNames()
 const {
   qInput,
   category,
@@ -32,209 +58,248 @@ const {
   view,
   pending,
   catalog,
-  anyFilter,
+  anyFilter: anyServerFilter,
   resetFilters,
   loadMore,
   selectCategory,
   toggleItemFavorite,
   isFavorited,
-} = usePublicCatalog({
-  type: 'statsdata',
-  key: 'statsdata-catalog',
+} = usePublicCatalog({ type: 'statsdata', key: 'statsdata-catalog' })
+
+const toggles = ref<StatsDataToggles>({ ...NO_TOGGLES })
+const anyFilter = computed(() => anyServerFilter.value || hasToggle(toggles.value))
+
+/* ── catégories : tranche de la barre d'outils + pastilles des cartes ── */
+const rubrics = computed(() =>
+  buildRubricSlices(catalog.value.facets.categories, categoryNames.value),
+)
+const rubricOf = (item: CatalogItem) =>
+  rubricBadgeOf(item.category, rubrics.value.slices, categoryNames.value)
+const linkOf = (item: CatalogItem) => publicContentPath('statsdata', item.slug, basePath.value)
+
+/* ── hero : chiffres du catalogue + camembert des catégories ──
+   Le camembert ne se redessine pas à chaque frappe : pendant une recherche on garde
+   la dernière répartition sans recherche (même objet → DsPie ne rejoue pas). */
+type HeroRubrics = { slices: RubricSlice[]; others: RubricSlice[]; total: number }
+let lastHeroRubrics: HeroRubrics = { slices: [], others: [], total: 0 }
+const heroRubrics = computed<HeroRubrics>(() => {
+  if (!qInput.value.trim()) {
+    const all = catalog.value.facets.categories.find((f) => !f.value)
+    lastHeroRubrics = { ...rubrics.value, total: all?.count ?? catalog.value.stats.published }
+  }
+  return lastHeroRubrics
 })
-
-const sortOptions: { value: 'trend' | 'created' | 'recent'; label: string }[] = [
-  { value: 'trend', label: 'Popularité' },
-  { value: 'created', label: 'Date de création' },
-  { value: 'recent', label: 'Date de modification' },
-]
-
-const crumbs = computed(() => [
-  { label: 'Accueil', to: basePath.value || '/' },
-  { label: 'StatsData' },
-])
-
+const heroPie = computed(() =>
+  rubricPieSegments(heroRubrics.value.slices, heroRubrics.value.others),
+)
+const heroPieLabel = computed(
+  () =>
+    `Répartition des StatsData par catégorie : ${heroPie.value.map((s) => `${s.label} ${s.value}`).join(', ')}`,
+)
+const heroCaption = computed(() =>
+  rubricLeadCaption(heroRubrics.value.slices, heroRubrics.value.total, UNIT),
+)
 const heroStats = computed(() => [
-  { label: 'Datasets publiés', value: formatCatalogCount(catalog.value.stats.published) },
+  { label: 'StatsData publiés', value: formatCatalogCount(catalog.value.stats.published) },
   { label: 'Chaînes éditrices', value: formatCatalogCount(catalog.value.stats.channels) },
   { label: 'Graphiques intégrés', value: formatCatalogCount(catalog.value.stats.charts) },
-  { label: 'Dernière mise à jour', value: formatRelativePublished(catalog.value.stats.last_published_at) },
+  {
+    label: 'Dernière mise à jour',
+    value: formatRelativePublished(catalog.value.stats.last_published_at),
+    small: true,
+  },
+])
+const crumbs = computed(() => [
+  { label: 'Accueil', to: basePath.value || '/' },
+  { label: props.title ?? 'StatsData' },
 ])
 
-const categoryFacets = computed(() => catalog.value.facets.categories)
-
-const filteredData = computed(() => {
-  const arr = [...catalog.value.data]
-  if (withCharts.value) {
-    for (let i = arr.length - 1; i >= 0; i--) if (!(arr[i]!.charts_count > 0)) arr.splice(i, 1)
-  }
-  if (withMultiSources.value) {
-    for (let i = arr.length - 1; i >= 0; i--) if (!((arr[i]!.linked_datasets_count ?? 0) > 1)) arr.splice(i, 1)
-  }
-  if (recentlyUpdated.value) {
-    const week = Date.now() - 7 * 86_400_000
-    for (let i = arr.length - 1; i >= 0; i--) {
-      const t = new Date(arr[i]!.updated_at ?? 0).getTime()
-      if (t < week) arr.splice(i, 1)
-    }
-  }
-  return arr
-})
-
-const filteredTotal = computed(() => filteredData.value.length)
-const shownCount = computed(() => Math.min(catalog.value.meta.shown, filteredTotal.value))
-
-const countLine = computed(
-  () => `${filteredTotal.value} dataset${filteredTotal.value > 1 ? 's' : ''} · ${shownCount.value} affiché${shownCount.value > 1 ? 's' : ''}`,
+/* ── résultats ── */
+const items = computed(() => applyStatsDataToggles(catalog.value.data, toggles.value))
+const total = computed(() =>
+  hasToggle(toggles.value) ? items.value.length : catalog.value.meta.total,
 )
-const hasClientFilter = computed(() => withCharts.value || withMultiSources.value || recentlyUpdated.value)
-const contextLine = computed(() => {
-  if (anyFilter.value || hasClientFilter.value) return 'Filtres actifs'
-  if (sort.value === 'created') return 'Classés par date de création'
-  if (sort.value === 'recent') return 'Classés par date de modification'
-  return 'Classés par popularité'
-})
-const moreCount = computed(() =>
-  Math.min(6, Math.max(0, filteredTotal.value - shownCount.value)),
+const filters = computed(() =>
+  statsDataActiveFilters(
+    { q: qInput.value, category: category.value, toggles: toggles.value },
+    (v) => rubricLabel(v, categoryNames.value),
+  ),
 )
-const showFeatured = computed(() => view.value === 'grid' && !anyFilter.value && !hasClientFilter.value && Boolean(catalog.value.featured))
-const gridItems = computed(() => {
-  const items = filteredData.value
-  if (!showFeatured.value || !catalog.value.featured) return items
-  return items.filter((item) => item.id !== catalog.value.featured?.id)
-})
-const canLoadMore = computed(() => catalog.value.meta.has_more || shownCount.value < filteredTotal.value)
+const context = computed(
+  () => sortContextLabel(sort.value) + (view.value === 'list' ? ' · vue liste' : ''),
+)
+
+function removeFilter(key: StatsDataFilterKey) {
+  if (key === 'q') qInput.value = ''
+  else if (key === 'category') selectCategory('')
+  else toggles.value = { ...toggles.value, [key]: false }
+}
 
 function resetAll() {
-  withCharts.value = false
-  withMultiSources.value = false
-  recentlyUpdated.value = false
-  sort.value = 'trend'
+  toggles.value = { ...NO_TOGGLES }
   resetFilters()
 }
+
+const featured = computed(() =>
+  view.value === 'grid' && !anyFilter.value ? catalog.value.featured : null,
+)
+const gridItems = computed(() => items.value.filter((item) => item.id !== featured.value?.id))
+const moreCount = computed(() =>
+  Math.min(6, Math.max(0, catalog.value.meta.total - catalog.value.meta.shown)),
+)
+const loadingFirst = computed(() => pending.value && !catalog.value.data.length)
 </script>
 
 <template>
-  <div class="bg-[#f4f3f8] pb-24">
-    <CatalogHero
+  <div class="ds-scope statsdata">
+    <ListingHero
       :crumbs="crumbs"
-      badge="STATSDATA"
-      kicker="DATASETS INTERACTIFS · SÉRIES TEMPORELLES · ANALYSES EXPERTES"
-      :title="title"
-      subtitle="Explorez et comparez des indicateurs clés : chaque Statsdata croise sources vérifiées, graphiques interactifs et pages analytiques personnalisables — créés par des experts Statsio."
+      lede="Un StatsData branche une source publique, la met en graphiques et en tableaux, et se resynchronise tout seul. Choisissez un sujet, filtrez une commune, téléchargez les lignes."
       :stats="heroStats"
-      hero-src="/brand/listings/statsdata-hero-light.png"
+      :pie="heroPie"
+      :pie-label="heroPieLabel"
+      :caption="heroCaption"
     >
+      <template #label
+        >StatsData · <b>jeux de données interactifs et séries temporelles</b></template
+      >
       <template #title>
         <template v-if="title">{{ title }}</template>
-        <template v-else>
-          Des <span class="text-primary">données vivantes</span> pour <span class="text-accent">comprendre</span> le réel.
-        </template>
-      </template>
-    </CatalogHero>
-
-    <CatalogToolbar>
-      <template #search>
-        <CatalogSearchField v-model="qInput" placeholder="Rechercher un dataset, une source, un indicateur…" />
-      </template>
-      <template #sort>
-        <CatalogSortPills v-model="sort" :options="sortOptions" />
-      </template>
-      <template #view>
-        <CatalogViewToggle v-model="view" />
-      </template>
-
-      <CatalogChipRow
-        v-if="categoryFacets.length > 1"
-        label="Catégorie"
-        :model-value="category"
-        :options="categoryFacets"
-        @update:model-value="selectCategory"
-      />
-
-      <div class="flex flex-wrap items-center gap-2.5">
-        <CatalogToggleChip v-model="withCharts" label="Avec graphiques" />
-        <CatalogToggleChip v-model="withMultiSources" label="Multi-sources" />
-        <CatalogToggleChip v-model="recentlyUpdated" label="Mis à jour cette semaine" />
-        <span class="flex-1" />
-        <button
-          v-if="anyFilter || hasClientFilter"
-          type="button"
-          class="rounded-full border-[1.5px] border-slate-200 px-3.5 py-[7px] text-xs font-bold text-slate-500 transition hover:border-[#c4b5fd] hover:text-primary"
-          @click="resetAll"
+        <template v-else
+          >Des données <em>vivantes</em> pour <span class="is-alt">comprendre</span> le
+          réel.</template
         >
-          Réinitialiser
-        </button>
-      </div>
-    </CatalogToolbar>
-
-    <div class="mx-auto max-w-[1240px] px-4 py-6 sm:px-6 lg:px-8 lg:pb-[90px] lg:pt-[26px]">
-      <CatalogResultBar :count-line="countLine" :context-line="contextLine" />
-
-      <div v-if="pending && !catalog.data.length" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <div v-for="i in 6" :key="i" class="h-72 animate-pulse rounded-[18px] bg-white" />
-      </div>
-
-      <template v-else-if="filteredTotal > 0">
-        <StatsDataCard v-if="showFeatured && catalog.featured" :item="catalog.featured" format="row" feature class="mb-[22px]" />
-
-        <div v-if="view === 'grid'" class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <StatsDataCard
-            v-for="item in gridItems"
-            :key="item.id"
-            :item="item"
-            format="card"
-            :favorited="isFavorited(item)"
-            @favorite="toggleItemFavorite(item)"
-          />
-        </div>
-
-        <div v-else class="overflow-x-auto rounded-[18px] bg-white shadow-[0_1px_3px_rgba(20,20,30,0.06)]">
-          <div class="grid min-w-[720px] grid-cols-[minmax(0,2.4fr)_1.3fr_1fr_0.8fr_0.7fr_46px] gap-3.5 bg-[#faf9fd] px-5 py-3">
-            <div class="text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-400">Dataset</div>
-            <div class="text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-400">Tendance</div>
-            <div class="text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-400">Catégorie</div>
-            <div class="text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-400">Publié par</div>
-            <div class="text-right text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-400">Sources</div>
-            <div />
-          </div>
-          <div class="min-w-[720px]">
-            <StatsDataCard
-              v-for="item in filteredData"
-              :key="item.id"
-              :item="item"
-              format="row"
-              :favorited="isFavorited(item)"
-              @favorite="toggleItemFavorite(item)"
-            />
-          </div>
-        </div>
-
-        <CatalogLoadMore
-          v-if="canLoadMore"
-          :more-count="moreCount"
-          :loading="pending"
-          @load="loadMore"
-        />
       </template>
+    </ListingHero>
 
-      <CatalogEmpty
-        v-else
-        title="Aucun StatsData ne correspond"
-        :subtitle="qInput || category || hasClientFilter ? 'Aucun résultat avec ces filtres. Essayez un autre mot-clé ou réinitialisez les filtres.' : 'Essayez une autre catégorie ou un autre mot-clé.'"
+    <StatsDataListingToolbar
+      v-model:q="qInput"
+      v-model:sort="sort"
+      v-model:view="view"
+      v-model:toggles="toggles"
+      :category="category"
+      :slices="rubrics.slices"
+      :other-rubrics="rubrics.others"
+      @update:category="selectCategory"
+    />
+
+    <section class="ds-max statsdata__list" aria-label="StatsData">
+      <ListingResultBar
+        :total="total"
+        :unit="UNIT"
+        :overall="anyFilter ? catalog.stats.published : null"
+        :filters="filters"
+        :context="context"
+        @remove="removeFilter"
         @reset="resetAll"
       />
 
-      <CatalogCta
-        title="Publiez votre propre StatsData"
-        subtitle="Le studio vous permet de connecter une source de données, de créer des graphiques et de publier un dataset interactif en quelques minutes."
-        primary-to="/studio"
-        primary-label="Créer un StatsData"
-        secondary-to="/about"
-        secondary-label="Guide des données"
+      <div v-if="loadingFirst" class="statsdata__grid" aria-busy="true">
+        <DsBox v-for="i in 6" :key="i" shadow="sm" class="statsdata__ghost" />
+      </div>
+
+      <template v-else-if="items.length">
+        <template v-if="view === 'grid'">
+          <StatsDataFeature
+            v-if="featured"
+            :item="featured"
+            :to="linkOf(featured)"
+            :rubric="rubricOf(featured)"
+            :favorited="isFavorited(featured)"
+            @favorite="toggleItemFavorite(featured)"
+          />
+          <div class="statsdata__grid">
+            <StatsDataTile
+              v-for="item in gridItems"
+              :key="item.id"
+              :item="item"
+              :to="linkOf(item)"
+              :rubric="rubricOf(item)"
+              :favorited="isFavorited(item)"
+              :query="qInput"
+              @favorite="toggleItemFavorite(item)"
+            />
+          </div>
+        </template>
+        <StatsDataTable
+          v-else
+          :items="items"
+          :query="qInput"
+          :link-of="linkOf"
+          :rubric-of="rubricOf"
+          :is-favorited="isFavorited"
+          @favorite="toggleItemFavorite"
+        />
+
+        <div v-if="catalog.meta.has_more" class="statsdata__more">
+          <DsButton variant="secondary" :disabled="pending" @click="loadMore"
+            >Afficher {{ moreCount }} de plus</DsButton
+          >
+        </div>
+        <ListingEndLine
+          v-else
+          :total="total"
+          :overall="anyFilter ? catalog.stats.published : null"
+          :unit="UNIT"
+        />
+      </template>
+
+      <ListingEmptyState
+        v-else
+        :filtered="anyFilter"
+        :query="qInput"
+        title="Aucun StatsData ne correspond"
+        empty-title="Aucun StatsData publié pour le moment"
+        hint="Retirez un filtre ou essayez une autre catégorie."
+        @reset="resetAll"
       />
-    </div>
+
+      <StatsDataPublishBand />
+    </section>
   </div>
 </template>
 
-
+<style scoped>
+.statsdata {
+  padding-bottom: 80px;
+  background: var(--ds-bg);
+  color: var(--ds-text);
+  font-family: var(--ds-ui);
+}
+.statsdata :deep(.is-alt) {
+  color: var(--ds-t2);
+}
+.statsdata__list {
+  padding-top: 28px;
+}
+.statsdata__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 26px;
+}
+@media (min-width: 621px) {
+  .statsdata__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1041px) {
+  .statsdata__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.statsdata__ghost {
+  height: 360px;
+  background: var(--ds-tint);
+  animation: statsdata-pulse 1.4s var(--ds-e-balaye) infinite alternate;
+}
+@keyframes statsdata-pulse {
+  to {
+    opacity: 0.55;
+  }
+}
+.statsdata__more {
+  display: flex;
+  justify-content: center;
+  margin-top: 34px;
+}
+</style>

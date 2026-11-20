@@ -6,13 +6,18 @@ import type { ChannelOrganization } from '@/api/channels'
 import { useContentBasePath } from '@/composables/useContentBasePath'
 import { publicChannelPath } from '@/lib/content-display'
 
-const props = withDefaults(defineProps<{ organization: ChannelOrganization; size?: 'sm' | 'md' }>(), { size: 'md' })
+const props = withDefaults(
+  defineProps<{ organization: ChannelOrganization; size?: 'sm' | 'md' }>(),
+  { size: 'md' },
+)
 
 const router = useRouter()
 const basePath = useContentBasePath()
 
 const logoUrl = computed(() => props.organization.principal_channel?.profile?.logo_url ?? null)
-const principalHandle = computed(() => props.organization.principal_channel?.profile?.handle ?? null)
+const principalHandle = computed(
+  () => props.organization.principal_channel?.profile?.handle ?? null,
+)
 const principalPath = computed(() =>
   principalHandle.value ? publicChannelPath(principalHandle.value, basePath.value) : null,
 )
@@ -34,12 +39,26 @@ function goToPrincipalChannel(event: MouseEvent) {
       :is="principalPath ? 'button' : 'span'"
       :type="principalPath ? 'button' : undefined"
       class="flex shrink-0 items-center justify-center overflow-hidden rounded-md bg-white shadow-sm ring-1 ring-black/5"
-      :class="[size === 'sm' ? 'h-4 w-4' : 'h-5 w-5', principalPath ? 'cursor-pointer hover:ring-primary/40' : '']"
+      :class="[
+        size === 'sm' ? 'h-4 w-4' : 'h-5 w-5',
+        principalPath ? 'cursor-pointer hover:ring-primary/40' : '',
+      ]"
       @click="goToPrincipalChannel"
     >
       <img v-if="logoUrl" :src="logoUrl" alt="" class="h-full w-full object-cover" />
-      <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-full w-full p-[3px] text-slate-400">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1m-1 4h1m4-4h1m-1 4h1M9 21v-4a1 1 0 011-1h4a1 1 0 011 1v4" />
+      <svg
+        v-else
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        class="h-full w-full p-[3px] text-slate-400"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1m-1 4h1m4-4h1m-1 4h1M9 21v-4a1 1 0 011-1h4a1 1 0 011 1v4"
+        />
       </svg>
     </component>
   </AppTooltip>

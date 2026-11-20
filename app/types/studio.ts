@@ -33,7 +33,7 @@ export interface StudioContent {
 
 // ─── Blocks ───────────────────────────────────────────────────────────────────
 
-export type BlockType = 'bar' | 'line' | 'pie' | 'table' | 'kpi' | 'record' | 'related' | 'heading' | 'paragraph' | 'quote' | 'callout' | 'search' | 'param' | 'image' | 'video' | 'button' | 'link-card' | 'retenir' | 'map' | 'field-grid' | 'choice' | 'checkboxes' | 'dropdown' | 'scale' | 'rating' | 'loop' | 'if' | 'layout' | 'sd-embed'
+export type BlockType = 'bar' | 'line' | 'pie' | 'table' | 'kpi' | 'record' | 'related' | 'heading' | 'paragraph' | 'quote' | 'callout' | 'search' | 'param' | 'image' | 'video' | 'button' | 'link-card' | 'retenir' | 'map' | 'field-grid' | 'choice' | 'checkboxes' | 'dropdown' | 'scale' | 'rating' | 'number' | 'text-answer' | 'loop' | 'if' | 'layout' | 'sd-embed'
 
 /**
  * Types de blocs qu'un article peut réutiliser via un bloc `sd-embed`
@@ -47,7 +47,7 @@ export const IFRAME_EMBED_BLOCK_TYPES: BlockType[] = ['bar', 'line', 'pie', 'tab
 
 export const TEXT_BLOCK_TYPES: BlockType[] = ['heading', 'paragraph', 'quote', 'callout']
 export const EDITORIAL_BLOCK_TYPES: BlockType[] = ['image', 'video', 'button', 'link-card', 'retenir', 'field-grid']
-export const FORM_BLOCK_TYPES: BlockType[] = ['choice', 'checkboxes', 'dropdown', 'scale', 'rating']
+export const FORM_BLOCK_TYPES: BlockType[] = ['choice', 'checkboxes', 'dropdown', 'scale', 'rating', 'number', 'text-answer']
 /** Blocs de logique (script) : conteneurs qui répètent (`loop`) / conditionnent (`if`) d'autres blocs. */
 export const SCRIPT_BLOCK_TYPES: BlockType[] = ['loop', 'if']
 /** Tout bloc « conteneur » possédant ses propres zones enfants (script + mise en page). */
@@ -131,6 +131,8 @@ export const BLOCK_META: Record<BlockType, { label: string; iconPath: string; ti
   dropdown:   { label: 'Liste déroulante', tint: 'bg-indigo-100 text-indigo-600',   iconPath: 'M8.25 15 12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9' },
   scale:      { label: 'Échelle linéaire', tint: 'bg-indigo-100 text-indigo-600',   iconPath: 'M3 6.75h18M3 12h18M3 17.25h18M6 6.75v0M12 12v0M18 17.25v0' },
   rating:     { label: 'Avis',             tint: 'bg-amber-100 text-amber-600',     iconPath: 'M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5z' },
+  number:     { label: 'Nombre',           tint: 'bg-sky-100 text-sky-600',         iconPath: 'M5.25 8.25h15m-16.5 7.5h15m-1.8-13.5-3.9 19.5m-2.1-19.5-3.9 19.5' },
+  'text-answer': { label: 'Réponse libre',  tint: 'bg-slate-100 text-slate-600',     iconPath: 'M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.076-4.076a1.526 1.526 0 0 1 1.037-.443 48.282 48.282 0 0 0 5.68-.494c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z' },
   loop:       { label: 'Boucle',           tint: 'bg-indigo-100 text-indigo-600',   iconPath: 'M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99' },
   if:         { label: 'Condition',        tint: 'bg-indigo-100 text-indigo-600',   iconPath: 'M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0 0 21 18V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v12a2.25 2.25 0 0 0 2.25 2.25Z' },
   layout:     { label: 'Disposition',      tint: 'bg-slate-100 text-slate-600',     iconPath: 'M9 4.5v15m6-15v15m-10.875 0h15.75c.621 0 1.125-.504 1.125-1.125V5.625c0-.621-.504-1.125-1.125-1.125H4.125C3.504 4.5 3 5.004 3 5.625v12.75c0 .621.504 1.125 1.125 1.125Z' },
@@ -543,6 +545,12 @@ export interface BlockConfig {
   scaleMinLabel?: string
   scaleMaxLabel?: string
   ratingMax?: number
+  /** Question « Nombre » : unité affichée et bornes facultatives. */
+  formUnit?: string
+  formMin?: number
+  formMax?: number
+  /** Question « Réponse libre » : zone longue (défaut) ou champ court. */
+  formLongAnswer?: boolean
   // Loop block config
   /** Max iterations rendered (guard-rail against high-cardinality columns). */
   loopLimit?: number
@@ -852,7 +860,7 @@ export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 // ─── Sidebar tabs ─────────────────────────────────────────────────────────────
 
-export type SidebarLeftTab = 'blocks' | 'script' | 'sources' | 'filters' | 'assistant'
+export type SidebarLeftTab = 'blocks' | 'script' | 'sources' | 'filters' | 'assistant' | 'sdlib' | 'settings' | 'properties'
 
 // ─── Sections (canvas model) ──────────────────────────────────────────────────
 
@@ -1045,6 +1053,8 @@ export const BLOCK_CATEGORIES: BlockCategoryDef[] = [
       { type: 'dropdown',   label: 'Liste déroulante', description: 'Sélection dans une liste d\'options',    iconPath: 'M8.25 15 12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9' },
       { type: 'scale',      label: 'Échelle linéaire', description: 'Note sur une échelle numérique',         iconPath: 'M3 6.75h18M3 12h18M3 17.25h18M6 6.75v0M12 12v0M18 17.25v0' },
       { type: 'rating',     label: 'Avis',              description: 'Notation en étoiles',                   iconPath: 'M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5z' },
+      { type: 'number',     label: 'Nombre',            description: 'Valeur chiffrée, unité',                iconPath: 'M5.25 8.25h15m-16.5 7.5h15m-1.8-13.5-3.9 19.5m-2.1-19.5-3.9 19.5' },
+      { type: 'text-answer', label: 'Réponse libre',    description: 'Texte court ou long',                   iconPath: 'M7.5 8.25h9m-9 3H12' },
     ],
   },
   {

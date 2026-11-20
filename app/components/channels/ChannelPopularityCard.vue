@@ -42,10 +42,14 @@ const initials = computed(() =>
     </span>
     <div class="min-w-0">
       <div class="flex items-center gap-1.5">
-        <p class="u-card-title truncate text-sm font-bold text-slate-900">{{ channel.profile.name }}</p>
+        <p class="u-card-title truncate text-sm font-bold text-slate-900">
+          {{ channel.profile.name }}
+        </p>
         <ChannelBadgeList :slugs="channel.badges" :organization="channel.organization" size="sm" />
       </div>
-      <p class="text-xs text-slate-500">{{ formatCompactNumber(channel.profile.subscriber_count) }} abonnés</p>
+      <p class="text-xs text-slate-500">
+        {{ formatCompactNumber(channel.profile.subscriber_count) }} abonnés
+      </p>
     </div>
   </RouterLink>
 </template>
