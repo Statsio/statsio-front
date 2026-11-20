@@ -237,7 +237,7 @@ const { text: resolvedComparisonLabel } = useResolvedTokens({ raw: () => props.b
 </script>
 
 <template>
-  <div class="border-l-2 border-[var(--studio-line)] pl-4">
+  <div class="sd-kpi border-l-2 border-[var(--studio-line)] pl-4">
     <!-- Loading -->
     <div v-if="isLoading" class="py-3">
       <span class="text-sm text-[var(--studio-faint)]">Chargement…</span>
@@ -254,17 +254,17 @@ const { text: resolvedComparisonLabel } = useResolvedTokens({ raw: () => props.b
     </div>
 
     <template v-else>
-      <p v-if="resolvedTitle" class="min-h-[30px] text-[11px] font-bold leading-[1.35] text-[var(--studio-muted)]">
+      <p v-if="resolvedTitle" class="sd-kpi__label min-h-[30px] text-[11px] font-bold leading-[1.35] text-[var(--studio-muted)]">
         {{ resolvedTitle }}
       </p>
-      <div class="mono mt-1.5 text-[27px] font-semibold leading-none tracking-[-0.02em] text-[var(--studio-ink)] tabular-nums">
+      <div class="sd-kpi__value mono mt-1.5 text-[27px] font-semibold leading-none tracking-[-0.02em] text-[var(--studio-ink)] tabular-nums">
         {{ block.config.prefix }}{{ formattedValue }}{{ block.config.suffix }}
       </div>
 
       <div
         v-if="hasComparisonSetup && trendLabel"
-        class="mt-[7px] flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11.5px] font-bold"
-        :class="isPositive ? 'text-emerald-600' : 'text-red-500'"
+        class="sd-kpi__trend mt-[7px] flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11.5px] font-bold"
+        :class="isPositive ? 'text-emerald-600 is-up' : 'text-red-500 is-down'"
       >
         <span>{{ isPositive ? '↑' : '↓' }} {{ trendLabel }}</span>
         <span v-if="resolvedComparisonLabel" class="font-medium text-[var(--studio-muted)]">{{ resolvedComparisonLabel }}</span>
@@ -272,7 +272,7 @@ const { text: resolvedComparisonLabel } = useResolvedTokens({ raw: () => props.b
       </div>
       <div v-else-if="hasComparisonSetup && (compLoading || (compExpr && compExprPending))" class="mt-[7px] animate-pulse text-[11.5px] text-[var(--studio-faint)]">…</div>
       <div v-else-if="hasComparisonSetup && compError" class="mt-[7px] text-[11.5px] text-red-400">Comparaison indisponible</div>
-      <div v-else-if="resolvedDescription" class="mt-[7px] text-[11.5px] text-[var(--studio-muted)]">{{ resolvedDescription }}</div>
+      <div v-else-if="resolvedDescription" class="sd-kpi__desc mt-[7px] text-[11.5px] text-[var(--studio-muted)]">{{ resolvedDescription }}</div>
     </template>
   </div>
 </template>

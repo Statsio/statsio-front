@@ -358,13 +358,13 @@ const sourceSummary = computed(() => {
               </svg>
             </button>
             <div v-show="open('bar-opts')" class="accordion-body flex flex-col gap-3">
-              <div class="toggle-row" @click="updateConfig('showValueLabels', !block.config.showValueLabels)">
+              <div class="toggle-row cursor-pointer" @click="updateConfig('showValueLabels', !block.config.showValueLabels)">
                 <span class="text-sm text-[var(--studio-ink)]">Afficher les valeurs sur les barres</span>
                 <div class="toggle" :class="block.config.showValueLabels ? 'toggle-on' : 'toggle-off'">
                   <div class="toggle-knob" :class="block.config.showValueLabels ? 'translate-x-3.5' : 'translate-x-0.5'" />
                 </div>
               </div>
-              <div class="toggle-row" @click="updateConfig('logScale', !block.config.logScale)">
+              <div class="toggle-row cursor-pointer" @click="updateConfig('logScale', !block.config.logScale)">
                 <div>
                   <span class="text-sm text-[var(--studio-ink)]">Échelle logarithmique</span>
                   <p class="text-[11px] text-[var(--studio-faint)] mt-0.5">Garde les petites valeurs visibles quand l'écart avec les plus grandes est important</p>
@@ -435,13 +435,13 @@ const sourceSummary = computed(() => {
               </svg>
             </button>
             <div v-show="open('line-opts')" class="accordion-body flex flex-col gap-3">
-              <div class="toggle-row" @click="updateConfig('smooth', !block.config.smooth)">
+              <div class="toggle-row cursor-pointer" @click="updateConfig('smooth', !block.config.smooth)">
                 <span class="text-sm text-[var(--studio-ink)]">Courbe lisse</span>
                 <div class="toggle" :class="block.config.smooth ? 'toggle-on' : 'toggle-off'">
                   <div class="toggle-knob" :class="block.config.smooth ? 'translate-x-3.5' : 'translate-x-0.5'" />
                 </div>
               </div>
-              <div class="toggle-row" @click="updateConfig('lineFill', block.config.lineFill === false ? undefined : false)">
+              <div class="toggle-row cursor-pointer" @click="updateConfig('lineFill', block.config.lineFill === false ? undefined : false)">
                 <span class="text-sm text-[var(--studio-ink)]">Remplissage sous la courbe</span>
                 <div class="toggle" :class="block.config.lineFill !== false ? 'toggle-on' : 'toggle-off'">
                   <div class="toggle-knob" :class="block.config.lineFill !== false ? 'translate-x-3.5' : 'translate-x-0.5'" />
@@ -509,13 +509,13 @@ const sourceSummary = computed(() => {
               </svg>
             </button>
             <div v-show="open('table-opts')" class="accordion-body flex flex-col gap-2">
-              <div class="toggle-row" @click="updateConfig('sortable', !block.config.sortable)">
+              <div class="toggle-row cursor-pointer" @click="updateConfig('sortable', !block.config.sortable)">
                 <span class="text-sm text-[var(--studio-ink)]">Colonnes triables</span>
                 <div class="toggle" :class="block.config.sortable ? 'toggle-on' : 'toggle-off'">
                   <div class="toggle-knob" :class="block.config.sortable ? 'translate-x-3.5' : 'translate-x-0.5'" />
                 </div>
               </div>
-              <div class="toggle-row" @click="updateConfig('showPagination', !block.config.showPagination)">
+              <div class="toggle-row cursor-pointer" @click="updateConfig('showPagination', !block.config.showPagination)">
                 <span class="text-sm text-[var(--studio-ink)]">Pagination</span>
                 <div class="toggle" :class="block.config.showPagination ? 'toggle-on' : 'toggle-off'">
                   <div class="toggle-knob" :class="block.config.showPagination ? 'translate-x-3.5' : 'translate-x-0.5'" />

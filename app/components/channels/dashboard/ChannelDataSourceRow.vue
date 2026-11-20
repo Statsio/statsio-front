@@ -36,7 +36,9 @@ const syncLabel = computed(() => {
 </script>
 
 <template>
-  <div class="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-100 px-6 py-3.5 first:border-t-0">
+  <div
+    class="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-100 px-6 py-3.5 first:border-t-0"
+  >
     <span
       class="flex h-8 min-w-[42px] items-center justify-center rounded-lg bg-slate-100 px-2 font-mono text-[10.5px] font-semibold text-slate-500"
     >
@@ -45,7 +47,10 @@ const syncLabel = computed(() => {
 
     <span class="min-w-[180px] flex-1">
       <span class="block text-[13.5px] font-bold text-slate-950">{{ source.name }}</span>
-      <span v-if="source.origin" class="mt-0.5 block truncate font-mono text-[10.5px] text-slate-400">
+      <span
+        v-if="source.origin"
+        class="mt-0.5 block truncate font-mono text-[10.5px] text-slate-400"
+      >
         {{ source.origin }}
       </span>
     </span>

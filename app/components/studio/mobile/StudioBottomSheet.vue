@@ -75,7 +75,7 @@ onBeforeUnmount(() => {
     >
       <div
         v-if="studio.mobileSheetSnap !== 'closed'"
-        class="fixed inset-x-0 z-40 flex flex-col rounded-t-[20px] border-t border-[var(--studio-line)] bg-white shadow-[0_-8px_32px_rgba(20,20,30,0.18)] md:hidden"
+        class="st-mobile-sheet fixed inset-x-0 z-40 flex flex-col border-t-2 border-[var(--ds-ol)] bg-[var(--ds-surface)] text-[var(--ds-text)] shadow-[0_-6px_0_var(--ds-sh)] md:hidden"
         :style="{
           bottom: `${TAB_BAR_HEIGHT}px`,
           height: `${sheetHeight}px`,
@@ -91,7 +91,7 @@ onBeforeUnmount(() => {
           aria-label="Redimensionner le panneau"
           @pointerdown="onHandlePointerDown"
         >
-          <span class="h-1.5 w-10 rounded-full bg-[var(--studio-line)]" />
+          <span class="h-1.5 w-10 rounded-full bg-[var(--ds-divide)]" />
         </button>
 
         <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">

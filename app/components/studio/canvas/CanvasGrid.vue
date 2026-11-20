@@ -5,6 +5,8 @@ import { useStudioStore } from '@/stores/studio'
 import type { CanvasItemRef } from '@/types/studio'
 import CanvasSection from './CanvasSection.vue'
 import BlockWrapper from './BlockWrapper.vue'
+import CanvasDocHeader from './CanvasDocHeader.vue'
+import StudioIcon from '../ui/StudioIcon.vue'
 
 const studio = useStudioStore()
 
@@ -71,26 +73,40 @@ function onFlowChange(evt: {
 
 
 function onCanvasClick(event: MouseEvent) {
-  if (event.target === event.currentTarget) studio.selectBlock(null)
+  if (event.target === event.currentTarget) selectDocument()
 }
+
+/** Rien de sélectionné = inspecteur « Propriétés » du document. */
+function selectDocument() {
+  studio.selectBlock(null)
+  studio.selectSection(null)
+}
+const documentSelected = computed(() => !studio.selectedBlockId && !studio.selectedSectionId)
+const addSectionLabel = computed(() => (studio.content?.type === 'survey' ? 'Ajouter une étape' : 'Ajouter une section'))
 </script>
 
 <template>
-  <div class="mx-auto flex min-h-full w-full max-w-[1000px] flex-col px-10 pb-[120px] pt-8">
+  <div class="st-paper-wrap" @click.self="selectDocument">
+   <article
+    class="st-paper sd-public ds-scope"
+    :class="{ 'st-paper--mobile': studio.previewDevice === 'mobile' }"
+    aria-label="Canevas"
+   >
+    <CanvasDocHeader :selected="documentSelected" @select="selectDocument" />
     <div class="flex flex-1 flex-col gap-4" @click="onCanvasClick">
       <!-- Zone de dépôt avant le premier élément -->
       <div
         v-if="!studio.isPreview"
         class="rounded-full transition-all"
         :class="dropInsertIndex === 0 && isDropTargetActive
-          ? 'flex h-10 items-center justify-center border-2 border-dashed border-[var(--color-primary)] bg-[var(--studio-accent-wash)]'
+          ? 'flex h-10 items-center justify-center rounded-[3px] border-2 border-dashed border-[var(--ds-blue-500)] bg-[color-mix(in_srgb,var(--ds-blue-500)_8%,transparent)]'
           : 'h-1.5'"
         @dragenter="onGapDragEnter($event, 0)"
         @dragleave="onGapDragLeave"
         @dragover="onGapDragOver"
         @drop="onGapDrop($event, 0)"
       >
-        <span v-if="dropInsertIndex === 0 && isDropTargetActive" class="pointer-events-none text-xs font-semibold text-[var(--color-primary)]">
+        <span v-if="dropInsertIndex === 0 && isDropTargetActive" class="pointer-events-none text-xs font-semibold text-[var(--ds-blue-700)]">
           Déposer ici
         </span>
       </div>
@@ -114,13 +130,11 @@ function onCanvasClick(event: MouseEvent) {
             <div v-else-if="item.block" class="group/pageblk relative pt-9">
               <div
                 v-if="!studio.isPreview"
-                class="section-drag-handle absolute left-0 top-0 z-30 flex h-8 cursor-grab items-center gap-1 rounded-lg border border-violet-200 bg-white px-2 py-1 opacity-0 shadow-[var(--studio-shadow-card)] transition-opacity hover:bg-violet-50 active:cursor-grabbing group-hover/pageblk:opacity-100"
+                class="section-drag-handle absolute left-0 top-0 z-30 flex h-7 cursor-grab items-center gap-1.5 rounded-[3px] border-2 border-[var(--ds-ol)] bg-[var(--ds-surface)] px-2 opacity-0 shadow-[2px_2px_0_var(--ds-sh)] transition-opacity active:cursor-grabbing group-hover/pageblk:opacity-100"
                 title="Réordonner ce bloc"
               >
-                <svg class="h-3.5 w-3.5 text-violet-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M7 2a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM7 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM7 14a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM13 2a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM13 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM13 14a2 2 0 1 1-4 0 2 2 0 0 1 4 0z" />
-                </svg>
-                <span class="text-[10px] font-medium text-violet-500">{{ item.block.type === 'loop' ? 'Boucle' : 'Condition' }} (page)</span>
+                <StudioIcon name="grip" :size="13" class="text-[var(--ds-muted)]" />
+                <span class="st-lbl !text-[10px] !text-[var(--ds-accent)]">{{ item.block.type === 'loop' ? 'Boucle' : 'Condition' }} (page)</span>
               </div>
               <BlockWrapper :block="item.block" />
             </div>
@@ -130,14 +144,14 @@ function onCanvasClick(event: MouseEvent) {
               v-if="!studio.isPreview"
               class="mt-3.5 rounded-full transition-all"
               :class="dropInsertIndex === index + 1 && isDropTargetActive
-                ? 'flex h-10 items-center justify-center border-2 border-dashed border-[var(--color-primary)] bg-[var(--studio-accent-wash)]'
+                ? 'flex h-10 items-center justify-center rounded-[3px] border-2 border-dashed border-[var(--ds-blue-500)] bg-[color-mix(in_srgb,var(--ds-blue-500)_8%,transparent)]'
                 : 'h-1.5'"
               @dragenter="onGapDragEnter($event, index + 1)"
               @dragleave="onGapDragLeave"
               @dragover="onGapDragOver"
               @drop="onGapDrop($event, index + 1)"
             >
-              <span v-if="dropInsertIndex === index + 1 && isDropTargetActive" class="pointer-events-none text-xs font-semibold text-[var(--color-primary)]">
+              <span v-if="dropInsertIndex === index + 1 && isDropTargetActive" class="pointer-events-none text-xs font-semibold text-[var(--ds-blue-700)]">
                 Déposer ici
               </span>
             </div>
@@ -148,20 +162,18 @@ function onCanvasClick(event: MouseEvent) {
       <!-- Empty state -->
       <div
         v-if="items.length === 0 && !studio.isPreview"
-        class="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[var(--studio-line-strong)] bg-white/50 py-24 text-center"
+        class="flex min-h-[96px] items-center justify-center rounded-[4px] border-2 border-dashed border-[var(--ds-divide)] text-[13.5px] text-[var(--ds-muted)]"
       >
-        <p class="text-sm font-medium text-[var(--studio-muted)]">Ajoutez une première section</p>
+        Ajoutez une première section.
       </div>
 
-      <!-- Ajouter une section -->
-      <button
-        v-if="!studio.isPreview"
-        type="button"
-        class="mt-1 rounded-2xl border-2 border-dashed border-[var(--studio-line-strong)] py-[26px] text-center text-[14.5px] font-semibold text-[var(--studio-muted)] transition-colors hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
-        @click="studio.addSection()"
-      >
-        + Ajouter une section
-      </button>
+      <!-- Ajouter une section / étape -->
+      <div v-if="!studio.isPreview" class="flex justify-center pt-2">
+        <button type="button" class="st-add-ghost" @click="studio.addSection()">
+          <StudioIcon name="plus" :size="14" />{{ addSectionLabel }}
+        </button>
+      </div>
     </div>
+   </article>
   </div>
 </template>

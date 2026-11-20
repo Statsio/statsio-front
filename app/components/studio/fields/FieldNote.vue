@@ -4,7 +4,7 @@
 
 <template>
   <div
-    class="rounded-[11px] bg-[var(--studio-note)] px-3.5 py-3 text-[12.5px] leading-[1.55] text-[color:color-mix(in_srgb,var(--studio-ink)_60%,transparent)] [text-wrap:pretty]"
+    class="st-hint rounded-[3px] border-l-[3px] border-[var(--ds-divide)] py-1 pl-3 [text-wrap:pretty]"
   >
     <slot />
   </div>

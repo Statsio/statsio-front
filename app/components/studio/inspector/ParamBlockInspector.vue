@@ -168,14 +168,14 @@ const CONTROLS = [
         <FieldNote v-else-if="values.length">{{ values.length }} valeur{{ values.length > 1 ? 's' : '' }} détectée{{ values.length > 1 ? 's' : '' }}.</FieldNote>
       </div>
 
-      <label class="toggle-row" @click="updateConfig('paramAllowAll', !block.config.paramAllowAll)">
+      <label class="toggle-row cursor-pointer" @click="updateConfig('paramAllowAll', !block.config.paramAllowAll)">
         <span class="text-sm text-[var(--studio-ink)]">Proposer une option « toutes les valeurs »</span>
         <span class="toggle" :class="block.config.paramAllowAll ? 'toggle-on' : 'toggle-off'">
           <span class="toggle-knob" :class="block.config.paramAllowAll ? 'translate-x-3.5' : 'translate-x-0.5'" />
         </span>
       </label>
 
-      <label class="toggle-row" @click="updateConfig('heroButton', !block.config.heroButton)">
+      <label class="toggle-row cursor-pointer" @click="updateConfig('heroButton', !block.config.heroButton)">
         <span class="text-sm text-[var(--studio-ink)]">Bouton d'accès rapide dans le hero</span>
         <span class="toggle" :class="block.config.heroButton ? 'toggle-on' : 'toggle-off'">
           <span class="toggle-knob" :class="block.config.heroButton ? 'translate-x-3.5' : 'translate-x-0.5'" />

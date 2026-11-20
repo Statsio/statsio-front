@@ -16,7 +16,11 @@ const emit = defineEmits<{ 'update:modelValue': [ContentTypeFilter] }>()
       :key="opt.value"
       type="button"
       class="rounded-full px-4 py-[9px] text-[13px] font-semibold transition-colors"
-      :class="modelValue === opt.value ? 'bg-slate-950 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'"
+      :class="
+        modelValue === opt.value
+          ? 'bg-slate-950 text-white'
+          : 'bg-white text-slate-700 hover:bg-slate-50'
+      "
       @click="emit('update:modelValue', opt.value)"
     >
       {{ opt.label }}

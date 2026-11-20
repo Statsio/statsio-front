@@ -109,21 +109,17 @@ const handleResend = async () => {
 <template>
   <AuthCard>
     <div class="flex flex-col gap-6">
-      <div>
-        <h1 class="mb-1.5 text-2xl font-bold text-slate-950">Vérifiez votre e-mail</h1>
-        <p class="text-sm leading-relaxed text-slate-950/55">
-          Un code à 6 chiffres a été envoyé à
-          <span class="font-semibold text-slate-950">{{ maskedEmail }}</span>.
-          Saisissez-le ci-dessous pour activer votre compte.
-        </p>
-      </div>
+      <AuthCardHeader eyebrow="Activation du compte" :title="[{ text: 'Vérifiez votre ' }, { text: 'e-mail', em: true }]">
+        Un code à 6 chiffres a été envoyé à <strong>{{ maskedEmail }}</strong>. Saisissez-le ci-dessous pour activer
+        votre compte.
+      </AuthCardHeader>
 
       <form class="flex flex-col gap-5" @submit.prevent="handleSubmit">
         <AuthErrorAlert :message="submitError" />
-        <AuthErrorAlert variant="success" message="Un nouveau code a été envoyé à votre adresse e-mail." v-if="resendSuccess" />
+        <AuthErrorAlert v-if="resendSuccess" variant="success" message="Un nouveau code a été envoyé à votre adresse e-mail." />
 
-        <div>
-          <span class="mb-3 block text-[13px] font-semibold text-slate-700">Code de vérification</span>
+        <fieldset class="m-0 border-0 p-0">
+          <legend class="ds-otp__legend">Code de vérification</legend>
           <div class="flex justify-between gap-2 sm:gap-3">
             <input
               v-for="(_, index) in digits"
@@ -134,39 +130,72 @@ const handleResend = async () => {
               inputmode="numeric"
               maxlength="1"
               autocomplete="one-time-code"
-              class="h-14 w-full rounded-[10px] border-[1.5px] border-slate-900/[0.12] bg-white text-center text-xl font-bold text-slate-950 outline-none transition focus:border-[var(--color-primary)] focus:ring-4 focus:ring-[var(--color-primary)]/10"
-              :class="{ 'border-rose-300 bg-rose-50/60': submitError && !digits[index] }"
+              :aria-label="`Chiffre ${index + 1} sur 6`"
+              class="ds-otp"
+              :class="{ 'is-error': submitError && !digits[index], 'is-filled': digits[index] }"
               @input="handleDigitInput(index, $event)"
               @keydown="handleKeydown(index, $event)"
               @paste="handlePaste"
             />
           </div>
-        </div>
+        </fieldset>
 
-        <AppButton
-          :disabled="!isCodeComplete || authStore.isAuthenticating"
-          full-width
-          size="lg"
-          variant="gradient"
-          type="submit"
-          class="auth-cta"
-        >
-          {{ authStore.isAuthenticating ? 'Vérification...' : 'Confirmer mon compte' }}
-        </AppButton>
+        <DsButton type="submit" block :disabled="!isCodeComplete || authStore.isAuthenticating">
+          <template v-if="authStore.isAuthenticating"><AuthSpinner /> Vérification…</template>
+          <template v-else>Confirmer mon compte <span aria-hidden="true">→</span></template>
+        </DsButton>
       </form>
 
-      <p class="text-center text-sm text-slate-950/55">
+      <p class="ds-auth-foot">
         Vous n'avez pas reçu le code ?
-        <button
-          type="button"
-          :disabled="isResending || resendCooldown > 0"
-          class="font-bold text-[var(--color-primary)] transition hover:brightness-90 disabled:cursor-not-allowed disabled:opacity-50"
-          @click="handleResend"
-        >
-          <template v-if="resendCooldown > 0">Renvoyer dans {{ resendCooldown }}s</template>
-          <template v-else>{{ isResending ? 'Envoi...' : 'Renvoyer le code' }}</template>
+        <button type="button" class="ds-auth-link" :disabled="isResending || resendCooldown > 0" @click="handleResend">
+          <template v-if="resendCooldown > 0">Renvoyer dans {{ resendCooldown }} s</template>
+          <template v-else>{{ isResending ? 'Envoi…' : 'Renvoyer le code' }}</template>
         </button>
       </p>
     </div>
   </AuthCard>
 </template>
+
+<style scoped>
+.ds-otp__legend {
+  margin-bottom: 10px;
+  padding: 0;
+  color: var(--ds-text);
+  font-size: 14px;
+  font-weight: 700;
+}
+.ds-otp {
+  width: 100%;
+  min-width: 0;
+  height: 60px;
+  border: 2px solid var(--ds-ol);
+  border-radius: 3px;
+  background: var(--ds-surface);
+  box-shadow: 3px 3px 0 var(--ds-sh);
+  color: var(--ds-text);
+  font: 500 24px var(--ds-num);
+  text-align: center;
+  outline: none;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+.ds-otp.is-filled {
+  background: var(--ds-tint);
+}
+.ds-otp:focus {
+  border-color: var(--ds-focus);
+  box-shadow:
+    3px 3px 0 var(--ds-sh),
+    0 0 0 4px color-mix(in srgb, var(--ds-focus) 20%, transparent);
+}
+.ds-otp.is-error {
+  border-color: #be123c;
+  box-shadow: 3px 3px 0 #fda4af;
+}
+:root[data-color-scheme='dark'] .ds-otp.is-error {
+  border-color: #fb7185;
+  box-shadow: 3px 3px 0 #881337;
+}
+</style>

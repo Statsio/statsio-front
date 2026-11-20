@@ -25,7 +25,9 @@ function formatDate(iso?: string) {
     ? null
     : d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
 }
-const publishedOn = computed(() => formatDate(props.doc.created_at) ?? formatDate(props.doc.updated_at))
+const publishedOn = computed(
+  () => formatDate(props.doc.created_at) ?? formatDate(props.doc.updated_at),
+)
 const hasCover = computed(() => Boolean(props.doc.thumbnail_url?.trim()))
 </script>
 
@@ -41,20 +43,35 @@ const hasCover = computed(() => Boolean(props.doc.thumbnail_url?.trim()))
           <span
             v-if="format.formatLabel"
             class="mono rounded-[5px] bg-[#eaf1fe] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-[#2563eb]"
-          >{{ format.formatLabel }}</span>
-          <span v-if="format.theme" class="mono text-[10.5px] font-semibold uppercase tracking-[0.1em] text-[var(--studio-faint)]">
+            >{{ format.formatLabel }}</span
+          >
+          <span
+            v-if="format.theme"
+            class="mono text-[10.5px] font-semibold uppercase tracking-[0.1em] text-[var(--studio-faint)]"
+          >
             {{ format.theme }}
           </span>
-          <span v-if="linkedCount > 0" class="h-[3px] w-[3px] rounded-full bg-[var(--studio-faint)]" />
-          <span v-if="linkedCount > 0" class="mono text-[10.5px] font-semibold text-[var(--color-primary)]">
+          <span
+            v-if="linkedCount > 0"
+            class="h-[3px] w-[3px] rounded-full bg-[var(--studio-faint)]"
+          />
+          <span
+            v-if="linkedCount > 0"
+            class="mono text-[10.5px] font-semibold text-[var(--color-primary)]"
+          >
             ▤ {{ linkedCount }} Statsdata lié{{ linkedCount > 1 ? 's' : '' }}
           </span>
         </div>
 
-        <h1 class="max-w-[22ch] text-[32px] font-extrabold leading-[1.08] tracking-[-0.025em] [text-wrap:pretty] text-[var(--studio-ink)] sm:text-[40px] lg:text-[44px]">
+        <h1
+          class="max-w-[22ch] text-[32px] font-extrabold leading-[1.08] tracking-[-0.025em] [text-wrap:pretty] text-[var(--studio-ink)] sm:text-[40px] lg:text-[44px]"
+        >
           {{ doc.title }}
         </h1>
-        <p v-if="doc.description" class="mt-[18px] max-w-[58ch] text-[16px] leading-[1.62] text-[var(--studio-muted)] [text-wrap:pretty] sm:text-[17px]">
+        <p
+          v-if="doc.description"
+          class="mt-[18px] max-w-[58ch] text-[16px] leading-[1.62] text-[var(--studio-muted)] [text-wrap:pretty] sm:text-[17px]"
+        >
           {{ doc.description }}
         </p>
 
@@ -66,7 +83,9 @@ const hasCover = computed(() => Boolean(props.doc.thumbnail_url?.trim()))
           @toggle-follow="$emit('toggle-follow')"
         />
 
-        <div class="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-[var(--studio-line)] pt-[18px] text-[13px] text-[var(--studio-muted)]">
+        <div
+          class="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-[var(--studio-line)] pt-[18px] text-[13px] text-[var(--studio-muted)]"
+        >
           <span v-if="publishedOn">{{ publishedOn }}</span>
           <span v-if="publishedOn" class="h-[3px] w-[3px] rounded-full bg-[var(--studio-faint)]" />
           <span>{{ readingMinutes }} min de lecture</span>

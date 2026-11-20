@@ -12,10 +12,14 @@ const PLACEHOLDER = [
 </script>
 
 <template>
-  <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_3px_rgba(20,20,30,0.05)]">
+  <div
+    class="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_3px_rgba(20,20,30,0.05)]"
+  >
     <div class="flex items-baseline justify-between gap-3">
       <p class="text-sm font-bold text-slate-950">Répartition des vues</p>
-      <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em] text-slate-400">
+      <span
+        class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em] text-slate-400"
+      >
         Bientôt
       </span>
     </div>

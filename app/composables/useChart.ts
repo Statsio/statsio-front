@@ -1,5 +1,6 @@
 import { onMounted, onBeforeUnmount, nextTick, watch, computed, type Ref } from 'vue'
 import { usePrefsStore } from '@/stores/prefs'
+import { useBlockSkin, TRANCHES_SERIES } from '@/lib/block-skin'
 import {
   Chart,
   BarController,
@@ -31,29 +32,116 @@ import {
  * blocs graphiques référencent `theme.value` dans leur `optionsGetter`, ce qui
  * force une reconstruction du graphe au changement de thème.
  */
-const LIGHT_INK = {
+const MONO_STUDIO = "'JetBrains Mono', monospace"
+const MONO_TRANCHES = "'Geist Mono', ui-monospace, monospace"
+
+export interface ChartInk {
+  tick: string
+  grid: string
+  title: string
+  label: string
+  ref: string
+  refLabel: string
+  /** Famille mono des ticks / étiquettes. */
+  font: string
+  /** Couleurs de séries par défaut. */
+  palette: string[]
+  /** Habillage Tranches : traits épais, infobulle contrastée, ligne de base marquée. */
+  tranches: boolean
+  /** Ligne de base (axe des valeurs à 0) — contour de la charte. */
+  baseline: string
+  /** Fond de carte (anneau des points survolés). */
+  surface: string
+  tooltip: Record<string, unknown>
+}
+
+const LIGHT_INK: ChartInk = {
   tick: 'rgba(24,24,31,0.45)',
   grid: 'rgba(24,24,31,0.06)',
   title: 'rgba(24,24,31,0.55)',
   label: 'rgba(24,24,31,0.65)',
   ref: 'rgba(24,24,31,0.45)',
   refLabel: 'rgba(24,24,31,0.55)',
+  font: MONO_STUDIO,
+  palette: [],
+  tranches: false,
+  baseline: 'rgba(24,24,31,0.06)',
+  surface: '#ffffff',
+  tooltip: { mode: 'index', intersect: false },
 }
-const DARK_INK = {
+const DARK_INK: ChartInk = {
+  ...LIGHT_INK,
   tick: 'rgba(226,232,240,0.6)',
   grid: 'rgba(148,163,184,0.18)',
   title: 'rgba(226,232,240,0.75)',
   label: 'rgba(226,232,240,0.8)',
   ref: 'rgba(226,232,240,0.5)',
   refLabel: 'rgba(226,232,240,0.68)',
+  baseline: 'rgba(148,163,184,0.18)',
+  surface: '#0f172a',
 }
 
-let pluginInk = LIGHT_INK
+/** Infobulle de la maquette : encre pleine, texte fond, coins 3px, chiffres mono. */
+function tranchesTooltip(bg: string, ink: string) {
+  return {
+    mode: 'index',
+    intersect: false,
+    backgroundColor: bg,
+    titleColor: ink,
+    bodyColor: ink,
+    cornerRadius: 3,
+    padding: { x: 10, y: 7 },
+    displayColors: true,
+    boxWidth: 10,
+    boxHeight: 10,
+    boxPadding: 4,
+    titleFont: { family: "'Manrope', system-ui, sans-serif", size: 12.5, weight: 700 },
+    bodyFont: { family: MONO_TRANCHES, size: 12 },
+  }
+}
 
+const TRANCHES_LIGHT_INK: ChartInk = {
+  tick: '#5c5969',
+  grid: '#e6e4ec',
+  title: '#5c5969',
+  label: '#0e0d13',
+  ref: '#3b82f6',
+  refLabel: '#1d4ed8',
+  font: MONO_TRANCHES,
+  palette: TRANCHES_SERIES,
+  tranches: true,
+  baseline: '#6d28d9',
+  surface: '#ffffff',
+  tooltip: tranchesTooltip('#0e0d13', '#ffffff'),
+}
+const TRANCHES_DARK_INK: ChartInk = {
+  ...TRANCHES_LIGHT_INK,
+  tick: '#a9a5b6',
+  grid: '#2a2833',
+  title: '#a9a5b6',
+  label: '#f1f0f6',
+  ref: '#93c5fd',
+  refLabel: '#93c5fd',
+  baseline: '#c4b5fd',
+  surface: '#16151d',
+  tooltip: tranchesTooltip('#f1f0f6', '#0f0e14'),
+}
+
+let pluginInk: ChartInk = LIGHT_INK
+
+/**
+ * Encre des graphiques selon le thème (clair / sombre) ET l'habillage hôte
+ * (`studio` / `tranches`, voir lib/block-skin). À appeler dans le `setup` du bloc.
+ */
 export function useChartTheme() {
   const prefs = usePrefsStore()
-  return computed(() => {
-    const ink = prefs.colorScheme === 'dark' ? DARK_INK : LIGHT_INK
+  const skin = useBlockSkin()
+  return computed<ChartInk>(() => {
+    const dark = prefs.colorScheme === 'dark'
+    const base = skin === 'tranches'
+      ? (dark ? TRANCHES_DARK_INK : TRANCHES_LIGHT_INK)
+      : (dark ? DARK_INK : LIGHT_INK)
+    const ink = base.palette.length ? base : { ...base, palette: PALETTE }
     pluginInk = ink
     return ink
   })
@@ -81,7 +169,7 @@ const valueLabelsPlugin: Plugin<'bar'> = {
     const { ctx } = chart
     const horizontal = chart.options.indexAxis === 'y'
     ctx.save()
-    ctx.font = "600 11px 'JetBrains Mono', monospace"
+    ctx.font = `600 11px ${pluginInk.font}`
     ctx.fillStyle = pluginInk.label
 
     chart.data.datasets.forEach((dataset, datasetIndex) => {
@@ -131,7 +219,7 @@ const referenceLinePlugin: Plugin<'bar' | 'line'> = {
     ctx.save()
     ctx.beginPath()
     ctx.setLineDash([5, 4])
-    ctx.lineWidth = 1.5
+    ctx.lineWidth = pluginInk.tranches ? 2 : 1.5
     ctx.strokeStyle = pluginInk.ref
     if (horizontal) {
       ctx.moveTo(px, area.top)
@@ -143,7 +231,7 @@ const referenceLinePlugin: Plugin<'bar' | 'line'> = {
     ctx.stroke()
     if (opts.label) {
       ctx.setLineDash([])
-      ctx.font = "600 10px 'JetBrains Mono', monospace"
+      ctx.font = `600 10px ${pluginInk.font}`
       ctx.fillStyle = pluginInk.refLabel
       ctx.textAlign = horizontal ? 'center' : 'right'
       ctx.textBaseline = 'bottom'

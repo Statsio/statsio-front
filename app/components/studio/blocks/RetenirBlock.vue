@@ -47,18 +47,18 @@ const colors = computed(() => COLOR_MAP[color.value] ?? COLOR_MAP.violet)
   </div>
 
   <!-- Content -->
-  <div v-else>
-    <p class="mb-3.5 text-[10px] font-extrabold uppercase tracking-[0.1em]" :class="colors.text">
+  <div v-else class="sd-keep">
+    <p class="sd-keep__label mb-3.5 text-[10px] font-extrabold uppercase tracking-[0.1em]" :class="colors.text">
       {{ retenirTitle }}
     </p>
     <ul class="flex flex-col gap-3.5">
       <li
         v-for="(item, i) in items"
         :key="i"
-        class="grid grid-cols-[26px_1fr] items-start gap-[13px] text-[15px] leading-[1.55] text-[color:color-mix(in_srgb,var(--studio-ink)_80%,transparent)] [text-wrap:pretty]"
+        class="sd-keep__item grid grid-cols-[26px_1fr] items-start gap-[13px] text-[15px] leading-[1.55] text-[color:color-mix(in_srgb,var(--studio-ink)_80%,transparent)] [text-wrap:pretty]"
       >
         <span
-          class="mono rounded-[7px] py-1 text-center text-[11px] font-semibold"
+          class="sd-keep__num mono rounded-[7px] py-1 text-center text-[11px] font-semibold"
           :class="[colors.text, colors.bg]"
         >{{ String(i + 1).padStart(2, '0') }}</span>
         <span>{{ item }}</span>

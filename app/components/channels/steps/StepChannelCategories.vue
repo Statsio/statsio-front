@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, watch } from 'vue'
-import { getChannelCategories, type ChannelCategory, type ChannelCategoryItem } from '@/api/channels'
+import {
+  getChannelCategories,
+  type ChannelCategory,
+  type ChannelCategoryItem,
+} from '@/api/channels'
 import { categoryMatchesDomain, type SubBrand } from '@/types/sub-brand'
 
 const props = defineProps<{
@@ -58,7 +62,11 @@ function toggle(slug: string) {
     <div v-if="loading" class="flex items-center justify-center py-10">
       <svg class="h-6 w-6 animate-spin text-[var(--color-primary)]" fill="none" viewBox="0 0 24 24">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        <path
+          class="opacity-75"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+        />
       </svg>
     </div>
 
@@ -72,9 +80,11 @@ function toggle(slug: string) {
         :key="cat.slug"
         type="button"
         class="inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-semibold transition hover:-translate-y-0.5"
-        :class="modelValue.includes(cat.slug as ChannelCategory)
-          ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white shadow-[0_8px_20px_color-mix(in_srgb,var(--color-primary)_30%,transparent)]'
-          : 'border-slate-200 bg-white text-slate-700 hover:border-[var(--color-primary)]/40 hover:text-[var(--color-primary)]'"
+        :class="
+          modelValue.includes(cat.slug as ChannelCategory)
+            ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white shadow-[0_8px_20px_color-mix(in_srgb,var(--color-primary)_30%,transparent)]'
+            : 'border-slate-200 bg-white text-slate-700 hover:border-[var(--color-primary)]/40 hover:text-[var(--color-primary)]'
+        "
         @click="toggle(cat.slug)"
       >
         <svg
@@ -92,7 +102,9 @@ function toggle(slug: string) {
     </div>
 
     <p v-if="modelValue.length > 0" class="text-xs font-medium text-[var(--color-primary)]">
-      {{ modelValue.length }} catégorie{{ modelValue.length > 1 ? 's' : '' }} sélectionnée{{ modelValue.length > 1 ? 's' : '' }}
+      {{ modelValue.length }} catégorie{{ modelValue.length > 1 ? 's' : '' }} sélectionnée{{
+        modelValue.length > 1 ? 's' : ''
+      }}
     </p>
   </div>
 </template>
