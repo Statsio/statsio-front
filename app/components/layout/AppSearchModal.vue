@@ -3,9 +3,8 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useContentBasePath } from '@/composables/useContentBasePath'
 import { useGlobalSearch } from '@/composables/useGlobalSearch'
-import { CONTENT_TYPE_META, publicChannelListPath, publicChannelPath, publicContentListPath, publicContentPath } from '@/lib/content-display'
-import type { CatalogItem } from '@/types/catalog'
-import type { GlobalSearchChannel } from '@/types/search'
+import { CONTENT_TYPE_META, publicContentListPath } from '@/lib/content-display'
+import { buildSearchRows, navRowsOf, type SearchRow } from '@/lib/search-rows'
 
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ 'update:open': [boolean] }>()
@@ -30,62 +29,12 @@ const panelRef = ref<HTMLElement | null>(null)
 const activeIndex = ref(-1)
 let previouslyFocused: HTMLElement | null = null
 
-type DisplayRow =
-  | { kind: 'header'; key: string; label: string; total: number }
-  | { kind: 'content'; key: string; navIndex: number; to: string; item: CatalogItem; type: 'article' | 'statsdata' | 'survey' }
-  | { kind: 'channel'; key: string; navIndex: number; to: string; channel: GlobalSearchChannel }
-  | { kind: 'more'; key: string; navIndex: number; to: string; label: string; total: number }
+type DisplayRow = SearchRow
 
 /** Lignes affichées (en-têtes compris) + index de navigation clavier sur les lignes actionnables. */
-const displayRows = computed<DisplayRow[]>(() => {
-  const rows: DisplayRow[] = []
-  const q = encodeURIComponent(query.value.trim())
-  let navIndex = 0
+const displayRows = computed<DisplayRow[]>(() => buildSearchRows(nonEmptyGroups.value, query.value, basePath.value))
 
-  for (const group of nonEmptyGroups.value) {
-    rows.push({ kind: 'header', key: `h:${group.type}`, label: group.label, total: group.total })
-
-    if (group.type === 'channel') {
-      for (const channel of group.items) {
-        rows.push({
-          kind: 'channel',
-          key: `c:${channel.id}`,
-          navIndex: navIndex++,
-          to: channel.handle ? publicChannelPath(channel.handle, basePath.value) : publicChannelListPath(basePath.value),
-          channel,
-        })
-      }
-      if (group.total > group.items.length) {
-        rows.push({ kind: 'more', key: `m:${group.type}`, navIndex: navIndex++, to: `${publicChannelListPath(basePath.value)}?q=${q}`, label: group.label, total: group.total })
-      }
-      continue
-    }
-
-    for (const item of group.items) {
-      rows.push({
-        kind: 'content',
-        key: `${group.type}:${item.id}`,
-        navIndex: navIndex++,
-        to: publicContentPath(group.type, item.slug, basePath.value),
-        item,
-        type: group.type,
-      })
-    }
-    if (group.total > group.items.length) {
-      rows.push({
-        kind: 'more',
-        key: `m:${group.type}`,
-        navIndex: navIndex++,
-        to: `${publicContentListPath(group.type, basePath.value)}?q=${q}`,
-        label: group.label,
-        total: group.total,
-      })
-    }
-  }
-  return rows
-})
-
-const navRows = computed(() => displayRows.value.filter((r): r is Exclude<DisplayRow, { kind: 'header' }> => r.kind !== 'header'))
+const navRows = computed(() => navRowsOf(displayRows.value))
 const showRecent = computed(() => !canSearch.value && recent.value.length > 0)
 
 function contentMeta(type: 'article' | 'statsdata' | 'survey') {

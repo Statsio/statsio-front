@@ -25,7 +25,8 @@ const verifySignals = [
 <template>
   <AuthShell
     :signals="verifySignals"
-    title="Confirmez votre identité."
+    eyebrow-accent="activation"
+    :title="[{ text: 'Confirmez votre ' }, { text: 'identité', em: true }, { text: '.' }]"
     description="Un code à 6 chiffres a été envoyé à votre adresse e-mail. Saisissez-le ci-dessous pour activer votre compte."
   >
     <VerifyEmailFormCard />

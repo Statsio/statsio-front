@@ -29,7 +29,13 @@ function scrollByAmount(direction: 1 | -1) {
           @click="scrollByAmount(-1)"
         >
           <svg viewBox="0 0 20 20" class="h-4 w-4" fill="none">
-            <path d="M12.5 5L7.5 10L12.5 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            <path
+              d="M12.5 5L7.5 10L12.5 15"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
           </svg>
         </button>
         <button
@@ -39,16 +45,28 @@ function scrollByAmount(direction: 1 | -1) {
           @click="scrollByAmount(1)"
         >
           <svg viewBox="0 0 20 20" class="h-4 w-4" fill="none">
-            <path d="M7.5 5L12.5 10L7.5 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            <path
+              d="M7.5 5L12.5 10L7.5 15"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
           </svg>
         </button>
       </div>
     </div>
 
     <div v-if="loading" class="flex gap-3.5 overflow-hidden pb-1">
-      <div v-for="n in 3" :key="n" class="h-[15.5rem] w-[300px] shrink-0 animate-pulse rounded-2xl border border-slate-200 bg-slate-100" />
+      <div
+        v-for="n in 3"
+        :key="n"
+        class="h-[15.5rem] w-[300px] shrink-0 animate-pulse rounded-2xl border border-slate-200 bg-slate-100"
+      />
     </div>
-    <p v-else-if="channels.length === 0" class="text-[13.5px] text-slate-400">Aucune autre chaîne disponible pour le moment.</p>
+    <p v-else-if="channels.length === 0" class="text-[13.5px] text-slate-400">
+      Aucune autre chaîne disponible pour le moment.
+    </p>
     <div v-else ref="trackRef" class="similar-channels-track flex gap-3.5 overflow-x-auto pb-1">
       <div v-for="c in channels" :key="c.id" class="similar-channels-item w-[300px] shrink-0">
         <ChannelCard :channel="c" />

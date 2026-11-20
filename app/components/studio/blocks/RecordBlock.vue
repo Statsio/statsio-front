@@ -46,10 +46,10 @@ const fields = computed(() =>
     <div v-else-if="!row" class="py-6 text-center text-sm text-[var(--studio-faint)]">Aucun enregistrement</div>
 
     <template v-else>
-      <p v-if="titleCol && titleValue" class="text-[17px] font-extrabold tracking-[-0.01em] text-[var(--studio-ink)]">
+      <p v-if="titleCol && titleValue" class="sd-rec__title text-[17px] font-extrabold tracking-[-0.01em] text-[var(--studio-ink)]">
         {{ displayValue(titleCol) }}
       </p>
-      <dl class="mt-3 flex flex-col divide-y divide-[var(--studio-line)]">
+      <dl class="sd-rec mt-3 flex flex-col divide-y divide-[var(--studio-line)]">
         <div v-for="f in fields" :key="f.label" class="flex items-baseline justify-between gap-4 py-2">
           <dt class="text-[11.5px] text-[color:color-mix(in_srgb,var(--studio-ink)_55%,transparent)]">{{ f.label }}</dt>
           <dd class="mono min-w-0 truncate text-right text-[12.5px] font-semibold text-[var(--studio-ink)]">{{ f.value }}</dd>

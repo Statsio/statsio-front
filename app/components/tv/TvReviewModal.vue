@@ -65,7 +65,7 @@ const STAR_LABELS: Record<number, string> = { 1: 'Très mauvais', 2: 'Mauvais', 
 <template>
   <!-- Backdrop -->
   <div class="fixed inset-0 z-50 flex items-end justify-center sm:items-center px-4 py-6">
-    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="emit('close')" />
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm cursor-pointer" @click="emit('close')" />
 
     <div class="relative z-10 w-full max-w-lg rounded-3xl bg-white shadow-2xl overflow-hidden">
       <!-- Header -->

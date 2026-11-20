@@ -8,15 +8,17 @@ const items = () => normalizeOptions(props.tabs)
 </script>
 
 <template>
-  <div class="flex gap-1 rounded-full bg-[var(--studio-wash)] p-[5px]">
+  <div class="flex gap-1 border-b-2 border-[var(--ds-divide)]" role="tablist">
     <button
       v-for="tab in items()"
       :key="tab.value"
       type="button"
-      class="flex-1 whitespace-nowrap rounded-full py-[9px] text-center text-[12.5px] font-bold transition-colors"
+      role="tab"
+      :aria-selected="model === tab.value"
+      class="-mb-[2px] whitespace-nowrap border-b-[3px] px-2.5 py-2 text-center text-[13px] font-bold transition-colors"
       :class="model === tab.value
-        ? 'bg-white text-[var(--studio-ink)] shadow-[0_1px_2px_rgba(20,20,30,0.12)]'
-        : 'text-[var(--studio-muted)] hover:text-[var(--studio-ink)]'"
+        ? 'border-[var(--ds-ol)] text-[var(--ds-accent)]'
+        : 'border-transparent text-[var(--ds-muted)] hover:text-[var(--ds-accent)]'"
       @click="model = tab.value"
     >
       {{ tab.label }}

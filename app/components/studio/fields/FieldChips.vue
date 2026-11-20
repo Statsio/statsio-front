@@ -26,10 +26,11 @@ function toggle(value: string | number) {
         v-for="opt in items()"
         :key="opt.value"
         type="button"
-        class="rounded-[20px] border-[1.5px] px-[13px] py-2 font-mono text-[11.5px] font-semibold transition-colors"
+        class="rounded-full border-2 px-3 py-1.5 font-mono text-[11.5px] font-medium transition-colors"
+        :aria-pressed="model.includes(opt.value)"
         :class="model.includes(opt.value)
-          ? 'border-[var(--color-primary)] bg-[var(--studio-accent-wash)] text-[var(--studio-tag-ink)]'
-          : 'border-[var(--studio-line-strong)] bg-white text-[color:color-mix(in_srgb,var(--studio-ink)_65%,transparent)]'"
+          ? 'border-[var(--ds-ol)] bg-[var(--ds-action)] text-[var(--ds-action-ink)]'
+          : 'border-[var(--ds-divide)] bg-[var(--ds-surface)] text-[var(--ds-muted)] hover:border-[var(--ds-ol)]'"
         @click="toggle(opt.value)"
       >
         {{ opt.label }}

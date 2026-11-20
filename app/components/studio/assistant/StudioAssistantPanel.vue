@@ -237,7 +237,7 @@ async function removeConversation(id: number) {
       </button>
 
       <!-- Liste des conversations -->
-      <div v-if="menuOpen" class="fixed inset-0 z-40" @click="menuOpen = false" />
+      <div v-if="menuOpen" class="fixed inset-0 z-40 cursor-pointer" @click="menuOpen = false" />
       <div
         v-if="menuOpen"
         class="absolute left-2 right-2 top-[calc(100%-2px)] z-50 max-h-[320px] overflow-y-auto rounded-xl border border-[var(--studio-line-strong)] bg-white py-1 shadow-lg"

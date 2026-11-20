@@ -4,7 +4,9 @@ import ArticleToc from './ArticleToc.vue'
 
 describe('ArticleToc', () => {
   it('renders nothing when there are fewer than 2 headings and no linked Statsdata', () => {
-    const wrapper = mount(ArticleToc, { props: { entries: [{ id: 'block-1', label: 'Intro' }], linked: [] } })
+    const wrapper = mount(ArticleToc, {
+      props: { entries: [{ id: 'block-1', label: 'Intro' }], linked: [] },
+    })
     expect(wrapper.find('nav').exists()).toBe(false)
   })
 

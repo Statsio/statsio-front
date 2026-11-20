@@ -25,7 +25,11 @@ const basePath = useContentBasePath()
 
 const profile = computed(() => props.channel.profile)
 
-const DEFAULT_STATUS = { label: 'Anonymisée', bg: 'rgba(24,24,31,0.08)', color: 'rgba(24,24,31,0.55)' }
+const DEFAULT_STATUS = {
+  label: 'Anonymisée',
+  bg: 'rgba(24,24,31,0.08)',
+  color: 'rgba(24,24,31,0.55)',
+}
 const STATUS_META: Record<string, { label: string; bg: string; color: string }> = {
   active: { label: 'Active', bg: 'rgba(16,185,129,0.14)', color: '#10b981' },
   suspended: { label: 'Suspendue', bg: 'rgba(245,158,11,0.16)', color: '#b45309' },
@@ -141,7 +145,11 @@ async function onToggleFollow() {
 
         <div class="mb-1.5 flex flex-wrap items-center gap-1.5">
           <p class="u-card-title text-base font-bold text-[#18181f]">{{ profile?.name }}</p>
-          <ChannelBadgeList :slugs="channel.badges" :organization="channel.organization" size="sm" />
+          <ChannelBadgeList
+            :slugs="channel.badges"
+            :organization="channel.organization"
+            size="sm"
+          />
           <span
             v-if="categoryLabel"
             class="rounded-full px-2.5 py-[3px] text-[11px] font-semibold"
@@ -158,7 +166,9 @@ async function onToggleFollow() {
 
     <div class="grid grid-cols-2 gap-1.5 px-5 pb-3.5">
       <div class="rounded-[9px] bg-[#f7f6fb] px-2.5 py-2.5">
-        <div class="font-mono text-[13px] font-semibold text-[#18181f]">{{ formatCompactNumber(followersCount) }}</div>
+        <div class="font-mono text-[13px] font-semibold text-[#18181f]">
+          {{ formatCompactNumber(followersCount) }}
+        </div>
         <div class="mt-0.5 text-[10.5px] font-semibold text-[#18181f]/45">Abonnés</div>
       </div>
       <div class="rounded-[9px] bg-[#f7f6fb] px-2.5 py-2.5">

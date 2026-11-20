@@ -76,7 +76,7 @@ const isLink = computed(() => !!href.value && !!props.readonly)
     :href="isLink ? href : undefined"
     :target="isLink && isExternal ? '_blank' : undefined"
     :rel="isLink && isExternal ? 'noopener noreferrer' : undefined"
-    class="group flex gap-4 overflow-hidden rounded-[14px] border border-[var(--studio-line)] bg-white p-4 shadow-sm transition-all duration-200 hover:border-[var(--studio-line-strong)] hover:shadow-md"
+    class="sd-link group flex gap-4 overflow-hidden rounded-[14px] border border-[var(--studio-line)] bg-white p-4 shadow-sm transition-all duration-200 hover:border-[var(--studio-line-strong)] hover:shadow-md"
     :class="{ 'cursor-pointer': isLink }"
   >
     <!-- Thumbnail -->
@@ -90,8 +90,8 @@ const isLink = computed(() => !!href.value && !!props.readonly)
 
     <!-- Content -->
     <div class="min-w-0 flex flex-col gap-0.5">
-      <span v-if="eyebrow" class="text-[10px] font-semibold uppercase tracking-wider text-[var(--studio-faint)]">{{ eyebrow }}</span>
-      <p v-if="displayTitle" class="font-semibold text-[var(--studio-ink)] leading-snug line-clamp-2">{{ displayTitle }}</p>
+      <span v-if="eyebrow" class="sd-link__eyebrow text-[10px] font-semibold uppercase tracking-wider text-[var(--studio-faint)]">{{ eyebrow }}</span>
+      <p v-if="displayTitle" class="sd-link__title font-semibold text-[var(--studio-ink)] leading-snug line-clamp-2">{{ displayTitle }}</p>
       <p v-if="description" class="text-sm text-[var(--studio-muted)] line-clamp-2">{{ description }}</p>
       <span v-if="href && !readonly" class="mt-1 text-[11px] text-[var(--color-primary)] truncate">{{ href }}</span>
     </div>
