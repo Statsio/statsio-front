@@ -10,7 +10,7 @@ const emit = defineEmits<{ 'update:modelValue': [ChannelProfileTab] }>()
 </script>
 
 <template>
-  <div class="sticky top-40 z-40 border-b border-slate-200/70 bg-white/90 backdrop-blur lg:top-28">
+  <div class="border-b border-slate-200/70 bg-white/90 backdrop-blur">
     <div class="mx-auto flex max-w-[1240px] gap-1.5 overflow-x-auto px-4 sm:px-6 lg:px-8">
       <button
         v-for="tab in tabs"

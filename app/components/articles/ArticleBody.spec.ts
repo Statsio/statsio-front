@@ -13,7 +13,11 @@ vi.mock('@/api/studio', () => ({
 }))
 
 const stubs = {
-  BlockRenderer: { name: 'BlockRenderer', props: ['block', 'readonly'], template: '<div class="br" />' },
+  BlockRenderer: {
+    name: 'BlockRenderer',
+    props: ['block', 'readonly'],
+    template: '<div class="br" />',
+  },
 }
 
 function seed(sections: Partial<Section>[], blocks: StudioBlock[]) {
@@ -37,8 +41,20 @@ describe('ArticleBody', () => {
         { id: 'sec1', kicker: 'Tendance', title: 'Le grand écart', description: 'Analyse' },
       ],
       [
-        { id: 'p0', type: 'paragraph', zoneId: 'intro-0', fieldMapping: {}, config: { content: '<p>chapô</p>' } },
-        { id: 'p1', type: 'paragraph', zoneId: 'sec1-0', fieldMapping: {}, config: { content: '<p>corps</p>' } },
+        {
+          id: 'p0',
+          type: 'paragraph',
+          zoneId: 'intro-0',
+          fieldMapping: {},
+          config: { content: '<p>chapô</p>' },
+        },
+        {
+          id: 'p1',
+          type: 'paragraph',
+          zoneId: 'sec1-0',
+          fieldMapping: {},
+          config: { content: '<p>corps</p>' },
+        },
       ],
     )
 
@@ -60,7 +76,15 @@ describe('ArticleBody', () => {
   it('renders sd-embed blocks bare (no bordered card wrapper)', () => {
     seed(
       [{ id: 's1', title: 'Chiffres' }],
-      [{ id: 'e1', type: 'sd-embed', zoneId: 's1-0', fieldMapping: {}, config: { sourceSlug: 'x', sourceBlockId: 'b' } }],
+      [
+        {
+          id: 'e1',
+          type: 'sd-embed',
+          zoneId: 's1-0',
+          fieldMapping: {},
+          config: { sourceSlug: 'x', sourceBlockId: 'b' },
+        },
+      ],
     )
     const w = mount(ArticleBody, { global: { stubs } })
     // pas de carte bordée autour d'un sd-embed

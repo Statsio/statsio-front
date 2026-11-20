@@ -11,7 +11,11 @@ const emit = defineEmits<{ 'view-all': [] }>()
   <section>
     <div class="mb-4 flex items-baseline justify-between gap-3">
       <h2 class="text-[18px] font-extrabold tracking-[-0.015em] text-slate-950">{{ title }}</h2>
-      <button type="button" class="shrink-0 text-[12.5px] font-bold text-primary hover:underline" @click="emit('view-all')">
+      <button
+        type="button"
+        class="shrink-0 text-[12.5px] font-bold text-primary hover:underline"
+        @click="emit('view-all')"
+      >
         {{ linkLabel }} →
       </button>
     </div>

@@ -18,7 +18,8 @@ const recoverySignals = [
 <template>
   <AuthShell
     :signals="recoverySignals"
-    title="Récupérez l'accès à votre compte."
+    eyebrow-accent="récupération"
+    :title="[{ text: 'Récupérez l’' }, { text: 'accès', em: true }, { text: ' à votre compte.' }]"
     description="Réinitialisez votre mot de passe simplement et reprenez l'accès à vos contenus, abonnements et services."
   >
     <ForgotPasswordFormCard />

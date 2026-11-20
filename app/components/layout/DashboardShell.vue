@@ -42,7 +42,7 @@ function closeOnMobile() {
       leave-active-class="transition duration-150 ease-in motion-reduce:transition-none"
       leave-to-class="opacity-0"
     >
-      <div v-if="sidebarOpen" class="fixed inset-0 z-40 bg-slate-950/40 lg:hidden" @click="sidebarOpen = false" />
+      <div v-if="sidebarOpen" class="fixed inset-0 z-40 bg-slate-950/40 lg:hidden cursor-pointer" @click="sidebarOpen = false" />
     </Transition>
 
     <!-- Sidebar -->

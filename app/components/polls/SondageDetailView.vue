@@ -403,8 +403,8 @@ onUnmounted(() => {
         :status="poll.status"
       />
 
-      <!-- Sous-header collant -->
-      <div class="sticky top-[158px] z-30 flex items-center gap-3.5 border-b border-slate-200/70 bg-white/90 px-4 py-2.5 backdrop-blur-md sm:px-6 lg:top-28">
+      <!-- Sous-header -->
+      <div class="flex items-center gap-3.5 border-b border-slate-200/70 bg-white/90 px-4 py-2.5 backdrop-blur-md sm:px-6">
         <span
           class="shrink-0 rounded-[5px] px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.06em]"
           :style="{ color: kind.fg, background: kind.bg }"
@@ -708,8 +708,8 @@ onUnmounted(() => {
           />
         </main>
 
-        <!-- Rail droit collant -->
-        <aside class="flex flex-col gap-4 lg:sticky lg:top-[130px]">
+        <!-- Rail droit -->
+        <aside class="flex flex-col gap-4">
           <div v-if="requiresIdentity" class="rounded-[16px] bg-white p-[18px] shadow-[0_1px_3px_rgba(20,20,30,0.06)]">
             <div class="mb-3 text-[10px] font-extrabold uppercase tracking-[0.09em] text-slate-400">Vérification d'identité</div>
             <div class="flex items-center gap-2.5">

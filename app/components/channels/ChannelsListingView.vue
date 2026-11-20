@@ -1,29 +1,47 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import DsBox from '@/components/ds/DsBox.vue'
+import DsButton from '@/components/ds/DsButton.vue'
+import ListingHero from '@/components/listing/tranches/ListingHero.vue'
+import ListingResultBar from '@/components/listing/tranches/ListingResultBar.vue'
+import ListingEmptyState from '@/components/listing/tranches/ListingEmptyState.vue'
+import ListingEndLine from '@/components/listing/tranches/ListingEndLine.vue'
+import ChannelsListingToolbar from '@/components/channels/listing/ChannelsListingToolbar.vue'
+import ChannelOfTheMonth from '@/components/channels/listing/ChannelOfTheMonth.vue'
+import ChannelTile from '@/components/channels/listing/ChannelTile.vue'
+import ChannelsTable from '@/components/channels/listing/ChannelsTable.vue'
+import ChannelsCreateBand from '@/components/channels/listing/ChannelsCreateBand.vue'
 import { useChannelsCatalog } from '@/composables/useChannelsCatalog'
 import { useContentBasePath } from '@/composables/useContentBasePath'
 import { formatCatalogCount, formatRelativePublished } from '@/lib/catalog-format'
-import CatalogHero from '@/components/listing/CatalogHero.vue'
-import CatalogToolbar from '@/components/listing/CatalogToolbar.vue'
-import CatalogSearchField from '@/components/listing/CatalogSearchField.vue'
-import CatalogSortPills from '@/components/listing/CatalogSortPills.vue'
-import CatalogViewToggle from '@/components/listing/CatalogViewToggle.vue'
-import CatalogChipRow from '@/components/listing/CatalogChipRow.vue'
-import CatalogToggleChip from '@/components/listing/CatalogToggleChip.vue'
-import CatalogResultBar from '@/components/listing/CatalogResultBar.vue'
-import CatalogEmpty from '@/components/listing/CatalogEmpty.vue'
-import CatalogLoadMore from '@/components/listing/CatalogLoadMore.vue'
-import CatalogCta from '@/components/listing/CatalogCta.vue'
-import ChannelCatalogCard from '@/components/channels/ChannelCatalogCard.vue'
-import ChannelCatalogRow from '@/components/channels/ChannelCatalogRow.vue'
-import type { ChannelCatalogSort } from '@/types/channel-catalog'
+import { publicChannelPath } from '@/lib/content-display'
+import { buildRubricSlices, rubricLabel } from '@/lib/listing-rubrics'
+import {
+  CHANNEL_KINDS,
+  CHANNEL_PACES,
+  channelActiveFilters,
+  channelKindCaption,
+  channelKindPie,
+  channelSortContext,
+  segmentOptions,
+  type ChannelFilterKey,
+} from '@/lib/channels-listing'
+import type { ChannelCatalogItem } from '@/types/channel-catalog'
 
-defineProps<{
+/**
+ * Listing des chaînes (Statsio, TVStats, Medistats) — charte « Tranches ».
+ * Orchestration seule : recherche, type, thème, rythme, vérifiées, abonnements,
+ * tri, vue, pagination et abonnement vivent dans `useChannelsCatalog` (reflétés
+ * dans l'URL) ; la présentation est dans `lib/channels-listing.ts`.
+ */
+const props = defineProps<{
+  /** titre imposé par une sous-marque */
   title?: string
 }>()
 
-const basePath = useContentBasePath()
+const UNIT = { one: 'chaîne', many: 'chaînes' }
 
+const basePath = useContentBasePath()
 const {
   qInput,
   kind,
@@ -46,176 +64,256 @@ const {
   toggleItemFollow,
 } = useChannelsCatalog()
 
-const sortOptions: { value: ChannelCatalogSort; label: string }[] = [
-  { value: 'trend', label: 'Tendance' },
-  { value: 'recent', label: 'Récentes' },
-  { value: 'followers', label: 'Les plus suivies' },
-]
+/* ── filtres ── */
+const kinds = computed(() => segmentOptions(catalog.value.facets.kinds, CHANNEL_KINDS, kind.value))
+const paces = computed(() => segmentOptions(catalog.value.facets.paces, CHANNEL_PACES, pace.value))
+// les facettes de thèmes portent déjà leur libellé : pas de table de noms
+const themes = computed(() => buildRubricSlices(catalog.value.facets.themes, {}))
+const themeLabel = (slug: string) =>
+  rubricLabel(slug, {}, catalog.value.facets.themes.find((f) => f.value === slug)?.label)
+const linkOf = (item: Pick<ChannelCatalogItem, 'handle'>) =>
+  publicChannelPath(item.handle, basePath.value)
 
-const crumbs = computed(() => [
-  { label: 'Accueil', to: basePath.value || '/' },
-  { label: 'Chaînes' },
-])
-
+/* ── hero : chiffres + camembert des types ──
+   Figé pendant une recherche (même objet → DsPie ne rejoue pas son animation). */
+let lastHeroKinds = catalog.value.facets.kinds
+const heroKinds = computed(() => {
+  if (!qInput.value.trim()) lastHeroKinds = catalog.value.facets.kinds
+  return lastHeroKinds
+})
+const heroPie = computed(() => channelKindPie(heroKinds.value))
+const heroPieLabel = computed(
+  () =>
+    `Répartition des chaînes par type : ${heroPie.value.map((s) => `${s.label} ${s.value}`).join(', ')}`,
+)
+const heroCaption = computed(() => channelKindCaption(heroKinds.value))
 const heroStats = computed(() => [
   { label: 'Chaînes actives', value: formatCatalogCount(catalog.value.stats.active) },
   { label: 'Chaînes vérifiées', value: formatCatalogCount(catalog.value.stats.verified) },
-  { label: 'Publications / mois', value: formatCatalogCount(catalog.value.stats.publications_month) },
-  { label: 'Nouvelle chaîne', value: formatRelativePublished(catalog.value.stats.last_channel_at) },
+  {
+    label: 'Parutions sur 30 j',
+    value: formatCatalogCount(catalog.value.stats.publications_month),
+  },
+  {
+    label: 'Nouvelle chaîne',
+    value: formatRelativePublished(catalog.value.stats.last_channel_at),
+    small: true,
+  },
+])
+const crumbs = computed(() => [
+  { label: 'Accueil', to: basePath.value || '/' },
+  { label: props.title ?? 'Chaînes' },
 ])
 
-const countLine = computed(
-  () => `${catalog.value.meta.total} chaîne${catalog.value.meta.total > 1 ? 's' : ''} · ${catalog.value.meta.shown} affichée${catalog.value.meta.shown > 1 ? 's' : ''}`,
+/* ── résultats ── */
+const filters = computed(() =>
+  channelActiveFilters(
+    {
+      q: qInput.value,
+      kind: kind.value,
+      theme: theme.value,
+      pace: pace.value,
+      verified: verifiedOnly.value,
+      followed: followedOnly.value,
+    },
+    themeLabel,
+  ),
 )
-const contextLine = computed(() =>
-  anyFilter.value ? 'Filtres actifs' : 'Classées par tendance sur 30 jours',
+const context = computed(
+  () => channelSortContext(sort.value) + (view.value === 'list' ? ' · vue liste' : ''),
+)
+
+function removeFilter(key: ChannelFilterKey) {
+  if (key === 'q') qInput.value = ''
+  else if (key === 'kind') selectKind('')
+  else if (key === 'theme') selectTheme('')
+  else if (key === 'pace') selectPace('')
+  else if (key === 'verified') verifiedOnly.value = false
+  else followedOnly.value = false
+}
+
+/** Un mot-clé cliqué devient la recherche. */
+function searchTag(tag: string) {
+  qInput.value = tag
+}
+
+const featured = computed(() =>
+  view.value === 'grid' && !anyFilter.value && sort.value === 'trend'
+    ? catalog.value.featured
+    : null,
+)
+const gridItems = computed(() =>
+  catalog.value.data.filter((item) => item.id !== featured.value?.id),
 )
 const moreCount = computed(() =>
   Math.min(6, Math.max(0, catalog.value.meta.total - catalog.value.meta.shown)),
 )
-
-function onSelectTag(tag: string) {
-  qInput.value = tag
-}
+const loadingFirst = computed(() => pending.value && !catalog.value.data.length)
+const emptyHint = computed(() =>
+  followedOnly.value && !qInput.value.trim()
+    ? "Vous n'êtes abonné à aucune chaîne avec ces filtres."
+    : 'Essayez un autre type, thème ou rythme de publication.',
+)
 </script>
 
 <template>
-  <div class="bg-[#f4f3f8] pb-24">
-    <CatalogHero
+  <div class="ds-scope channels">
+    <ListingHero
       :crumbs="crumbs"
-      badge="CHAÎNES"
-      kicker="RÉDACTIONS · INSTITUTIONS · ANALYSTES INDÉPENDANTS"
-      :title="title"
-      subtitle="Chaque chaîne publie ses Statsdata, ses articles et ses consultations. Abonnez-vous pour recevoir ses parutions dans votre fil."
-      hero-src="/brand/listings/chaines-hero-light.png"
+      lede="Chaque chaîne publie ses StatsData, ses articles et ses consultations. Abonnez-vous pour recevoir ses parutions dans votre fil."
       :stats="heroStats"
+      :pie="heroPie"
+      :pie-label="heroPieLabel"
+      :caption="heroCaption"
     >
+      <template #label>Chaînes · <b>rédactions, institutions, analystes indépendants</b></template>
       <template #title>
         <template v-if="title">{{ title }}</template>
-        <template v-else>
-          Suivez celles et ceux qui <span class="text-primary">font parler</span> les
-          <span class="text-accent">données</span>.
-        </template>
-      </template>
-    </CatalogHero>
-
-    <CatalogToolbar>
-      <template #search>
-        <CatalogSearchField v-model="qInput" placeholder="Rechercher une chaîne, une rédaction, un analyste…" />
-      </template>
-      <template #sort>
-        <CatalogSortPills v-model="sort" :options="sortOptions" />
-      </template>
-      <template #view>
-        <CatalogViewToggle v-model="view" />
-      </template>
-
-      <CatalogChipRow
-        label="Type"
-        :model-value="kind"
-        :options="catalog.facets.kinds"
-        @update:model-value="selectKind"
-      />
-
-      <CatalogChipRow
-        v-if="catalog.facets.themes.length > 1"
-        label="Thème"
-        :model-value="theme"
-        :options="catalog.facets.themes"
-        @update:model-value="selectTheme"
-      />
-
-      <div class="flex flex-wrap items-center gap-2.5">
-        <CatalogChipRow
-          class="min-w-0"
-          label="Activité"
-          variant="mono"
-          :model-value="pace"
-          :options="catalog.facets.paces"
-          @update:model-value="selectPace"
-        />
-        <span class="flex-1" />
-        <CatalogToggleChip v-model="verifiedOnly" label="Chaînes vérifiées" />
-        <CatalogToggleChip v-model="followedOnly" label="Mes abonnements" />
-        <button
-          v-if="anyFilter"
-          type="button"
-          class="shrink-0 rounded-full border-[1.5px] border-slate-200 px-3.5 py-[7px] text-xs font-bold text-slate-500 transition hover:border-[#c4b5fd] hover:text-primary"
-          @click="resetFilters"
+        <template v-else
+          >Suivez celles et ceux qui <em>font parler</em> les
+          <span class="is-alt">données.</span></template
         >
-          Réinitialiser
-        </button>
-      </div>
-    </CatalogToolbar>
-
-    <div class="mx-auto max-w-[1240px] px-4 py-6 sm:px-6 lg:px-8 lg:pb-[90px] lg:pt-[26px]">
-      <CatalogResultBar :count-line="countLine" :context-line="contextLine" />
-
-      <div v-if="pending && !catalog.data.length" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <div v-for="i in 6" :key="i" class="h-72 animate-pulse rounded-[18px] bg-white" />
-      </div>
-
-      <template v-else-if="catalog.meta.total > 0">
-        <div v-if="view === 'grid'" class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <ChannelCatalogCard
-            v-for="item in catalog.data"
-            :key="item.id"
-            :item="item"
-            :following="isFollowing(item)"
-            :followers="followersOf(item)"
-            @follow="toggleItemFollow(item)"
-            @select-tag="onSelectTag"
-          />
-        </div>
-
-        <div v-else class="overflow-x-auto rounded-[18px] bg-white shadow-[0_1px_3px_rgba(20,20,30,0.06)]">
-          <div
-            class="grid min-w-[720px] grid-cols-[minmax(0,2.4fr)_1fr_0.8fr_0.8fr_0.9fr_108px] gap-3.5 bg-[#faf9fd] px-5 py-3"
-          >
-            <div class="text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-400">Chaîne</div>
-            <div class="text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-400">Type</div>
-            <div class="text-right text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-400">Abonnés</div>
-            <div class="text-right text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-400">
-              Publications
-            </div>
-            <div class="text-right text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-400">Rythme</div>
-            <div />
-          </div>
-          <div class="min-w-[720px]">
-            <ChannelCatalogRow
-              v-for="item in catalog.data"
-              :key="item.id"
-              :item="item"
-              :following="isFollowing(item)"
-              :followers="followersOf(item)"
-              @follow="toggleItemFollow(item)"
-            />
-          </div>
-        </div>
-
-        <CatalogLoadMore
-          v-if="catalog.meta.has_more"
-          :more-count="moreCount"
-          :loading="pending"
-          @load="loadMore"
-        />
       </template>
+    </ListingHero>
 
-      <CatalogEmpty
-        v-else
-        title="Aucune chaîne ne correspond"
-        :subtitle="qInput ? `Aucun résultat pour « ${qInput} » avec ces filtres.` : 'Essayez un autre type, thème ou rythme de publication.'"
+    <ChannelsListingToolbar
+      v-model:q="qInput"
+      v-model:sort="sort"
+      v-model:view="view"
+      v-model:verified="verifiedOnly"
+      v-model:followed="followedOnly"
+      :kind="kind"
+      :theme="theme"
+      :pace="pace"
+      :kinds="kinds"
+      :paces="paces"
+      :slices="themes.slices"
+      :other-themes="themes.others"
+      @update:kind="selectKind"
+      @update:theme="selectTheme"
+      @update:pace="selectPace"
+    />
+
+    <section class="ds-max channels__list" aria-label="Chaînes">
+      <ListingResultBar
+        :total="catalog.meta.total"
+        :unit="UNIT"
+        :overall="anyFilter ? catalog.stats.active : null"
+        :filters="filters"
+        :context="context"
+        @remove="removeFilter"
         @reset="resetFilters"
       />
 
-      <CatalogCta
-        title="Ouvrez votre chaîne en quelques minutes"
-        subtitle="Un espace public pour vos jeux de données, vos articles et vos consultations — avec statistiques d’audience et vérification du compte."
-        primary-to="/studio"
-        primary-label="Créer ma chaîne"
-        secondary-to="/about"
-        secondary-label="Charte éditoriale"
+      <div v-if="loadingFirst" class="channels__grid" aria-busy="true">
+        <DsBox v-for="i in 6" :key="i" shadow="sm" class="channels__ghost" />
+      </div>
+
+      <template v-else-if="catalog.data.length">
+        <template v-if="view === 'grid'">
+          <ChannelOfTheMonth
+            v-if="featured"
+            :item="featured"
+            :to="linkOf(featured)"
+            :following="isFollowing(featured)"
+            :followers="followersOf(featured)"
+            @follow="toggleItemFollow(featured)"
+          />
+          <div class="channels__grid">
+            <ChannelTile
+              v-for="item in gridItems"
+              :key="item.id"
+              :item="item"
+              :to="linkOf(item)"
+              :following="isFollowing(item)"
+              :followers="followersOf(item)"
+              :query="qInput"
+              @follow="toggleItemFollow(item)"
+              @tag="searchTag"
+            />
+          </div>
+        </template>
+        <ChannelsTable
+          v-else
+          :items="catalog.data"
+          :query="qInput"
+          :link-of="linkOf"
+          :theme-label="themeLabel"
+          :is-following="isFollowing"
+          :followers-of="followersOf"
+          @follow="toggleItemFollow"
+        />
+
+        <div v-if="catalog.meta.has_more" class="channels__more">
+          <DsButton variant="secondary" :disabled="pending" @click="loadMore"
+            >Afficher {{ moreCount }} de plus</DsButton
+          >
+        </div>
+        <ListingEndLine
+          v-else
+          :total="catalog.meta.total"
+          :overall="anyFilter ? catalog.stats.active : null"
+          :unit="UNIT"
+          feminine
+        />
+      </template>
+
+      <ListingEmptyState
+        v-else
+        :filtered="anyFilter"
+        :query="qInput"
+        title="Aucune chaîne ne correspond"
+        empty-title="Aucune chaîne active pour le moment"
+        :hint="emptyHint"
+        @reset="resetFilters"
       />
-    </div>
+
+      <ChannelsCreateBand />
+    </section>
   </div>
 </template>
+
+<style scoped>
+.channels {
+  padding-bottom: 80px;
+  background: var(--ds-bg);
+  color: var(--ds-text);
+  font-family: var(--ds-ui);
+}
+.channels :deep(.is-alt) {
+  color: var(--ds-t2);
+}
+.channels__list {
+  padding-top: 28px;
+}
+.channels__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 26px;
+}
+@media (min-width: 621px) {
+  .channels__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1041px) {
+  .channels__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.channels__ghost {
+  height: 460px;
+  background: var(--ds-tint);
+  animation: channels-pulse 1.4s var(--ds-e-balaye) infinite alternate;
+}
+@keyframes channels-pulse {
+  to {
+    opacity: 0.55;
+  }
+}
+.channels__more {
+  display: flex;
+  justify-content: center;
+  margin-top: 34px;
+}
+</style>

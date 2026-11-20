@@ -1,7 +1,26 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+/** Carte de formulaire des écrans d'auth : surface Bold Outline (DsBox). */
+</script>
 
 <template>
-  <div class="w-full rounded-[20px] border border-slate-900/[0.08] bg-white px-7 py-8 shadow-[0_1px_3px_rgba(20,20,30,0.06)] sm:px-9 sm:py-10">
+  <DsBox class="ds-auth-card">
     <slot />
-  </div>
+  </DsBox>
 </template>
+
+<style scoped>
+.ds-auth-card {
+  width: 100%;
+  padding: 28px 22px;
+}
+@media (min-width: 640px) {
+  .ds-auth-card {
+    padding: 30px 32px;
+  }
+}
+@media (min-width: 1024px) and (max-height: 860px) {
+  .ds-auth-card {
+    padding: 20px 28px;
+  }
+}
+</style>

@@ -1,8 +1,10 @@
 # AGENTS.md
 
 ## Scope
-- Applies to files under `src/components/home`.
-- These components build the marketing/editorial homepage assembled in [`src/views/HomeView.vue`](/home/corentingesse/statsio-project/statsio-front/src/views/HomeView.vue).
+- Applies to files under `app/components/home`.
+- Statsio homepage (`/`) = `StatsioHome.vue` (orchestration only) + sections in `home/tranches/` (charte « Tranches », Bold Outline). Data: `composables/useStatsioHome.ts` + pure helpers `lib/home-tranches.ts`; copy: `data/brands/statsio/home-tranches.ts`.
+- TVStats / Medistats homes still use `HomeEditorial.vue` (+ `home/statsio/*`, `home/v2/*`) — don't delete those while they are mounted.
+- Build new sections from the primitives in `components/ds/` (DsButton, DsInput, DsHeading, DsLabel, DsChip, DsBox, DsPie, DsTypeGlyph…) and the `--ds-*` tokens of `assets/ds.css`. Never show invented figures: every number comes from the public catalog.
 - Shared site-wide layout elements do not belong here. Put them in `src/components/layout`.
 
 ## Composition Rules

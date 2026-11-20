@@ -4,6 +4,8 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 const props = defineProps<{
   action: string
   siteKey?: string
+  /** `interaction-only` : le widget n'apparaît que si Cloudflare demande une action. */
+  appearance?: 'always' | 'execute' | 'interaction-only'
 }>()
 
 const emit = defineEmits<{
@@ -78,6 +80,7 @@ function renderWidget() {
   widgetId = window.turnstile.render(container.value, {
     sitekey: resolvedSiteKey,
     action: props.action,
+    appearance: props.appearance ?? 'always',
     callback: (token: string) => emit('verified', token),
     'expired-callback': () => emit('expired'),
     'error-callback': () => emit('error'),

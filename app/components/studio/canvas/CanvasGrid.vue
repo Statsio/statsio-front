@@ -77,7 +77,7 @@ function onCanvasClick(event: MouseEvent) {
 
 <template>
   <div class="mx-auto flex min-h-full w-full max-w-[1000px] flex-col px-10 pb-[120px] pt-8">
-    <div class="flex flex-1 flex-col gap-4" @click="onCanvasClick">
+    <div class="flex flex-1 flex-col gap-4 cursor-pointer" @click="onCanvasClick">
       <!-- Zone de dépôt avant le premier élément -->
       <div
         v-if="!studio.isPreview"

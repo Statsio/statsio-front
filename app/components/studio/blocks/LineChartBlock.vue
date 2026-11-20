@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { useChart, useChartTheme, PALETTE } from '@/composables/useChart'
+import { useChart, useChartTheme } from '@/composables/useChart'
 import { useBlockData } from '@/composables/useBlockData'
 import { useExpressionNumber } from '@/composables/useResolvedTokens'
 import { useStudioStore } from '@/stores/studio'
@@ -47,13 +47,31 @@ const isSingleSeries = computed(
 )
 const hasMultipleSeries = computed(() => built.value.series.length >= 2)
 
+const chartTheme = useChartTheme()
+const palette = computed(() => chartTheme.value.palette)
+
+/** Tracé : Tranches = trait 3px, points discrets qui s'allument au survol. */
+const strokeStyle = computed(() => (chartTheme.value.tranches
+  ? {
+      borderWidth: 3,
+      pointRadius: 0,
+      pointHoverRadius: 6,
+      pointHoverBorderWidth: 2.5,
+      pointHoverBackgroundColor: chartTheme.value.surface,
+      pointHoverBorderColor: chartTheme.value.baseline,
+      borderJoinStyle: 'round' as const,
+      borderCapStyle: 'round' as const,
+    }
+  : { pointRadius: 3 }))
+
 const chartData = computed(() => {
   const { labels, series } = built.value
   const tension = props.block.config.smooth ? 0.4 : 0
+  const fillAlpha = chartTheme.value.tranches ? '1f' : '22'
 
   if (isSingleSeries.value) {
     const s = series[0]
-    const color = props.block.config.colors?.[0] ?? PALETTE[0]
+    const color = props.block.config.colors?.[0] ?? palette.value[0]!
     const filled = props.block.config.lineFill !== false
     return {
       labels,
@@ -61,10 +79,10 @@ const chartData = computed(() => {
         label: props.block.config.title ?? s?.label ?? '',
         data: s?.values ?? [],
         borderColor: color,
-        backgroundColor: color + (filled ? '22' : '00'),
+        backgroundColor: color + (filled ? fillAlpha : '00'),
         tension,
         fill: filled ? 'origin' : false,
-        pointRadius: 3,
+        ...strokeStyle.value,
       }],
     }
   }
@@ -72,15 +90,15 @@ const chartData = computed(() => {
   return {
     labels,
     datasets: series.map((s) => {
-      const color = PALETTE[s.colorIndex % PALETTE.length]
+      const color = palette.value[s.colorIndex % palette.value.length]!
       return {
         label: s.label,
         data: s.values,
         borderColor: color,
-        backgroundColor: color + '22',
+        backgroundColor: color + fillAlpha,
         tension,
         fill: false,
-        pointRadius: 3,
+        ...strokeStyle.value,
       }
     }),
   }
@@ -92,31 +110,34 @@ const isHorizontal = computed(() => props.block.config.orientation === 'horizont
 const labelMap = computed(() => props.block.fieldMapping.columnLabels ?? {})
 const xTitle = computed(() => (props.block.fieldMapping.xAxis ? labelMap.value[props.block.fieldMapping.xAxis] : '') || '')
 const yTitle = computed(() => (isSingleSeries.value && yRefs.value[0] ? (labelMap.value[yRefs.value[0]] || '') : ''))
-const chartTheme = useChartTheme()
 const axisTitle = (text: string) => (text
-  ? { display: true, text, font: { family: "'JetBrains Mono', monospace", size: 11, weight: 600 as const }, color: chartTheme.value.title }
+  ? { display: true, text, font: { family: chartTheme.value.font, size: 11, weight: 600 as const }, color: chartTheme.value.title }
   : { display: false })
 
 const { scheduleResize } = useChart(canvasRef, 'line', () => chartData.value, () => ({
   indexAxis: isHorizontal.value ? 'y' : 'x',
   scales: {
     x: {
-      grid: { display: isHorizontal.value, color: chartTheme.value.grid },
-      border: { display: false },
-      ticks: { font: { family: "'JetBrains Mono', monospace", size: 11 }, color: chartTheme.value.tick },
+      grid: { display: isHorizontal.value || chartTheme.value.tranches, color: chartTheme.value.grid, drawTicks: false },
+      border: chartTheme.value.tranches && !isHorizontal.value
+        ? { display: true, color: chartTheme.value.baseline, width: 2 }
+        : { display: false },
+      ticks: { font: { family: chartTheme.value.font, size: 11.5 }, color: chartTheme.value.tick, padding: 8 },
       title: axisTitle(isHorizontal.value ? yTitle.value : xTitle.value),
     },
     y: {
-      grid: { display: false },
-      border: { display: false },
-      ticks: { font: { family: "'JetBrains Mono', monospace", size: 11 }, color: chartTheme.value.tick },
+      grid: { display: chartTheme.value.tranches && !isHorizontal.value, color: chartTheme.value.grid, drawTicks: false },
+      border: chartTheme.value.tranches && isHorizontal.value
+        ? { display: true, color: chartTheme.value.baseline, width: 2 }
+        : { display: false },
+      ticks: { font: { family: chartTheme.value.font, size: 11.5 }, color: chartTheme.value.tick, padding: 8 },
       title: axisTitle(isHorizontal.value ? xTitle.value : yTitle.value),
     },
   },
   plugins: {
     // Legend is rendered as custom HTML below the canvas instead (matches the editorial mockup style).
     legend: { display: false },
-    tooltip: { mode: 'index' as const, intersect: false },
+    tooltip: chartTheme.value.tooltip,
     referenceLine: {
       value: props.block.config.referenceExpression ? refValue.value : null,
       label: props.block.config.referenceLabel,
@@ -157,8 +178,8 @@ watch(() => [studio.isPanelOpen, studio.selectedBlockId !== null], scheduleResiz
     </div>
 
     <div v-if="hasMultipleSeries && !isLoading && !error" class="mt-3 flex flex-wrap gap-4">
-      <span v-for="entry in legendEntries" :key="entry.label" class="flex items-center gap-1.5 text-xs text-[var(--studio-muted)]">
-        <span class="inline-block h-[3px] w-2.5 rounded-full" :style="{ backgroundColor: entry.color }" />
+      <span v-for="entry in legendEntries" :key="entry.label" class="sd-legend flex items-center gap-1.5 text-xs text-[var(--studio-muted)]">
+        <span class="sd-legend__mark inline-block h-[3px] w-2.5 rounded-full" :style="{ backgroundColor: entry.color }" />
         {{ entry.label }}
       </span>
     </div>
