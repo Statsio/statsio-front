@@ -3,14 +3,49 @@ import { computed, onMounted, ref } from 'vue'
 import StudioModal from '@/components/studio/ui/StudioModal.vue'
 import { useStudioStore } from '@/stores/studio'
 import { useStudioDatasetsStore } from '@/stores/studio-datasets'
-import { buildStudioJsonPrompt, type PromptDataset } from '@/lib/studio-json-prompt'
+import { useStudioMetaStore } from '@/stores/studio-meta'
+import { fetchMyMedia, type MediaItem } from '@/api/media'
+import { fetchContentCategories } from '@/api/content-categories'
+import type { ContentCategory } from '@/types/content-creation'
+import type { SaveStatsDataDocumentPayload } from '@/api/studio'
+import {
+  buildStudioJsonPrompt,
+  extractImportProperties,
+  type PromptDataset,
+  type StudioJsonProperties,
+} from '@/lib/studio-json-prompt'
 
 const emit = defineEmits<{ close: [] }>()
 
 const studio = useStudioStore()
 const datasets = useStudioDatasetsStore()
+const meta = useStudioMetaStore()
 
-const currentJson = computed(() => JSON.stringify(studio.getPayload(), null, 2))
+const media = ref<MediaItem[]>([])
+const categories = ref<ContentCategory[]>([])
+
+/** Propriétés courantes du document (objet `properties` du JSON). */
+const currentProperties = computed<StudioJsonProperties>(() => {
+  const d = meta.doc
+  const thumb = d?.thumbnail_url?.trim()
+  const thumbId = thumb ? media.value.find((m) => m.url === thumb)?.id : undefined
+  return {
+    title: studio.content?.title,
+    description: d?.description ?? null,
+    ...(thumbId ? { thumbnailMediaId: thumbId } : {}),
+    coverage: d?.coverage ?? null,
+    ...(d?.sub_brand ? { subBrand: d.sub_brand } : {}),
+    categories: d?.categories ?? studio.content?.categories ?? [],
+    ...(studio.content?.type === 'statsdata' ? { cardBlockId: d?.card_block_id ?? null } : {}),
+  }
+})
+
+function currentPayload() {
+  const { pages, sections, blocks } = studio.getPayload()
+  return { properties: currentProperties.value, pages, sections, blocks }
+}
+
+const currentJson = computed(() => JSON.stringify(currentPayload(), null, 2))
 
 // ─── Copy helpers ─────────────────────────────────────────────────────────────
 const copied = ref<'json' | 'prompt' | null>(null)
@@ -40,7 +75,9 @@ function buildPrompt(): string {
     content: { title: studio.content?.title, type: studio.content?.type ?? 'statsdata' },
     supportsPages: studio.supportsPages,
     datasets: promptDatasets,
-    currentPayload: studio.getPayload(),
+    currentPayload: currentPayload(),
+    media: media.value,
+    categories: categories.value,
   })
 }
 
@@ -53,7 +90,35 @@ const importText = ref('')
 const importError = ref('')
 const importDone = ref(false)
 
-function applyImport() {
+/** Applique `properties` (hors titre, géré par `importPayload`) via le store `studio-meta`. */
+async function applyProperties(props: StudioJsonProperties): Promise<boolean> {
+  if (!meta.doc) return true
+  const patch: SaveStatsDataDocumentPayload = {}
+  if (props.description !== undefined) patch.description = props.description
+  if (props.coverage !== undefined) patch.coverage = props.coverage
+  if (props.subBrand !== undefined) patch.sub_brand = props.subBrand
+  if (props.categories !== undefined) {
+    // Seuls les slugs connus sont envoyés (une IA peut en inventer).
+    const known = new Set(categories.value.map((c) => c.slug))
+    patch.categories = known.size ? props.categories.filter((c) => known.has(c)) : props.categories
+  }
+  if (props.cardBlockId !== undefined && studio.content?.type === 'statsdata') {
+    patch.card_block_id = props.cardBlockId && studio.blocks.some((b) => b.id === props.cardBlockId)
+      ? props.cardBlockId
+      : null
+  }
+  let ok = true
+  if (Object.keys(patch).length) ok = (await meta.patch(patch)) !== false
+  if (props.thumbnailMediaId !== undefined) {
+    const id = props.thumbnailMediaId
+    if (id === null || !media.value.length || media.value.some((m) => m.id === id)) {
+      ok = (await meta.setThumbnail(id)) && ok
+    }
+  }
+  return ok
+}
+
+async function applyImport() {
   importError.value = ''
   importDone.value = false
   let parsed: unknown
@@ -63,9 +128,15 @@ function applyImport() {
     importError.value = `JSON invalide : ${e instanceof Error ? e.message : 'erreur de parsing'}`
     return
   }
-  const res = studio.importPayload(parsed)
+  const props = extractImportProperties(parsed)
+  const body = { ...(parsed as Record<string, unknown>), ...(props.title ? { title: props.title } : {}) }
+  const res = studio.importPayload(body)
   if (!res.ok) {
     importError.value = res.error
+    return
+  }
+  if (!(await applyProperties(props))) {
+    importError.value = "Contenu remplacé, mais certaines propriétés (chapô, miniature, catégories…) n'ont pas pu être enregistrées."
     return
   }
   importDone.value = true
@@ -77,6 +148,8 @@ function applyImport() {
 const schemasLoading = ref(false)
 
 onMounted(async () => {
+  void fetchMyMedia(studio.content?.slug).then((m) => { media.value = m }).catch(() => {})
+  void fetchContentCategories().then((c) => { categories.value = c }).catch(() => {})
   if (!datasets.datasets.length) await datasets.loadDatasets()
   const ready = datasets.datasets.filter((d) => d.status === 'ready' && !datasets.getSchema(d.id))
   if (!ready.length) return
@@ -116,8 +189,9 @@ onMounted(async () => {
           </div>
         </div>
         <p class="text-[11.5px] leading-relaxed text-[var(--studio-faint)]">
-          Le <b>prompt IA</b> décrit la structure du JSON, les blocs disponibles pour ce type de contenu,
-          et la liste des sources de données avec leurs colonnes<span v-if="schemasLoading"> (chargement des schémas…)</span>.
+          Le <b>prompt IA</b> décrit toute la structure du JSON — propriétés (titre, chapô, miniature, catégories…),
+          pages, sections, et chaque bloc disponible avec tous ses paramètres (titres des graphiques compris) —
+          ainsi que les sources de données avec leurs colonnes<span v-if="schemasLoading"> (chargement des schémas…)</span>.
           Colle-le dans ChatGPT / Claude, décris ce que tu veux, et récupère le JSON.
         </p>
         <pre class="max-h-40 overflow-auto rounded-[10px] border border-[var(--studio-line)] bg-[var(--studio-wash)] p-3 text-[11px] leading-[1.5] text-[var(--studio-muted)]">{{ currentJson }}</pre>
@@ -130,13 +204,13 @@ onMounted(async () => {
           v-model="importText"
           rows="9"
           spellcheck="false"
-          placeholder='{ "title": "…", "pages": [...], "sections": [...], "blocks": [...] }'
+          placeholder='{ "properties": { "title": "…", "description": "…" }, "pages": [...], "sections": [...], "blocks": [...] }'
           class="w-full resize-y rounded-[10px] border-[1.5px] border-[var(--studio-line-strong)] bg-white p-3 font-mono text-[11.5px] leading-[1.5] text-[var(--studio-ink)] focus:border-[var(--color-primary)] focus:outline-none"
         />
         <p v-if="importError" class="text-[11.5px] font-medium text-[var(--color-error)]">{{ importError }}</p>
         <p v-else-if="importDone" class="text-[11.5px] font-medium text-emerald-600">✓ Contenu remplacé — enregistrement en cours…</p>
         <p v-else class="text-[11.5px] leading-relaxed text-[var(--studio-faint)]">
-          Remplace le titre, les sections et les blocs du document. Réversible avec Ctrl+Z. L'enregistrement est automatique.
+          Remplace les pages, sections et blocs, et applique les propriétés fournies (titre, chapô, miniature, catégories…). Le corps est réversible avec Ctrl+Z ; les propriétés sont enregistrées immédiatement.
         </p>
       </section>
     </div>
