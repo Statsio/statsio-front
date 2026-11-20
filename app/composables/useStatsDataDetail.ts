@@ -37,7 +37,7 @@ export function useStatsDataDetail() {
    *  - `null` : la page courante n'est pas une valeur de fan-out ;
    *  - `true` : le segment d'URL correspond à une vraie ligne / valeur distincte ;
    *  - `false` : aucune correspondance — on n'a qu'un repli dé-slugifié (page « mince »).
-   * Sert à sortir de l'index les valeurs de fan-out sans contenu réel.
+   * Sert à n'ajouter la valeur au titre que si elle est réelle.
    */
   const fanOutHydrated = useState<boolean | null>(`statsdata-fanout-${docSlug.value}`, () => null)
 
@@ -45,6 +45,12 @@ export function useStatsDataDetail() {
     studio.pages.length
       ? resolveSegments(segment.value, fanOutSegment.value, studio.pages).page
       : null,
+  )
+  /** L'URL porte une valeur de paramètre (`/statsdata/{slug}/{valeur}` ou `…/{page}/{valeur}`). */
+  const isFanOutUrl = computed(() =>
+    studio.pages.length
+      ? resolveSegments(segment.value, fanOutSegment.value, studio.pages).fanOut !== null
+      : false,
   )
   // La barre d'onglets montre toutes les pages du document.
   const allPages = computed(() => studio.pages)
@@ -273,6 +279,7 @@ export function useStatsDataDetail() {
     loading,
     error,
     fanOutHydrated,
+    isFanOutUrl,
     activePage,
     publicPages,
     allPages,
