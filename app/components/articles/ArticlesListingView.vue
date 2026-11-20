@@ -1,26 +1,48 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import DsBox from '@/components/ds/DsBox.vue'
+import DsButton from '@/components/ds/DsButton.vue'
+import ListingHero from '@/components/listing/tranches/ListingHero.vue'
+import ArticlesListingToolbar from '@/components/articles/listing/ArticlesListingToolbar.vue'
+import ListingResultBar from '@/components/listing/tranches/ListingResultBar.vue'
+import ArticleFeature from '@/components/articles/listing/ArticleFeature.vue'
+import ArticleTile from '@/components/articles/listing/ArticleTile.vue'
+import ArticlesTable from '@/components/articles/listing/ArticlesTable.vue'
+import ListingEmptyState from '@/components/listing/tranches/ListingEmptyState.vue'
+import ListingEndLine from '@/components/listing/tranches/ListingEndLine.vue'
+import ArticlesWriteBand from '@/components/articles/listing/ArticlesWriteBand.vue'
 import { usePublicCatalog } from '@/composables/usePublicCatalog'
 import { useContentBasePath } from '@/composables/useContentBasePath'
+import { useContentCategoryNames } from '@/composables/useContentCategoryNames'
 import { formatCatalogCount, formatRelativePublished } from '@/lib/catalog-format'
-import CatalogHero from '@/components/listing/CatalogHero.vue'
-import CatalogToolbar from '@/components/listing/CatalogToolbar.vue'
-import CatalogSearchField from '@/components/listing/CatalogSearchField.vue'
-import CatalogSortPills from '@/components/listing/CatalogSortPills.vue'
-import CatalogViewToggle from '@/components/listing/CatalogViewToggle.vue'
-import CatalogChipRow from '@/components/listing/CatalogChipRow.vue'
-import CatalogToggleChip from '@/components/listing/CatalogToggleChip.vue'
-import CatalogResultBar from '@/components/listing/CatalogResultBar.vue'
-import CatalogEmpty from '@/components/listing/CatalogEmpty.vue'
-import CatalogLoadMore from '@/components/listing/CatalogLoadMore.vue'
-import CatalogCta from '@/components/listing/CatalogCta.vue'
-import ArticleCard from '@/components/content/ArticleCard.vue'
+import { publicContentPath } from '@/lib/content-display'
+import {
+  activeFilters,
+  buildRubricSlices,
+  rubricBadgeOf,
+  rubricLabel,
+  rubricLeadCaption,
+  rubricPieSegments,
+  sortContextLabel,
+  visibleFormatFacets,
+  type ActiveFilterKey,
+  type RubricSlice,
+} from '@/lib/articles-listing'
+import type { CatalogItem } from '@/types/catalog'
 
-defineProps<{
+/**
+ * Listing des articles (Statsio, TVStats, Medistats) — charte « Tranches ».
+ * Orchestration seule : l'état (recherche, filtres, tri, vue, pagination,
+ * favoris) vit dans `usePublicCatalog` et se reflète dans l'URL ; la logique
+ * de présentation est dans `lib/articles-listing.ts`.
+ */
+const props = defineProps<{
+  /** titre imposé par une sous-marque (« Actus », « Articles ») */
   title?: string
 }>()
 
 const basePath = useContentBasePath()
+const categoryNames = useContentCategoryNames()
 const {
   qInput,
   category,
@@ -37,193 +59,238 @@ const {
   selectFormat,
   toggleItemFavorite,
   isFavorited,
-} = usePublicCatalog({
-  type: 'article',
-  key: 'articles-catalog',
+} = usePublicCatalog({ type: 'article', key: 'articles-catalog' })
+
+/* ── rubriques : tranche de la barre d'outils + pastilles des cartes ── */
+const rubrics = computed(() =>
+  buildRubricSlices(catalog.value.facets.categories, categoryNames.value),
+)
+const rubricOf = (item: CatalogItem) =>
+  rubricBadgeOf(item.category, rubrics.value.slices, categoryNames.value)
+const formatFacets = computed(() => visibleFormatFacets(catalog.value.facets.formats))
+const linkOf = (item: CatalogItem) => publicContentPath('article', item.slug, basePath.value)
+
+/* ── hero : chiffres du catalogue + camembert des rubriques ──
+   Les facettes suivent la recherche ; le camembert, lui, ne doit pas se redessiner
+   à chaque frappe : pendant une recherche on garde la dernière répartition sans
+   recherche (même objet → DsPie ne rejoue pas son animation). */
+type HeroRubrics = { slices: RubricSlice[]; others: RubricSlice[]; total: number }
+let lastHeroRubrics: HeroRubrics = { slices: [], others: [], total: 0 }
+const heroRubrics = computed<HeroRubrics>(() => {
+  if (!qInput.value.trim()) {
+    const all = catalog.value.facets.categories.find((f) => !f.value)
+    lastHeroRubrics = { ...rubrics.value, total: all?.count ?? catalog.value.stats.published }
+  }
+  return lastHeroRubrics
 })
-
-const sortOptions: { value: 'trend' | 'created' | 'recent'; label: string }[] = [
-  { value: 'trend', label: 'Popularité' },
-  { value: 'created', label: 'Date de création' },
-  { value: 'recent', label: 'Date de modification' },
-]
-
-const crumbs = computed(() => [
-  { label: 'Accueil', to: basePath.value || '/' },
-  { label: 'Articles' },
-])
-
+const heroPie = computed(() =>
+  rubricPieSegments(heroRubrics.value.slices, heroRubrics.value.others),
+)
+const heroPieLabel = computed(
+  () =>
+    `Répartition des articles par rubrique : ${heroPie.value.map((s) => `${s.label} ${s.value}`).join(', ')}`,
+)
+const heroCaption = computed(() =>
+  rubricLeadCaption(heroRubrics.value.slices, heroRubrics.value.total),
+)
 const heroStats = computed(() => [
   { label: 'Articles publiés', value: formatCatalogCount(catalog.value.stats.published) },
   { label: 'Chaînes éditrices', value: formatCatalogCount(catalog.value.stats.channels) },
   { label: 'Graphiques intégrés', value: formatCatalogCount(catalog.value.stats.charts) },
-  { label: 'Dernière parution', value: formatRelativePublished(catalog.value.stats.last_published_at) },
+  {
+    label: 'Dernière parution',
+    value: formatRelativePublished(catalog.value.stats.last_published_at),
+    small: true,
+  },
+])
+const crumbs = computed(() => [
+  { label: 'Accueil', to: basePath.value || '/' },
+  { label: props.title ?? 'Articles' },
 ])
 
-const categoryFacets = computed(() => catalog.value.facets.categories)
-const formatFacets = computed(() => {
-  const facets = catalog.value.facets.formats
-  const hasAny = facets.some((f) => f.value && f.count > 0)
-  return hasAny ? facets.filter((f) => !f.value || f.count > 0) : []
-})
-
-const countLine = computed(
-  () => `${catalog.value.meta.total} articles · ${catalog.value.meta.shown} affichés`,
+/* ── résultats ── */
+const filters = computed(() =>
+  activeFilters(
+    { q: qInput.value, category: category.value, format: format.value, hasData: hasData.value },
+    {
+      category: (v) => rubricLabel(v, categoryNames.value),
+      format: (v) => formatFacets.value.find((f) => f.value === v)?.label ?? v,
+    },
+  ),
 )
-const contextLine = computed(() => {
-  if (anyFilter.value) return 'Filtres actifs'
-  if (sort.value === 'created') return 'Classés par date de création'
-  if (sort.value === 'recent') return 'Classés par date de modification'
-  return 'Classés par popularité'
-})
+const context = computed(
+  () => sortContextLabel(sort.value) + (view.value === 'list' ? ' · vue liste' : ''),
+)
+
+function removeFilter(key: ActiveFilterKey) {
+  if (key === 'q') qInput.value = ''
+  else if (key === 'category') selectCategory('')
+  else if (key === 'format') selectFormat('')
+  else hasData.value = false
+}
+
+const featured = computed(() =>
+  view.value === 'grid' && !anyFilter.value ? catalog.value.featured : null,
+)
+const gridItems = computed(() =>
+  catalog.value.data.filter((item) => item.id !== featured.value?.id),
+)
 const moreCount = computed(() =>
   Math.min(6, Math.max(0, catalog.value.meta.total - catalog.value.meta.shown)),
 )
-const showFeatured = computed(() => view.value === 'grid' && !anyFilter.value && Boolean(catalog.value.featured))
-const gridItems = computed(() => {
-  const items = catalog.value.data
-  if (!showFeatured.value || !catalog.value.featured) return items
-  return items.filter((item) => item.id !== catalog.value.featured?.id)
-})
-
+const loadingFirst = computed(() => pending.value && !catalog.value.data.length)
 </script>
 
 <template>
-  <div class="bg-[#f4f3f8] pb-24">
-    <CatalogHero
+  <div class="ds-scope articles">
+    <ListingHero
       :crumbs="crumbs"
-      badge="ARTICLES"
-      kicker="ENQUÊTES, DÉCRYPTAGES ET DOSSIERS DATA"
-      :title="title"
-      subtitle="Chaque article croise texte long, graphiques interactifs et jeux de données ouverts — signés par une chaîne ou un analyste indépendant."
-      hero-src="/brand/listings/articles-hero-light.png"
+      lede="Chaque article croise un texte, des graphiques interactifs et les jeux de données ouverts qui les nourrissent. Il est signé par une chaîne ou un analyste indépendant."
       :stats="heroStats"
+      :pie="heroPie"
+      :pie-label="heroPieLabel"
+      :caption="heroCaption"
     >
+      <template #label>Articles · <b>enquêtes, décryptages et dossiers data</b></template>
       <template #title>
         <template v-if="title">{{ title }}</template>
-        <template v-else>
-          Des <span class="text-primary">récits écrits</span> à partir des <span class="text-accent">chiffres</span>.
-        </template>
-      </template>
-    </CatalogHero>
-
-    <CatalogToolbar>
-      <template #search>
-        <CatalogSearchField v-model="qInput" placeholder="Rechercher un article, un auteur, un sujet…" />
-      </template>
-      <template #sort>
-        <CatalogSortPills v-model="sort" :options="sortOptions" />
-      </template>
-      <template #view>
-        <CatalogViewToggle v-model="view" />
-      </template>
-
-      <CatalogChipRow
-        v-if="categoryFacets.length > 1"
-        label="Rubrique"
-        :model-value="category"
-        :options="categoryFacets"
-        @update:model-value="selectCategory"
-      />
-
-      <div v-if="formatFacets.length > 1" class="flex flex-wrap items-center gap-2.5">
-        <CatalogChipRow
-          class="min-w-0 flex-1"
-          label="Format"
-          variant="mono"
-          :model-value="format"
-          :options="formatFacets"
-          @update:model-value="selectFormat"
-        />
-        <span class="flex-1" />
-        <CatalogToggleChip v-model="hasData" label="Avec Statsdata lié" />
-        <button
-          v-if="anyFilter"
-          type="button"
-          class="shrink-0 rounded-full border-[1.5px] border-slate-200 px-3.5 py-[7px] text-xs font-bold text-slate-500 transition hover:border-[#c4b5fd] hover:text-primary"
-          @click="resetFilters"
+        <template v-else
+          >Des récits écrits <em>à partir</em> des <span class="is-alt">chiffres.</span></template
         >
-          Réinitialiser
-        </button>
-      </div>
-      <div v-else class="flex flex-wrap items-center justify-end gap-2.5">
-        <CatalogToggleChip v-model="hasData" label="Avec Statsdata lié" />
-        <button
-          v-if="anyFilter"
-          type="button"
-          class="rounded-full border-[1.5px] border-slate-200 px-3.5 py-[7px] text-xs font-bold text-slate-500 transition hover:border-[#c4b5fd] hover:text-primary"
-          @click="resetFilters"
-        >
-          Réinitialiser
-        </button>
-      </div>
-    </CatalogToolbar>
-
-    <div class="mx-auto max-w-[1240px] px-4 py-6 sm:px-6 lg:px-8 lg:pb-[90px] lg:pt-[26px]">
-      <CatalogResultBar :count-line="countLine" :context-line="contextLine" />
-
-      <div v-if="pending && !catalog.data.length" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <div v-for="i in 6" :key="i" class="h-72 animate-pulse rounded-[18px] bg-white" />
-      </div>
-
-      <template v-else-if="catalog.meta.total > 0">
-        <ArticleCard v-if="showFeatured && catalog.featured" :item="catalog.featured" format="row" feature class="mb-[22px]" />
-
-        <div v-if="view === 'grid'" class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <ArticleCard
-            v-for="item in gridItems"
-            :key="item.id"
-            :item="item"
-            format="card"
-            :favorited="isFavorited(item)"
-            @favorite="toggleItemFavorite(item)"
-          />
-        </div>
-
-        <div v-else class="overflow-x-auto rounded-[18px] bg-white shadow-[0_1px_3px_rgba(20,20,30,0.06)]">
-          <div class="grid min-w-[720px] grid-cols-[minmax(0,2.6fr)_0.9fr_1.1fr_0.7fr_0.6fr_46px] gap-3.5 bg-[#faf9fd] px-5 py-3">
-            <div class="text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-400">Article</div>
-            <div class="text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-400">Rubrique</div>
-            <div class="text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-400">Publié par</div>
-            <div class="text-right text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-400">Lecture</div>
-            <div class="text-right text-[10px] font-extrabold uppercase tracking-[0.06em] text-slate-400">Vues</div>
-            <div />
-          </div>
-          <div class="min-w-[720px]">
-            <ArticleCard
-              v-for="item in catalog.data"
-              :key="item.id"
-              :item="item"
-              format="row"
-              :favorited="isFavorited(item)"
-              @favorite="toggleItemFavorite(item)"
-            />
-          </div>
-        </div>
-
-        <CatalogLoadMore
-          v-if="catalog.meta.has_more"
-          :more-count="moreCount"
-          :loading="pending"
-          @load="loadMore"
-        />
       </template>
+    </ListingHero>
 
-      <CatalogEmpty
-        v-else
-        title="Aucun article ne correspond"
-        :subtitle="qInput ? `Aucun résultat pour « ${qInput} » avec ces filtres.` : 'Essayez une autre rubrique ou un autre format.'"
+    <ArticlesListingToolbar
+      v-model:q="qInput"
+      v-model:sort="sort"
+      v-model:view="view"
+      v-model:has-data="hasData"
+      :category="category"
+      :format="format"
+      :slices="rubrics.slices"
+      :other-rubrics="rubrics.others"
+      :formats="formatFacets"
+      @update:category="selectCategory"
+      @update:format="selectFormat"
+    />
+
+    <section class="ds-max articles__list" aria-label="Articles">
+      <ListingResultBar
+        :total="catalog.meta.total"
+        :unit="{ one: 'article', many: 'articles' }"
+        :overall="anyFilter ? catalog.stats.published : null"
+        :filters="filters"
+        :context="context"
+        @remove="removeFilter"
         @reset="resetFilters"
       />
 
-      <CatalogCta
-        title="Écrivez votre prochain décryptage"
-        subtitle="Le studio mêle texte long et blocs interactifs : insérez un graphique issu d’un Statsdata en deux clics."
-        primary-to="/studio"
-        primary-label="Rédiger un article"
-        secondary-to="/about"
-        secondary-label="Guide éditorial"
+      <div v-if="loadingFirst" class="articles__grid" aria-busy="true">
+        <DsBox v-for="i in 6" :key="i" shadow="sm" class="articles__ghost" />
+      </div>
+
+      <template v-else-if="catalog.data.length">
+        <template v-if="view === 'grid'">
+          <ArticleFeature
+            v-if="featured"
+            :item="featured"
+            :to="linkOf(featured)"
+            :rubric="rubricOf(featured)"
+            :favorited="isFavorited(featured)"
+            @favorite="toggleItemFavorite(featured)"
+          />
+          <div class="articles__grid">
+            <ArticleTile
+              v-for="item in gridItems"
+              :key="item.id"
+              :item="item"
+              :to="linkOf(item)"
+              :rubric="rubricOf(item)"
+              :favorited="isFavorited(item)"
+              :query="qInput"
+              @favorite="toggleItemFavorite(item)"
+            />
+          </div>
+        </template>
+        <ArticlesTable
+          v-else
+          :items="catalog.data"
+          :query="qInput"
+          :link-of="linkOf"
+          :rubric-of="rubricOf"
+          :is-favorited="isFavorited"
+          @favorite="toggleItemFavorite"
+        />
+
+        <div v-if="catalog.meta.has_more" class="articles__more">
+          <DsButton variant="secondary" :disabled="pending" @click="loadMore">
+            Afficher {{ moreCount }} de plus
+          </DsButton>
+        </div>
+        <ListingEndLine
+          v-else
+          :total="catalog.meta.total"
+          :overall="anyFilter ? catalog.stats.published : null"
+          :unit="{ one: 'article', many: 'articles' }"
+        />
+      </template>
+
+      <ListingEmptyState
+        v-else
+        :filtered="anyFilter"
+        :query="qInput"
+        title="Aucun article pour cette combinaison"
+        empty-title="Aucun article publié pour le moment"
+        hint="Retirez un filtre ou essayez une autre rubrique."
+        @reset="resetFilters"
       />
-    </div>
+
+      <ArticlesWriteBand />
+    </section>
   </div>
 </template>
+
+<style scoped>
+.articles {
+  padding-bottom: 80px;
+  background: var(--ds-bg);
+  color: var(--ds-text);
+  font-family: var(--ds-ui);
+}
+.articles :deep(.is-alt) {
+  color: var(--ds-t2);
+}
+.articles__list {
+  padding-top: 28px;
+}
+.articles__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 26px;
+}
+@media (min-width: 621px) {
+  .articles__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1041px) {
+  .articles__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.articles__ghost {
+  height: 340px;
+  background: var(--ds-tint);
+  animation: articles-pulse 1.4s var(--ds-e-balaye) infinite alternate;
+}
+@keyframes articles-pulse {
+  to {
+    opacity: 0.55;
+  }
+}
+.articles__more {
+  display: flex;
+  justify-content: center;
+  margin-top: 34px;
+}
+</style>

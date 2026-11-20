@@ -68,7 +68,7 @@ function themeOf(item: CatalogItem) {
       </div>
     </div>
 
-    <aside class="flex flex-col gap-6 lg:sticky lg:top-32 lg:self-start">
+    <aside class="flex flex-col gap-6">
       <div class="rounded-[18px] border-[1.5px] border-slate-200/70 bg-white p-5 shadow-[0_1px_3px_rgba(20,20,30,0.06)]">
         <span class="font-mono text-[10px] font-semibold tracking-[0.11em] text-accent">LES PLUS CONSULTÉS</span>
         <ol class="mt-4 flex flex-col divide-y divide-slate-100">

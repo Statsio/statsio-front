@@ -74,7 +74,7 @@ function branchPasses(branch: IfBranch, i: number): boolean {
         </span>
       </div>
 
-      <div @click.stop>
+      <div @click.stop class="cursor-pointer">
         <CanvasSectionZone v-if="pageLevel" :zone-id="zoneId(i)" />
         <CanvasZone v-else :zone-id="zoneId(i)" :col-index="0" nested />
       </div>

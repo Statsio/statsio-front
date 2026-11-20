@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { navigateTo } from '#app'
 import { useStatsDataDetail } from '@/composables/useStatsDataDetail'
 import { useStatsDataChrome } from '@/composables/useStatsDataChrome'
@@ -20,8 +20,13 @@ import ContentOwnerBar from './ContentOwnerBar.vue'
 import StatsDataEmbedModal from './StatsDataEmbedModal.vue'
 import StatsDataContent from './StatsDataContent.vue'
 import ContentCommentsSection from '@/components/contents/ContentCommentsSection.vue'
+import DsButton from '@/components/ds/DsButton.vue'
+import { provideBlockSkin } from '@/lib/block-skin'
 
 const props = withDefaults(defineProps<{ embed?: boolean }>(), { embed: false })
+
+// Charte « Tranches » pour tous les blocs de la page (graphiques, camemberts…).
+provideBlockSkin('tranches')
 
 const {
   docSlug,
@@ -213,19 +218,19 @@ async function goToAction(action: HeroAction) {
 </script>
 
 <template>
-  <div class="sd-public min-h-screen bg-[var(--studio-wash)] font-sans text-[var(--studio-ink)]">
+  <div class="sd-public ds-scope min-h-screen">
     <!-- Loading -->
     <div v-if="loading" class="flex items-center justify-center py-40">
-      <svg class="h-8 w-8 animate-spin text-[var(--color-primary)]" fill="none" viewBox="0 0 24 24">
+      <svg class="h-8 w-8 animate-spin text-[var(--ds-ol)]" fill="none" viewBox="0 0 24 24" role="img" aria-label="Chargement">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
       </svg>
     </div>
 
     <!-- Error -->
-    <div v-else-if="error" class="py-24 text-center text-[var(--studio-muted)]">
-      <p class="text-lg font-medium">{{ error }}</p>
-      <RouterLink :to="listPath" class="mt-4 inline-block text-sm text-[var(--color-primary)] underline">← Retour au catalogue</RouterLink>
+    <div v-else-if="error" class="sd-error ds-max">
+      <p>{{ error }}</p>
+      <DsButton variant="secondary" :to="listPath">← Retour au catalogue</DsButton>
     </div>
 
     <template v-else-if="doc">
@@ -237,7 +242,7 @@ async function goToAction(action: HeroAction) {
             :href="shareUrl"
             target="_blank"
             rel="noopener"
-            class="block text-center text-[11px] font-semibold text-[var(--studio-faint)] hover:text-[var(--studio-muted)]"
+            class="sd-embed-credit"
           >Réalisé avec Statsio →</a>
         </main>
         <div v-else class="py-16 text-center text-sm text-slate-500">
@@ -286,29 +291,31 @@ async function goToAction(action: HeroAction) {
           @activate="goToAction"
         />
 
-        <div class="mx-auto max-w-[1180px] px-4 sm:px-6">
-          <div class="grid grid-cols-1 gap-10 pt-8 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start">
-            <aside class="hidden lg:flex lg:flex-col lg:gap-5 lg:sticky lg:top-40">
+        <div class="ds-max">
+          <div class="sd-body">
+            <aside class="sd-side">
               <StatsDataToc />
               <StatsDataSourceCard :datasets="datasets" :doc-slug="docSlug" @reuse="openReuseSource" />
             </aside>
 
-            <main class="flex min-w-0 flex-col gap-4 pb-24">
-              <button
+            <main class="sd-main">
+              <DsButton
                 v-if="datasets.length > 0"
-                type="button"
-                class="flex items-center gap-2 self-start rounded-full border border-[var(--studio-line-strong)] bg-white px-4 py-2 text-[12px] font-semibold text-[var(--studio-ink)] transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]/30 lg:hidden"
+                variant="secondary"
+                size="sm"
+                class="sd-src-btn"
                 @click="showSourcesModal = true"
               >
                 <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 1.657 3.582 3 8 3s8-1.343 8-3V7M4 7c0 1.657 3.582 3 8 3s8-1.343 8-3M4 7c0-1.657 3.582-3 8-3s8 1.343 8 3" />
                 </svg>
                 Sources de données
-              </button>
+              </DsButton>
 
               <StatsDataContent :items="canvasItems" />
 
               <StatsDataUsefulBar
+                tone="tranches"
                 :is-favorite="isFavorite"
                 :is-following="isFollowing"
                 :can-follow="canFollowChannel"
@@ -344,7 +351,7 @@ async function goToAction(action: HeroAction) {
           title="Sources de données"
           size="sm"
         >
-          <StatsDataSourceCard :datasets="datasets" :doc-slug="docSlug" hide-heading @reuse="openReuseSource" />
+          <StatsDataSourceCard :datasets="datasets" :doc-slug="docSlug" hide-heading bare @reuse="openReuseSource" />
         </AppModal>
         <CreateContentModal
           v-if="createModalOpen"
@@ -357,3 +364,65 @@ async function goToAction(action: HeroAction) {
     </template>
   </div>
 </template>
+
+<style scoped>
+.sd-public {
+  background: var(--ds-bg);
+  color: var(--ds-text);
+  font-family: var(--ds-ui);
+}
+.sd-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding-block: 96px;
+  color: var(--ds-muted);
+  font: 600 18px/1.4 var(--ds-ui);
+  text-align: center;
+}
+.sd-embed-credit {
+  display: block;
+  color: var(--ds-faint);
+  font: 500 11px/1.3 var(--ds-num);
+  letter-spacing: 0.06em;
+  text-align: center;
+  text-decoration: none;
+}
+.sd-embed-credit:hover {
+  color: var(--ds-link);
+}
+.sd-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 28px;
+  padding-block: 8px 96px;
+}
+.sd-side {
+  display: none;
+}
+.sd-main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 40px;
+}
+.sd-src-btn {
+  align-self: flex-start;
+}
+@media (min-width: 981px) {
+  .sd-body {
+    grid-template-columns: 250px minmax(0, 1fr);
+    gap: 48px;
+  }
+  .sd-side {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    align-self: start;
+  }
+  .sd-src-btn {
+    display: none;
+  }
+}
+</style>

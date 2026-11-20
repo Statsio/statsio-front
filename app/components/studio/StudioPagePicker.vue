@@ -5,10 +5,11 @@ import { useStudioStore } from '@/stores/studio'
 import StudioModal from '@/components/studio/ui/StudioModal.vue'
 import VariablePickerModal from '@/components/studio/VariablePickerModal.vue'
 import FieldText from '@/components/studio/fields/FieldText.vue'
+import StudioIcon from '@/components/studio/ui/StudioIcon.vue'
 import { slugify } from '@/lib/slug'
 import type { StudioDocumentPage } from '@/types/studio'
 
-const { compact } = defineProps<{ compact?: boolean }>()
+const { compact, manage } = defineProps<{ compact?: boolean; /** Déclencheur « Gérer » compact (barre du canevas). */ manage?: boolean }>()
 const studio = useStudioStore()
 
 function pageKind(page?: StudioDocumentPage | null) {
@@ -103,13 +104,27 @@ function onDocMousedown(e: MouseEvent) {
   }
 }
 
+defineExpose({ openAddModal })
+
 onMounted(() => document.addEventListener('mousedown', onDocMousedown))
 onUnmounted(() => document.removeEventListener('mousedown', onDocMousedown))
 </script>
 
 <template>
-  <div ref="dropdownRef" class="relative" :class="!compact && 'ml-1'">
+  <div ref="dropdownRef" class="relative" :class="!compact && !manage && 'ml-1'">
     <button
+      v-if="manage"
+      type="button"
+      class="st-ptab"
+      :aria-pressed="pagesOpen"
+      aria-haspopup="dialog"
+      title="Renommer, réordonner ou supprimer les pages"
+      @click="pagesOpen = !pagesOpen"
+    >
+      <StudioIcon name="gear" :size="13" />Gérer
+    </button>
+    <button
+      v-else
       class="flex max-w-[300px] items-center gap-[9px] rounded-full border-[1.5px] transition-colors"
       :class="[
         compact ? 'px-2.5 py-[6px]' : 'px-3 py-[7px]',
@@ -128,7 +143,7 @@ onUnmounted(() => document.removeEventListener('mousedown', onDocMousedown))
 
     <div
       v-if="pagesOpen"
-      class="absolute left-0 top-11 z-[120] w-[min(352px,calc(100vw-24px))] rounded-[15px] border border-[var(--studio-line)] bg-white p-2 shadow-[var(--studio-shadow-pop)]"
+      class="absolute left-0 top-11 z-[120] w-[min(352px,calc(100vw-24px))] rounded-[6px] border-2 border-[var(--ds-ol)] bg-[var(--ds-surface)] p-2 shadow-[var(--studio-shadow-pop)]"
     >
       <div class="px-2.5 pb-[7px] pt-2 text-[10px] font-extrabold uppercase tracking-[0.07em] text-[var(--studio-faint)]">
         Pages de ce contenu

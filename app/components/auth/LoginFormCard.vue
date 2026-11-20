@@ -79,16 +79,17 @@ const handleSubmit = async () => {
 
 <template>
   <AuthCard>
-    <div class="flex flex-col gap-7">
-      <!-- Header -->
-      <div>
-        <h1 class="mb-1.5 text-2xl font-bold text-slate-950">Connexion</h1>
-        <p class="text-sm text-slate-950/55">Content de vous revoir sur Statsio.</p>
-      </div>
+    <div class="flex flex-col gap-5">
+      <AuthCardHeader
+        eyebrow="Connexion"
+        :title="[{ text: 'Content de vous ' }, { text: 'revoir', em: true }]"
+        description="Retrouvez vos sujets suivis, vos favoris et votre Studio."
+      >
+        <template #aside><NuxtLink to="/register" class="ds-auth-link">Pas de compte ? Créer un compte</NuxtLink></template>
+      </AuthCardHeader>
 
       <AuthErrorAlert :message="submitError" />
 
-      <!-- Form -->
       <form class="flex flex-col gap-4" novalidate @submit.prevent="handleSubmit">
         <AuthInputField
           v-model="email"
@@ -110,42 +111,28 @@ const handleSubmit = async () => {
           :disabled="authStore.isAuthenticating"
         >
           <template #label-action>
-            <NuxtLink
-              to="/forgot-password"
-              class="text-xs font-semibold text-[var(--color-primary)] transition hover:brightness-90"
-            >
-              Mot de passe oublié ?
-            </NuxtLink>
+            <NuxtLink to="/forgot-password" class="ds-auth-link text-[13px]">Mot de passe oublié ?</NuxtLink>
           </template>
         </AuthInputField>
 
-        <AppCheckbox v-model="keepSignedIn" label="Se souvenir de moi" class="mt-0.5" />
+        <AuthCheckbox v-model="keepSignedIn" label="Se souvenir de moi" />
 
         <AppTurnstile
           ref="turnstileRef"
           action="login"
+          appearance="interaction-only"
           @verified="(token) => { turnstileToken = token; submitError = '' }"
           @expired="turnstileToken = ''"
           @error="() => { turnstileToken = ''; submitError = 'Impossible de charger la vérification de sécurité. Vérifiez votre connexion réseau.' }"
         />
 
-        <AppButton
-          :disabled="!isFormValid || authStore.isAuthenticating"
-          full-width
-          size="lg"
-          variant="gradient"
-          type="submit"
-          class="mt-1.5 auth-cta"
-        >
+        <DsButton type="submit" block :disabled="!isFormValid || authStore.isAuthenticating">
           <template v-if="authStore.isAuthenticating">
-            <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
+            <AuthSpinner />
             Connexion en cours…
           </template>
-          <template v-else>Se connecter</template>
-        </AppButton>
+          <template v-else>Se connecter <span aria-hidden="true">→</span></template>
+        </DsButton>
       </form>
 
       <AuthDivider />
@@ -157,12 +144,6 @@ const handleSubmit = async () => {
         @error="submitError = $event"
       />
 
-      <p class="text-center text-sm text-slate-950/55">
-        Pas encore de compte ?
-        <NuxtLink to="/register" class="font-bold text-[var(--color-primary)] transition hover:brightness-90">
-          S'inscrire
-        </NuxtLink>
-      </p>
     </div>
   </AuthCard>
 </template>

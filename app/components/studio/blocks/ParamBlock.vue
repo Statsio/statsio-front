@@ -112,10 +112,10 @@ const options = computed(() => {
     <!-- Contrôle -->
     <div
       v-else
-      class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[16px] bg-white px-[18px] py-3.5 shadow-[var(--studio-shadow-card)]"
+      class="sd-param flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[16px] bg-white px-[18px] py-3.5 shadow-[var(--studio-shadow-card)]"
       :class="readonly ? '' : 'ring-1 ring-[var(--studio-line)]'"
     >
-      <span class="shrink-0 text-[9.5px] font-extrabold uppercase tracking-[0.09em] text-[var(--studio-faint)]">{{ label }}</span>
+      <span class="sd-param__label shrink-0 text-[9.5px] font-extrabold uppercase tracking-[0.09em] text-[var(--studio-faint)]">{{ label }}</span>
 
       <span v-if="isLoading" class="text-xs text-[#18181f]/40">Chargement…</span>
       <span v-else-if="loadError" class="text-xs text-red-500">{{ loadError }}</span>
@@ -127,7 +127,8 @@ const options = computed(() => {
           v-for="opt in options"
           :key="opt.value"
           type="button"
-          class="rounded-full border-[1.5px] px-3.5 py-1.5 text-[12.5px] font-bold transition-colors"
+          class="sd-param__opt rounded-full border-[1.5px] px-3.5 py-1.5 text-[12.5px] font-bold transition-colors"
+          :aria-pressed="current === opt.value"
           :class="current === opt.value
             ? 'border-transparent bg-[var(--color-primary)] text-white'
             : 'border-[var(--studio-line-strong)] bg-white text-[var(--studio-muted)] hover:border-[var(--color-primary)]'"
@@ -138,7 +139,7 @@ const options = computed(() => {
       <!-- Liste déroulante -->
       <select
         v-else
-        class="min-w-0 flex-1 rounded-lg border-[1.5px] border-[#18181f]/12 bg-white px-3 py-1.5 text-[13px] font-semibold text-[#18181f] focus:border-[var(--color-primary)] focus:outline-none"
+        class="sd-param__select min-w-0 flex-1 rounded-lg border-[1.5px] border-[#18181f]/12 bg-white px-3 py-1.5 text-[13px] font-semibold text-[#18181f] focus:border-[var(--color-primary)] focus:outline-none"
         :value="current"
         @change="select(($event.target as HTMLSelectElement).value)"
       >

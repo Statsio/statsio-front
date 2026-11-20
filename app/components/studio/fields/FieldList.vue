@@ -39,12 +39,12 @@ function move(i: number, dir: -1 | 1) {
         <span v-if="reorderable" class="flex shrink-0 flex-col gap-0.5">
           <button
             type="button"
-            class="flex h-[14px] w-[22px] items-center justify-center rounded-[5px] bg-[var(--studio-wash)] text-[9px] text-[var(--studio-muted)]"
+            class="flex h-[14px] w-[22px] items-center justify-center rounded-[2px] bg-[var(--ds-tint)] text-[9px] text-[var(--ds-accent)]"
             @click="move(i, -1)"
           >▲</button>
           <button
             type="button"
-            class="flex h-[14px] w-[22px] items-center justify-center rounded-[5px] bg-[var(--studio-wash)] text-[9px] text-[var(--studio-muted)]"
+            class="flex h-[14px] w-[22px] items-center justify-center rounded-[2px] bg-[var(--ds-tint)] text-[9px] text-[var(--ds-accent)]"
             @click="move(i, 1)"
           >▼</button>
         </span>
@@ -57,12 +57,12 @@ function move(i: number, dir: -1 | 1) {
         />
         <button
           type="button"
-          class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[12px] text-[var(--studio-faint)] transition-colors hover:bg-[var(--studio-wash)] hover:text-[var(--color-error)]"
+          class="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[3px] text-[12px] text-[var(--ds-muted)] transition-colors hover:bg-[var(--ds-warn-bg)] hover:text-[var(--ds-warn-ink)]"
           aria-label="Retirer"
           @click="remove(i)"
         >✕</button>
       </div>
-      <button type="button" class="studio-add-btn !rounded-[10px] !p-2.5" @click="add">{{ addLabel }}</button>
+      <button type="button" class="st-addl" @click="add">{{ addLabel }}</button>
     </div>
   </StudioField>
 </template>

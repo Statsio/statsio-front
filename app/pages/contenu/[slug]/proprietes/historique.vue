@@ -89,6 +89,7 @@ async function restore(version: number) {
             <span class="block truncate text-[11.5px] text-slate-400">
               {{ v.author_name }}<span v-if="v.published_as === 'channel'"> (chaîne)</span> · {{ formatDate(v.created_at) }}
             </span>
+            <span v-if="v.note" class="mt-0.5 block text-[12px] text-slate-600">« {{ v.note }} »</span>
           </span>
           <span class="shrink-0 font-mono text-[11px] text-slate-400">v{{ v.version }}</span>
           <button

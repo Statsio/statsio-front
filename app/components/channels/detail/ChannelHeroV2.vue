@@ -21,11 +21,19 @@ const props = defineProps<{
 const emit = defineEmits<{ 'toggle-follow': [] }>()
 
 const colors = computed(() =>
-  resolveChannelColors(props.channel.slug, props.channel.customColorPrimary, props.channel.customColorSecondary),
+  resolveChannelColors(
+    props.channel.slug,
+    props.channel.customColorPrimary,
+    props.channel.customColorSecondary,
+  ),
 )
-const heroGradient = computed(() => `linear-gradient(120deg, ${colors.value.primary}, ${colors.value.secondary})`)
+const heroGradient = computed(
+  () => `linear-gradient(120deg, ${colors.value.primary}, ${colors.value.secondary})`,
+)
 
-const themeLabel = computed(() => props.categoryLabels.join(' · ').toUpperCase() || 'CHAÎNE ÉDITORIALE')
+const themeLabel = computed(
+  () => props.categoryLabels.join(' · ').toUpperCase() || 'CHAÎNE ÉDITORIALE',
+)
 
 const stats = computed(() => [
   { label: 'Abonnés', value: formatCompactNumber(props.channel.followers) },
@@ -41,15 +49,27 @@ const isShareOpen = ref(false)
 <template>
   <section class="relative overflow-hidden text-white" :style="{ background: heroGradient }">
     <div class="relative mx-auto max-w-[1240px] px-4 pt-4 sm:px-6 lg:px-8">
-      <nav class="mb-4 flex flex-wrap items-center gap-2 text-[12.5px] font-semibold" aria-label="Fil d'Ariane">
-        <NuxtLink :to="listPath || '/chaines'" class="text-white/70 transition-colors hover:text-white">Chaînes</NuxtLink>
+      <nav
+        class="mb-4 flex flex-wrap items-center gap-2 text-[12.5px] font-semibold"
+        aria-label="Fil d'Ariane"
+      >
+        <NuxtLink
+          :to="listPath || '/chaines'"
+          class="text-white/70 transition-colors hover:text-white"
+          >Chaînes</NuxtLink
+        >
         <span class="text-white/40" aria-hidden="true">/</span>
         <span class="min-w-0 truncate text-white">{{ channel.name }}</span>
       </nav>
     </div>
 
     <div class="relative mx-auto aspect-[3/1] w-full max-w-[1500px]">
-      <img v-if="channel.bannerUrl" :src="channel.bannerUrl" alt="" class="h-full w-full object-cover" />
+      <img
+        v-if="channel.bannerUrl"
+        :src="channel.bannerUrl"
+        alt=""
+        class="h-full w-full object-cover"
+      />
     </div>
 
     <div class="relative mx-auto max-w-[1240px] px-4 sm:px-6 lg:px-8">
@@ -57,22 +77,36 @@ const isShareOpen = ref(false)
         <span
           class="-mt-12 flex h-[88px] w-[88px] shrink-0 items-center justify-center overflow-hidden rounded-[18px] border-4 border-white bg-white text-[26px] font-extrabold text-slate-900 sm:-mt-[58px]"
         >
-          <img v-if="channel.logoUrl" :src="channel.logoUrl" alt="" class="h-full w-full object-cover" />
+          <img
+            v-if="channel.logoUrl"
+            :src="channel.logoUrl"
+            alt=""
+            class="h-full w-full object-cover"
+          />
           <span v-else>{{ channel.initials }}</span>
         </span>
 
         <div class="min-w-[260px] flex-1">
           <div class="mb-1.5 flex flex-wrap items-center gap-2.5">
-            <span class="mono rounded-[5px] bg-white/95 px-2 py-1 text-[9.5px] font-semibold tracking-[0.09em] text-slate-900">
+            <span
+              class="mono rounded-[5px] bg-white/95 px-2 py-1 text-[9.5px] font-semibold tracking-[0.09em] text-slate-900"
+            >
               {{ themeLabel }}
             </span>
           </div>
           <div class="flex items-center gap-2.5">
-            <h1 class="text-[28px] font-extrabold leading-[1.05] tracking-[-0.02em] sm:text-[34px]">{{ channel.name }}</h1>
-            <span v-if="isVerified" class="text-[16px] text-sky-200" title="Chaîne vérifiée">✔</span>
+            <h1 class="text-[28px] font-extrabold leading-[1.05] tracking-[-0.02em] sm:text-[34px]">
+              {{ channel.name }}
+            </h1>
+            <span v-if="isVerified" class="text-[16px] text-sky-200" title="Chaîne vérifiée"
+              >✔</span
+            >
           </div>
           <div class="mono mt-1.5 text-[12px] text-white/60">{{ channel.handle }}</div>
-          <p v-if="channel.description" class="mt-3 max-w-[56ch] text-[14.5px] leading-[1.6] text-white/75 text-pretty">
+          <p
+            v-if="channel.description"
+            class="mt-3 max-w-[56ch] text-[14.5px] leading-[1.6] text-white/75 text-pretty"
+          >
             {{ channel.description }}
           </p>
         </div>
@@ -96,7 +130,7 @@ const isShareOpen = ref(false)
             "
             @click="emit('toggle-follow')"
           >
-            {{ isFollowing ? '✔ Abonné' : "S’abonner" }}
+            {{ isFollowing ? '✔ Abonné' : 'S’abonner' }}
           </button>
           <button
             type="button"
@@ -120,7 +154,9 @@ const isShareOpen = ref(false)
 
       <div class="flex flex-wrap gap-x-9 gap-y-4 border-t border-white/15 py-5">
         <div v-for="s in stats" :key="s.label">
-          <div class="text-[9.5px] font-extrabold uppercase tracking-[0.09em] text-white/50">{{ s.label }}</div>
+          <div class="text-[9.5px] font-extrabold uppercase tracking-[0.09em] text-white/50">
+            {{ s.label }}
+          </div>
           <div class="mono mt-1.5 text-[18px] font-semibold tracking-[-0.01em]">{{ s.value }}</div>
         </div>
       </div>

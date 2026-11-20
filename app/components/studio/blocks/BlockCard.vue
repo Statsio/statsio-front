@@ -144,18 +144,18 @@ const embedPreviewHeight = computed(() => Math.min(iframeHeight(props.block.type
   </div>
 
   <!-- Données / graphiques / KPI -->
-  <div v-else class="relative min-w-0" :class="wrapperClass">
+  <div v-else class="sd-blk relative min-w-0" :class="[wrapperClass, `sd-blk--${block.type}`, { 'sd-blk--card': !flat, 'sd-blk--dark': dark, 'sd-blk--floating': !hasTitle && hasActions }]">
     <div
       v-if="hasTitle"
-      class="mb-3 flex items-start justify-between gap-3"
+      class="sd-blk__head mb-3 flex items-start justify-between gap-3"
     >
       <div class="min-w-0">
-        <p class="text-sm font-bold" :class="dark ? 'text-white' : 'text-[var(--studio-ink)]'">
+        <h3 class="sd-blk__title text-sm font-bold" :class="dark ? 'text-white' : 'text-[var(--studio-ink)]'">
           {{ resolvedTitle }}
-        </p>
+        </h3>
         <p
           v-if="block.config.description"
-          class="mt-1 text-xs"
+          class="sd-blk__desc mt-1 text-xs"
           :class="dark ? 'text-white/60' : 'text-[var(--studio-muted)]'"
         >
           {{ resolvedDescription }}
@@ -164,7 +164,7 @@ const embedPreviewHeight = computed(() => Math.min(iframeHeight(props.block.type
       <div class="flex shrink-0 items-center gap-1.5">
         <span
           v-if="block.type === 'line' && trend"
-          class="mono mr-1 whitespace-nowrap text-[11px] font-semibold"
+          class="sd-blk__trend mono mr-1 whitespace-nowrap text-[11px] font-semibold"
           :class="trend.down ? 'text-red-500' : 'text-emerald-600'"
         >
           {{ trend.down ? '▼' : '▲' }} {{ trend.text }}
@@ -172,7 +172,7 @@ const embedPreviewHeight = computed(() => Math.min(iframeHeight(props.block.type
         <button
           v-if="canExpand"
           type="button"
-          class="rounded-lg p-1.5 transition"
+          class="sd-blk__act rounded-lg p-1.5 transition"
           :class="expandBtnClass"
           aria-label="Agrandir"
           title="Agrandir"
@@ -183,7 +183,7 @@ const embedPreviewHeight = computed(() => Math.min(iframeHeight(props.block.type
         <button
           v-if="canEmbed"
           type="button"
-          class="rounded-lg p-1.5 transition"
+          class="sd-blk__act rounded-lg p-1.5 transition"
           :class="expandBtnClass"
           aria-label="Intégrer (iframe)"
           title="Intégrer (iframe)"
@@ -202,7 +202,7 @@ const embedPreviewHeight = computed(() => Math.min(iframeHeight(props.block.type
       <button
         v-if="canExpand"
         type="button"
-        class="rounded-lg p-1.5 transition"
+        class="sd-blk__act rounded-lg p-1.5 transition"
         :class="expandBtnClass"
         aria-label="Agrandir"
         title="Agrandir"
@@ -213,7 +213,7 @@ const embedPreviewHeight = computed(() => Math.min(iframeHeight(props.block.type
       <button
         v-if="canEmbed"
         type="button"
-        class="rounded-lg p-1.5 transition"
+        class="sd-blk__act rounded-lg p-1.5 transition"
         :class="expandBtnClass"
         aria-label="Intégrer (iframe)"
         title="Intégrer (iframe)"

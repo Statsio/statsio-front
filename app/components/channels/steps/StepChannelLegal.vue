@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import AppCheckbox from '@/components/ui/AppCheckbox.vue'
 
-const agreements = defineModel<{ rgpd: boolean; publicVisibility: boolean; termsOfService: boolean }>({ required: true })
+const agreements = defineModel<{
+  rgpd: boolean
+  publicVisibility: boolean
+  termsOfService: boolean
+}>({ required: true })
 </script>
 
 <template>

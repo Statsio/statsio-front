@@ -288,7 +288,7 @@ watch(
           </p>
         </div>
 
-        <div class="toggle-row" @click="updateConfig('mapAutoFit', cfg.mapAutoFit === false ? undefined : false)">
+        <div class="toggle-row cursor-pointer" @click="updateConfig('mapAutoFit', cfg.mapAutoFit === false ? undefined : false)">
           <div>
             <span class="text-sm text-[var(--studio-ink)]">Cadrer automatiquement sur les points</span>
             <p class="mt-0.5 text-[11px] text-[var(--studio-faint)]">Ajuste le zoom pour englober tous les points.</p>

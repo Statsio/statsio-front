@@ -22,8 +22,15 @@ const brandStyle = computed(() => {
   return channelBannerStyle(colors.primary, colors.secondary)
 })
 
-function optionStyle(opt: { id: number; profile: { custom_color_primary?: string | null; custom_color_secondary?: string | null } }) {
-  const colors = resolveChannelColors(String(opt.id), opt.profile.custom_color_primary, opt.profile.custom_color_secondary)
+function optionStyle(opt: {
+  id: number
+  profile: { custom_color_primary?: string | null; custom_color_secondary?: string | null }
+}) {
+  const colors = resolveChannelColors(
+    String(opt.id),
+    opt.profile.custom_color_primary,
+    opt.profile.custom_color_secondary,
+  )
   return channelBannerStyle(colors.primary, colors.secondary)
 }
 
@@ -32,7 +39,9 @@ const rootRef = ref<HTMLElement | null>(null)
 
 fetchChannels()
 
-useClickOutside(rootRef, () => { open.value = false })
+useClickOutside(rootRef, () => {
+  open.value = false
+})
 
 const currentChannelId = computed(() => Number(route.params.id))
 
@@ -62,15 +71,29 @@ function switchTo(id: number) {
         class="flex h-[42px] w-[42px] shrink-0 items-center justify-center overflow-hidden rounded-[11px] text-sm font-bold text-white"
         :style="channel?.profile?.logo_url ? undefined : brandStyle"
       >
-        <img v-if="channel?.profile?.logo_url" :src="channel.profile.logo_url" :alt="channel.profile.name" class="h-full w-full object-cover" />
+        <img
+          v-if="channel?.profile?.logo_url"
+          :src="channel.profile.logo_url"
+          :alt="channel.profile.name"
+          class="h-full w-full object-cover"
+        />
         <span v-else>{{ channelInitials }}</span>
       </div>
       <div class="min-w-0 flex-1">
         <div class="flex items-center gap-1.5">
-          <p class="truncate text-[14.5px] font-bold text-slate-950">{{ channel?.profile?.name ?? 'Chargement...' }}</p>
-          <ChannelBadgeList v-if="channel" :slugs="channel.badges" :organization="channel.organization" size="sm" />
+          <p class="truncate text-[14.5px] font-bold text-slate-950">
+            {{ channel?.profile?.name ?? 'Chargement...' }}
+          </p>
+          <ChannelBadgeList
+            v-if="channel"
+            :slugs="channel.badges"
+            :organization="channel.organization"
+            size="sm"
+          />
         </div>
-        <p class="text-[11.5px] text-slate-400">{{ formatCompactNumber(channel?.profile?.subscriber_count ?? 0) }} abonnés</p>
+        <p class="text-[11.5px] text-slate-400">
+          {{ formatCompactNumber(channel?.profile?.subscriber_count ?? 0) }} abonnés
+        </p>
       </div>
       <svg
         viewBox="0 0 20 20"
@@ -101,7 +124,11 @@ function switchTo(id: number) {
         v-if="open"
         class="absolute top-[calc(100%+8px)] left-0 z-40 w-full overflow-hidden rounded-[14px] border border-slate-100 bg-white shadow-[0_12px_32px_rgba(20,20,30,0.14)]"
       >
-        <p class="px-3.5 pb-1.5 pt-3 text-[11px] font-bold uppercase tracking-[0.04em] text-slate-400">Vos chaînes</p>
+        <p
+          class="px-3.5 pb-1.5 pt-3 text-[11px] font-bold uppercase tracking-[0.04em] text-slate-400"
+        >
+          Vos chaînes
+        </p>
 
         <button
           v-for="opt in channels"
@@ -115,18 +142,33 @@ function switchTo(id: number) {
             class="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-lg text-[11px] font-bold text-white"
             :style="opt.profile.logo_url ? undefined : optionStyle(opt)"
           >
-            <img v-if="opt.profile.logo_url" :src="opt.profile.logo_url" :alt="opt.profile.name" class="h-full w-full object-cover" />
+            <img
+              v-if="opt.profile.logo_url"
+              :src="opt.profile.logo_url"
+              :alt="opt.profile.name"
+              class="h-full w-full object-cover"
+            />
             <template v-else>{{ getNameInitials(opt.profile.name) }}</template>
           </span>
-          <span class="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-slate-800">{{ opt.profile.name }}</span>
+          <span class="min-w-0 flex-1 truncate text-[13.5px] font-semibold text-slate-800">{{
+            opt.profile.name
+          }}</span>
           <ChannelBadgeList :slugs="opt.badges" :organization="opt.organization" size="sm" />
-          <span v-if="opt.id === currentChannelId" class="text-[13px]" :style="{ color: opt.profile.custom_color_primary || 'var(--color-primary)' }">✓</span>
+          <span
+            v-if="opt.id === currentChannelId"
+            class="text-[13px]"
+            :style="{ color: opt.profile.custom_color_primary || 'var(--color-primary)' }"
+            >✓</span
+          >
         </button>
 
         <div class="mx-0 my-1 h-px bg-slate-100" />
 
         <NuxtLink to="/mes-chaines" class="flex items-center gap-2.5 px-3.5 py-2.5">
-          <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-[1.5px] border-dashed border-slate-300 text-sm text-primary">+</span>
+          <span
+            class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border-[1.5px] border-dashed border-slate-300 text-sm text-primary"
+            >+</span
+          >
           <span class="text-[13.5px] font-semibold text-slate-700">Gérer mes chaînes</span>
         </NuxtLink>
       </div>

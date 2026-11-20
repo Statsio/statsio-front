@@ -78,7 +78,7 @@ const mountGoogleButton = async () => {
     theme: 'outline',
     size: 'large',
     text: buttonText.value,
-    shape: 'pill',
+    shape: 'rectangular',
     logo_alignment: 'left',
     width: containerRef.value.offsetWidth,
   })
@@ -104,14 +104,14 @@ onMounted(async () => {
     <div :class="authStore.isAuthenticating ? 'pointer-events-none opacity-70' : ''">
       <div
         v-if="isUnavailable"
-        class="flex min-h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-500"
+        class="flex min-h-11 items-center justify-center rounded-[3px] border-2 border-dashed border-[var(--ds-divide)] px-4 text-sm font-medium text-[var(--ds-muted)]"
       >
         Google Auth non configuré
       </div>
       <div v-else ref="containerRef" class="w-full" />
     </div>
 
-    <p v-if="localError" class="text-sm text-rose-600">
+    <p v-if="localError" class="text-[13px] text-[var(--ds-muted)]">
       {{ localError }}
     </p>
   </div>
