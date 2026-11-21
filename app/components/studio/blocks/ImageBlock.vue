@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { StudioBlock } from '@/types/studio'
+import { useBlockSkin } from '@/lib/block-skin'
 
 const props = defineProps<{ block: StudioBlock; readonly?: boolean }>()
+const tranches = computed(() => useBlockSkin() === 'tranches')
 
 const src     = computed(() => props.block.config.imageUrl ?? '')
 const alt     = computed(() => props.block.config.imageAlt ?? '')
@@ -35,6 +37,18 @@ const alignClass = computed(() => ({
     </svg>
     <span class="text-xs font-medium">Ajouter une image →</span>
   </div>
+
+  <!-- Image — charte Tranches -->
+  <figure
+    v-else-if="tranches"
+    class="art-fig"
+    :class="[widthClass, alignClass, { 'art-fig--side': width !== 'full' }]"
+  >
+    <div class="art-fig__ph">
+      <img :src="src" :alt="alt" loading="lazy" />
+    </div>
+    <figcaption v-if="caption" class="art-fig__cap"><b>{{ caption }}</b></figcaption>
+  </figure>
 
   <!-- Image -->
   <figure v-else :class="['block', widthClass, alignClass]">

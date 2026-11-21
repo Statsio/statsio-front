@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { StudioBlock } from '@/types/studio'
+import { useBlockSkin } from '@/lib/block-skin'
 
 const props = defineProps<{ block: StudioBlock; readonly?: boolean }>()
+const tranches = computed(() => useBlockSkin() === 'tranches')
 
 const rawUrl  = computed(() => props.block.config.videoUrl ?? '')
 const caption = computed(() => props.block.config.videoCaption ?? '')
@@ -52,6 +54,20 @@ const embed = computed<{ url: string; provider: string; color: string } | null>(
     </svg>
     <span class="text-xs font-medium">Lien non reconnu — utilisez YouTube, Vimeo ou Dailymotion</span>
   </div>
+
+  <!-- Embed — charte Tranches -->
+  <figure v-else-if="tranches" class="flex flex-col gap-2.5">
+    <div class="art-video">
+      <iframe
+        :src="embed.url"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowfullscreen
+        loading="lazy"
+        :title="caption || embed.provider"
+      />
+    </div>
+    <figcaption v-if="caption" class="art-vnote">{{ caption }}</figcaption>
+  </figure>
 
   <!-- Embed -->
   <figure v-else class="w-full">

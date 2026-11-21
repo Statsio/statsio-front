@@ -106,9 +106,12 @@ const hasDescription = computed(() => !isBlankInlineHtml(props.section.descripti
 const hasHeader = computed(() => hasKicker.value || hasTitle.value || hasDescription.value)
 const theme = computed(() => props.section.theme ?? 'default')
 const dark = computed(() => theme.value === 'dark')
-// Toute section est une carte (fond blanc + blocs « nus » à l'intérieur), avec ou
-// sans en-tête — même rendu dans l'éditeur et sur la page publiée.
+// StatsData : section = carte (blocs nus à l'intérieur), comme la page publiée.
+// Article : flux éditorial à nu — le cadre est porté par le bloc « StatsData lié »,
+// pas par la section. `carded` reste vrai pour que les blocs ne prennent pas une
+// seconde carte (`flat`).
 const carded = computed(() => true)
+const boxed = computed(() => carded.value && theme.value === 'default' && studio.content?.type !== 'article')
 
 // Aperçu WYSIWYG : les blocs enfants savent s'ils sont dans une carte sombre / sans carte.
 // Objet à accesseurs → `BlockWrapper` lit toujours la valeur réactive courante.
@@ -171,11 +174,11 @@ provide(SECTION_CONTEXT, {
       <span>Section verrouillée</span>
     </div>
 
-    <!-- La section = une carte (comme au rendu public) -->
+    <!-- Section : carte sur un StatsData, flux nu sur un article -->
     <div
       class="sd-sec"
       :class="{
-        'sd-sec--card': carded && theme === 'default',
+        'sd-sec--card': boxed,
         'sd-sec--accent': theme === 'accent',
         'sd-sec--dark': dark,
         'outline outline-2 outline-offset-[6px] outline-[var(--ds-blue-500)]': studio.selectedSectionId === section.id && !studio.isPreview,

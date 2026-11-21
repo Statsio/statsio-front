@@ -5,6 +5,7 @@
 @import './studio.css';
 @import './base.css';
 @import './statsdata.css';
+@import './article.css';
 
 /* Tailwind entrypoint only: keep @theme/@apply files in CSS. */
 

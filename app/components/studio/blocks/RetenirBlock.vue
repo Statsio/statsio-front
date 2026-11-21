@@ -3,9 +3,11 @@ import { computed } from 'vue'
 import { useStudioStore } from '@/stores/studio'
 import { useResolvedTokens, useResolvedTokenList } from '@/composables/useResolvedTokens'
 import type { StudioBlock } from '@/types/studio'
+import { useBlockSkin } from '@/lib/block-skin'
 
 const props = defineProps<{ block: StudioBlock; readonly?: boolean; scope?: Record<string, string> }>()
 const studio = useStudioStore()
+const tranches = computed(() => useBlockSkin() === 'tranches')
 
 const rawItems = computed(() => props.block.config.retenirItems ?? [])
 const color    = computed(() => props.block.config.retenirColor ?? 'violet')
@@ -47,11 +49,18 @@ const colors = computed(() => COLOR_MAP[color.value] ?? COLOR_MAP.violet)
   </div>
 
   <!-- Content -->
-  <div v-else class="sd-keep">
-    <p class="sd-keep__label mb-3.5 text-[10px] font-extrabold uppercase tracking-[0.1em]" :class="colors.text">
-      {{ retenirTitle }}
+  <div v-else class="sd-keep" :class="{ 'is-tranches': tranches }">
+    <p
+      class="sd-keep__label mb-3.5 text-[10px] font-extrabold uppercase tracking-[0.1em]"
+      :class="tranches ? 'art-keep__label' : colors.text"
+    >
+      <b v-if="tranches">{{ retenirTitle }}</b>
+      <template v-else>{{ retenirTitle }}</template>
     </p>
-    <ul class="flex flex-col gap-3.5">
+    <ul v-if="tranches" class="art-keep__list">
+      <li v-for="(item, i) in items" :key="i">{{ item }}</li>
+    </ul>
+    <ul v-else class="flex flex-col gap-3.5">
       <li
         v-for="(item, i) in items"
         :key="i"

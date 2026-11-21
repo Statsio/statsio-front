@@ -12,8 +12,10 @@ defineProps<{
   canWebShare: boolean
   shareTargets: { key: string; label: string; href: string }[]
   canEmbed?: boolean
-  /** `tranches` : bandeau Bold Outline (page StatsData). Défaut : rendu historique (articles). */
+  /** `tranches` : bandeau Bold Outline (pages StatsData et Article). */
   tone?: 'default' | 'tranches'
+  /** Question du bandeau. Défaut : « Ce StatsData vous a été utile ? ». */
+  question?: string
 }>()
 
 defineEmits<{
@@ -26,7 +28,7 @@ defineEmits<{
 
 <template>
   <div v-if="tone === 'tranches'" class="sduse">
-    <span class="sduse__q">Ce StatsData vous a été utile&nbsp;?</span>
+    <span class="sduse__q">{{ question || 'Ce StatsData vous a été utile ?' }}</span>
     <DsButton
       v-if="!canEdit"
       variant="secondary"
@@ -57,7 +59,7 @@ defineEmits<{
   </div>
 
   <div v-else class="flex flex-wrap items-center gap-2.5 rounded-[18px] bg-white px-6 py-5 shadow-[var(--studio-shadow-card)]">
-    <span class="min-w-[200px] flex-1 text-[14px] font-bold text-[var(--studio-ink)]">Ce StatsData vous a été utile&nbsp;?</span>
+    <span class="min-w-[200px] flex-1 text-[14px] font-bold text-[var(--studio-ink)]">{{ question || 'Ce StatsData vous a été utile ?' }}</span>
 
     <StatsDataActionButton
       v-if="!canEdit"

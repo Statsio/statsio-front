@@ -89,7 +89,10 @@ const addSectionLabel = computed(() => (studio.content?.type === 'survey' ? 'Ajo
   <div class="st-paper-wrap" @click.self="selectDocument">
    <article
     class="st-paper sd-public ds-scope"
-    :class="{ 'st-paper--mobile': studio.previewDevice === 'mobile' }"
+    :class="{
+      'st-paper--mobile': studio.previewDevice === 'mobile',
+      'st-paper--article': studio.content?.type === 'article',
+    }"
     aria-label="Canevas"
    >
     <CanvasDocHeader :selected="documentSelected" @select="selectDocument" />
