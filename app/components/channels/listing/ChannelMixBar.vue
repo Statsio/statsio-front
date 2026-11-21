@@ -7,6 +7,8 @@ import type { ChannelCatalogItem } from '@/types/channel-catalog'
 /** Mix éditorial : barre en tranches (StatsData / articles / sondages) + légende. */
 const props = defineProps<{
   item: Pick<ChannelCatalogItem, 'statsdata_count' | 'articles_count' | 'surveys_count'>
+  /** Barre haute du hero : le décompte est écrit dans chaque tranche. */
+  inline?: boolean
 }>()
 const parts = computed(() => channelMix(props.item))
 const label = computed(() =>
@@ -15,11 +17,17 @@ const label = computed(() =>
 </script>
 
 <template>
-  <div v-if="parts.length" class="chmix">
+  <div v-if="parts.length" class="chmix" :class="{ 'chmix--inline': inline }">
     <div class="chmix__bar" role="img" :aria-label="`Publications : ${label}`">
-      <i v-for="p in parts" :key="p.key" :style="{ flex: p.count, background: p.color }" />
+      <i
+        v-for="p in parts"
+        :key="p.key"
+        :class="{ 'is-light': p.key === 'survey' }"
+        :style="{ flex: p.count, background: p.color }"
+        >{{ inline ? `${p.count} ${p.label}` : '' }}</i
+      >
     </div>
-    <div class="chmix__leg" aria-hidden="true">
+    <div v-if="!inline" class="chmix__leg" aria-hidden="true">
       <span v-for="p in parts" :key="p.key"
         ><DsSwatch :color="p.color" :size="9" />{{ p.count }} {{ p.label }}</span
       >
@@ -43,6 +51,22 @@ const label = computed(() =>
 .chmix__bar i {
   display: block;
   height: 100%;
+}
+.chmix--inline .chmix__bar {
+  height: 30px;
+  border-radius: 3px;
+}
+.chmix--inline .chmix__bar i {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: #fff;
+  font: 500 12px var(--ds-num);
+  white-space: nowrap;
+}
+.chmix--inline .chmix__bar i.is-light {
+  color: #1b1530;
 }
 .chmix__bar i + i {
   border-left: 2px solid var(--ds-ol);

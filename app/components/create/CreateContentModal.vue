@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
-import AppModal from '@/components/ui/AppModal.vue'
+import DsButton from '@/components/ds/DsButton.vue'
+import StudioModal from '@/components/studio/ui/StudioModal.vue'
+import StepContentInfo from '@/components/create/steps/StepContentInfo.vue'
+import StepReview from '@/components/create/steps/StepReview.vue'
 import StepSurveyType from '@/components/create/steps/StepSurveyType.vue'
 import StepSuccess from '@/components/create/steps/StepSuccess.vue'
 import { useCreateContentWizard } from '@/composables/useCreateContentWizard'
@@ -11,27 +14,20 @@ import { fetchContentCategories } from '@/api/content-categories'
 import { getErrorMessage } from '@/lib/http-errors'
 import { CONTENT_COVERAGE_OPTIONS, type ContentCategory, type ContentType } from '@/types/content-creation'
 import { SUB_BRAND_OPTIONS, categoryMatchesDomain } from '@/types/sub-brand'
-import { brandCssVars, getBrandPalette } from '@/lib/brand-palette'
 
-const TYPE_META: Record<ContentType, { label: string; kicker: string; icon: string; placeholder: string; successTitle: string }> = {
+const TYPE_META: Record<ContentType, { label: string; placeholder: string; successTitle: string }> = {
   statsdata: {
     label: 'StatsData',
-    kicker: 'Nouveau contenu',
-    icon: '▥',
     placeholder: 'Ex. Le prix des carburants par station',
     successTitle: 'StatsData créé',
   },
   article: {
     label: 'Article',
-    kicker: 'Nouveau contenu',
-    icon: '▤',
     placeholder: 'Ex. Le pouvoir d’achat en 12 graphiques',
     successTitle: 'Article créé',
   },
   survey: {
     label: 'Sondage',
-    kicker: 'Nouveau contenu',
-    icon: '◐',
     placeholder: 'Ex. Le télétravail doit-il rester la norme ?',
     successTitle: 'Sondage créé',
   },
@@ -49,7 +45,6 @@ const createdDoc = ref<StatsDataDocument | null>(null)
 const categoriesCatalog = ref<ContentCategory[]>([])
 const categoriesLoading = ref(false)
 
-// Domaine de la page depuis laquelle la modale est ouverte (statsio par défaut).
 const routeDomain = useContentDomain()
 
 const {
@@ -59,17 +54,10 @@ const {
   reset, buildPayload,
 } = useCreateContentWizard(props.type, routeDomain.value)
 
-// La modale est en `Teleport to="body"` → hors du cascading `[data-theme]`.
-// On reteinte donc son arbre selon le domaine choisi dans le wizard.
-const palette = computed(() => getBrandPalette(domain.value))
-const brandStyle = computed(() => brandCssVars(domain.value))
-
-/** Catégories proposées pour le domaine choisi (+ celles « toutes les marques »). */
 const visibleCategories = computed(() =>
   categoriesCatalog.value.filter((c) => categoryMatchesDomain(c.sub_brand, domain.value)),
 )
 
-// Changer de domaine retire les catégories déjà cochées qui n'y appartiennent plus.
 watch(domain, () => {
   const allowed = new Set(visibleCategories.value.map((c) => c.slug))
   categories.value = categories.value.filter((slug) => allowed.has(slug))
@@ -84,6 +72,7 @@ const stepNumber = computed(() => currentStepIndex.value + 1)
 const currentStep = computed(() => steps.value[currentStepIndex.value])
 const isLastStep = computed(() => currentStepIndex.value === stepCount.value - 1)
 const canGoBack = computed(() => currentStepIndex.value > 0)
+const stepSubtitle = computed(() => `Étape ${stepNumber.value} / ${stepCount.value} — ${currentStep.value?.title ?? ''}`)
 
 const coverageLabel = computed(
   () => CONTENT_COVERAGE_OPTIONS.find((o) => o.value === coverage.value)?.label ?? '—',
@@ -112,7 +101,6 @@ const reviewRows = computed(() => {
 
 watch(() => props.open, (v) => {
   if (v) {
-    // Recadre sur le domaine courant si la route a changé pendant que la modale était fermée.
     domain.value = routeDomain.value
     void loadCategories()
   } else {
@@ -133,17 +121,6 @@ async function loadCategories() {
   } finally {
     categoriesLoading.value = false
   }
-}
-
-function toggleCategory(slug: string) {
-  const next = new Set(categories.value)
-  if (next.has(slug)) next.delete(slug)
-  else next.add(slug)
-  categories.value = [...next]
-}
-
-function selectCoverage(value: typeof coverage.value) {
-  coverage.value = coverage.value === value ? null : value
 }
 
 function goNext() {
@@ -180,190 +157,71 @@ const studioPath = () =>
 </script>
 
 <template>
-  <!-- Success state -->
-  <AppModal
-    v-if="createdDoc"
-    :open="open"
-    :title="meta.successTitle"
-    size="sm"
-    @update:open="handleClose"
+  <StudioModal
+    v-if="open"
+    :title="createdDoc ? meta.successTitle : meta.label"
+    :subtitle="createdDoc ? 'Brouillon enregistré.' : stepSubtitle"
+    :theme="domain"
+    :width="560"
     @close="handleClose"
   >
-    <div :style="brandStyle">
-      <StepSuccess :content-type-label="meta.label" :studio-path="studioPath()" @close="handleClose" />
-    </div>
-  </AppModal>
+    <StepSuccess
+      v-if="createdDoc"
+      :content-type-label="meta.label"
+      :studio-path="studioPath()"
+      @close="handleClose"
+    />
 
-  <!-- Wizard -->
-  <Teleport v-else to="body">
-    <Transition
-      enter-active-class="transition duration-200 ease-out"
-      enter-from-class="opacity-0"
-      leave-active-class="transition duration-150 ease-in"
-      leave-to-class="opacity-0"
-    >
-      <div
-        v-if="open"
-        class="fixed inset-0 z-[120] flex items-center justify-center bg-[rgba(20,16,30,0.55)] p-6"
-        @click.self="handleClose"
-      >
-        <div
-          class="flex max-h-[88vh] w-full max-w-[560px] flex-col overflow-hidden rounded-[22px] bg-white shadow-[0_30px_70px_rgba(20,16,30,0.35)]"
-          :style="brandStyle"
-        >
-          <!-- Header -->
-          <div class="flex items-center gap-3 border-b border-[#14141e]/[0.08] px-[26px] py-[22px]">
-            <span
-              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] text-[16px]"
-              :style="{ background: palette.soft, color: palette.softFg }"
-            >{{ meta.icon }}</span>
-            <span class="min-w-0 flex-1">
-              <span class="block font-mono text-[10px] font-extrabold uppercase tracking-[0.08em] text-[#18181f]/45">{{ meta.kicker }}</span>
-              <span class="mt-0.5 block text-[17px] font-extrabold text-[#18181f]">{{ meta.label }}</span>
-            </span>
-            <button
-              type="button"
-              class="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full text-[14px] text-[#18181f]/50 transition-colors hover:bg-[#f4f3f8]"
-              aria-label="Fermer"
-              @click="handleClose"
-            >✕</button>
-          </div>
-
-          <!-- Progress -->
-          <div class="flex items-center gap-2 px-[26px] pt-[18px]">
-            <span
-              v-for="(s, i) in steps"
-              :key="s.id"
-              class="h-1 flex-1 rounded-[3px] transition-colors"
-              :class="i <= currentStepIndex ? 'bg-[var(--color-primary)]' : 'bg-slate-200/70'"
-            />
-          </div>
-          <div class="px-[26px] pb-1 pt-2 font-mono text-[10.5px] font-semibold uppercase tracking-[0.08em] text-[#18181f]/45">
-            Étape {{ stepNumber }} / {{ stepCount }} — {{ currentStep?.title }}
-          </div>
-
-          <!-- Body -->
-          <div class="min-h-0 flex-1 overflow-y-auto px-[26px] py-[18px]">
-            <!-- Step: info -->
-            <div v-if="currentStepId === 'info'" class="flex flex-col gap-[18px]">
-              <div>
-                <div class="mb-2 text-[12.5px] font-bold text-[#18181f]">Nom du contenu</div>
-                <input
-                  v-model="title"
-                  type="text"
-                  :placeholder="meta.placeholder"
-                  class="w-full rounded-[11px] border-[1.5px] border-[#14141e]/[0.12] px-3.5 py-3 text-[14px] font-semibold text-[#18181f] outline-none focus:border-[var(--color-primary)]"
-                />
-              </div>
-
-              <div>
-                <div class="mb-2 text-[12.5px] font-bold text-[#18181f]">Domaine</div>
-                <div class="flex flex-wrap gap-1.5">
-                  <button
-                    v-for="opt in SUB_BRAND_OPTIONS"
-                    :key="opt.value"
-                    type="button"
-                    class="rounded-full border-[1.5px] px-[13px] py-[7px] text-[12.5px] font-bold transition-colors"
-                    :class="domain === opt.value
-                      ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white'
-                      : 'border-[#14141e]/[0.12] bg-white text-[#18181f]/70 hover:border-[var(--color-primary)]/40'"
-                    @click="domain = opt.value"
-                  >{{ opt.label }}</button>
-                </div>
-              </div>
-
-              <div>
-                <div class="mb-2 text-[12.5px] font-bold text-[#18181f]">Catégories</div>
-                <p v-if="categoriesLoading" class="text-[12px] text-[#18181f]/45">Chargement…</p>
-                <p v-else-if="!visibleCategories.length" class="text-[12px] text-[#18181f]/45">
-                  Aucune catégorie pour ce domaine pour le moment.
-                </p>
-                <div v-else class="flex flex-wrap gap-1.5">
-                  <button
-                    v-for="cat in visibleCategories"
-                    :key="cat.slug"
-                    type="button"
-                    class="rounded-full border-[1.5px] px-[13px] py-[7px] text-[12.5px] font-bold transition-colors"
-                    :class="categories.includes(cat.slug)
-                      ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white'
-                      : 'border-[#14141e]/[0.12] bg-white text-[#18181f]/70 hover:border-[var(--color-primary)]/40'"
-                    @click="toggleCategory(cat.slug)"
-                  >{{ cat.name }}</button>
-                </div>
-              </div>
-
-              <div>
-                <div class="mb-2 text-[12.5px] font-bold text-[#18181f]">Couverture géographique</div>
-                <div class="flex flex-wrap gap-1.5">
-                  <button
-                    v-for="opt in CONTENT_COVERAGE_OPTIONS"
-                    :key="opt.value"
-                    type="button"
-                    class="rounded-full border-[1.5px] px-[13px] py-[7px] text-[12.5px] font-bold transition-colors"
-                    :class="coverage === opt.value
-                      ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white'
-                      : 'border-[#14141e]/[0.12] bg-white text-[#18181f]/70 hover:border-[var(--color-primary)]/40'"
-                    @click="selectCoverage(opt.value)"
-                  >{{ opt.label }}</button>
-                </div>
-              </div>
-            </div>
-
-            <!-- Step: survey -->
-            <StepSurveyType
-              v-else-if="currentStepId === 'survey'"
-              :kind="surveyKind"
-              :identity="requiresIdentityVerification"
-              @update:kind="surveyKind = $event"
-              @update:identity="requiresIdentityVerification = $event"
-            />
-
-            <!-- Step: review -->
-            <div v-else class="flex flex-col gap-2.5">
-              <div
-                v-for="row in reviewRows"
-                :key="row.label"
-                class="flex items-baseline justify-between gap-3.5 rounded-[11px] bg-[#faf9fd] px-3.5 py-3"
-              >
-                <span class="text-[12px] font-bold text-[#18181f]/50">{{ row.label }}</span>
-                <span class="text-right text-[13px] font-bold text-[#18181f]">{{ row.value }}</span>
-              </div>
-              <p class="pt-1 text-[12px] text-[#18181f]/50">
-                Le contenu sera créé en brouillon. Vous le publierez depuis le Studio.
-              </p>
-            </div>
-          </div>
-
-          <p
-            v-if="submitError"
-            class="mx-[26px] mb-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-[12.5px] font-semibold text-rose-700"
-          >
-            {{ submitError }}
-          </p>
-
-          <!-- Footer -->
-          <div class="flex items-center gap-2.5 border-t border-[#14141e]/[0.08] px-[26px] py-[18px]">
-            <button
-              v-if="canGoBack"
-              type="button"
-              class="rounded-full border-[1.5px] border-[#14141e]/[0.12] px-5 py-3 text-[13px] font-bold text-[#18181f]/70 transition-colors hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
-              @click="goBack"
-            >Retour</button>
-            <span class="flex-1" />
-            <button
-              type="button"
-              class="rounded-full px-6 py-3 text-[13px] font-extrabold tracking-[0.02em] text-white transition-opacity disabled:opacity-40"
-              :class="isLastStep
-                ? 'bg-[linear-gradient(135deg,var(--color-primary),var(--color-accent))]'
-                : 'bg-[#18181f]'"
-              :disabled="!canGoNext || submitting"
-              @click="goNext"
-            >
-              {{ submitting ? 'Création…' : isLastStep ? 'Créer le contenu →' : 'Continuer →' }}
-            </button>
-          </div>
-        </div>
+    <template v-else>
+      <div class="mb-5 flex gap-1.5" aria-hidden="true">
+        <span
+          v-for="(s, i) in steps"
+          :key="s.id"
+          class="h-1.5 flex-1 rounded-[2px]"
+          :class="i <= currentStepIndex ? 'bg-[var(--ds-ol)]' : 'bg-[var(--ds-divide)]'"
+        />
       </div>
-    </Transition>
-  </Teleport>
+
+      <StepContentInfo
+        v-if="currentStepId === 'info'"
+        v-model:title="title"
+        v-model:domain="domain"
+        v-model:categories="categories"
+        v-model:coverage="coverage"
+        :placeholder="meta.placeholder"
+        :categories-catalog="visibleCategories"
+        :categories-loading="categoriesLoading"
+      />
+      <StepSurveyType
+        v-else-if="currentStepId === 'survey'"
+        :kind="surveyKind"
+        :identity="requiresIdentityVerification"
+        @update:kind="surveyKind = $event"
+        @update:identity="requiresIdentityVerification = $event"
+      />
+      <StepReview v-else :rows="reviewRows" />
+
+      <p
+        v-if="submitError"
+        class="mt-4 rounded-[3px] border-2 border-[var(--ds-warn-line)] bg-[var(--ds-warn-bg)] px-3 py-2 text-[12.5px] font-semibold text-[var(--ds-warn-ink)]"
+      >
+        {{ submitError }}
+      </p>
+    </template>
+
+    <template v-if="!createdDoc" #footer>
+      <button
+        v-if="canGoBack"
+        type="button"
+        class="text-[13px] font-bold text-[var(--ds-faint)] hover:text-[var(--ds-text)]"
+        @click="goBack"
+      >
+        Retour
+      </button>
+      <span v-else />
+      <DsButton :disabled="!canGoNext || submitting" @click="goNext">
+        {{ submitting ? 'Création…' : isLastStep ? 'Créer le contenu' : 'Continuer' }}
+      </DsButton>
+    </template>
+  </StudioModal>
 </template>

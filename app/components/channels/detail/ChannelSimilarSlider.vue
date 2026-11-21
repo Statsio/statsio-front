@@ -1,90 +1,81 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import type { ChannelEntry } from '@/data/channels'
+import DsButton from '@/components/ds/DsButton.vue'
+import DsHeading from '@/components/ds/DsHeading.vue'
+import DsLabel from '@/components/ds/DsLabel.vue'
+import ChannelSimilarCard from './ChannelSimilarCard.vue'
 import { useSimilarChannels } from '@/composables/useSimilarChannels'
-import ChannelCard from '@/components/channels/ChannelCard.vue'
+import { useContentBasePath } from '@/composables/useContentBasePath'
+import { publicChannelListPath } from '@/lib/content-display'
 
 const props = defineProps<{ channel: ChannelEntry }>()
-
 const { channels, loading } = useSimilarChannels(computed(() => props.channel))
-
-const trackRef = ref<HTMLElement | null>(null)
-
-function scrollByAmount(direction: 1 | -1) {
-  const el = trackRef.value
-  if (!el) return
-  el.scrollBy({ left: direction * el.clientWidth * 0.8, behavior: 'smooth' })
-}
+const basePath = useContentBasePath()
+const listPath = computed(() => publicChannelListPath(basePath.value))
 </script>
 
 <template>
-  <div class="mt-8">
-    <div class="mb-3.5 flex items-center justify-between gap-3">
-      <p class="text-sm font-bold text-slate-900">Chaînes similaires</p>
-      <div v-if="channels.length > 1" class="flex shrink-0 gap-1.5">
-        <button
-          type="button"
-          aria-label="Précédent"
-          class="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
-          @click="scrollByAmount(-1)"
-        >
-          <svg viewBox="0 0 20 20" class="h-4 w-4" fill="none">
-            <path
-              d="M12.5 5L7.5 10L12.5 15"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-        </button>
-        <button
-          type="button"
-          aria-label="Suivant"
-          class="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
-          @click="scrollByAmount(1)"
-        >
-          <svg viewBox="0 0 20 20" class="h-4 w-4" fill="none">
-            <path
-              d="M7.5 5L12.5 10L7.5 15"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-        </button>
+  <section class="simil" aria-labelledby="sim-h">
+    <div class="simil__h">
+      <div>
+        <DsLabel>Si vous aimez cette chaîne</DsLabel>
+        <DsHeading id="sim-h" level="2" size="xl">Chaînes <em>similaires</em></DsHeading>
       </div>
+      <DsButton size="sm" variant="secondary" :to="listPath">
+        Toutes les chaînes <span aria-hidden="true">→</span>
+      </DsButton>
     </div>
 
-    <div v-if="loading" class="flex gap-3.5 overflow-hidden pb-1">
-      <div
-        v-for="n in 3"
-        :key="n"
-        class="h-[15.5rem] w-[300px] shrink-0 animate-pulse rounded-2xl border border-slate-200 bg-slate-100"
-      />
+    <div v-if="loading" class="simil__grid">
+      <div v-for="n in 3" :key="n" class="simil__sk" />
     </div>
-    <p v-else-if="channels.length === 0" class="text-[13.5px] text-slate-400">
-      Aucune autre chaîne disponible pour le moment.
-    </p>
-    <div v-else ref="trackRef" class="similar-channels-track flex gap-3.5 overflow-x-auto pb-1">
-      <div v-for="c in channels" :key="c.id" class="similar-channels-item w-[300px] shrink-0">
-        <ChannelCard :channel="c" />
-      </div>
+    <p v-else-if="!channels.length" class="simil__empty">Aucune autre chaîne disponible pour le moment.</p>
+    <div v-else class="simil__grid">
+      <ChannelSimilarCard v-for="item in channels.slice(0, 3)" :key="item.id" :channel="item" />
     </div>
-  </div>
+  </section>
 </template>
 
 <style scoped>
-.similar-channels-track {
-  scroll-snap-type: x proximity;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+.simil {
+  margin-top: 72px;
 }
-.similar-channels-track::-webkit-scrollbar {
-  display: none;
+.simil__h {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 22px;
 }
-.similar-channels-item {
-  scroll-snap-align: start;
+.simil__h :deep(h2) {
+  margin-top: 10px;
+}
+.simil__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+}
+.simil__sk {
+  height: 280px;
+  border: 2px solid var(--ds-divide);
+  border-radius: 6px;
+  background: var(--ds-tint);
+}
+.simil__empty {
+  margin: 0;
+  color: var(--ds-muted);
+  font-size: 14px;
+}
+@media (max-width: 1040px) {
+  .simil__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 620px) {
+  .simil__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 </style>
