@@ -6,9 +6,9 @@ import type { DsGlyphKind } from '@/lib/ds/types'
 
 /**
  * Pictogrammes de type.
- * StatsData / Article / Sondage = mêmes icônes que la nav du header (AppNavIcon,
- * couleurs de la marque). Dossier = quart · Chaîne = trois quarts · data = flèche
- * de mise à jour, découpés dans le disque du logo (couleur = `currentColor`).
+ * StatsData / Article / Sondage / Chaîne = mêmes icônes que la nav du header
+ * (AppNavIcon, couleurs de la marque). Dossier = quart · data = flèche de mise
+ * à jour, découpés dans le disque du logo (couleur = `currentColor`).
  *
  * `mono` : les icônes de la nav passent en `currentColor` (nuances par opacité)
  * pour ressortir sur un fond coloré/foncé. Automatique dans une pastille ou un
@@ -19,7 +19,7 @@ const props = withDefaults(defineProps<{ kind: DsGlyphKind; size?: number; mono?
   mono: false,
 })
 
-const NAV_ICON = { statsdata: 'stats', article: 'articles', sondage: 'polls' } as const
+const NAV_ICON = { statsdata: 'stats', article: 'articles', sondage: 'polls', chaine: 'channels' } as const
 const navIcon = computed(() =>
   props.kind in NAV_ICON ? NAV_ICON[props.kind as keyof typeof NAV_ICON] : null,
 )
@@ -32,11 +32,6 @@ const shapes = computed<Shape[]>(() => {
       return [
         { d: sectorPath(12, 12, 10.5, -90, 0) },
         { d: sectorPath(12, 12, 10.5, 0, 270), opacity: 0.2 },
-      ]
-    case 'chaine':
-      return [
-        { d: sectorPath(12, 12, 10.5, 0, 270) },
-        { d: sectorPath(12, 12, 10.5, -90, 0), opacity: 0.2 },
       ]
     case 'data':
       return [

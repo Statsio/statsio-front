@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
 import AppCheckbox from '@/components/ui/AppCheckbox.vue'
+import DsLabel from '@/components/ds/DsLabel.vue'
 import { SURVEY_KIND_OPTIONS, type SurveyKind } from '@/types/content-creation'
 import { useAuthStore } from '@/stores/auth'
 
@@ -18,40 +19,37 @@ const auth = useAuthStore()
 </script>
 
 <template>
-  <div class="space-y-5 py-2">
-    <div class="space-y-3">
-      <p class="text-sm font-semibold text-slate-700">Format de consultation</p>
-      <div class="space-y-2.5">
+  <div class="flex flex-col gap-5">
+    <div>
+      <DsLabel class="mb-2">Format de consultation</DsLabel>
+      <div class="flex flex-col gap-2">
         <button
           v-for="opt in SURVEY_KIND_OPTIONS"
           :key="opt.value"
           type="button"
-          class="flex w-full items-start gap-3 rounded-xl border p-3.5 text-left transition"
+          class="flex w-full items-start gap-3 rounded-[4px] border-2 p-3.5 text-left transition-shadow"
           :class="kind === opt.value
-            ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5 shadow-sm'
-            : 'border-slate-200 bg-white hover:border-[var(--color-primary)]/40'"
+            ? 'border-[var(--ds-ol)] bg-[var(--ds-tint)] shadow-[3px_3px_0_var(--ds-sh)]'
+            : 'border-[var(--ds-divide)] bg-[var(--ds-surface)] hover:border-[var(--ds-ol)]'"
           @click="emit('update:kind', opt.value)"
         >
           <span
-            class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition"
-            :class="kind === opt.value ? 'border-[var(--color-primary)] bg-[var(--color-primary)]' : 'border-slate-300'"
+            class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2"
+            :class="kind === opt.value ? 'border-[var(--ds-ol)] bg-[var(--ds-action)]' : 'border-[var(--ds-divide)]'"
           >
-            <span v-if="kind === opt.value" class="h-2 w-2 rounded-full bg-white" />
+            <span v-if="kind === opt.value" class="h-2 w-2 rounded-full bg-[var(--ds-action-ink)]" />
           </span>
           <span class="min-w-0">
-            <span class="flex items-center gap-2">
-              <span class="text-base leading-none">{{ opt.icon }}</span>
-              <span class="text-sm font-semibold" :class="kind === opt.value ? 'text-[var(--color-primary)]' : 'text-slate-800'">
-                {{ opt.label }}
-              </span>
+            <span class="block text-[14px] font-extrabold text-[var(--ds-text)]" style="font-family: var(--ds-display)">
+              {{ opt.label }}
             </span>
-            <span class="mt-1 block text-xs text-slate-500">{{ opt.description }}</span>
+            <span class="mt-1 block text-[12.5px] leading-snug text-[var(--ds-muted)]">{{ opt.description }}</span>
           </span>
         </button>
       </div>
     </div>
 
-    <div class="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+    <div class="rounded-[4px] border-2 border-[var(--ds-divide)] bg-[var(--ds-tint)] p-4">
       <AppCheckbox
         :model-value="identity"
         :disabled="!auth.isPremium"
@@ -67,7 +65,7 @@ const auth = useAuthStore()
         v-if="!auth.isPremium"
         to="/offres"
         target="_blank"
-        class="mt-2 inline-block text-[12px] font-bold text-[var(--color-primary)]"
+        class="mt-2 inline-block text-[12.5px] font-extrabold text-[var(--ds-link)]"
       >
         Voir l'offre Premium →
       </RouterLink>

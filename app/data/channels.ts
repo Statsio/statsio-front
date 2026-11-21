@@ -1,4 +1,5 @@
 import type { ChannelOrganization } from '@/api/channels'
+import type { ChannelKind } from '@/types/channel-catalog'
 
 export type ChannelTone = 'primary' | 'accent' | 'secondary'
 
@@ -7,6 +8,7 @@ export type ChannelEntry = {
   name: string
   handle: string
   initials: string
+  kind: ChannelKind
   badges: string[]
   organization?: ChannelOrganization | null
   description: string

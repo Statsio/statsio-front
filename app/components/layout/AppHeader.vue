@@ -441,7 +441,11 @@ onBeforeUnmount(() => {
     </div>
   </header>
 
-  <!-- Mobile menu drawer -->
+  <!--
+    Menu mobile, téléporté sur body. Le nœud est inséré avant #__nuxt : à z-index
+    égal, le bandeau promo (z-50) se peint par-dessus. z-[70] le couvre, sous les
+    toasts (z-200) et le bandeau cookies.
+  -->
   <Teleport to="body">
     <Transition
       enter-active-class="transition duration-300 ease-out"
@@ -453,7 +457,7 @@ onBeforeUnmount(() => {
     >
       <div
         v-if="isMobileMenuOpen"
-        class="ds-scope ds-drawer fixed inset-0 z-50 flex flex-col lg:hidden"
+        class="ds-scope ds-drawer fixed inset-0 z-[70] flex flex-col lg:hidden"
         :data-theme="brandTheme"
         role="dialog"
         aria-modal="true"

@@ -1,19 +1,19 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useChannelProfile } from '@/composables/useChannelProfile'
 import { useContentBasePath } from '@/composables/useContentBasePath'
 import { publicChannelListPath, publicChannelPath } from '@/lib/content-display'
 import { breadcrumbNode, channelNode } from '@/lib/structured-data'
-import type { CatalogSort } from '@/types/catalog'
-import ArticleCard from '@/components/content/ArticleCard.vue'
-import StatsDataCard from '@/components/content/StatsDataCard.vue'
-import SurveyCard from '@/components/content/SurveyCard.vue'
+import { activityDaysFromDates, matchesChannelQuery, paceFromRecentCount } from '@/lib/channel-detail'
+import type { CatalogItem, CatalogSort } from '@/types/catalog'
+import type { DsGlyphKind } from '@/lib/ds/types'
 import ChannelHeroV2 from './ChannelHeroV2.vue'
 import ChannelTabNav from './ChannelTabNav.vue'
 import ChannelContentTab from './ChannelContentTab.vue'
-import ChannelPreviewSection from './ChannelPreviewSection.vue'
+import ChannelOverview from './ChannelOverview.vue'
 import ChannelAboutTab from './ChannelAboutTab.vue'
 import ChannelSimilarSlider from './ChannelSimilarSlider.vue'
+import ChannelCatalogTile from './ChannelCatalogTile.vue'
 
 const {
   channel,
@@ -38,7 +38,6 @@ const {
   isFavorited,
   ready,
 } = useChannelProfile()
-// Rendu serveur : attend la chaîne (et ses contenus) avant de répondre.
 await ready
 
 const basePath = useContentBasePath()
@@ -85,30 +84,79 @@ usePageSeo({
   }),
 })
 
-const CONTENT_SORTS: { value: CatalogSort; label: string }[] = [
-  { value: 'trend', label: 'Popularité' },
-  { value: 'created', label: 'Date de création' },
-  { value: 'recent', label: 'Date de modification' },
-]
-const articleSorts = CONTENT_SORTS
-const statsDataSorts = CONTENT_SORTS
-const surveySorts = CONTENT_SORTS
-
-const articlesPreview = computed(() => articles.value.slice(0, 3))
-const statsDataPreview = computed(() => statsData.value.slice(0, 3))
-const surveysPreview = computed(() => surveys.value.slice(0, 2))
-const hasAnyContent = computed(
-  () => articles.value.length > 0 || statsData.value.length > 0 || surveys.value.length > 0,
+const dates = computed(() =>
+  [...articles.value, ...statsData.value, ...surveys.value].map(
+    (item) => item.updated_at ?? item.created_at,
+  ),
 )
+const activityDays = computed(() => activityDaysFromDates(dates.value))
+const pace = computed(() => paceFromRecentCount(activityDays.value.length))
+const lastPublishedAt = computed(() => {
+  const stamps = dates.value
+    .map((iso) => (iso ? new Date(iso).getTime() : Number.NaN))
+    .filter((n) => !Number.isNaN(n))
+  if (!stamps.length) return null
+  return new Date(Math.max(...stamps)).toISOString()
+})
+const surveyResponses = computed(() =>
+  surveys.value.reduce((sum, item) => sum + (item.responses_count ?? 0), 0),
+)
+
+const navTabs = computed(() =>
+  tabs.map((tab) => {
+    const extra: { count?: number; glyph?: DsGlyphKind } = {}
+    if (tab.key === 'statsdata') {
+      extra.count = counts.value.statsdata
+      extra.glyph = 'statsdata'
+    } else if (tab.key === 'articles') {
+      extra.count = counts.value.articles
+      extra.glyph = 'article'
+    } else if (tab.key === 'sondages') {
+      extra.count = counts.value.surveys
+      extra.glyph = 'sondage'
+    }
+    return { ...tab, ...extra }
+  }),
+)
+
+const articleQuery = ref('')
+const statsQuery = ref('')
+const surveyQuery = ref('')
+
+function filtered(items: CatalogItem[], query: string) {
+  return items.filter((item) => matchesChannelQuery(item, query))
+}
+const shownArticles = computed(() => filtered(articles.value, articleQuery.value))
+const shownStats = computed(() => filtered(statsData.value, statsQuery.value))
+const shownSurveys = computed(() => filtered(surveys.value, surveyQuery.value))
+
+const heroEl = ref<HTMLElement | null>(null)
+const heroGone = ref(false)
+let observer: IntersectionObserver | undefined
+onMounted(() => {
+  const el = heroEl.value
+  if (!el || typeof IntersectionObserver === 'undefined') return
+  observer = new IntersectionObserver(([entry]) => {
+    heroGone.value = entry ? !entry.isIntersecting : false
+  })
+  observer.observe(el)
+})
+onUnmounted(() => observer?.disconnect())
+
+function onSort(target: 'articles' | 'statsdata' | 'surveys', value: CatalogSort) {
+  if (target === 'articles') sortArticles.value = value
+  else if (target === 'statsdata') sortStatsData.value = value
+  else sortSurveys.value = value
+}
 </script>
 
 <template>
-  <div class="bg-[#f4f3f8] pb-24">
-    <div v-if="loading" class="flex items-center justify-center py-32">
-      <p class="text-slate-500">Chargement de la chaîne…</p>
-    </div>
+  <div v-if="loading" class="ds-scope chpage">
+    <p class="chpage__loading">Chargement de la chaîne…</p>
+  </div>
 
-    <template v-else-if="channel">
+  <div v-else-if="channel" class="ds-scope chpage">
+    <div ref="heroEl">
       <ChannelHeroV2
         :channel="channel"
         :is-owner="isOwner"
@@ -118,138 +166,136 @@ const hasAnyContent = computed(
         :articles-count="counts.articles"
         :stats-data-count="counts.statsdata"
         :surveys-count="counts.surveys"
+        :survey-responses="surveyResponses"
+        :activity-days="activityDays"
+        :pace="pace"
+        :last-published-at="lastPublishedAt"
         :list-path="listPath"
+        :created-at-label="createdAtLabel"
         @toggle-follow="toggleFollow"
       />
+    </div>
 
-      <ChannelTabNav v-model="activeTab" :tabs="tabs" />
+    <ChannelTabNav
+      v-model="activeTab"
+      :tabs="navTabs"
+      :channel="channel"
+      :show-mini="heroGone"
+      :is-owner="isOwner"
+      :is-following="isFollowing"
+      @toggle-follow="toggleFollow"
+    />
 
-      <div class="mx-auto max-w-[1240px] px-4 sm:px-6 lg:px-8">
-        <!-- APERÇU -->
-        <div v-if="activeTab === 'featured'" class="flex flex-col gap-10 py-8">
-          <p v-if="!contentLoading && !hasAnyContent" class="text-sm text-slate-500">
-            Cette chaîne n’a encore rien publié.
-          </p>
+    <div class="ds-max chpage__body">
+      <ChannelOverview
+        v-if="activeTab === 'featured'"
+        :channel-name="channel.name"
+        :description="channel.longDescription || channel.description"
+        :articles="articles"
+        :stats-data="statsData"
+        :surveys="surveys"
+        :loading="contentLoading"
+        :is-favorited="isFavorited"
+        @favorite="toggleItemFavorite"
+        @view-tab="activeTab = $event"
+      />
 
-          <ChannelPreviewSection
-            v-if="contentLoading || articlesPreview.length"
-            title="Articles récents"
-            link-label="Voir tous les articles"
-            @view-all="activeTab = 'articles'"
-          >
-            <ArticleCard
-              v-for="item in articlesPreview"
-              :key="item.id"
-              :item="item"
-              format="card"
-              :favorited="isFavorited(item)"
-              @favorite="toggleItemFavorite(item)"
-            />
-          </ChannelPreviewSection>
-
-          <ChannelPreviewSection
-            v-if="contentLoading || statsDataPreview.length"
-            title="StatsData publiés"
-            link-label="Voir tous les StatsData"
-            @view-all="activeTab = 'statsdata'"
-          >
-            <StatsDataCard
-              v-for="item in statsDataPreview"
-              :key="item.id"
-              :item="item"
-              format="card"
-              :favorited="isFavorited(item)"
-              @favorite="toggleItemFavorite(item)"
-            />
-          </ChannelPreviewSection>
-
-          <ChannelPreviewSection
-            v-if="contentLoading || surveysPreview.length"
-            title="Sondages en cours"
-            link-label="Voir tous les sondages"
-            @view-all="activeTab = 'sondages'"
-          >
-            <SurveyCard
-              v-for="item in surveysPreview"
-              :key="item.id"
-              :item="item"
-              format="card"
-              :favorited="isFavorited(item)"
-              @favorite="toggleItemFavorite(item)"
-            />
-          </ChannelPreviewSection>
-        </div>
-
-        <!-- ARTICLES -->
-        <ChannelContentTab
-          v-else-if="activeTab === 'articles'"
-          v-model:sort="sortArticles"
-          :sort-options="articleSorts"
-          :loading="contentLoading"
-          :is-empty="!articles.length"
-          empty-text="Aucun article publié pour le moment."
-        >
-          <ArticleCard
-            v-for="item in articles"
-            :key="item.id"
-            :item="item"
-            format="card"
-            :favorited="isFavorited(item)"
-            @favorite="toggleItemFavorite(item)"
-          />
-        </ChannelContentTab>
-
-        <!-- STATSDATA -->
-        <ChannelContentTab
-          v-else-if="activeTab === 'statsdata'"
-          v-model:sort="sortStatsData"
-          :sort-options="statsDataSorts"
-          :loading="contentLoading"
-          :is-empty="!statsData.length"
-          empty-text="Aucune StatsData publiée pour le moment."
-        >
-          <StatsDataCard
-            v-for="item in statsData"
-            :key="item.id"
-            :item="item"
-            format="card"
-            :favorited="isFavorited(item)"
-            @favorite="toggleItemFavorite(item)"
-          />
-        </ChannelContentTab>
-
-        <!-- SONDAGES -->
-        <ChannelContentTab
-          v-else-if="activeTab === 'sondages'"
-          v-model:sort="sortSurveys"
-          :sort-options="surveySorts"
-          :loading="contentLoading"
-          :is-empty="!surveys.length"
-          empty-text="Aucun sondage publié pour le moment."
-        >
-          <SurveyCard
-            v-for="item in surveys"
-            :key="item.id"
-            :item="item"
-            format="card"
-            :favorited="isFavorited(item)"
-            @favorite="toggleItemFavorite(item)"
-          />
-        </ChannelContentTab>
-
-        <!-- À PROPOS -->
-        <ChannelAboutTab
-          v-else-if="activeTab === 'apropos'"
-          :channel="channel"
-          :category-labels="categoryLabels"
-          :created-at-label="createdAtLabel"
-          :articles-count="counts.articles"
-          :stats-data-count="counts.statsdata"
-          :surveys-count="counts.surveys"
+      <ChannelContentTab
+        v-else-if="activeTab === 'statsdata'"
+        :sort="sortStatsData"
+        :query="statsQuery"
+        :loading="contentLoading"
+        :shown="shownStats.length"
+        :total="counts.statsdata"
+        :unit="{ one: 'StatsData', many: 'StatsData' }"
+        empty-title="Aucune StatsData publiée pour le moment."
+        @update:sort="onSort('statsdata', $event)"
+        @update:query="statsQuery = $event"
+      >
+        <ChannelCatalogTile
+          v-for="item in shownStats"
+          :key="item.id"
+          :item="item"
+          type="statsdata"
+          :favorited="isFavorited(item)"
+          :query="statsQuery"
+          @favorite="toggleItemFavorite(item)"
         />
+      </ChannelContentTab>
 
-        <ChannelSimilarSlider :channel="channel" />
-      </div>
-    </template>
+      <ChannelContentTab
+        v-else-if="activeTab === 'articles'"
+        :sort="sortArticles"
+        :query="articleQuery"
+        :loading="contentLoading"
+        :shown="shownArticles.length"
+        :total="counts.articles"
+        :unit="{ one: 'article', many: 'articles' }"
+        empty-title="Aucun article publié pour le moment."
+        @update:sort="onSort('articles', $event)"
+        @update:query="articleQuery = $event"
+      >
+        <ChannelCatalogTile
+          v-for="item in shownArticles"
+          :key="item.id"
+          :item="item"
+          type="article"
+          :favorited="isFavorited(item)"
+          :query="articleQuery"
+          @favorite="toggleItemFavorite(item)"
+        />
+      </ChannelContentTab>
+
+      <ChannelContentTab
+        v-else-if="activeTab === 'sondages'"
+        :sort="sortSurveys"
+        :query="surveyQuery"
+        :loading="contentLoading"
+        :shown="shownSurveys.length"
+        :total="counts.surveys"
+        :unit="{ one: 'sondage', many: 'sondages' }"
+        empty-title="Aucun sondage publié pour le moment."
+        @update:sort="onSort('surveys', $event)"
+        @update:query="surveyQuery = $event"
+      >
+        <ChannelCatalogTile
+          v-for="item in shownSurveys"
+          :key="item.id"
+          :item="item"
+          type="survey"
+          :favorited="isFavorited(item)"
+          :query="surveyQuery"
+          @favorite="toggleItemFavorite(item)"
+        />
+      </ChannelContentTab>
+
+      <ChannelAboutTab
+        v-else-if="activeTab === 'apropos'"
+        :channel="channel"
+        :category-labels="categoryLabels"
+        :created-at-label="createdAtLabel"
+        :articles-count="counts.articles"
+        :stats-data-count="counts.statsdata"
+        :surveys-count="counts.surveys"
+        :survey-responses="surveyResponses"
+      />
+
+      <ChannelSimilarSlider :channel="channel" />
+    </div>
   </div>
 </template>
+
+<style scoped>
+.chpage {
+  background: var(--ds-bg);
+  padding-bottom: 72px;
+}
+.chpage__loading {
+  padding: 80px 16px;
+  color: var(--ds-muted);
+  text-align: center;
+}
+.chpage__body {
+  padding-bottom: 24px;
+}
+</style>
