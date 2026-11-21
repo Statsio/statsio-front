@@ -64,7 +64,8 @@ describe('ArticleHero', () => {
       },
       global: { stubs },
     })
-    expect(some.text()).toContain('2 Statsdata liés')
+    expect(some.text()).toContain('2')
+    expect(some.text()).toContain('liés au StatsData')
   })
 
   it('falls back gracefully when no format category is present', () => {

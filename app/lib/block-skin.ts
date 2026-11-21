@@ -3,8 +3,8 @@ import { inject, provide, type InjectionKey } from 'vue'
 /**
  * Habillage des blocs du Studio selon leur hôte.
  * - `studio` (défaut) : canevas de l'éditeur, rendu historique.
- * - `tranches` : page publique StatsData (et son mode embed), charte « Tranches »
- *   (Bold Outline) — posé par `StatsDataDetailView` via `provideBlockSkin`.
+ * - `tranches` : pages publiques StatsData et Article (et leur mode embed),
+ *   charte « Tranches » (Bold Outline) — posé via `provideBlockSkin`.
  *
  * Le CSS se scope sur `.sd-public` (voir assets/statsdata.css) ; ce flag sert
  * à ce que le CSS ne peut pas atteindre : couleurs des canvas Chart.js, rendu

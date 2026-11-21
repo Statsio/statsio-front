@@ -75,14 +75,27 @@ const eventButton = ref<HTMLButtonElement | null>(null)
 const popoverEl = ref<HTMLElement | null>(null)
 const labelWidth = ref<number | null>(null)
 
-/** Largeur de l'étiquette = contenu visible + padding (transition CSS sur width). */
+/**
+ * Largeur de l'étiquette = contenu visible + padding (transition CSS sur width).
+ * On retire l'autre face du flux le temps de la mesure : les deux sont empilées
+ * dans la même cellule de grille, et une largeur déjà figée (passage desktop →
+ * mobile, texte « En continu » masqué) empêchait le bloc de rétrécir.
+ */
 async function measureLabel() {
   await nextTick()
   const host = labelEl.value
   const inner = showEvent.value ? labelB.value : labelA.value
   if (!host || !inner) return
+  const other = showEvent.value ? labelA.value : labelB.value
+  const prevWidth = host.style.width
+  const prevDisplay = other?.style.display
+  if (other) other.style.display = 'none'
+  host.style.width = 'max-content'
   const cs = getComputedStyle(host)
-  labelWidth.value = Math.ceil(inner.scrollWidth + parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight))
+  const width = Math.ceil(inner.scrollWidth + parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight))
+  if (other) other.style.display = prevDisplay ?? ''
+  host.style.width = prevWidth
+  labelWidth.value = width
 }
 watch([showEvent, eventTitleText, eventSubtitle], () => void measureLabel())
 
@@ -536,8 +549,31 @@ const isExternal = (href: string) => /^https?:\/\//.test(href)
   .ds-flash__clock {
     display: none;
   }
+  /* Le texte « En continu » est masqué : le trapèze bleu ne garde que le
+     camembert. L'événement du moment reste lisible, sans manger le ticker. */
   .ds-flash__label {
-    padding-right: 22px;
+    padding: 0 12px 0 10px;
+    max-width: min(168px, 46vw);
+    clip-path: polygon(0 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+  }
+  .ds-flash__b,
+  .ds-flash__b-inner {
+    max-width: 100%;
+    min-width: 0;
+  }
+  .ds-flash__b-lines {
+    min-width: 0;
+    overflow: hidden;
+  }
+  .ds-flash__b-lines b,
+  .ds-flash__b-lines small {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ds-flash__right {
+    gap: 0;
+    padding: 0 10px 0 6px;
   }
 }
 

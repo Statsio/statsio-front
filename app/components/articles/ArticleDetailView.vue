@@ -19,15 +19,19 @@ import { useStudioStore } from '@/stores/studio'
 import { useStatsDataChrome } from '@/composables/useStatsDataChrome'
 import { useContentBasePath } from '@/composables/useContentBasePath'
 import { useContentDomain } from '@/composables/useContentDomain'
-import { isFormBlock, isTextBlock } from '@/types/studio'
+import { BLOCK_META, isFormBlock, isTextBlock } from '@/types/studio'
 import type { StudioBlock } from '@/types/studio'
+import { provideBlockSkin } from '@/lib/block-skin'
 import { getHttpErrorStatus } from '@/lib/http-errors'
-import { canonicalContentPath, publicContentListPath } from '@/lib/content-display'
+import { canonicalContentPath, publicContentListPath, publicContentPath } from '@/lib/content-display'
 import { articleNode, breadcrumbNode } from '@/lib/structured-data'
 import { sectionAnchorId } from '@/lib/slug'
 import { stripInlineHtml } from '@/lib/inline-rich-text'
 
 const props = withDefaults(defineProps<{ embed?: boolean }>(), { embed: false })
+
+// Charte « Tranches » pour le hero et tous les blocs (texte, graphiques, StatsData lié).
+provideBlockSkin('tranches')
 
 const route = useRoute()
 const requestUrl = useRequestURL()
@@ -127,19 +131,25 @@ const readingMinutes = computed(() => {
 // Sommaire : en-têtes de section (titre + ancre) dans l'ordre, + blocs `heading`
 // avec du contenu (articles édités « à la main »).
 const tocEntries = computed(() => {
-  const out: { id: string; label: string }[] = []
+  const out: { id: string; label: string; level: number }[] = []
   for (const section of studio.currentPageSections) {
     const anchor = sectionAnchorId(section)
     const label = stripInlineHtml(section.title)
     if (label && anchor) {
-      out.push({ id: anchor, label })
+      out.push({ id: anchor, label, level: 2 })
     }
     const zones = Object.keys(studio.blocksByZone).filter((z) => z.startsWith(`${section.id}-`))
     for (const zone of zones) {
       for (const b of studio.blocksByZone[zone] ?? []) {
         if (b.type !== 'heading') continue
-        const label = stripHtml(b.config.content)
-        if (label) out.push({ id: `block-${b.id}`, label })
+        const heading = stripHtml(b.config.content)
+        if (heading) {
+          out.push({
+            id: `block-${b.id}`,
+            label: heading,
+            level: b.config.headingLevel === 3 ? 3 : 2,
+          })
+        }
       }
     }
   }
@@ -149,21 +159,40 @@ const tocEntries = computed(() => {
 // Statsdata réutilisés dans l'article, dédupliqués : plusieurs blocs `sd-embed`
 // peuvent pointer vers le même Statsdata source — on ne le liste qu'une fois
 // (ancre = premier bloc rencontré).
-const linkedStatsData = computed(() => {
-  const seen = new Set<string>()
-  const out: { id: string; title: string }[] = []
+const linkedDocs = computed(() => {
+  const order: string[] = []
+  const map = new Map<
+    string,
+    { slug: string; title: string; href: string; blocks: { id: string; label: string }[] }
+  >()
   for (const b of contentBlocks.value) {
     if (b.type !== 'sd-embed' || !b.config.sourceBlockId) continue
-    const key = b.config.sourceSlug || b.config.sourceDocTitle || b.id
-    if (seen.has(key)) continue
-    seen.add(key)
-    out.push({
+    const slug = b.config.sourceSlug || b.id
+    let doc = map.get(slug)
+    if (!doc) {
+      doc = {
+        slug,
+        title: b.config.sourceDocTitle || b.config.sourceSlug || 'Statsdata',
+        href: b.config.sourceSlug
+          ? publicContentPath('statsdata', b.config.sourceSlug, basePath.value)
+          : `#block-${b.id}`,
+        blocks: [],
+      }
+      map.set(slug, doc)
+      order.push(slug)
+    }
+    const type = b.config.sourceBlockType
+    doc.blocks.push({
       id: `block-${b.id}`,
-      title: b.config.sourceDocTitle || b.config.sourceSlug || 'Statsdata',
+      label: type ? (BLOCK_META[type]?.label ?? 'Bloc') : 'Bloc',
     })
   }
-  return out
+  return order.map((key) => map.get(key)!)
 })
+
+const linkedCount = computed(() => linkedDocs.value.reduce((n, doc) => n + doc.blocks.length, 0))
+const statsHref = computed(() => linkedDocs.value.find((d) => d.href.startsWith('/'))?.href ?? null)
+const readHref = computed(() => (tocEntries.value[0] ? `#${tocEntries.value[0].id}` : '#article'))
 
 const listPath = computed(() => publicContentListPath('article', basePath.value))
 
@@ -215,7 +244,7 @@ useViewerDocRefresh(article, () => fetchPublicStatsDataDocument(slug.value))
 </script>
 
 <template>
-  <div class="min-h-screen bg-[var(--studio-wash)] font-sans text-[var(--studio-ink)]">
+  <div class="art-public sd-public ds-scope min-h-screen">
     <div v-if="loading" class="flex items-center justify-center py-40">
       <svg class="h-8 w-8 animate-spin text-[var(--color-primary)]" fill="none" viewBox="0 0 24 24">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
@@ -230,19 +259,9 @@ useViewerDocRefresh(article, () => fetchPublicStatsDataDocument(slug.value))
     <template v-else-if="article">
       <!-- Embed : corps seul (si l’intégration est autorisée) -->
       <template v-if="embed">
-        <main v-if="canEmbed" class="mx-auto max-w-[820px] px-4 py-6 sm:px-6">
-          <article
-            class="rounded-[18px] bg-[var(--studio-surface)] p-6 shadow-[var(--studio-shadow-card)] sm:p-9"
-          >
-            <ArticleBody />
-          </article>
-          <a
-            :href="shareUrl"
-            target="_blank"
-            rel="noopener"
-            class="mt-4 block text-center text-[11px] font-semibold text-[var(--studio-faint)] hover:text-[var(--studio-muted)]"
-            >Réalisé avec Statsio →</a
-          >
+        <main v-if="canEmbed" class="mx-auto max-w-[880px] px-4 py-6 sm:px-6">
+          <ArticleBody />
+          <a :href="shareUrl" target="_blank" rel="noopener" class="art-embed-credit">Réalisé avec Statsio →</a>
         </main>
         <div v-else class="py-16 text-center text-sm text-slate-500">
           L’intégration de ce contenu est désactivée.
@@ -260,6 +279,7 @@ useViewerDocRefresh(article, () => fetchPublicStatsDataDocument(slug.value))
 
         <ArticleSubHeader
           :title="article.title"
+          :reading-minutes="readingMinutes"
           :is-favorite="isFavorite"
           :is-following="isFollowing"
           :can-follow="canFollowChannel"
@@ -277,28 +297,26 @@ useViewerDocRefresh(article, () => fetchPublicStatsDataDocument(slug.value))
         <ArticleHero
           :doc="article"
           :reading-minutes="readingMinutes"
-          :linked-count="linkedStatsData.length"
+          :linked-count="linkedCount"
           :is-following="isFollowing"
           :can-follow="canFollowChannel"
+          :read-href="readHref"
+          :stats-href="statsHref"
           @toggle-follow="toggleFollowAction"
         />
 
-        <div class="mx-auto max-w-[1180px] px-4 sm:px-6">
-          <div
-            class="grid grid-cols-1 gap-10 pt-8 lg:grid-cols-[212px_minmax(0,1fr)] lg:items-start"
-          >
-            <div>
-              <ArticleToc :entries="tocEntries" :linked="linkedStatsData" />
-            </div>
+        <div class="ds-max">
+          <div class="art-body">
+            <aside class="art-side">
+              <ArticleToc :entries="tocEntries" :linked="linkedDocs" />
+            </aside>
 
-            <main class="flex min-w-0 flex-col gap-4 pb-20">
-              <article
-                class="rounded-[18px] bg-[var(--studio-surface)] p-6 shadow-[var(--studio-shadow-card)] sm:p-[38px_44px]"
-              >
-                <ArticleBody />
-              </article>
+            <main class="art-main">
+              <ArticleBody />
 
               <StatsDataUsefulBar
+                tone="tranches"
+                question="Cet article vous a été utile ?"
                 :is-favorite="isFavorite"
                 :is-following="isFollowing"
                 :can-follow="canFollowChannel"
@@ -319,12 +337,8 @@ useViewerDocRefresh(article, () => fetchPublicStatsDataDocument(slug.value))
                 :enabled="article.comments_enabled !== false"
               />
 
-              <section v-if="relatedArticles.length" class="mt-8 flex flex-col gap-5">
-                <p
-                  class="text-[9.5px] font-extrabold uppercase tracking-[0.09em] text-[var(--studio-faint)]"
-                >
-                  À lire aussi
-                </p>
+              <section v-if="relatedArticles.length" class="art-also">
+                <p class="art-links__lbl">À lire aussi</p>
                 <div class="grid gap-5 sm:grid-cols-2">
                   <ArticleTeaserCard
                     v-for="item in relatedArticles"
@@ -332,12 +346,7 @@ useViewerDocRefresh(article, () => fetchPublicStatsDataDocument(slug.value))
                     :article="item"
                   />
                 </div>
-                <RouterLink
-                  :to="listPath"
-                  class="text-[13px] font-semibold text-[var(--color-primary)]"
-                >
-                  Tous les articles →
-                </RouterLink>
+                <RouterLink :to="listPath" class="art-also__more">Tous les articles →</RouterLink>
               </section>
             </main>
           </div>
@@ -353,3 +362,44 @@ useViewerDocRefresh(article, () => fetchPublicStatsDataDocument(slug.value))
     </template>
   </div>
 </template>
+
+<style scoped>
+.art-embed-credit {
+  display: block;
+  margin-top: 16px;
+  color: var(--ds-faint);
+  font: 500 11px/1.3 var(--ds-num);
+  letter-spacing: 0.06em;
+  text-align: center;
+  text-decoration: none;
+}
+.art-embed-credit:hover {
+  color: var(--ds-link);
+}
+.art-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 32px;
+  padding-block: 8px 96px;
+}
+.art-side {
+  display: none;
+}
+.art-main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 28px;
+}
+@media (min-width: 981px) {
+  .art-body {
+    grid-template-columns: 250px minmax(0, 1fr);
+    gap: 56px;
+  }
+  .art-side {
+    display: flex;
+    flex-direction: column;
+    align-self: start;
+  }
+}
+</style>

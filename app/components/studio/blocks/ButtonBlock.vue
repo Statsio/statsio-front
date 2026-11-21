@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { StudioBlock } from '@/types/studio'
+import { useBlockSkin } from '@/lib/block-skin'
+import DsButton from '@/components/ds/DsButton.vue'
 
 const props = defineProps<{ block: StudioBlock; readonly?: boolean }>()
+const tranches = computed(() => useBlockSkin() === 'tranches')
 
 const label   = computed(() => props.block.config.buttonLabel ?? '')
 const url     = computed(() => props.block.config.buttonUrl ?? '')
@@ -41,6 +44,18 @@ const sizeClass = computed(() => ({
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.042 21.672 13.684 16.6m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672zm-7.518-.267A8.25 8.25 0 1 1 20.25 10.5M8.288 14.212A5.25 5.25 0 1 1 17.25 10.5" />
     </svg>
     <span class="text-xs font-medium">Configurer le bouton →</span>
+  </div>
+
+  <!-- Bouton — charte Tranches -->
+  <div v-else-if="tranches" :class="alignClass">
+    <DsButton
+      :href="url && readonly ? url : undefined"
+      :variant="variant === 'primary' ? 'primary' : 'secondary'"
+      :target="url && readonly ? '_blank' : undefined"
+      :rel="url && readonly ? 'noopener noreferrer' : undefined"
+    >
+      {{ label }} <span v-if="url" aria-hidden="true">→</span>
+    </DsButton>
   </div>
 
   <!-- Button -->
