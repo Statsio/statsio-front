@@ -20,7 +20,7 @@ const listPath = computed(() => publicChannelListPath(basePath.value))
     <div class="simil__h">
       <div>
         <DsLabel>Si vous aimez cette chaîne</DsLabel>
-        <DsHeading id="sim-h" level="2" size="xl">Chaînes <em>similaires</em></DsHeading>
+        <DsHeading id="sim-h" :level="2" size="xl">Chaînes <em>similaires</em></DsHeading>
       </div>
       <DsButton size="sm" variant="secondary" :to="listPath">
         Toutes les chaînes <span aria-hidden="true">→</span>

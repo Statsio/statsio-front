@@ -105,7 +105,7 @@ const isShareOpen = ref(false)
               <ChannelVerifiedMark v-if="isVerified" :size="16" />
               <span class="chero__hdl">{{ channel.handle }}</span>
             </div>
-            <DsHeading level="1" size="display">
+            <DsHeading :level="1" size="display">
               {{ title.lead }}<template v-if="title.accent"> <em>{{ title.accent }}</em></template>
             </DsHeading>
             <p v-if="channel.description" class="chero__ex">{{ channel.description }}</p>
