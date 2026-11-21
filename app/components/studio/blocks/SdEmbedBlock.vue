@@ -8,6 +8,8 @@ import { STUDIO_EMBED_CONTEXT } from '@/composables/studioEmbedContext'
 import { BLOCK_META } from '@/types/studio'
 import type { StudioBlock } from '@/types/studio'
 import { getErrorMessage } from '@/lib/http-errors'
+import { useBlockSkin } from '@/lib/block-skin'
+import DsTypeGlyph from '@/components/ds/DsTypeGlyph.vue'
 
 /**
  * Bloc « Statsdata lié » (`sd-embed`) : réutilise un bloc (graphique / KPI /
@@ -16,6 +18,7 @@ import { getErrorMessage } from '@/lib/http-errors'
  * via le contexte `STUDIO_EMBED_CONTEXT`.
  */
 const props = defineProps<{ block: StudioBlock; readonly?: boolean; scope?: Record<string, string> }>()
+const tranches = computed(() => useBlockSkin() === 'tranches')
 
 // Résolu via l'auto-import Nuxt pour casser le cycle SdEmbedBlock → BlockRenderer → SdEmbedBlock.
 const BlockRenderer = resolveComponent('BlockRenderer')
@@ -46,6 +49,23 @@ const hasData = computed(() => {
 })
 
 const innerBlock = computed(() => resolved.value?.block ?? null)
+
+const innerTitle = computed(() => {
+  const b = innerBlock.value
+  if (!b || b.type === 'kpi' || b.type === 'search') return ''
+  return b.config.title?.trim() || ''
+})
+
+const sourceLine = computed(() => {
+  const names = [
+    ...new Set(
+      (resolved.value?.datasets ?? [])
+        .map((d) => d.provenance || d.name)
+        .filter((n): n is string => Boolean(n)),
+    ),
+  ]
+  return names.length ? `Source : ${names.join(' · ')}` : ''
+})
 
 /** Jetons `{{param}}` du bloc réutilisé : défauts de la page source + override auteur. */
 const embedParams = computed<Record<string, string>>(() => {
@@ -102,6 +122,36 @@ watch([sourceSlug, sourceBlockId], load, { immediate: true })
     <p class="mt-1 text-[13px] font-bold text-[var(--studio-ink)]">Bloc Statsdata</p>
     <p class="text-[12px] text-[var(--studio-faint)]">Choisissez un Statsdata puis un de ses blocs dans le panneau de droite.</p>
   </div>
+
+  <!-- Configuré — charte Tranches (page article) -->
+  <section v-else-if="tranches" class="sde" :aria-label="docTitle">
+    <div class="sde__hd">
+      <span class="sde__lbl"><DsTypeGlyph kind="statsdata" :size="12" />Statsdata lié</span>
+      <RouterLink v-if="showLink" :to="sourceHref" class="sde__go">
+        <span>{{ docTitle }}</span>↗
+      </RouterLink>
+    </div>
+    <div class="sde__bd">
+      <p v-if="sourceUnpublished" class="sde__warn">
+        Ce Statsdata n’est pas encore publié : les lecteurs de l’article ne verront pas ces données tant qu’il reste en brouillon.
+      </p>
+      <p v-else-if="resolved && !hasData" class="sde__warn">Ce bloc source n’est relié à aucune donnée.</p>
+      <h3 v-if="innerTitle" class="sde__h">{{ innerTitle }}</h3>
+      <div v-if="loading" class="py-8 text-center text-[12px] text-[var(--ds-faint)]">Chargement…</div>
+      <div v-else-if="error" class="py-6 text-center text-[12px] text-[var(--ds-muted)]">{{ error }}</div>
+      <component
+        :is="BlockRenderer"
+        v-else-if="innerBlock"
+        :block="innerBlock"
+        :readonly="true"
+        :scope="innerScope"
+      />
+    </div>
+    <div class="sde__ft">
+      <span>{{ sourceLine }}</span>
+      <span v-if="freshness" class="sde__fresh">{{ freshness.tone === 'live' ? 'Données en direct' : freshness.text }}</span>
+    </div>
+  </section>
 
   <!-- Configuré : carte « STATSDATA LIÉ » -->
   <div

@@ -431,7 +431,7 @@ onUnmounted(() => {
       />
 
       <!-- Sous-header -->
-      <div class="flex items-center gap-3.5 border-b border-slate-200/70 bg-white/90 px-4 py-2.5 backdrop-blur-md sm:px-6">
+      <div class="ds-sticky-bar flex items-center gap-3.5 border-b border-slate-200/70 bg-white/90 px-4 py-2.5 backdrop-blur-md sm:px-6">
         <span
           class="shrink-0 rounded-[5px] px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.06em]"
           :style="{ color: kind.fg, background: kind.bg }"

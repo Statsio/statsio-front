@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import BlockRenderer from '@/components/studio/blocks/BlockRenderer.vue'
 import { useStudioStore } from '@/stores/studio'
-import { isFormBlock, isTextBlock, scriptIdFromZone } from '@/types/studio'
+import { isFormBlock, scriptIdFromZone } from '@/types/studio'
 import { sectionAnchorId } from '@/lib/slug'
 import { sanitizeInlineHtml, isBlankInlineHtml } from '@/lib/inline-rich-text'
 import type { Section, StudioBlock } from '@/types/studio'
@@ -47,17 +47,30 @@ const rows = computed<Row[]>(() => {
 
 const isEmpty = computed(() => rows.value.every((r) => !r.header && r.blocks.length === 0))
 
-const TITLED = new Set(['bar', 'line', 'pie', 'table', 'map', 'record', 'related', 'field-grid'])
-function showsTitle(block: StudioBlock) {
-  return !!block.config.title && TITLED.has(block.type)
-}
-function isBare(block: StudioBlock) {
-  return (
-    isTextBlock(block.type) ||
-    block.type === 'sd-embed' ||
-    block.type === 'retenir' ||
-    block.type === 'image'
-  )
+type FlowItem =
+  | { kind: 'block'; block: StudioBlock }
+  | { kind: 'links'; key: string; blocks: StudioBlock[] }
+
+/** Regroupe les cartes de lien consécutives (« Pour aller plus loin »). */
+function flowOf(blocks: StudioBlock[]): FlowItem[] {
+  const out: FlowItem[] = []
+  let bucket: StudioBlock[] | null = null
+  const flush = () => {
+    if (!bucket?.length) return
+    out.push({ kind: 'links', key: bucket.map((b) => b.id).join('-'), blocks: bucket })
+    bucket = null
+  }
+  for (const block of blocks) {
+    if (block.type === 'link-card') {
+      bucket = bucket ?? []
+      bucket.push(block)
+    } else {
+      flush()
+      out.push({ kind: 'block', block })
+    }
+  }
+  flush()
+  return out
 }
 
 function headStyle(section: Section) {
@@ -73,54 +86,47 @@ function headStyle(section: Section) {
 </script>
 
 <template>
-  <div class="flex flex-col gap-8">
-    <section v-for="row in rows" :key="row.section.id" class="flex flex-col gap-5">
+  <div id="article" class="art-flow">
+    <section v-for="row in rows" :key="row.section.id" class="art-sec">
       <header
         v-if="row.header"
         :id="sectionAnchorId(row.section)"
-        class="scroll-mt-40"
+        class="art-sec__head"
         :style="headStyle(row.section)"
       >
         <p
           v-if="!isBlankInlineHtml(row.section.kicker)"
-          class="mono mb-1.5 text-[10px] font-extrabold uppercase text-[var(--color-primary)]"
-          style="letter-spacing: var(--sec-head-ls, 0.1em); line-height: var(--sec-head-lh, 1.4)"
+          class="art-sec__kicker"
           v-html="sanitizeInlineHtml(row.section.kicker)"
         />
         <h2
           v-if="!isBlankInlineHtml(row.section.title)"
-          class="text-[24px] font-extrabold text-[var(--studio-ink)] [text-wrap:balance]"
-          style="line-height: var(--sec-head-lh, 1.2); letter-spacing: var(--sec-head-ls, -0.015em)"
+          class="art-sec__title"
           v-html="sanitizeInlineHtml(row.section.title)"
         />
         <p
           v-if="!isBlankInlineHtml(row.section.description)"
-          class="mt-2 max-w-[64ch] text-[15px] text-[var(--studio-muted)] [text-wrap:pretty]"
-          style="line-height: var(--sec-head-lh, 1.6); letter-spacing: var(--sec-head-ls, normal)"
+          class="art-sec__desc"
           v-html="sanitizeInlineHtml(row.section.description)"
         />
       </header>
 
-      <template v-for="block in row.blocks" :key="block.id">
-        <div :id="`block-${block.id}`" class="scroll-mt-40">
-          <BlockRenderer v-if="isBare(block)" :block="block" :readonly="true" />
-          <div v-else class="rounded-[14px] border border-[var(--studio-line)] p-5">
-            <p
-              v-if="showsTitle(block)"
-              class="mb-3.5 text-[13px] font-bold text-[var(--studio-ink)]"
-            >
-              {{ block.config.title }}
-            </p>
-            <BlockRenderer :block="block" :readonly="true" />
+      <template v-for="item in flowOf(row.blocks)" :key="item.kind === 'links' ? item.key : item.block.id">
+        <div v-if="item.kind === 'links'" class="art-links-wrap">
+          <p v-if="item.blocks.length > 1" class="art-links__lbl">Pour aller plus loin</p>
+          <div class="art-links">
+            <div v-for="block in item.blocks" :id="`block-${block.id}`" :key="block.id" class="art-block">
+              <BlockRenderer :block="block" :readonly="true" />
+            </div>
           </div>
+        </div>
+        <div v-else :id="`block-${item.block.id}`" class="art-block">
+          <BlockRenderer :block="item.block" :readonly="true" />
         </div>
       </template>
     </section>
 
-    <div
-      v-if="isEmpty"
-      class="rounded-2xl border border-dashed border-[var(--studio-line)] bg-[var(--studio-wash)] py-16 text-center text-[13px] text-[var(--studio-faint)]"
-    >
+    <div v-if="isEmpty" class="art-empty">
       Cet article ne contient aucun contenu pour le moment.
     </div>
   </div>

@@ -50,7 +50,7 @@ function blocksInZone(zoneId: string): StudioBlock[] {
   <!-- ══════════ LECTURE SEULE (publié / aperçu) ══════════ -->
   <div
     v-else
-    class="flex flex-wrap items-start gap-4 sm:grid"
+    class="art-cols flex flex-wrap items-start gap-4 sm:grid"
     :style="{ gridTemplateColumns: def.gridCols.map((s: number) => `${s}fr`).join(' ') }"
   >
     <div v-for="zoneId in zoneIds" :key="zoneId" class="flex min-w-0 grow basis-[min(100%,16rem)] flex-col gap-4 sm:basis-auto">

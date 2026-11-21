@@ -202,6 +202,17 @@
   border-block: 2px solid var(--ds-ol);
 }
 
+/* Sous-barre des fiches contenu : collée sous le bandeau (48px) + header (64px)
+   à partir de lg. En dessous, elle défile avec la page. Même pile que lg:pt-28
+   dans layouts/default.vue — à garder synchronisés. */
+@media (min-width: 1024px) {
+  .ds-sticky-bar {
+    position: sticky;
+    top: 7rem;
+    z-index: 30;
+  }
+}
+
 .ds-tnum {
   font-variant-numeric: tabular-nums;
 }

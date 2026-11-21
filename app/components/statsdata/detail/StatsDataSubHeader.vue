@@ -7,7 +7,7 @@ import DsTypeGlyph from '@/components/ds/DsTypeGlyph.vue'
 /**
  * Sous-barre d'une page StatsData — charte « Tranches » : badge de type,
  * titre, onglets de pages (sélecteur en mobile), Favori / Suivre / Partager.
- * Pas de position collante (préférence : seuls header + bandeau restent fixes).
+ * Reste collée sous le header au scroll.
  */
 defineProps<{
   title: string
@@ -34,7 +34,7 @@ defineEmits<{
 </script>
 
 <template>
-  <div class="sdsub">
+  <div class="sdsub ds-sticky-bar">
     <div class="sdsub__in ds-max">
       <span class="sdsub__ttl">
         <span class="sdsub__badge"><DsTypeGlyph kind="statsdata" :size="12" />StatsData</span>

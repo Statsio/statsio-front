@@ -9,11 +9,14 @@ import { TextAlign } from '@tiptap/extension-text-align'
 import { useStudioStore } from '@/stores/studio'
 import { useActiveEditor } from '@/composables/useActiveEditor'
 import { useResolvedTokens } from '@/composables/useResolvedTokens'
-import { TextTransformExtension, FontFamilyExtension, VariableHighlight } from '@/lib/tiptap-extensions'
-import type { StudioBlock } from '@/types/studio'
+import { TextTransformExtension, FontFamilyExtension, VariableHighlight, dropCapExtension } from '@/lib/tiptap-extensions'
+import { scriptIdFromZone, type StudioBlock } from '@/types/studio'
+import { isBlankInlineHtml } from '@/lib/inline-rich-text'
+import { useBlockSkin } from '@/lib/block-skin'
 
 const props = defineProps<{ block: StudioBlock; readonly?: boolean; scope?: Record<string, string> }>()
 const studio = useStudioStore()
+const tranches = computed(() => useBlockSkin() === 'tranches')
 const { setActiveEditor, clearActiveEditor } = useActiveEditor()
 
 // Contenu substitué : {{variable}} (scope de boucle puis pageParams) + expressions calculées.
@@ -27,6 +30,22 @@ const { text: resolvedContent } = useResolvedTokens({
 })
 
 const hasSubstitution = computed(() => resolvedContent.value !== (props.block.config.content || '<p></p>'))
+
+/** Paragraphe d'article qui ouvre une section titrée, ou qui suit un bloc Titre. */
+const wantsDropCap = computed(() => {
+  if (!tranches.value || props.block.type !== 'paragraph') return false
+  if (studio.content?.type !== 'article') return false
+  const zoneBlocks = studio.blocksByZone[props.block.zoneId] ?? []
+  const idx = zoneBlocks.findIndex((b) => b.id === props.block.id)
+  if (idx < 0) return false
+  if (idx > 0) return zoneBlocks[idx - 1]?.type === 'heading'
+  if (scriptIdFromZone(props.block.zoneId) || !props.block.zoneId.endsWith('-0')) return false
+  const sectionId = props.block.zoneId.slice(0, -2)
+  const section = studio.sections.find((s) => s.id === sectionId)
+  return !!section && !isBlankInlineHtml(section.title)
+})
+
+const dropCapOn = { value: false }
 
 // Track whether the editor is focused (for studio preview toggle)
 const isEditorFocused = ref(false)
@@ -53,6 +72,7 @@ const editor = useEditor({
     TextTransformExtension,
     FontFamilyExtension,
     ...(props.readonly ? [] : [VariableHighlight]),
+    ...(props.block.type === 'paragraph' ? [dropCapExtension(() => dropCapOn.value)] : []),
   ],
   editorProps: {
     attributes: {
@@ -79,6 +99,17 @@ const editor = useEditor({
     }, 300)
   },
 })
+
+watch(wantsDropCap, (on) => {
+  dropCapOn.value = on
+  const ed = editor.value
+  if (!ed || ed.isDestroyed) return
+  try {
+    ed.view.dispatch(ed.state.tr.setMeta('dropCap', on))
+  } catch {
+    // Vue pas encore montée : la décoration est lue au premier rendu.
+  }
+}, { immediate: true })
 
 // Public view: update displayed content when pageParams change after mount
 watch(resolvedContent, (c: string) => {
@@ -134,7 +165,7 @@ const containerStyle = computed(() => ({
   '--block-ls': props.block.config.letterSpacing != null
     ? `${props.block.config.letterSpacing}em`
     : 'normal',
-  backgroundColor: props.block.type === 'callout'
+  backgroundColor: props.block.type === 'callout' && !tranches.value
     ? (props.block.config.calloutColor || '#eff6ff')
     : undefined,
 }))
@@ -143,6 +174,14 @@ const containerClass = computed(() => {
   // Titre / paragraphe : aucun retrait horizontal — le contenu s'aligne sur les
   // autres blocs. En édition seulement, un léger `py` élargit la cible de clic.
   const base = props.readonly ? '' : 'py-1'
+  if (tranches.value) {
+    const info =
+      props.block.type === 'callout' &&
+      !props.block.config.calloutColor
+        ? ' tb--info'
+        : ''
+    return `${base} tb tb--${props.block.type}${info}`
+  }
   if (props.block.type === 'quote') return `${base} border-l-4 border-[var(--color-primary)] pl-4 text-[var(--studio-muted)]`
   if (props.block.type === 'callout') return `${base} rounded-lg px-4 py-3`
   return base
