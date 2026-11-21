@@ -1,12 +1,14 @@
 import { apiHttp } from '@/lib/http'
 import type { ChannelEntry } from '@/data/channels'
 import type { ChannelOrganization } from '@/api/channels'
+import type { ChannelKind } from '@/types/channel-catalog'
 
 interface ApiChannelProfile {
   id: number
   channel_id: number
   name: string
   handle: string
+  kind?: string | null
   description: string | null
   logo: string | null
   banner: string | null
@@ -62,6 +64,11 @@ function mapApiChannelToEntry(apiChannel: ApiChannel): ChannelEntry {
     .slice(0, 2)
     .toUpperCase()
 
+  const kind: ChannelKind =
+    profile?.kind === 'redaction' || profile?.kind === 'institution' || profile?.kind === 'independant'
+      ? profile.kind
+      : 'independant'
+
   // Pour les thèmes, on utilise les categories (slugs)
   const themes = profile?.categories || []
 
@@ -72,6 +79,7 @@ function mapApiChannelToEntry(apiChannel: ApiChannel): ChannelEntry {
     name,
     handle,
     initials,
+    kind,
     badges: apiChannel.badges ?? [],
     organization: apiChannel.organization ?? null,
     description: profile?.description || '',

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import studioLogo from '@/assets/brand/statsio-studio.svg'
+import DsButton from '@/components/ds/DsButton.vue'
+import StudioIcon from '@/components/studio/ui/StudioIcon.vue'
 
 defineProps<{
   contentTypeLabel: string
@@ -12,38 +13,23 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="flex flex-col items-center gap-6 py-6 text-center">
-    <!-- Icon -->
-    <div class="flex h-20 w-20 items-center justify-center rounded-full bg-[var(--color-primary)]/10">
-      <svg class="h-10 w-10 text-[var(--color-primary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    </div>
-
-    <!-- Title -->
-    <div class="space-y-2">
-      <h3 class="text-xl font-bold text-slate-900">
-        Votre {{ contentTypeLabel }} est prêt !
-      </h3>
-      <p class="max-w-sm text-sm leading-relaxed text-slate-500">
-        Il est maintenant enregistré. Ouvrez le studio pour ajouter vos blocs, graphiques et données.
+  <div class="flex flex-col items-start gap-4">
+    <span class="flex h-12 w-12 items-center justify-center rounded-[4px] border-2 border-[var(--ds-ol)] bg-[var(--ds-tint)] text-[var(--ds-accent)] shadow-[3px_3px_0_var(--ds-sh)]">
+      <StudioIcon name="spark" :size="22" />
+    </span>
+    <div>
+      <p class="text-[22px] font-extrabold leading-none text-[var(--ds-text)]" style="font-family: var(--ds-display); font-stretch: 92%">
+        Votre {{ contentTypeLabel }} est prêt
+      </p>
+      <p class="mt-2 max-w-sm text-[13.5px] leading-relaxed text-[var(--ds-muted)]">
+        Il est enregistré en brouillon. Ouvrez le Studio pour ajouter vos blocs, graphiques et données.
       </p>
     </div>
-
-    <!-- Actions -->
-    <div class="flex flex-col items-center gap-3 pt-2">
-      <NuxtLink
-        :to="studioPath"
-        class="inline-flex items-center gap-2.5 rounded-full bg-[var(--color-primary)] px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_24px_color-mix(in_srgb,var(--color-primary)_30%,transparent)] transition hover:-translate-y-0.5 hover:brightness-105"
-        @click="emit('close')"
-      >
-        <img :src="studioLogo" alt="" class="h-4 w-4 rounded-md" />
-        Modifier avec le studio
-      </NuxtLink>
-
+    <div class="mt-1 flex flex-wrap items-center gap-3">
+      <DsButton :to="studioPath" @click="emit('close')">Modifier avec le Studio</DsButton>
       <button
         type="button"
-        class="text-sm font-medium text-slate-500 transition hover:text-slate-700"
+        class="text-[13px] font-bold text-[var(--ds-faint)] hover:text-[var(--ds-text)]"
         @click="emit('close')"
       >
         Fermer

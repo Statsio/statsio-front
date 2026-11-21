@@ -14,7 +14,7 @@ import StatsDataHero from './StatsDataHero.vue'
 import StatsDataSubHeader from './StatsDataSubHeader.vue'
 import StatsDataToc from './StatsDataToc.vue'
 import StatsDataSourceCard from './StatsDataSourceCard.vue'
-import AppModal from '@/components/ui/AppModal.vue'
+import StudioModal from '@/components/studio/ui/StudioModal.vue'
 import StatsDataUsefulBar from './StatsDataUsefulBar.vue'
 import ContentOwnerBar from './ContentOwnerBar.vue'
 import StatsDataEmbedModal from './StatsDataEmbedModal.vue'
@@ -358,14 +358,15 @@ async function goToAction(action: HeroAction) {
           :snippet="embedSnippet"
           :preview-url="embedUrl"
         />
-        <AppModal
-          v-if="datasets.length > 0"
-          v-model:open="showSourcesModal"
+        <StudioModal
+          v-if="showSourcesModal && datasets.length > 0"
           title="Sources de données"
-          size="sm"
+          subtitle="Les jeux utilisés par ce contenu."
+          :width="480"
+          @close="showSourcesModal = false"
         >
           <StatsDataSourceCard :datasets="datasets" :doc-slug="docSlug" hide-heading bare @reuse="openReuseSource" />
-        </AppModal>
+        </StudioModal>
         <CreateContentModal
           v-if="createModalOpen"
           :open="createModalOpen"

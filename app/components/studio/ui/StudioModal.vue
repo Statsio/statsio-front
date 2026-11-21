@@ -12,8 +12,10 @@ const props = withDefaults(
     height?: number
     /** Hide the default close (✕) button. */
     hideClose?: boolean
+    /** Sous-marque (`tvstats`, `medistats`) — retinte la coque téléportée hors du layout. */
+    theme?: string
   }>(),
-  { subtitle: '', width: 680, hideClose: false },
+  { subtitle: '', width: 680, hideClose: false, theme: undefined },
 )
 
 const emit = defineEmits<{ close: [] }>()
@@ -33,6 +35,7 @@ useModalA11y(panel, () => emit('close'))
         role="dialog"
         aria-modal="true"
         class="flex max-h-full w-full flex-col st-modal overflow-hidden rounded-[6px] border-2 border-[var(--ds-ol)] bg-[var(--ds-surface)] text-[var(--ds-text)] shadow-[6px_6px_0_var(--ds-sh)]"
+        :data-theme="theme || undefined"
         :style="{ width: props.width + 'px', height: props.height ? props.height + 'px' : undefined }"
       >
         <div class="flex shrink-0 items-start justify-between gap-4 border-b-2 border-[var(--ds-divide)] px-[26px] pb-[15px] pt-[22px]">

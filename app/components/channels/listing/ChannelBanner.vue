@@ -15,23 +15,29 @@ const props = withDefaults(
       ChannelCatalogItem,
       'id' | 'banner_url' | 'custom_color_primary' | 'custom_color_secondary'
     >
-    to: string
+    /** Absent : bannière décorative (page détail, le nom porte déjà le lien). */
+    to?: string
     height?: number
+    /** Hauteur fluide du hero détail (clamp), le viewBox reste sur `height`. */
+    fluid?: boolean
   }>(),
-  { height: 92 },
+  { height: 92, fluid: false },
 )
 
 const BOX_W = 400
-const art = computed(() => channelBannerArt(props.item, { width: BOX_W, height: props.height }))
+const boxH = computed(() => (props.fluid ? 210 : props.height))
+const art = computed(() => channelBannerArt(props.item, { width: BOX_W, height: boxH.value }))
 </script>
 
 <template>
-  <NuxtLink
-    :to="to"
+  <component
+    :is="to ? 'NuxtLink' : 'div'"
+    :to="to || undefined"
     class="chban"
-    :style="{ height: `${height}px` }"
-    tabindex="-1"
-    aria-hidden="true"
+    :class="{ 'chban--fluid': fluid }"
+    :style="fluid ? undefined : { height: `${height}px` }"
+    :tabindex="to ? -1 : undefined"
+    :aria-hidden="to ? true : undefined"
   >
     <AppMediaImage
       v-if="item.banner_url"
@@ -40,8 +46,8 @@ const art = computed(() => channelBannerArt(props.item, { width: BOX_W, height: 
       class="chban__img"
       loading="lazy"
     />
-    <svg v-else :viewBox="`0 0 ${BOX_W} ${height}`" preserveAspectRatio="xMidYMid slice">
-      <rect :width="BOX_W" :height="height" :style="{ fill: art.background }" />
+    <svg v-else :viewBox="`0 0 ${BOX_W} ${boxH}`" preserveAspectRatio="xMidYMid slice">
+      <rect :width="BOX_W" :height="boxH" :style="{ fill: art.background }" />
       <path
         v-for="(s, i) in art.slices"
         :key="`s${i}`"
@@ -60,7 +66,7 @@ const art = computed(() => channelBannerArt(props.item, { width: BOX_W, height: 
         opacity=".9"
       />
     </svg>
-  </NuxtLink>
+  </component>
 </template>
 
 <style scoped>
@@ -70,6 +76,9 @@ const art = computed(() => channelBannerArt(props.item, { width: BOX_W, height: 
   overflow: hidden;
   border-bottom: 2px solid var(--ds-ol);
   background: var(--ds-tint);
+}
+.chban--fluid {
+  height: clamp(130px, 17vw, 210px);
 }
 .chban svg {
   display: block;

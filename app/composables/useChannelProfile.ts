@@ -13,8 +13,8 @@ export type ChannelProfileTab = 'featured' | 'articles' | 'statsdata' | 'sondage
 
 const TABS: { key: ChannelProfileTab; label: string }[] = [
   { key: 'featured', label: 'Aperçu' },
-  { key: 'articles', label: 'Articles' },
   { key: 'statsdata', label: 'StatsData' },
+  { key: 'articles', label: 'Articles' },
   { key: 'sondages', label: 'Sondages' },
   { key: 'apropos', label: 'À propos' },
 ]

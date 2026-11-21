@@ -24,9 +24,9 @@ export async function fetchChannelContents(
   const load = (type: CatalogContentType, sort: CatalogSort) =>
     fetchPublicCatalog({ type, channel_id: channelId, sort, per_page: PER_PAGE, sub_brand: subBrand })
   const [a, s, p] = await Promise.all([
-    load('article', sorts.articles ?? 'trend'),
-    load('statsdata', sorts.statsData ?? 'trend'),
-    load('survey', sorts.surveys ?? 'trend'),
+    load('article', sorts.articles ?? 'recent'),
+    load('statsdata', sorts.statsData ?? 'recent'),
+    load('survey', sorts.surveys ?? 'recent'),
   ])
   return {
     articles: a.data,
@@ -50,9 +50,9 @@ export function useChannelCatalog(
   const auth = useAuthStore()
   const domain = useContentDomain()
 
-  const sortArticles = ref<CatalogSort>('trend')
-  const sortStatsData = ref<CatalogSort>('trend')
-  const sortSurveys = ref<CatalogSort>('trend')
+  const sortArticles = ref<CatalogSort>('recent')
+  const sortStatsData = ref<CatalogSort>('recent')
+  const sortSurveys = ref<CatalogSort>('recent')
 
   // Valeurs rechargées côté client (tri, changement de chaîne) ; à défaut, le lot
   // initial chargé côté serveur. En `computed` : en SSR les `watch` ne se
