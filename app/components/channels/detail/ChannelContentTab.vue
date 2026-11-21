@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import DsButton from '@/components/ds/DsButton.vue'
 import DsInput from '@/components/ds/DsInput.vue'
 import DsSegmented from '@/components/ds/DsSegmented.vue'
 import ListingEmptyState from '@/components/listing/tranches/ListingEmptyState.vue'
